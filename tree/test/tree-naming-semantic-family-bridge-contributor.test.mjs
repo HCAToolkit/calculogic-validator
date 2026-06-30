@@ -674,7 +674,7 @@ test('tree naming bridge contributor applies broader-spread review and keeps exp
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
 });
 
-test('tree naming bridge contributor treats canonical docs/runtime pairings as broader explainable spread before scatter', () => {
+test('tree naming bridge contributor treats top-level tree docs/runtime pairings as broader explainable spread before scatter', () => {
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
@@ -694,6 +694,33 @@ test('tree naming bridge contributor treats canonical docs/runtime pairings as b
         semanticName: 'tree-router',
         familyRoot: 'tree',
         semanticFamily: 'tree-router',
+      },
+    ],
+  });
+
+  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
+});
+
+test('tree naming bridge contributor treats top-level naming docs/runtime pairings as broader explainable spread before scatter', () => {
+  const findings = collectNamingSemanticFamilyBridgeFindings({
+    observations: [
+      {
+        path: 'doc/ValidatorSpecs/naming-owned/naming-router.spec.md',
+        semanticName: 'naming-router',
+        familyRoot: 'naming',
+        semanticFamily: 'naming-router',
+      },
+      {
+        path: 'doc/ValidatorSpecs/naming-owned/naming-router.audit.md',
+        semanticName: 'naming-router',
+        familyRoot: 'naming',
+        semanticFamily: 'naming-router',
+      },
+      {
+        path: 'naming/src/naming-router.logic.mjs',
+        semanticName: 'naming-router',
+        familyRoot: 'naming',
+        semanticFamily: 'naming-router',
       },
     ],
   });

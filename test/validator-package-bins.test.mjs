@@ -1,12 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+
+const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 const runBin = (args) =>
   spawnSync(process.execPath, args, {
     cwd: process.cwd(),
     encoding: 'utf8',
   });
+
+test('package preserves public health bin contract', () => {
+  assert.equal(packageJson.bin['calculogic-validator-health'], './bin/calculogic-validator-health.host.mjs');
+  assert.equal(fs.existsSync('bin/calculogic-validator-health.host.mjs'), true);
+});
 
 test('calculogic-validate bin prints help', () => {
   const result = runBin(['bin/calculogic-validate.host.mjs', '--help']);

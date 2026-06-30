@@ -27,7 +27,7 @@ The naming reflects modular suite-core boundaries, owned validator slice roots (
 ├─ bin/                               # suite-level CLIs (entrypoints)
 │  ├─ calculogic-validate.host.mjs
 │  ├─ calculogic-validate-naming.host.mjs
-│  └─ validator-health.host.mjs
+│  └─ calculogic-validator-health.host.mjs
 ├─ scripts/                           # suite-level workflows (thin orchestration)
 │  ├─ validate-all.host.mjs
 │  ├─ validate-naming.host.mjs
@@ -251,7 +251,7 @@ This section includes package-defined validator entrypoints plus direct script i
 ```bash
 node bin/calculogic-validate.host.mjs
 node bin/calculogic-validate-naming.host.mjs
-node bin/validator-health.host.mjs
+node bin/calculogic-validator-health.host.mjs
 node scripts/validate-tree.host.mjs --scope=repo
 ```
 
@@ -259,7 +259,7 @@ What each entrypoint does:
 
 - `calculogic-validate.host.mjs`: full validator entrypoint.
 - `calculogic-validate-naming.host.mjs`: naming-only validator entrypoint.
-- `validator-health.host.mjs`: validator health/diagnostic entrypoint.
+- `calculogic-validator-health.host.mjs`: validator health/diagnostic entrypoint.
 - `scripts/validate-tree.host.mjs`: tree validator script (`--scope`, repeatable `--target`, `--config`, `--help`).
 
 ## 6) Scopes and targets

@@ -1455,6 +1455,31 @@ test('tree shim detection emits outside-compat warning only for thin re-export e
 
   assert.deepEqual(outsideCompatCodes, ['src/validator-runner.logic.mjs']);
 });
+test('tree-structure-advisor excludes canonical validator-owned roots while keeping outside-root validator-looking files eligible', () => {
+  const result = runTreeStructureAdvisorRuntime({
+    scope: 'repo',
+    selectedPaths: [
+      'src/validator-runner.logic.mjs',
+      'test/validator-runner.logic.test.mjs',
+      'naming/src/naming-validator.logic.mjs',
+      'tree/src/tree-structure-advisor.logic.mjs',
+      'structural-addressing/src/structural-addressing-render-tree.logic.mjs',
+      'bin/calculogic-validate.host.mjs',
+      'scripts/validate-tree.host.mjs',
+      'tools/report-capture/src/report-capture.host.mjs',
+      'experiments/foo.logic.mjs',
+    ],
+    topLevelDirectoryNames: [],
+    targets: [],
+  });
+
+  const outsideTreePaths = result.findings
+    .filter((finding) => finding.code === 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE')
+    .map((finding) => finding.path);
+
+  assert.deepEqual(outsideTreePaths, ['experiments/foo.logic.mjs']);
+});
+
 test('tree-structure-advisor flags validator-owned-looking file outside validator tree', async () => {
   const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-misplaced-'));
 

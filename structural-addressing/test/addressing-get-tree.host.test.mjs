@@ -102,17 +102,63 @@ test('default validator root resolves correctly from repo root and subdirectory'
   const rootStderr = makeWritableBuffer();
   const rootExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd: repoRoot, stdout: rootStdout, stderr: rootStderr });
   assert.equal(rootExitCode, 0);
-  assert.match(rootStdout.read(), /^A: addressing-get-tree-host-/mu);
+  assert.match(rootStdout.read(), /^A: \./mu);
   assert.equal(rootStderr.read(), '');
 
   const subdirStdout = makeWritableBuffer();
   const subdirStderr = makeWritableBuffer();
   const subdirExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd: path.join(repoRoot, 'structural-addressing'), stdout: subdirStdout, stderr: subdirStderr });
   assert.equal(subdirExitCode, 0);
-  assert.match(subdirStdout.read(), /^A: addressing-get-tree-host-/mu);
+  assert.match(subdirStdout.read(), /^A: \./mu);
   assert.equal(subdirStderr.read(), '');
 
   await fs.rm(repoRoot, { recursive: true, force: true });
+});
+
+test('default validator root path identity is stable across checkout directory names', async () => {
+  const firstRepoRoot = await createFixtureRepo();
+  const secondRepoRoot = await createFixtureRepo();
+
+  try {
+    const firstStdout = makeWritableBuffer();
+    const firstStderr = makeWritableBuffer();
+    const firstExitCode = await runAddressingGetTreeHost({
+      argv: ['--scope=validator', '--format=json'],
+      cwd: firstRepoRoot,
+      stdout: firstStdout,
+      stderr: firstStderr,
+    });
+
+    const secondStdout = makeWritableBuffer();
+    const secondStderr = makeWritableBuffer();
+    const secondExitCode = await runAddressingGetTreeHost({
+      argv: ['--scope=validator', '--format=json'],
+      cwd: secondRepoRoot,
+      stdout: secondStdout,
+      stderr: secondStderr,
+    });
+
+    assert.equal(firstExitCode, 0);
+    assert.equal(secondExitCode, 0);
+    assert.equal(firstStderr.read(), '');
+    assert.equal(secondStderr.read(), '');
+
+    const firstRoot = JSON.parse(firstStdout.read()).addressedTreeSnapshot.scopeRoots[0];
+    const secondRoot = JSON.parse(secondStdout.read()).addressedTreeSnapshot.scopeRoots[0];
+
+    assert.equal(firstRoot.path, '.');
+    assert.equal(secondRoot.path, '.');
+    assert.equal(firstRoot.name, '.');
+    assert.equal(secondRoot.name, '.');
+    assert.equal(firstRoot.path, secondRoot.path);
+    assert.deepEqual(
+      firstRoot.children.map((child) => child.path),
+      ['README.md', 'structural-addressing'],
+    );
+  } finally {
+    await fs.rm(firstRepoRoot, { recursive: true, force: true });
+    await fs.rm(secondRepoRoot, { recursive: true, force: true });
+  }
 });
 
 test('repo-relative targets resolve from repository root and output paths stay repo-relative', async () => {

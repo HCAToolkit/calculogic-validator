@@ -337,6 +337,16 @@ const isAllowedStructuralRootPairing = (leftPlacement, rightPlacement) => {
   return ALLOWED_STRUCTURAL_ROOT_PAIRING_SET.has(key);
 };
 
+const toCanonicalRuntimeContainerSegment = (semanticContainerIdentity) => {
+  const segments = semanticContainerIdentity?.split('/').filter(Boolean) ?? [];
+
+  if (segments.length === 1 && TREE_SEMANTIC_ROOT_FOLDER_SET.has(segments[0])) {
+    return segments[0];
+  }
+
+  return segments[1] ?? null;
+};
+
 const isAllowedCanonicalDocAuthorityRuntimePairing = (leftPlacement, rightPlacement) => {
   const placementPair = [leftPlacement, rightPlacement];
   const docPlacement = placementPair.find((placement) => placement.path.startsWith(CANONICAL_DOC_AUTHORITY_ROOT_PREFIX));
@@ -353,7 +363,7 @@ const isAllowedCanonicalDocAuthorityRuntimePairing = (leftPlacement, rightPlacem
     return false;
   }
 
-  const runtimeContainerSegment = runtimePlacement.semanticContainerIdentity?.split('/')[1];
+  const runtimeContainerSegment = toCanonicalRuntimeContainerSegment(runtimePlacement.semanticContainerIdentity);
   if (!runtimeContainerSegment) {
     return false;
   }

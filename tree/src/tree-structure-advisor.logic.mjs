@@ -7,7 +7,7 @@ const TREE_REPO_SHAPE_POLICY = getBuiltinTreeRepoShapePolicy();
 const ALLOWED_TOP_LEVEL_DIRECTORY_NAMES = TREE_REPO_SHAPE_POLICY.allowedTopLevelDirectories;
 const ALLOWED_TOP_LEVEL_DIRECTORY_NAME_SET = new Set(ALLOWED_TOP_LEVEL_DIRECTORY_NAMES);
 
-const VALIDATOR_OWNED_ROOT_PREFIXES = ['naming/', 'tree/', 'structural-addressing/', 'bin/', 'scripts/', 'tools/'];
+const VALIDATOR_OWNED_ROOT_PREFIXES = ['src/', 'test/', 'naming/', 'tree/', 'structural-addressing/', 'bin/', 'scripts/', 'tools/'];
 const VALIDATOR_SUITE_CORE_ROOT = 'src/';
 const SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_PREFIXES = [
   'src/core/',

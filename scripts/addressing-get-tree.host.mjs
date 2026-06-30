@@ -187,8 +187,9 @@ const toOccurrenceNode = async ({ absolutePath, repoRoot }) => {
   }
 
   const rawRelativePath = normalizeRelativePath({ absolutePath, repoRoot });
-  const name = path.basename(absolutePath);
-  const relativePath = rawRelativePath || name;
+  const isRepositoryRoot = rawRelativePath === '';
+  const name = isRepositoryRoot ? '.' : path.basename(absolutePath);
+  const relativePath = isRepositoryRoot ? '.' : rawRelativePath;
 
   if (stat.isDirectory()) {
     const children = await fs.readdir(absolutePath);
