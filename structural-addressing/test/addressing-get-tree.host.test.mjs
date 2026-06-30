@@ -193,7 +193,7 @@ test('outside target and nonexistent target fail deterministically', async () =>
   });
 
   assert.equal(missingExitCode, 1);
-  assert.match(missingStderr.read(), /Target is outside supported scope/u);
+  assert.match(missingStderr.read(), /Target path does not exist: missing-path/u);
 
   await fs.rm(cwd, { recursive: true, force: true });
 });

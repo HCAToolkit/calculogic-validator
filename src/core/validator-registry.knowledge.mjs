@@ -63,7 +63,7 @@ const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
 };
 
 const REPORT_CAPTURE_DEFAULT_OPTIONS = {
-  captureCommand: 'calculogic-report-capture',
+  captureCommand: 'node tools/report-capture/src/report-capture.host.mjs',
   json: true,
   dir: './.reports',
   keep: 20,

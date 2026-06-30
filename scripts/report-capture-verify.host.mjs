@@ -168,7 +168,7 @@ const runScopeVerification = async ({
 };
 
 const run = async () => {
-  const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const reportsDir = process.env.REPORTS_DIR || './.reports';
   const hostPath = path.resolve(
     repositoryRoot,

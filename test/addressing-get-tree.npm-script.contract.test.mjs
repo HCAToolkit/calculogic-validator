@@ -19,7 +19,7 @@ test('root package script wiring exposes report:addressing:get-tree:validator ca
   const reportScript = packageJson.scripts['report:addressing:get-tree:validator'];
 
   assert.equal(typeof reportScript, 'string');
-  assert.match(reportScript, /calculogic-report-capture/u);
+  assert.match(reportScript, /node tools\/report-capture\/src\/report-capture\.host\.mjs/u);
   assert.match(reportScript, /--json/u);
   assert.match(reportScript, /--dir \.\/\.reports/u);
   assert.match(reportScript, /--keep 20/u);

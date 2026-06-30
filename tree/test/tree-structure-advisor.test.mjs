@@ -42,15 +42,16 @@ const writeJson = async (filePath, value) => {
 
 const EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES = [
   'bin',
-  'calculogic-doc-engine',
-  'calculogic-validator',
   'doc',
   'docs',
+  'naming',
   'public',
   'scripts',
   'src',
+  'structural-addressing',
   'test',
   'tools',
+  'tree',
 ];
 
 const READY_OCCURRENCE_CLASSIFICATION_EXECUTION_CONTRACT = {
@@ -198,6 +199,30 @@ const writeBaseFixtureRepo = async (fixtureDir) => {
 
 test('tree-structure-advisor is registered as a validator slice', () => {
   assert.deepEqual(listRegisteredValidators(), ['naming', 'tree-structure-advisor']);
+});
+
+
+test('tree-structure-advisor accepts extracted validator slice roots as canonical top-level directories', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-extracted-slices-'));
+
+  try {
+    await fs.mkdir(path.join(fixtureDir, 'naming'), { recursive: true });
+    await fs.mkdir(path.join(fixtureDir, 'tree'), { recursive: true });
+    await fs.mkdir(path.join(fixtureDir, 'structural-addressing'), { recursive: true });
+    await writeJson(path.join(fixtureDir, 'package.json'), { name: 'tree-structure-extracted-slices' });
+
+    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    const unexpectedTopLevelPaths = result.findings
+      .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER')
+      .map((finding) => finding.path)
+      .sort((left, right) => left.localeCompare(right));
+
+    assert.equal(unexpectedTopLevelPaths.includes('naming'), false);
+    assert.equal(unexpectedTopLevelPaths.includes('tree'), false);
+    assert.equal(unexpectedTopLevelPaths.includes('structural-addressing'), false);
+  } finally {
+    await fs.rm(fixtureDir, { recursive: true, force: true });
+  }
 });
 
 test('tree-structure-advisor is conservative for normal known repository shape', async () => {
@@ -710,7 +735,10 @@ test('tree-structure-advisor runtime fallback preserves unexpected top-level fol
   assert.ok(advisory);
   assert.deepEqual(advisory.details.allowedTopLevelDirectories, EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES);
   assert.equal(advisory.details.allowedTopLevelDirectories.includes('doc'), true);
-  assert.equal(advisory.details.allowedTopLevelDirectories.includes('calculogic-validator'), true);
+  assert.equal(advisory.details.allowedTopLevelDirectories.includes('naming'), true);
+  assert.equal(advisory.details.allowedTopLevelDirectories.includes('tree'), true);
+  assert.equal(advisory.details.allowedTopLevelDirectories.includes('structural-addressing'), true);
+  assert.equal(advisory.details.allowedTopLevelDirectories.includes('calculogic-validator'), false);
   assert.equal(advisory.details.allowedTopLevelDirectories.includes('src'), true);
   assert.notDeepEqual(advisory.details.allowedTopLevelDirectories, ['src']);
   assert.equal(Object.hasOwn(advisory.details, 'knownRoots'), false);
@@ -1432,21 +1460,22 @@ test('tree-structure-advisor flags validator-owned-looking file outside validato
 
   try {
     await writeBaseFixtureRepo(fixtureDir);
+    await fs.mkdir(path.join(fixtureDir, 'experiments'), { recursive: true });
     await fs.writeFile(
-      path.join(fixtureDir, 'src', 'naming-validator.wiring.mjs'),
+      path.join(fixtureDir, 'experiments', 'foo.logic.mjs'),
       'export const misplaced = true\n',
       'utf8',
     );
 
     const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
     const advisory = result.findings.find(
-      (finding) => finding.code === 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE',
+      (finding) => finding.code === 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE' && finding.path === 'experiments/foo.logic.mjs',
     );
 
     assert.ok(advisory);
     assert.equal(advisory.severity, 'info');
     assert.equal(advisory.classification, 'advisory-structure');
-    assert.equal(advisory.path, 'src/naming-validator.wiring.mjs');
+    assert.equal(advisory.path, 'experiments/foo.logic.mjs');
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }
@@ -1602,8 +1631,9 @@ test('tree-structure-advisor file target narrows analyzed paths/findings', async
 
   try {
     await writeBaseFixtureRepo(fixtureDir);
+    await fs.mkdir(path.join(fixtureDir, 'experiments'), { recursive: true });
     await fs.writeFile(
-      path.join(fixtureDir, 'src', 'naming-validator.wiring.mjs'),
+      path.join(fixtureDir, 'experiments', 'foo.logic.mjs'),
       'export const misplaced = true\n',
       'utf8',
     );

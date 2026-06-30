@@ -7,6 +7,7 @@ const TREE_REPO_SHAPE_POLICY = getBuiltinTreeRepoShapePolicy();
 const ALLOWED_TOP_LEVEL_DIRECTORY_NAMES = TREE_REPO_SHAPE_POLICY.allowedTopLevelDirectories;
 const ALLOWED_TOP_LEVEL_DIRECTORY_NAME_SET = new Set(ALLOWED_TOP_LEVEL_DIRECTORY_NAMES);
 
+const VALIDATOR_OWNED_ROOT_PREFIXES = ['naming/', 'tree/', 'structural-addressing/', 'bin/', 'scripts/', 'tools/'];
 const VALIDATOR_SUITE_CORE_ROOT = 'src/';
 const SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_PREFIXES = [
   'src/core/',
@@ -32,7 +33,8 @@ const sortByPathThenCode = (left, right) => {
 };
 
 const isValidatorOwnedBasenameSignal = (basename) =>
-  TREE_SIGNAL_POLICY.validatorOwnedBasenameSignalMatchers.some(({ matcher }) => matcher.test(basename));
+  TREE_SIGNAL_POLICY.validatorOwnedBasenameSignalMatchers.some(({ matcher }) => matcher.test(basename)) ||
+  BOUNDARY_DRIFT_BASENAME_SIGNAL_MATCHER.test(basename);
 
 const createNeutralReplacementRuntime = () => ({
   classifyOccurrenceRecords: (occurrenceRecords = []) => occurrenceRecords,
@@ -200,7 +202,7 @@ const collectTopLevelUnexpectedFolderFindings = (preparedInputs, replacementRunt
 
 const collectValidatorOwnedOutsideTreeFindings = (paths) =>
   paths
-    .filter((relativePath) => !relativePath.startsWith(''))
+    .filter((relativePath) => !VALIDATOR_OWNED_ROOT_PREFIXES.some((prefix) => prefix && relativePath.startsWith(prefix)))
     .filter((relativePath) => isValidatorOwnedBasenameSignal(path.posix.basename(relativePath)))
     .sort((left, right) => left.localeCompare(right))
     .map((relativePath) => ({
@@ -212,7 +214,7 @@ const collectValidatorOwnedOutsideTreeFindings = (paths) =>
         'Path appears validator-owned by basename signal but is located outside validator-owned repository paths.',
       ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
       details: {
-        expectedRoot: '',
+        expectedRoot: VALIDATOR_OWNED_ROOT_PREFIXES.join('|'),
       },
     }));
 

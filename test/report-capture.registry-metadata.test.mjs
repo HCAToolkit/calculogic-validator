@@ -21,7 +21,7 @@ const directScriptByPreset = {
 };
 
 const reportCapturePackageScripts = Object.entries(rootPackageJson.scripts)
-  .filter(([, command]) => command.includes('calculogic-report-capture'))
+  .filter(([scriptName]) => scriptName.startsWith('report:') && scriptName !== 'report:verify')
   .map(([scriptName]) => scriptName)
   .sort((left, right) => left.localeCompare(right));
 
@@ -95,7 +95,7 @@ test('report-capture preset metadata matches current package script surfaces exa
     );
     assert.deepEqual(getValidatorReportCapturePresetByScriptName(preset.scriptName), preset);
     assert.equal(preset.commandSurface, 'validator-report-capture');
-    assert.equal(preset.capture.captureCommand, 'calculogic-report-capture');
+    assert.equal(preset.capture.captureCommand, 'node tools/report-capture/src/report-capture.host.mjs');
     assert.equal(preset.capture.json, true);
     assert.equal(preset.capture.dir, './.reports');
     assert.equal(preset.capture.keep, 20);

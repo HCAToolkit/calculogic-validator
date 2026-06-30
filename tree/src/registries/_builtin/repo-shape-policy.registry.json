@@ -4,10 +4,13 @@
     "bin",
     "doc",
     "docs",
+    "naming",
     "public",
     "scripts",
     "src",
+    "structural-addressing",
     "test",
-    "tools"
+    "tools",
+    "tree"
   ]
 }
