@@ -315,7 +315,7 @@ test('app scope includes only src/test and excludes docs, validator, and system 
     false,
   );
   assert.equal(
-    paths.some((p) => p.startsWith('')),
+    paths.some((p) => p.startsWith('naming/')),
     false,
   );
   assert.equal(paths.includes('package.json'), false);
@@ -328,7 +328,7 @@ test('docs scope includes doc/docs and excludes src', () => {
     false,
   );
   assert.equal(
-    paths.some((p) => p.startsWith('')),
+    paths.some((p) => p.startsWith('naming/')),
     false,
   );
 });

@@ -21,6 +21,26 @@ const runExampleGenerator = (outDir) =>
 
 const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
+
+const SYSTEM_SCOPE_EXAMPLE_FINDING_PATHS = [
+  'eslint.config.mjs',
+  'package-lock.json',
+  'package.json',
+  'tsconfig.app.json',
+  'tsconfig.json',
+  'tsconfig.node.json',
+  'vite.config.ts',
+];
+
+const assertSystemScopeExampleCoverage = (report) => {
+  assert.equal(report.scope, 'system');
+  assert.equal(report.totalFilesScanned, SYSTEM_SCOPE_EXAMPLE_FINDING_PATHS.length);
+  assert.deepEqual(
+    report.findings.map((finding) => finding.path),
+    SYSTEM_SCOPE_EXAMPLE_FINDING_PATHS,
+  );
+};
+
 const assertCommonEnvelope = (report) => {
   assert.equal(report.mode, 'report');
   assert.equal(report.startedAt, '<iso-startedAt>');
@@ -59,12 +79,14 @@ test('validator report example generator emits deterministic naming and runner e
   assertCommonEnvelope(namingReport);
   assert.equal(namingReport.validatorId, 'naming');
   assert.ok(Array.isArray(namingReport.findings));
+  assertSystemScopeExampleCoverage(namingReport);
 
   assertCommonEnvelope(runnerReport);
   assert.equal(runnerReport.validatorId, 'runner');
   assert.ok(Array.isArray(runnerReport.validators));
   assert.equal(runnerReport.validators.length, 1);
   assert.equal(runnerReport.validators[0].validatorId, 'naming');
+  assertSystemScopeExampleCoverage(runnerReport.validators[0]);
 
   const secondResult = runExampleGenerator(outDir);
   assert.equal(secondResult.status, 0, secondResult.stderr);

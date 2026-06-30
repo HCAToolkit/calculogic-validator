@@ -35,20 +35,9 @@
     },
     "validator": {
       "includeRoots": [
-        "bin",
-        "scripts",
-        "src",
-        "test",
-        "naming",
-        "tree",
-        "structural-addressing",
-        "tools",
-        "doc"
+        "."
       ],
-      "includeRootFiles": [
-        "package.json",
-        "README.md"
-      ]
+      "includeRootFiles": []
     }
   }
 }
