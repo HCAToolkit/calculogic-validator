@@ -871,13 +871,13 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
 
   try {
     await writeBaseFixtureRepo(fixtureDir);
-    await fs.mkdir(path.join(fixtureDir, 'calculogic-validator', 'naming', 'naming-src'), { recursive: true });
-    await fs.writeFile(path.join(fixtureDir, 'calculogic-validator', 'naming', 'naming-src', 'fixture.logic.mjs'), 'export const fixture = true\n', 'utf8');
-    await fs.writeFile(path.join(fixtureDir, 'calculogic-validator', 'naming', 'naming-src.logic.mjs'), 'export const fixtureFile = true\n', 'utf8');
-    await fs.mkdir(path.join(fixtureDir, 'calculogic-validator', 'tree', 'naming-src'), { recursive: true });
-    await fs.writeFile(path.join(fixtureDir, 'calculogic-validator', 'tree', 'naming-src', 'fixture.logic.mjs'), 'export const fixture = true\n', 'utf8');
-    await fs.mkdir(path.join(fixtureDir, 'calculogic-validator', 'naming-without-context', 'naming-src'), { recursive: true });
-    await fs.writeFile(path.join(fixtureDir, 'calculogic-validator', 'naming-without-context', 'naming-src', 'fixture.logic.mjs'), 'export const fixture = true\n', 'utf8');
+    await fs.mkdir(path.join(fixtureDir, 'naming', 'naming-src'), { recursive: true });
+    await fs.writeFile(path.join(fixtureDir, 'naming', 'naming-src', 'fixture.logic.mjs'), 'export const fixture = true\n', 'utf8');
+    await fs.writeFile(path.join(fixtureDir, 'naming', 'naming-src.logic.mjs'), 'export const fixtureFile = true\n', 'utf8');
+    await fs.mkdir(path.join(fixtureDir, 'tree', 'naming-src'), { recursive: true });
+    await fs.writeFile(path.join(fixtureDir, 'tree', 'naming-src', 'fixture.logic.mjs'), 'export const fixture = true\n', 'utf8');
+    await fs.mkdir(path.join(fixtureDir, 'naming-without-context', 'naming-src'), { recursive: true });
+    await fs.writeFile(path.join(fixtureDir, 'naming-without-context', 'naming-src', 'fixture.logic.mjs'), 'export const fixture = true\n', 'utf8');
     await writeJson(path.join(fixtureDir, 'naming', 'package.json'), { name: '@calculogic/naming' });
     await writeJson(path.join(fixtureDir, 'tree', 'package.json'), { name: '@calculogic/tree' });
     await fs.mkdir(path.join(fixtureDir, 'unmatched-package'), { recursive: true });
@@ -892,7 +892,7 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
       .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER')
       .map((finding) => finding.path);
 
-    assert.deepEqual(unexpectedTopLevelPaths, ['calculogic-validator', 'unmatched-package']);
+    assert.deepEqual(unexpectedTopLevelPaths, ['naming-without-context', 'unmatched-package']);
 
     const namingResult = runNamingValidator(fixtureDir, { scope: 'repo' });
     const namingSemanticFamilyBridge = projectNamingSemanticFamilyBridge(namingResult);
@@ -915,7 +915,8 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
       .find((observation) => observation.path === 'naming' && observation.semanticEvidenceKind === 'folder-semantic-context');
 
     assert.equal(addressedFolderObservations.every((observation) => observation.occurrenceAddress), true);
-    assert.equal(addressedCompositionObservation?.semanticEvidenceKind, undefined);
+    assert.equal(addressedCompositionObservation.semanticEvidenceKind, 'folder-semantic-structural-composition');
+    assert.equal(addressedCompositionObservation.occurrenceAddress, addressedCompositionObservation.addressPath);
     assert.equal(addressedAncestorContextObservation?.semanticEvidenceKind, 'folder-semantic-context');
     assert.equal(addressedAncestorContextObservation?.semanticContext, 'naming');
 
@@ -931,16 +932,16 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
       [],
     );
     assert.equal(
-      relationshipRecordsByPath['naming/naming-src']?.relationshipInterpretation,
-      undefined,
+      relationshipRecordsByPath['naming/naming-src'].relationshipInterpretation,
+      'semantic-qualified-structural-container-aligned',
     );
     assert.equal(
-      relationshipRecordsByPath['naming/naming-src']?.semanticContextEvidenceAddressPath,
-      undefined,
+      relationshipRecordsByPath['naming/naming-src'].semanticContextEvidenceAddressPath,
+      addressedAncestorContextObservation.addressPath,
     );
     assert.equal(
-      relationshipRecordsByPath['tree/naming-src']?.relationshipInterpretation,
-      undefined,
+      relationshipRecordsByPath['tree/naming-src'].relationshipInterpretation,
+      'semantic-qualified-structural-container-semantic-context-mismatch',
     );
 
     const semanticHomesByPath = Object.fromEntries(
@@ -952,8 +953,8 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
 
     assert.equal(Object.hasOwn(semanticHomesByPath, 'naming/naming-src'), false);
     assert.equal(Object.hasOwn(semanticHomesByPath, 'tree/naming-src'), false);
-    assert.equal(folderKindsByPath['naming/naming-src']?.folderKind, undefined);
-    assert.equal(folderKindsByPath['naming/naming-src']?.relationshipQualified, undefined);
+    assert.equal(folderKindsByPath['naming/naming-src'].folderKind, 'semantic-qualified-structural-container');
+    assert.equal(folderKindsByPath['naming/naming-src'].relationshipQualified, true);
     assert.equal(Object.hasOwn(folderKindsByPath, 'tree/naming-src'), false);
 
     const classificationsByPath = Object.fromEntries(
@@ -963,18 +964,18 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
         .map((record) => [record.path, record]),
     );
     assert.equal(
-      classificationsByPath['naming/naming-src']?.structuralClass,
-      undefined,
+      classificationsByPath['naming/naming-src'].structuralClass,
+      'relationship-qualified-structural-container',
     );
-    assert.equal(classificationsByPath['naming/naming-src']?.structuralKind, undefined);
-    assert.equal(classificationsByPath['naming/naming-src']?.relationshipQualified, undefined);
+    assert.equal(classificationsByPath['naming/naming-src'].structuralKind, 'implementation-container');
+    assert.equal(classificationsByPath['naming/naming-src'].relationshipQualified, true);
     assert.equal(
-      classificationsByPath['naming/naming-src']?.classificationEvidenceKind,
-      undefined,
+      classificationsByPath['naming/naming-src'].classificationEvidenceKind,
+      'relationship-qualified-folder-kind',
     );
-    assert.equal(classificationsByPath['naming/naming-src']?.isStructuralRoot, undefined);
-    assert.equal(classificationsByPath['naming/naming-src']?.isSemanticRoot, undefined);
-    assert.equal(classificationsByPath['naming/naming-src']?.semanticHome, undefined);
+    assert.equal(classificationsByPath['naming/naming-src'].isStructuralRoot, false);
+    assert.equal(classificationsByPath['naming/naming-src'].isSemanticRoot, false);
+    assert.equal(classificationsByPath['naming/naming-src'].semanticHome, undefined);
     assert.notEqual(classificationsByPath['naming/naming-src']?.structuralClass, 'repo-top-semantic-root');
     assert.notEqual(
       classificationsByPath['tree/naming-src']?.structuralClass,
@@ -985,12 +986,12 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
         .map((record) => [record.path, record]),
     );
     assert.equal(preparedInputs.preparedDependencies.treeStructuralContextAssessment.source, 'tree-structural-context-assessment');
-    assert.equal(assessmentRecordsByPath['naming/naming-src']?.assessmentOutcome, undefined);
-    assert.equal(assessmentRecordsByPath['naming/naming-src']?.assessmentKind, undefined);
-    assert.equal(assessmentRecordsByPath['naming/naming-src']?.reportable, undefined);
+    assert.equal(assessmentRecordsByPath['naming/naming-src'].assessmentOutcome, 'coherent');
+    assert.equal(assessmentRecordsByPath['naming/naming-src'].assessmentKind, 'coherent-semantic-qualified-structural-container');
+    assert.equal(assessmentRecordsByPath['naming/naming-src'].reportable, false);
     assert.equal(
-      assessmentRecordsByPath['naming/naming-src']?.assessmentPolicyId,
-      undefined,
+      assessmentRecordsByPath['naming/naming-src'].assessmentPolicyId,
+      'relationship-qualified-semantic-qualified-structural-container-aligned',
     );
     assert.equal(
       assessmentRecordsByPath['naming/naming-src']?.addressPath,

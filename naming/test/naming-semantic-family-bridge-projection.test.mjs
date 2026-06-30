@@ -51,16 +51,9 @@ test('naming bridge projection tolerates missing findings arrays with empty obse
   assert.deepEqual(projectNamingSemanticFamilyBridge({}), { observations: [] });
 });
 
-test('naming bridge projection emits package-root folder semantic-family-root observations', () => {
+test('naming bridge projection intentionally omits standalone root package-root folder evidence', () => {
   const projected = projectNamingSemanticFamilyBridge({
     findings: [
-      {
-        code: 'NAMING_ALLOWED_SPECIAL_CASE',
-        severity: 'info',
-        path: 'package.json',
-        classification: 'allowed-special-case',
-        details: { specialCaseType: 'ecosystem-required' },
-      },
       {
         code: 'NAMING_ALLOWED_SPECIAL_CASE',
         severity: 'info',
@@ -72,6 +65,40 @@ test('naming bridge projection emits package-root folder semantic-family-root ob
   });
 
   assert.deepEqual(projected.observations, []);
+});
+
+test('naming bridge projection emits named package-root folder semantic-family-root observations', () => {
+  const projected = projectNamingSemanticFamilyBridge({
+    findings: [
+      {
+        code: 'NAMING_ALLOWED_SPECIAL_CASE',
+        severity: 'info',
+        path: 'naming/package.json',
+        classification: 'allowed-special-case',
+        details: { specialCaseType: 'ecosystem-required' },
+      },
+      {
+        code: 'NAMING_ALLOWED_SPECIAL_CASE',
+        severity: 'info',
+        path: 'tree/package.json',
+        classification: 'allowed-special-case',
+        details: { specialCaseType: 'ecosystem-required' },
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    projected.observations.map((observation) => [
+      observation.path,
+      observation.semanticEvidenceKind,
+      observation.familyRootQualification,
+      observation.evidenceProvenance.sourceFindingPath,
+    ]),
+    [
+      ['naming', 'semantic-family-root-folder', 'package-root-folder', 'naming/package.json'],
+      ['tree', 'semantic-family-root-folder', 'package-root-folder', 'tree/package.json'],
+    ],
+  );
 });
 
 test('naming folder-composition bridge emits only explicit folder observations from registry-backed patterns', () => {
