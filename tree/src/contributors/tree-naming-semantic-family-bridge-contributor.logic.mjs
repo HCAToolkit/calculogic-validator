@@ -253,7 +253,12 @@ export const toNamingBridgePlacementRecord = (observation) => {
   const nonSemanticFolderSegments = folderKindInterpretation.folderKinds.filter((entry) => entry.folderKind !== 'semantic-folder');
   const structuralSurfaceChain = folderKindInterpretation.structuralFolderSegments.map((entry) => entry.segment);
   const structuralSegmentChain = nonSemanticFolderSegments.map((entry) => entry.segment);
-  const structuralHomeSegments = structuralSegmentChain.slice(0, 2);
+  const isStandaloneSliceStructuralSurface =
+    TREE_SEMANTIC_ROOT_FOLDER_SET.has(pathSegments[0]) &&
+    folderKindInterpretation.structuralFolderSegments[0]?.index === 1;
+  const structuralHomeSegments = isStandaloneSliceStructuralSurface
+    ? structuralSegmentChain.slice(0, 1)
+    : structuralSegmentChain.slice(0, 2);
   const structuralHome = structuralHomeSegments.length > 0 ? structuralHomeSegments.join('/') : '.';
   const structuralSurface = structuralHome;
   const structuralHomeLastSegmentIndex = nonSemanticFolderSegments[Math.max(0, structuralHomeSegments.length - 1)]?.index;

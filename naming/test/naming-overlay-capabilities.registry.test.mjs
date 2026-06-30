@@ -12,7 +12,6 @@ const writeJson = (filePath, value) => {
 
 test('overlay capabilities loader canonicalizes bounded entries', () => {
   const registryPath = path.join(
-    'calculogic-validator',
     'naming',
     'src',
     'registries',

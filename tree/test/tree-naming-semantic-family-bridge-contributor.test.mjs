@@ -97,7 +97,7 @@ test('tree naming bridge placement model resolves structural home and semantic c
   });
 
   assert.equal(placement.structuralHome, 'src');
-  assert.deepEqual(placement.structuralSurfaceChain, ['calculogic-validator', 'src']);
+  assert.deepEqual(placement.structuralSurfaceChain, ['src']);
   assert.equal(placement.semanticContainerIdentity, 'tree');
   assert.equal(placement.semanticHome, 'tree');
   assert.equal(placement.localStructuralHome, 'contributors');
@@ -234,7 +234,6 @@ test('tree naming bridge folder-kind interpretation classifies structural semant
   assert.deepEqual(
     first.folderKinds.map(({ segment, folderKind }) => ({ segment, folderKind })),
     [
-      { segment: 'calculogic-validator', folderKind: 'structural-folder' },
       { segment: 'tree', folderKind: 'semantic-folder' },
       { segment: 'src', folderKind: 'structural-folder' },
       { segment: 'contributors', folderKind: 'unspecified-folder' },
