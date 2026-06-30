@@ -146,13 +146,13 @@ Classification: **Illustrative**
 
 Current-runtime report examples are generated from live validator entrypoints and checked in at:
 
-- `calculogic-validator/test/fixtures/report-examples/validate-naming.system.report.example.json`
-- `calculogic-validator/test/fixtures/report-examples/validate-all.system.naming.report.example.json`
+- `test/fixtures/report-examples/validate-naming.system.report.example.json`
+- `test/fixtures/report-examples/validate-all.system.naming.report.example.json`
 
 Refresh workflow:
 
 ```bash
-node --experimental-strip-types calculogic-validator/scripts/generate-validator-report-examples.host.mjs
+node --experimental-strip-types scripts/generate-validator-report-examples.host.mjs
 ```
 
 Normalization policy for these examples is intentionally bounded for deterministic repo artifacts:

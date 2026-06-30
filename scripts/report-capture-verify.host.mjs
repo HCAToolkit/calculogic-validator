@@ -172,11 +172,11 @@ const run = async () => {
   const reportsDir = process.env.REPORTS_DIR || './.reports';
   const hostPath = path.resolve(
     repositoryRoot,
-    'calculogic-validator/tools/report-capture/src/report-capture.host.mjs',
+    'tools/report-capture/src/report-capture.host.mjs',
   );
   const namingValidatorPath = path.resolve(
     repositoryRoot,
-    'calculogic-validator/scripts/validate-naming.host.mjs',
+    'scripts/validate-naming.host.mjs',
   );
   const scopes = parseScopes(process.argv.slice(2));
 

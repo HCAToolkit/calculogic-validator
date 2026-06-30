@@ -6,9 +6,9 @@ Classification: Informative
 
 This transitional inventory maps the current naming-interpretation hardening tranche against three already-active contract specs:
 
-- `calculogic-validator/doc/ValidatorSpecs/filename-case-and-interpretation-contract.md`
-- `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-semantic-name-and-role-disambiguation.spec.md`
-- `calculogic-validator/doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
+- `doc/ValidatorSpecs/filename-case-and-interpretation-contract.md`
+- `doc/ValidatorSpecs/naming-owned/naming-semantic-name-and-role-disambiguation.spec.md`
+- `doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
 
 The goal is ownership clarity and hardening ROI for the next naming-first pass, not broad redesign.
 
@@ -98,14 +98,14 @@ Tranche note: this is naming-first hardening, but better deterministic filename 
 
 ## 6) Implementation touchpoints (pointer-only)
 
-- `calculogic-validator/naming/src/rules/naming-rule-parse-canonical.logic.mjs` — canonical filename parse entrypoint and lane-adjacent interpretation behavior surface.
-- `calculogic-validator/naming/src/naming-validator.logic.mjs` — naming-slice runtime orchestration where parse/disambiguation outputs are composed into findings.
-- `calculogic-validator/naming/src/registries/registry-state.logic.mjs` — registry-state owner normalization/digesting flow used before runtime execution.
-- `calculogic-validator/naming/src/naming-runtime-converters.logic.mjs` — converter/runtime preparation layer that compiles registry payload shapes into executable state.
-- `calculogic-validator/naming/src/registries/_builtin/case-rules.registry.json` — current builtin case-policy payload (semantic-name case baseline).
-- `calculogic-validator/naming/src/registries/_builtin/roles.registry.json` — canonical role vocabulary payload consumed by role-slot checks.
-- `calculogic-validator/naming/test/naming-validator.test.mjs` — primary naming behavior coverage location for expanding the disambiguation matrix, including role-like folder tokens remaining contextual vs explicit role-slot authority.
-- `calculogic-validator/naming/test/naming-runtime-input-boundary.test.mjs` — prepared dependency-injection contract and runtime input-boundary enforcement surface (prepared runtimes/sets required, with path selection/walk exclusions as mechanics).
+- `naming/src/rules/naming-rule-parse-canonical.logic.mjs` — canonical filename parse entrypoint and lane-adjacent interpretation behavior surface.
+- `naming/src/naming-validator.logic.mjs` — naming-slice runtime orchestration where parse/disambiguation outputs are composed into findings.
+- `naming/src/registries/registry-state.logic.mjs` — registry-state owner normalization/digesting flow used before runtime execution.
+- `naming/src/naming-runtime-converters.logic.mjs` — converter/runtime preparation layer that compiles registry payload shapes into executable state.
+- `naming/src/registries/_builtin/case-rules.registry.json` — current builtin case-policy payload (semantic-name case baseline).
+- `naming/src/registries/_builtin/roles.registry.json` — canonical role vocabulary payload consumed by role-slot checks.
+- `naming/test/naming-validator.test.mjs` — primary naming behavior coverage location for expanding the disambiguation matrix, including role-like folder tokens remaining contextual vs explicit role-slot authority.
+- `naming/test/naming-runtime-input-boundary.test.mjs` — prepared dependency-injection contract and runtime input-boundary enforcement surface (prepared runtimes/sets required, with path selection/walk exclusions as mechanics).
 
 ## 7) Out-of-scope guardrails for this tranche document
 

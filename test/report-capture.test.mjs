@@ -50,7 +50,7 @@ test('host propagates child exit code and writes report file', async () => {
 
   try {
     const hostPath = path.resolve(
-      'calculogic-validator/tools/report-capture/src/report-capture.host.mjs',
+      'tools/report-capture/src/report-capture.host.mjs',
     );
     const exitCode = await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [

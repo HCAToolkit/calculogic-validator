@@ -7,12 +7,12 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repositoryRoot = path.resolve(__dirname, '..', '..');
+const repositoryRoot = path.resolve(__dirname, '..');
 
 test('validator health check exits successfully', () => {
   const result = spawnSync(
     process.execPath,
-    ['--experimental-strip-types', 'calculogic-validator/scripts/validator-health-check.host.mjs'],
+    ['--experimental-strip-types', 'scripts/validator-health-check.host.mjs'],
     {
       cwd: repositoryRoot,
       encoding: 'utf8',

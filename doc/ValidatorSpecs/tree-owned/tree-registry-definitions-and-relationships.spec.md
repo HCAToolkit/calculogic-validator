@@ -232,7 +232,7 @@ These rules define first-pass deterministic interpretation behavior for tree mod
 
 ## Mapping Current Builtin Known-Roots Registry Into This Model
 
-Source: `calculogic-validator/tree/src/registries/_builtin/tree-known-roots.registry.json` and its loader/normalizer.
+Source: `tree/src/registries/_builtin/tree-known-roots.registry.json` and its loader/normalizer.
 
 ### What current builtin registry already covers
 

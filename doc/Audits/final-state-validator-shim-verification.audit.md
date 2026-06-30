@@ -6,8 +6,8 @@ This is a **new final-state verification audit** created after detector-noise cl
 
 Historical audit snapshots intentionally left in place:
 
-- `calculogic-validator/doc/Audits/current-validator-shim.audit.md`
-- `calculogic-validator/doc/Audits/post-hardening-validator-shim.audit.md`
+- `doc/Audits/current-validator-shim.audit.md`
+- `doc/Audits/post-hardening-validator-shim.audit.md`
 
 Scope of this audit:
 
@@ -44,27 +44,27 @@ Key final-state conclusion: detector output now aligns cleanly with the manually
 
 ### 4.1 Confirmed thin re-export compatibility shim debt (15)
 
-1. `calculogic-validator/src/npm-arg-forwarding-guard.logic.mjs`
-2. `calculogic-validator/src/repository-root.logic.mjs`
-3. `calculogic-validator/src/source-snapshot.logic.mjs`
-4. `calculogic-validator/src/tree-structure-advisor.host.mjs`
-5. `calculogic-validator/src/tree-structure-advisor.logic.mjs`
-6. `calculogic-validator/src/validator-config.contracts.mjs`
-7. `calculogic-validator/src/validator-config.logic.mjs`
-8. `calculogic-validator/src/validator-exit-code.logic.mjs`
-9. `calculogic-validator/src/validator-registry.knowledge.mjs`
-10. `calculogic-validator/src/validator-report-meta.logic.mjs`
-11. `calculogic-validator/src/validator-report.contracts.mjs`
-12. `calculogic-validator/src/validator-root-files.knowledge.mjs`
-13. `calculogic-validator/src/validator-runner.logic.mjs`
-14. `calculogic-validator/src/validator-scopes.logic.mjs`
-15. `calculogic-validator/src/validators/naming-validator.logic.mjs`
+1. `src/npm-arg-forwarding-guard.logic.mjs`
+2. `src/repository-root.logic.mjs`
+3. `src/source-snapshot.logic.mjs`
+4. `src/tree-structure-advisor.host.mjs`
+5. `src/tree-structure-advisor.logic.mjs`
+6. `src/validator-config.contracts.mjs`
+7. `src/validator-config.logic.mjs`
+8. `src/validator-exit-code.logic.mjs`
+9. `src/validator-registry.knowledge.mjs`
+10. `src/validator-report-meta.logic.mjs`
+11. `src/validator-report.contracts.mjs`
+12. `src/validator-root-files.knowledge.mjs`
+13. `src/validator-runner.logic.mjs`
+14. `src/validator-scopes.logic.mjs`
+15. `src/validators/naming-validator.logic.mjs`
 
 ### 4.2 Intentional canonical/public pass-through entrypoints (non-debt, 3)
 
-1. `calculogic-validator/src/index.mjs` (public barrel entrypoint)
-2. `calculogic-validator/naming/src/naming-validator.host.mjs` (canonical host→wiring boundary)
-3. `calculogic-validator/tree/src/tree-structure-advisor.host.mjs` (canonical host→wiring boundary)
+1. `src/index.mjs` (public barrel entrypoint)
+2. `naming/src/naming-validator.host.mjs` (canonical host→wiring boundary)
+3. `tree/src/tree-structure-advisor.host.mjs` (canonical host→wiring boundary)
 
 ## 5. Current tree validator comparison
 
@@ -76,9 +76,9 @@ Key final-state conclusion: detector output now aligns cleanly with the manually
 
 ### 5.2 Intentional pass-through carveouts correctly unflagged
 
-- `calculogic-validator/src/index.mjs` remains unflagged (public barrel carveout preserved).
-- `calculogic-validator/naming/src/naming-validator.host.mjs` remains unflagged (canonical host boundary carveout preserved).
-- `calculogic-validator/tree/src/tree-structure-advisor.host.mjs` remains unflagged (canonical host boundary carveout preserved).
+- `src/index.mjs` remains unflagged (public barrel carveout preserved).
+- `naming/src/naming-validator.host.mjs` remains unflagged (canonical host boundary carveout preserved).
+- `tree/src/tree-structure-advisor.host.mjs` remains unflagged (canonical host boundary carveout preserved).
 
 ### 5.3 False positive / ambiguous / missed classification
 
@@ -90,7 +90,7 @@ Key final-state conclusion: detector output now aligns cleanly with the manually
 
 ### 6.1 Detector self-flag removal verified
 
-Verified: `calculogic-validator/tree/src/tree-shim-detection.logic.mjs` no longer appears in current shim-like findings.
+Verified: `tree/src/tree-shim-detection.logic.mjs` no longer appears in current shim-like findings.
 
 ### 6.2 Thin re-export detection preserved
 
@@ -125,9 +125,9 @@ Given this final-state verification, likely next work should now shift from shim
 
 Audit artifact path:
 
-- `calculogic-validator/doc/Audits/final-state-validator-shim-verification.audit.md`
+- `doc/Audits/final-state-validator-shim-verification.audit.md`
 
 Historical snapshot docs left unchanged:
 
-- `calculogic-validator/doc/Audits/current-validator-shim.audit.md`
-- `calculogic-validator/doc/Audits/post-hardening-validator-shim.audit.md`
+- `doc/Audits/current-validator-shim.audit.md`
+- `doc/Audits/post-hardening-validator-shim.audit.md`

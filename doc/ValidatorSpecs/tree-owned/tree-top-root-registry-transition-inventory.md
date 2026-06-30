@@ -15,8 +15,8 @@ Classification: Normative
 
 Current source anchors for this transition:
 
-- runtime flat registry: `calculogic-validator/tree/src/registries/_builtin/tree-known-roots.registry.json`
-- tree top-root classes/ownership modeling note: `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` ("Top-Root Registry Classes and Ownership Boundary")
+- runtime flat registry: `tree/src/registries/_builtin/tree-known-roots.registry.json`
+- tree top-root classes/ownership modeling note: `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` ("Top-Root Registry Classes and Ownership Boundary")
 
 Scope boundary:
 

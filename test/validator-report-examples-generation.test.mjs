@@ -10,7 +10,7 @@ const runExampleGenerator = (outDir) =>
     process.execPath,
     [
       '--experimental-strip-types',
-      'calculogic-validator/scripts/generate-validator-report-examples.host.mjs',
+      'scripts/generate-validator-report-examples.host.mjs',
       `--out-dir=${outDir}`,
     ],
     {
@@ -86,10 +86,10 @@ test('checked-in generated report examples match current generator output', () =
   const generatedRunner = readJson(path.join(outDir, 'validate-all.system.naming.report.example.json'));
 
   const checkedInNaming = readJson(
-    'calculogic-validator/test/fixtures/report-examples/validate-naming.system.report.example.json',
+    'test/fixtures/report-examples/validate-naming.system.report.example.json',
   );
   const checkedInRunner = readJson(
-    'calculogic-validator/test/fixtures/report-examples/validate-all.system.naming.report.example.json',
+    'test/fixtures/report-examples/validate-all.system.naming.report.example.json',
   );
 
   assert.deepEqual(checkedInNaming, generatedNaming);

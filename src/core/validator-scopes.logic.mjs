@@ -24,7 +24,7 @@ const LEGACY_SCOPE_DESCRIPTIONS = {
   repo: 'Repository-wide scan of all reportable files.',
   app: 'Application-only scan (src/** and test/**).',
   docs: 'Documentation-focused scan (doc/docs and root conventional docs: README.md).',
-  validator: 'Validator-only scan (calculogic-validator/**).',
+  validator: 'Validator-only scan (validator-owned repository paths).',
   system: 'System/tooling files scan (root package/tsconfig/eslint/vite files).',
 };
 

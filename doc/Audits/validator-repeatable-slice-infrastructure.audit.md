@@ -254,7 +254,7 @@ Aligned docs/specs:
 - `ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md` accurately lists currently real suite-owned helper areas: CLI helpers, scoped snapshot input, candidate policy/collection, exit policy derivation, report meta/source snapshot.
 - `ValidatorHelperAreas-And-Reuse-Conventions.md` correctly keeps suite-core helpers bounded and warns against generic catch-all helper areas.
 - `ValidatorLoaderConverterRuntimeOwnership-Contract.md` correctly separates policy-data loaders/converters from runtime mechanics and warns against flattening every registry behind one universal state layer.
-- `calculogic-validator/README.md` documents repo-root npm workflows, report capture, direct invocation, scope/target usage, config behavior, and report envelopes.
+- `README.md` documents repo-root npm workflows, report capture, direct invocation, scope/target usage, config behavior, and report envelopes.
 
 Under-aligned docs/specs:
 
@@ -284,7 +284,7 @@ Implement a bounded validator registry metadata hardening slice under parent #58
 
 ### What should change
 
-Add a data-only metadata layer to each existing `VALIDATOR_REGISTRY` entry, likely inside `calculogic-validator/src/core/validator-registry.knowledge.mjs`, with a small normalizer/shape helper if needed. Candidate metadata fields should be implementation-ready but bounded to current runtime truth, for example:
+Add a data-only metadata layer to each existing `VALIDATOR_REGISTRY` entry, likely inside `src/core/validator-registry.knowledge.mjs`, with a small normalizer/shape helper if needed. Candidate metadata fields should be implementation-ready but bounded to current runtime truth, for example:
 
 - `id`
 - `description`
@@ -327,10 +327,10 @@ Do not change:
 
 Likely touched:
 
-- `calculogic-validator/src/core/validator-registry.knowledge.mjs`
-- new or existing `calculogic-validator/test/*validator-registry*.test.mjs`
-- possibly `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` if metadata fields need a short canonical note
-- possibly `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md` if the registry metadata becomes a listed reusable surface
+- `src/core/validator-registry.knowledge.mjs`
+- new or existing `test/*validator-registry*.test.mjs`
+- possibly `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` if metadata fields need a short canonical note
+- possibly `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md` if the registry metadata becomes a listed reusable surface
 
 Avoid touching package scripts, bins, report contracts, exit policy, candidate helpers, Naming registries, or Tree registries unless tests reveal a narrow docs/spec mismatch.
 
@@ -350,7 +350,7 @@ A follow-up child issue for validator registry metadata hardening should be acce
 2. Metadata is current implementation reality, not target architecture wish-list.
 3. Shape tests fail if a new slice omits required metadata.
 4. Compatibility tests prove current registry ids, report entries, and runner behavior remain unchanged.
-5. Command metadata tests compare against existing `package.json`, `calculogic-validator/package.json`, direct script paths, and report prefix patterns without changing them.
+5. Command metadata tests compare against existing `package.json`, `package.json`, direct script paths, and report prefix patterns without changing them.
 6. Bridge metadata is inspectable but not behavior-driving in the first pass.
 7. No runtime behavior, report shape, exit behavior, package scripts, bins, Naming interpretation, or Tree interpretation changes.
 8. The PR body records exact verification commands and outcomes.
@@ -409,57 +409,57 @@ Use `Refs #588`, `Refs #586`, and `Refs #585` in PR and parent notes. Do not use
 Required inspection targets were reviewed across:
 
 - `package.json`
-- `calculogic-validator/package.json`
-- `calculogic-validator/README.md`
-- `calculogic-validator/src/index.mjs`
-- `calculogic-validator/src/core/validator-registry.knowledge.mjs`
-- `calculogic-validator/src/core/validator-runner.logic.mjs`
-- `calculogic-validator/src/core/validator-report.contracts.mjs`
-- `calculogic-validator/src/core/validator-report-meta.logic.mjs`
-- `calculogic-validator/src/core/validator-exit-code.logic.mjs`
-- `calculogic-validator/src/core/validator-scopes.logic.mjs`
-- `calculogic-validator/src/core/scoped-target-paths.logic.mjs`
-- `calculogic-validator/src/core/suite-scoped-snapshot-input.logic.mjs`
-- `calculogic-validator/src/core/validator-candidate-policy.contracts.mjs`
-- `calculogic-validator/src/core/validator-candidate-policy.logic.mjs`
-- `calculogic-validator/src/core/validator-candidate-collection.logic.mjs`
-- `calculogic-validator/src/core/cli/**`
-- `calculogic-validator/src/registries/**`
-- `calculogic-validator/scripts/**`
-- `calculogic-validator/bin/**`
-- `calculogic-validator/tools/report-capture/**`
-- `calculogic-validator/test/**`
-- `calculogic-validator/naming/src/**`
-- `calculogic-validator/naming/test/**`
-- `calculogic-validator/tree/src/**`
-- `calculogic-validator/tree/test/**`
-- `calculogic-validator/doc/**`
+- `package.json`
+- `README.md`
+- `src/index.mjs`
+- `src/core/validator-registry.knowledge.mjs`
+- `src/core/validator-runner.logic.mjs`
+- `src/core/validator-report.contracts.mjs`
+- `src/core/validator-report-meta.logic.mjs`
+- `src/core/validator-exit-code.logic.mjs`
+- `src/core/validator-scopes.logic.mjs`
+- `src/core/scoped-target-paths.logic.mjs`
+- `src/core/suite-scoped-snapshot-input.logic.mjs`
+- `src/core/validator-candidate-policy.contracts.mjs`
+- `src/core/validator-candidate-policy.logic.mjs`
+- `src/core/validator-candidate-collection.logic.mjs`
+- `src/core/cli/**`
+- `src/registries/**`
+- `scripts/**`
+- `bin/**`
+- `tools/report-capture/**`
+- `test/**`
+- `naming/src/**`
+- `naming/test/**`
+- `tree/src/**`
+- `tree/test/**`
+- `doc/**`
 
 ### Concrete evidence map
 
 - Root package scripts expose repo-local validator workflows and report capture commands in `package.json`.
-- Validator package exports and bins expose suite-core, registry, scopes, Naming, Tree, full-suite, Naming-only, and health surfaces in `calculogic-validator/package.json`.
-- `calculogic-validator/src/index.mjs` exports runner, registry, and report contract surfaces.
-- `calculogic-validator/src/core/validator-registry.knowledge.mjs` now registers behavior-driving `id`, `description`, and `run` fields plus bounded data-only metadata for slice identity, command/report/bin expectations, default runner inclusion, report capture prefixes, bridge relationships, and compatibility expectations; id list/get helpers remain unchanged.
-- `calculogic-validator/src/core/validator-runner.logic.mjs` owns selected-validator resolution, report-entry assembly, runner envelope, and current Naming → Tree staged bridge mechanics.
-- `calculogic-validator/src/core/validator-report.contracts.mjs` documents the current runner report contract and pass-through summary/meta areas.
-- `calculogic-validator/src/core/validator-report-meta.logic.mjs` owns tool-version lookup, stable stringify, sha256, and config digest helpers.
-- `calculogic-validator/src/core/validator-exit-code.logic.mjs` owns findings-to-exit-code derivation against builtin exit policies.
-- `calculogic-validator/src/registries/_builtin/exit-policy.registry.json` owns current exit policy rows.
-- `calculogic-validator/src/core/validator-scopes.logic.mjs` loads builtin scope profiles, owns default scope, and currently hardcodes compatibility descriptions/display-related metadata.
-- `calculogic-validator/src/registries/_builtin/scope-profiles.registry.json` owns builtin scope profile include roots/root files.
-- `calculogic-validator/src/core/scoped-target-paths.logic.mjs` owns target normalization, validation, dedupe, sorting, scope predicates, and target filtering.
-- `calculogic-validator/src/core/suite-scoped-snapshot-input.logic.mjs` owns suite scoped path collection and selected-path packaging.
-- `calculogic-validator/src/core/validator-candidate-policy.contracts.mjs`, `validator-candidate-policy.logic.mjs`, and `validator-candidate-collection.logic.mjs` own candidate policy normalization, matching, and deterministic collection mechanics.
-- `calculogic-validator/src/core/cli/**` owns repeatable runner-style CLI scaffolding, usage/output helpers, scope usage helpers, and target parsing.
-- `calculogic-validator/scripts/validate-all.host.mjs` uses suite-core runner CLI scaffolding and supports repeatable `--target`.
-- `calculogic-validator/scripts/validate-tree.host.mjs` uses suite-core runner CLI scaffolding and supports repeatable `--target`.
-- `calculogic-validator/scripts/validate-naming.host.mjs` delegates to Naming CLI while using suite-core npm-argument forwarding detection and shared helpers through the Naming CLI runner.
-- `calculogic-validator/bin/calculogic-validate.host.mjs` exposes full-suite package-bin behavior but does not currently expose repeatable `--target`.
-- `calculogic-validator/bin/calculogic-validate-naming.host.mjs` exposes Naming package-bin behavior.
-- `calculogic-validator/bin/calculogic-validator-health.host.mjs` exposes suite-looking health behavior that currently delegates to Naming health.
-- `calculogic-validator/tools/report-capture/**` owns command-agnostic output capture, filename prefix/timestamp mechanics, retention, pruning, verification, and summary utilities.
-- `calculogic-validator/naming/src/**` shows Naming retains semantic interpretation, registry-state ownership, CLI/report builder ownership, health, and candidate value authority while consuming suite helpers.
-- `calculogic-validator/tree/src/**` shows Tree retains structural interpretation and consumes runner-scoped/staged bridge behavior rather than being forced through candidate collection.
-- `calculogic-validator/test/**`, `calculogic-validator/naming/test/**`, and `calculogic-validator/tree/test/**` prove current slice/helper behavior but currently do not prove a fixture future slice can register without bespoke runner edits.
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` and `ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md` document the suite-owned boundaries that this audit treats as current authority.
+- Validator package exports and bins expose suite-core, registry, scopes, Naming, Tree, full-suite, Naming-only, and health surfaces in `package.json`.
+- `src/index.mjs` exports runner, registry, and report contract surfaces.
+- `src/core/validator-registry.knowledge.mjs` now registers behavior-driving `id`, `description`, and `run` fields plus bounded data-only metadata for slice identity, command/report/bin expectations, default runner inclusion, report capture prefixes, bridge relationships, and compatibility expectations; id list/get helpers remain unchanged.
+- `src/core/validator-runner.logic.mjs` owns selected-validator resolution, report-entry assembly, runner envelope, and current Naming → Tree staged bridge mechanics.
+- `src/core/validator-report.contracts.mjs` documents the current runner report contract and pass-through summary/meta areas.
+- `src/core/validator-report-meta.logic.mjs` owns tool-version lookup, stable stringify, sha256, and config digest helpers.
+- `src/core/validator-exit-code.logic.mjs` owns findings-to-exit-code derivation against builtin exit policies.
+- `src/registries/_builtin/exit-policy.registry.json` owns current exit policy rows.
+- `src/core/validator-scopes.logic.mjs` loads builtin scope profiles, owns default scope, and currently hardcodes compatibility descriptions/display-related metadata.
+- `src/registries/_builtin/scope-profiles.registry.json` owns builtin scope profile include roots/root files.
+- `src/core/scoped-target-paths.logic.mjs` owns target normalization, validation, dedupe, sorting, scope predicates, and target filtering.
+- `src/core/suite-scoped-snapshot-input.logic.mjs` owns suite scoped path collection and selected-path packaging.
+- `src/core/validator-candidate-policy.contracts.mjs`, `validator-candidate-policy.logic.mjs`, and `validator-candidate-collection.logic.mjs` own candidate policy normalization, matching, and deterministic collection mechanics.
+- `src/core/cli/**` owns repeatable runner-style CLI scaffolding, usage/output helpers, scope usage helpers, and target parsing.
+- `scripts/validate-all.host.mjs` uses suite-core runner CLI scaffolding and supports repeatable `--target`.
+- `scripts/validate-tree.host.mjs` uses suite-core runner CLI scaffolding and supports repeatable `--target`.
+- `scripts/validate-naming.host.mjs` delegates to Naming CLI while using suite-core npm-argument forwarding detection and shared helpers through the Naming CLI runner.
+- `bin/calculogic-validate.host.mjs` exposes full-suite package-bin behavior but does not currently expose repeatable `--target`.
+- `bin/calculogic-validate-naming.host.mjs` exposes Naming package-bin behavior.
+- `bin/calculogic-validator-health.host.mjs` exposes suite-looking health behavior that currently delegates to Naming health.
+- `tools/report-capture/**` owns command-agnostic output capture, filename prefix/timestamp mechanics, retention, pruning, verification, and summary utilities.
+- `naming/src/**` shows Naming retains semantic interpretation, registry-state ownership, CLI/report builder ownership, health, and candidate value authority while consuming suite helpers.
+- `tree/src/**` shows Tree retains structural interpretation and consumes runner-scoped/staged bridge behavior rather than being forced through candidate collection.
+- `test/**`, `naming/test/**`, and `tree/test/**` prove current slice/helper behavior but currently do not prove a fixture future slice can register without bespoke runner edits.
+- `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` and `ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md` document the suite-owned boundaries that this audit treats as current authority.

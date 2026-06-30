@@ -7,7 +7,7 @@ const byResolvedPath = (occurrenceRecords) =>
 
 test('structural-address snapshot returns neutral evidence envelope shape', () => {
   const snapshot = prepareTreeStructuralAddressSnapshot({
-    selectedPaths: ['calculogic-validator/tree/src/tree-structure-advisor.logic.mjs'],
+    selectedPaths: ['tree/src/tree-structure-advisor.logic.mjs'],
     includeRoots: ['calculogic-validator'],
   });
 

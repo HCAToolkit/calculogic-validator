@@ -4,7 +4,7 @@
 - **Applies to:** Future Naming-owned semantic observations that may be attached to addressed occurrences for Tree consumption through a versioned bridge.
 - **Status:** Contract/specification slice only for issue #623; no runtime behavior is changed by this artifact.
 - **Issue context:** Refs #623 and Refs #618.
-- **Occurrence identity input:** `calculogic-validator/doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` from issue #621 / PR #622.
+- **Occurrence identity input:** `doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` from issue #621 / PR #622.
 
 ## 1. Purpose and authority boundary
 
@@ -14,7 +14,7 @@ The purpose is to preserve Naming semantic evidence while preventing bridge payl
 
 Authority posture:
 
-1. Current source files, tests, and `calculogic-validator/doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` remain the source for **current runtime truth** and the occurrence identity contract input.
+1. Current source files, tests, and `doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` remain the source for **current runtime truth** and the occurrence identity contract input.
 2. This artifact defines the **target Naming bridge rule direction** for future implementation slices.
 3. Any behavior described as address-attached, address-keyed, versioned bridge transport, or diagnostic emission is **deferred implementation work**, not current runtime truth.
 
@@ -29,7 +29,7 @@ Current runtime truth:
 - Current bridge observations preserve Naming semantic payload fields: `semanticName`, `familyRoot`, `semanticFamily`, and optional `familySubgroup`, `ambiguityFlags`, and `splitFamilyFlags`.
 - Current bridge observations do not carry `addressProfileId`, `addressedSnapshotId`, `occurrenceAddress`, `repoRelativePath`, `addressPath`, or `occurrenceType` as Naming bridge payload fields.
 - Tree currently consumes Naming evidence through the staged Naming semantic-family bridge and performs Tree-owned interpretation after joining evidence.
-- Tree runtime is not currently wired to `calculogic-validator/structural-addressing/**` as the canonical addressed snapshot provider.
+- Tree runtime is not currently wired to `structural-addressing/**` as the canonical addressed snapshot provider.
 
 ## 3. Target Naming bridge rule direction
 

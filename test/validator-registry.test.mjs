@@ -13,7 +13,7 @@ import { runValidatorRunner } from '../src/core/validator-runner.logic.mjs';
 import { getValidatorReportIdentity } from '../src/core/validator-report-identity.logic.mjs';
 
 const rootPackageJson = JSON.parse(
-  fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+  fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
 );
 const validatorPackageJson = JSON.parse(
   fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -92,7 +92,7 @@ test('registry metadata command, report, and bin fields match current naming pat
     assert.equal(commands.repoLocalNpmInvocation, `npm run ${commands.repoLocalNpmScript} --`);
     assert.match(
       commands.directScriptPath,
-      /^calculogic-validator\/scripts\/validate-[a-z-]+\.host\.mjs$/u,
+      /^scripts\/validate-[a-z-]+\.host\.mjs$/u,
     );
     assert.equal(fs.existsSync(path.join(process.cwd(), commands.directScriptPath)), true);
 

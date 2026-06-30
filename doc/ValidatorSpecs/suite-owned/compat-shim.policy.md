@@ -75,8 +75,8 @@ Suggested config shape (draft):
   "compatShims": {
     "allow": [
       {
-        "path": "calculogic-validator/src/compat/naming-validator.logic.mjs",
-        "canonical": "calculogic-validator/naming/src/naming-validator.host.mjs",
+        "path": "src/compat/naming-validator.logic.mjs",
+        "canonical": "naming/src/naming-validator.host.mjs",
         "removeBy": "2026-04-01",
         "repointStage": "repoint-naming-imports"
       }

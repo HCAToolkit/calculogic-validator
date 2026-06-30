@@ -26,11 +26,11 @@ test('naming runtime wiring defaults to suite-owned default scope', () => {
 
 test('naming CLI and runtime paths do not hardcode repo fallback', () => {
   const cliSource = fs.readFileSync(
-    'calculogic-validator/naming/src/cli/naming-cli-args.logic.mjs',
+    'naming/src/cli/naming-cli-args.logic.mjs',
     'utf8',
   );
   const wiringSource = fs.readFileSync(
-    'calculogic-validator/naming/src/naming-validator.wiring.mjs',
+    'naming/src/naming-validator.wiring.mjs',
     'utf8',
   );
 

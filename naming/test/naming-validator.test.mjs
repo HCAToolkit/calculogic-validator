@@ -278,8 +278,8 @@ test('classifies missing-role teaching case for non-canonical two-segment names'
 
 test('repo scope includes docs + src + root config examples', () => {
   const paths = collectRepositoryPaths(process.cwd(), { scope: 'repo' });
-  assert.ok(paths.includes('calculogic-validator/naming/src/naming-validator.host.mjs'));
-  assert.ok(paths.includes('calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md'));
+  assert.ok(paths.includes('naming/src/naming-validator.host.mjs'));
+  assert.ok(paths.includes('doc/ConventionRoutines/NamingValidatorSpec.md'));
   assert.ok(paths.includes('package.json'));
 });
 
@@ -315,7 +315,7 @@ test('app scope includes only src/test and excludes docs, validator, and system 
     false,
   );
   assert.equal(
-    paths.some((p) => p.startsWith('calculogic-validator/')),
+    paths.some((p) => p.startsWith('')),
     false,
   );
   assert.equal(paths.includes('package.json'), false);
@@ -328,7 +328,7 @@ test('docs scope includes doc/docs and excludes src', () => {
     false,
   );
   assert.equal(
-    paths.some((p) => p.startsWith('calculogic-validator/')),
+    paths.some((p) => p.startsWith('')),
     false,
   );
 });
@@ -364,7 +364,7 @@ test('invalid CLI scope returns deterministic usage error and non-zero exit', ()
     process.execPath,
     [
       '--experimental-strip-types',
-      'calculogic-validator/scripts/validate-naming.host.mjs',
+      'scripts/validate-naming.host.mjs',
       '--scope=invalid-scope',
     ],
     { cwd: process.cwd(), encoding: 'utf8' },

@@ -8,9 +8,9 @@ This is a planning artifact only: **no runtime behavior changes are proposed in 
 
 Primary inspection scope:
 
-- `calculogic-validator/naming/src/`
-- `calculogic-validator/tree/src/`
-- `calculogic-validator/src/core/`
+- `naming/src/`
+- `tree/src/`
+- `src/core/`
 
 ## Current registry-backed areas
 

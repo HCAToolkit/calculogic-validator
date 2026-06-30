@@ -10,7 +10,7 @@ test('root package script wiring exposes addressing:get-tree direct host command
 
   assert.equal(
     packageJson.scripts['addressing:get-tree'],
-    'node --experimental-strip-types calculogic-validator/scripts/addressing-get-tree.host.mjs',
+    'node --experimental-strip-types scripts/addressing-get-tree.host.mjs',
   );
 });
 

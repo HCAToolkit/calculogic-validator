@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadValidatorConfigFromFile } from '../src/core/config/validator-config.logic.mjs';
 
-const fixturePath = 'calculogic-validator/test/fixtures/validator-config.extensions.contracts.json';
+const fixturePath = 'test/fixtures/validator-config.extensions.contracts.json';
 
 test('loads validator config and normalizes reportable extension additions', () => {
   const config = loadValidatorConfigFromFile(fixturePath, { cwd: process.cwd() });
@@ -16,7 +16,7 @@ test('loads validator config and normalizes reportable extension additions', () 
 test('fails when version is not supported', () => {
   const invalidPath = path.join(
     process.cwd(),
-    'calculogic-validator/test/fixtures/tmp-invalid-version.json',
+    'test/fixtures/tmp-invalid-version.json',
   );
   fs.writeFileSync(invalidPath, JSON.stringify({ version: '9.9' }));
 
@@ -33,7 +33,7 @@ test('fails when version is not supported', () => {
 test('fails when extension entries do not start with dot', () => {
   const invalidPath = path.join(
     process.cwd(),
-    'calculogic-validator/test/fixtures/tmp-invalid-extension.json',
+    'test/fixtures/tmp-invalid-extension.json',
   );
   fs.writeFileSync(
     invalidPath,

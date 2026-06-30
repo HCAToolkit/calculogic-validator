@@ -28,7 +28,7 @@ Short answers to the required questions:
 
 ### Scope profiles and scope loading
 
-Current runtime truth: suite-core owns the builtin scope profile payload at `calculogic-validator/src/registries/_builtin/scope-profiles.registry.json`, including `app`, `docs`, `repo`, `system`, and `validator` profiles. The runtime loader in `validator-scopes.logic.mjs` validates and normalizes that payload, expands legacy system compatibility patterns through `ROOT_APP_FILES`, exposes `DEFAULT_VALIDATOR_SCOPE`, and returns cloned profiles to callers.
+Current runtime truth: suite-core owns the builtin scope profile payload at `src/registries/_builtin/scope-profiles.registry.json`, including `app`, `docs`, `repo`, `system`, and `validator` profiles. The runtime loader in `validator-scopes.logic.mjs` validates and normalizes that payload, expands legacy system compatibility patterns through `ROOT_APP_FILES`, exposes `DEFAULT_VALIDATOR_SCOPE`, and returns cloned profiles to callers.
 
 Ownership classification: **suite-core-owned and already canonical**.
 
@@ -299,36 +299,36 @@ Not in this audit PR and not recommended as the immediate next implementation sl
 
 ### Suite-core evidence
 
-- `calculogic-validator/src/registries/_builtin/scope-profiles.registry.json` defines builtin scopes and root/root-file inclusions.
-- `calculogic-validator/src/core/validator-scopes.logic.mjs` loads, normalizes, clones, lists, and retrieves scope profiles.
-- `calculogic-validator/src/core/scoped-target-paths.logic.mjs` exports `normalizePath(...)`, `resolveScopedTargets(...)`, `filterScopedPathsByTargets(...)`, and `filterScopedPathsByProfile(...)`.
-- `calculogic-validator/src/core/suite-scoped-snapshot-input.logic.mjs` recursively walks scope roots, includes root files, packages `inScopePaths`, resolves targets, packages `selectedPaths`, `targetDescriptors`, and `targets`.
-- `calculogic-validator/test/suite-scoped-snapshot-input.test.mjs` covers suite scoped snapshots for docs scope and target filtering.
-- `calculogic-validator/src/core/source-snapshot.logic.mjs`, `validator-report.contracts.mjs`, `validator-report-meta.logic.mjs`, and `validator-exit-code.logic.mjs` own report metadata, report contract, config digesting, and exit-code derivation.
-- `calculogic-validator/src/core/validator-registry.knowledge.mjs` registers Naming and Tree validators and adapts slice results into runner entries.
-- `calculogic-validator/src/core/cli/**` owns shared runner output, usage, supported scope display, target parsing, and runner orchestration.
+- `src/registries/_builtin/scope-profiles.registry.json` defines builtin scopes and root/root-file inclusions.
+- `src/core/validator-scopes.logic.mjs` loads, normalizes, clones, lists, and retrieves scope profiles.
+- `src/core/scoped-target-paths.logic.mjs` exports `normalizePath(...)`, `resolveScopedTargets(...)`, `filterScopedPathsByTargets(...)`, and `filterScopedPathsByProfile(...)`.
+- `src/core/suite-scoped-snapshot-input.logic.mjs` recursively walks scope roots, includes root files, packages `inScopePaths`, resolves targets, packages `selectedPaths`, `targetDescriptors`, and `targets`.
+- `test/suite-scoped-snapshot-input.test.mjs` covers suite scoped snapshots for docs scope and target filtering.
+- `src/core/source-snapshot.logic.mjs`, `validator-report.contracts.mjs`, `validator-report-meta.logic.mjs`, and `validator-exit-code.logic.mjs` own report metadata, report contract, config digesting, and exit-code derivation.
+- `src/core/validator-registry.knowledge.mjs` registers Naming and Tree validators and adapts slice results into runner entries.
+- `src/core/cli/**` owns shared runner output, usage, supported scope display, target parsing, and runner orchestration.
 
 ### Naming evidence
 
-- `calculogic-validator/naming/src/registries/_builtin/reportable-extensions.registry.json` defines the current Naming reportable extension list.
-- `calculogic-validator/naming/src/registries/_builtin/reportable-root-files.registry.json` defines current Naming reportable root files.
-- `calculogic-validator/naming/src/registries/_builtin/walk-exclusions.registry.json` defines Naming walk exclusions and dot-directory behavior.
-- `calculogic-validator/naming/src/registries/registry-state.logic.mjs` treats reportable extensions/root files as required Naming builtin registry files, canonicalizes them, and merges config extension additions.
-- `calculogic-validator/naming/src/naming-runtime-converters.logic.mjs` converts reportable extensions/root files into runtime `Set`s.
-- `calculogic-validator/naming/src/naming-validator.logic.mjs` implements `isReportableFile(...)`, a Naming-local repository walk, scope filtering over reportable paths, selected-path runtime assertions, and Naming path classification.
-- `calculogic-validator/naming/src/naming-validator.wiring.mjs` prepares Naming runtime inputs, invokes Naming collection, then uses suite-core target resolution/filtering.
+- `naming/src/registries/_builtin/reportable-extensions.registry.json` defines the current Naming reportable extension list.
+- `naming/src/registries/_builtin/reportable-root-files.registry.json` defines current Naming reportable root files.
+- `naming/src/registries/_builtin/walk-exclusions.registry.json` defines Naming walk exclusions and dot-directory behavior.
+- `naming/src/registries/registry-state.logic.mjs` treats reportable extensions/root files as required Naming builtin registry files, canonicalizes them, and merges config extension additions.
+- `naming/src/naming-runtime-converters.logic.mjs` converts reportable extensions/root files into runtime `Set`s.
+- `naming/src/naming-validator.logic.mjs` implements `isReportableFile(...)`, a Naming-local repository walk, scope filtering over reportable paths, selected-path runtime assertions, and Naming path classification.
+- `naming/src/naming-validator.wiring.mjs` prepares Naming runtime inputs, invokes Naming collection, then uses suite-core target resolution/filtering.
 - Naming tests exercise reportable extension/root-file preparation, override behavior, registry-state behavior, runtime input boundaries, and config overlay validation.
 
 ### Tree evidence
 
-- `calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs` imports `collectSuiteScopedSnapshotInputs(...)`, passes Tree walk exclusions, and receives `selectedPaths`, `targetDescriptors`, `includeRoots`, and `targets`.
+- `tree/src/tree-structure-advisor.wiring.mjs` imports `collectSuiteScopedSnapshotInputs(...)`, passes Tree walk exclusions, and receives `selectedPaths`, `targetDescriptors`, `includeRoots`, and `targets`.
 - Tree wiring prepares occurrence, structural-address, structural-home, semantic-home, folder-kind, repo-shape, occurrence-classification, and contributor inputs after suite-core selection.
-- `calculogic-validator/tree/src/tree-structure-advisor.logic.mjs` requires prepared Tree inputs, derives file reasoning input from occurrence snapshots or selected-path fallback, then emits structural findings and filter metadata.
-- `calculogic-validator/tree/src/registries/_builtin/repo-shape-policy.registry.json` and `tree-repo-shape-policy-registry.logic.mjs` keep repo-shape policy Tree-owned.
+- `tree/src/tree-structure-advisor.logic.mjs` requires prepared Tree inputs, derives file reasoning input from occurrence snapshots or selected-path fallback, then emits structural findings and filter metadata.
+- `tree/src/registries/_builtin/repo-shape-policy.registry.json` and `tree-repo-shape-policy-registry.logic.mjs` keep repo-shape policy Tree-owned.
 - Tree tests cover prepared selected paths for scopes/targets, occurrence snapshots, structural reasoning, and selected-path fallback behavior.
 
 ### Cross-slice evidence
 
-- `calculogic-validator/src/core/validator-runner.logic.mjs` runs Naming ahead of Tree when Tree needs Naming semantic-family bridge data, showing suite-core owns orchestration while Naming and Tree retain slice interpretation.
-- `calculogic-validator/test/cross-slice-deterministic-invariants.test.mjs` includes cross-slice selected-path expectations, showing selected-path stability is already treated as cross-slice-sensitive.
+- `src/core/validator-runner.logic.mjs` runs Naming ahead of Tree when Tree needs Naming semantic-family bridge data, showing suite-core owns orchestration while Naming and Tree retain slice interpretation.
+- `test/cross-slice-deterministic-invariants.test.mjs` includes cross-slice selected-path expectations, showing selected-path stability is already treated as cross-slice-sensitive.
 - `package.json` exposes separate Naming, Tree, and all-validator commands, including scope and target variants, without a dedicated docs-only validator command beyond the naming validator doc target.

@@ -22,7 +22,7 @@ Any other version value is invalid.
 
 Canonical JSON Schema file:
 
-- `calculogic-validator/src/validator-config.schema.json`
+- `src/validator-config.schema.json`
 
 Schema and runtime validation are aligned:
 
@@ -162,7 +162,7 @@ Strict-exit resolution for naming CLI uses existing exit-policy semantics:
 
 ```json
 {
-  "$schema": "./calculogic-validator/src/validator-config.schema.json",
+  "$schema": "./src/validator-config.schema.json",
   "version": "0.1",
   "naming": {
     "roles": {
@@ -183,7 +183,7 @@ Strict-exit resolution for naming CLI uses existing exit-policy semantics:
 
 ```json
 {
-  "$schema": "./calculogic-validator/src/validator-config.schema.json",
+  "$schema": "./src/validator-config.schema.json",
   "version": "0.1",
   "naming": {
     "reportableExtensions": {
@@ -197,7 +197,7 @@ Strict-exit resolution for naming CLI uses existing exit-policy semantics:
 
 ```json
 {
-  "$schema": "./calculogic-validator/src/validator-config.schema.json",
+  "$schema": "./src/validator-config.schema.json",
   "version": "0.1",
   "naming": {
     "reportableExtensions": {

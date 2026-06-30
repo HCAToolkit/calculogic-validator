@@ -15,7 +15,7 @@ test('config reportableExtensions.add includes .py files in scan set', () => {
 
     const withoutConfig = runNamingValidator(tempRoot, { scope: 'repo' });
     const config = loadValidatorConfigFromFile(
-      'calculogic-validator/test/fixtures/validator-config.extensions.contracts.json',
+      'test/fixtures/validator-config.extensions.contracts.json',
       { cwd: process.cwd() },
     );
     const withConfig = runNamingValidator(tempRoot, { scope: 'repo', config });

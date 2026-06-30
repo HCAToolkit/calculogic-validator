@@ -16,8 +16,8 @@ Authority posture note: This is a bounded normative supporting spec for naming i
 
 Inherited shared concepts come from:
 
-- `calculogic-validator/doc/ValidatorSpecs/filename-case-and-interpretation-contract.md`
-- `calculogic-validator/doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
+- `doc/ValidatorSpecs/filename-case-and-interpretation-contract.md`
+- `doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
 
 Naming-slice specialization in this document does not redefine those shared nouns. It applies and specializes them for naming-slice interpretation behavior.
 

@@ -6,10 +6,10 @@ Status/Authority:
 - **Intended use:** Route naming-adjacent docs, clarify ownership boundaries, and record deterministic "stay put" vs later move/split/merge decisions.
 - **Does not control:** Naming runtime behavior, naming taxonomy authority, suite mode/exit semantics, or config contract semantics.
 - **Defer to (if conflict):**
-  - `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` (canonical contract)
-  - `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md` (canonical slice spec for naming runtime/spec behavior)
-  - `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md` (canonical naming grammar/taxonomy authority)
-  - `calculogic-validator/doc/ValidatorSpecs/validator-config.spec.md` (canonical config contract)
+  - `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` (canonical contract)
+  - `doc/ConventionRoutines/NamingValidatorSpec.md` (canonical slice spec for naming runtime/spec behavior)
+  - `doc/ConventionRoutines/FileNamingMasterList-V1_1.md` (canonical naming grammar/taxonomy authority)
+  - `doc/ValidatorSpecs/validator-config.spec.md` (canonical config contract)
 
 ## Purpose
 
@@ -27,9 +27,9 @@ It is intended to:
 
 Naming implementation discovery now follows a stable mixed-layout posture:
 
-- shared canonical entrypoints stay at `calculogic-validator/doc/ValidatorSpecs/` root when they are first-read cross-slice contracts,
-- naming-specialized supporting specs and routing metadata live under `calculogic-validator/doc/ValidatorSpecs/naming-owned/`,
-- cross-slice registry-model guidance lives under `calculogic-validator/doc/ValidatorSpecs/cross-cutting/` because its ownership is not naming-only.
+- shared canonical entrypoints stay at `doc/ValidatorSpecs/` root when they are first-read cross-slice contracts,
+- naming-specialized supporting specs and routing metadata live under `doc/ValidatorSpecs/naming-owned/`,
+- cross-slice registry-model guidance lives under `doc/ValidatorSpecs/cross-cutting/` because its ownership is not naming-only.
 
 Use the root-level contract lane first, then continue into the naming-owned lane for supporting interpretation work.
 
@@ -37,19 +37,19 @@ Use the root-level contract lane first, then continue into the naming-owned lane
 
 Use this sequence for naming implementation tasks (runtime behavior, wiring/contracts, config interpretation, or naming semantics):
 
-1. `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-2. `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
-3. `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
-4. `calculogic-validator/doc/ValidatorSpecs/filename-case-and-interpretation-contract.md`
-5. `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-semantic-name-and-role-disambiguation.spec.md`
-6. `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md`
-7. `calculogic-validator/doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md`
-8. `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-address-attached-bridge-observation-rules.spec.md`
-9. `calculogic-validator/doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
-10. `calculogic-validator/doc/ValidatorSpecs/validator-config.spec.md`
+1. `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+2. `doc/ConventionRoutines/NamingValidatorSpec.md`
+3. `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
+4. `doc/ValidatorSpecs/filename-case-and-interpretation-contract.md`
+5. `doc/ValidatorSpecs/naming-owned/naming-semantic-name-and-role-disambiguation.spec.md`
+6. `doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md`
+7. `doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md`
+8. `doc/ValidatorSpecs/naming-owned/naming-address-attached-bridge-observation-rules.spec.md`
+9. `doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
+10. `doc/ValidatorSpecs/validator-config.spec.md`
 11. `doc/nl-config/cfg-namingValidator.md` (supporting implementation context only)
-12. `calculogic-validator/doc/naming-compatibility.inventory.md` (transitional migration context)
-13. `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md` (this doc; routing/ownership metadata only)
+12. `doc/naming-compatibility.inventory.md` (transitional migration context)
+13. `doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md` (this doc; routing/ownership metadata only)
 
 Interpretation notes:
 
@@ -62,21 +62,21 @@ Interpretation notes:
 
 | Document | Document role | Status classification | Audience / usage | Path decision | Action recommendation |
 |---|---|---|---|---|---|
-| `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` | Suite-wide validator contract authority | **Canonical contract** | Runtime implementation, cross-slice contract framing, task setup first read | **Stay put** | **Keep** |
-| `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md` | Naming-slice runtime/spec authority | **Canonical slice spec** | Naming runtime behavior/spec implementation and validation | **Stay put** | **Keep** |
-| `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md` | Naming grammar/taxonomy authority (filename grammar + role/category/status vocabulary) | **Canonical contract** (cross-slice naming authority) | Naming taxonomy/governance, classification semantics, change-control | **Stay put** | **Keep** |
-| `calculogic-validator/doc/ValidatorSpecs/validator-config.spec.md` | Validator config semantics authority | **Canonical contract** (config) | Config modeling, schema/runtime strictness, merge/normalization behavior | **Stay put** | **Keep** |
-| `calculogic-validator/doc/ValidatorSpecs/filename-case-and-interpretation-contract.md` | Shared filename interpretation and case-policy contract surface | **Bounded normative supporting spec** (shared contract lane; non-primary canonical authority in this map) | Cross-slice interpretation vocabulary, implementation alignment context | **Stay put** | **Reference and maintain as bounded supporting contract lane** |
-| `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-semantic-name-and-role-disambiguation.spec.md` | Naming interpretation spec for semantic-name vs role disambiguation | **Bounded normative supporting spec** | Naming interpretation implementation tasks and bounded design alignment | **Moved to `naming-owned/`** for clearer naming ownership while keeping canonical authorities stable elsewhere | **Keep in `naming-owned/`; split later only if scanability degrades materially** |
-| `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md` | Naming interpretation spec for semantic-family semantics | **Bounded normative supporting spec** (active for documentation-first modeling) | Naming interpretation implementation tasks and bounded design alignment | **Moved to `naming-owned/`** for easier same-owner discovery | **Keep in `naming-owned/`; do not merge into master list authority** |
-| `calculogic-validator/doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` | Cross-cutting occurrence identity contract for Naming bridge envelopes | **Bounded normative supporting spec** (cross-slice bridge contract; not current runtime truth) | Bridge contract implementation planning where readers need the envelope, identity tuple, ownership boundaries, and migration/fallback rules before Naming-owned observation rules | **Added under `cross-cutting/`** because occurrence identity is shared bridge contract context, not Naming-only behavior | **Read before the Naming-owned bridge observation rules; keep in `cross-cutting/`** |
-| `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-address-attached-bridge-observation-rules.spec.md` | Naming-owned bridge observation rules for future address-attached observations | **Bounded normative supporting spec** (contract/specification slice; not current runtime truth) | Bridge contract implementation planning where Naming semantic observations attach to occurrence identity without emitting Tree conclusions | **Added under `naming-owned/`** because the rules are Naming-owned observation constraints that reference cross-slice occurrence identity | **Keep in `naming-owned/`; update alongside future Naming bridge contract slices** |
-| `calculogic-validator/doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md` | Naming registry model and slice interaction reference | **Bounded normative supporting spec** (suite-level model constraints) | Wiring/modeling decisions and slice-boundary context | **Moved to `cross-cutting/`** because forcing it under naming would blur suite-level ownership | **Keep in `cross-cutting/`; consider later split by concern only if document growth harms scanability** |
+| `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` | Suite-wide validator contract authority | **Canonical contract** | Runtime implementation, cross-slice contract framing, task setup first read | **Stay put** | **Keep** |
+| `doc/ConventionRoutines/NamingValidatorSpec.md` | Naming-slice runtime/spec authority | **Canonical slice spec** | Naming runtime behavior/spec implementation and validation | **Stay put** | **Keep** |
+| `doc/ConventionRoutines/FileNamingMasterList-V1_1.md` | Naming grammar/taxonomy authority (filename grammar + role/category/status vocabulary) | **Canonical contract** (cross-slice naming authority) | Naming taxonomy/governance, classification semantics, change-control | **Stay put** | **Keep** |
+| `doc/ValidatorSpecs/validator-config.spec.md` | Validator config semantics authority | **Canonical contract** (config) | Config modeling, schema/runtime strictness, merge/normalization behavior | **Stay put** | **Keep** |
+| `doc/ValidatorSpecs/filename-case-and-interpretation-contract.md` | Shared filename interpretation and case-policy contract surface | **Bounded normative supporting spec** (shared contract lane; non-primary canonical authority in this map) | Cross-slice interpretation vocabulary, implementation alignment context | **Stay put** | **Reference and maintain as bounded supporting contract lane** |
+| `doc/ValidatorSpecs/naming-owned/naming-semantic-name-and-role-disambiguation.spec.md` | Naming interpretation spec for semantic-name vs role disambiguation | **Bounded normative supporting spec** | Naming interpretation implementation tasks and bounded design alignment | **Moved to `naming-owned/`** for clearer naming ownership while keeping canonical authorities stable elsewhere | **Keep in `naming-owned/`; split later only if scanability degrades materially** |
+| `doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md` | Naming interpretation spec for semantic-family semantics | **Bounded normative supporting spec** (active for documentation-first modeling) | Naming interpretation implementation tasks and bounded design alignment | **Moved to `naming-owned/`** for easier same-owner discovery | **Keep in `naming-owned/`; do not merge into master list authority** |
+| `doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` | Cross-cutting occurrence identity contract for Naming bridge envelopes | **Bounded normative supporting spec** (cross-slice bridge contract; not current runtime truth) | Bridge contract implementation planning where readers need the envelope, identity tuple, ownership boundaries, and migration/fallback rules before Naming-owned observation rules | **Added under `cross-cutting/`** because occurrence identity is shared bridge contract context, not Naming-only behavior | **Read before the Naming-owned bridge observation rules; keep in `cross-cutting/`** |
+| `doc/ValidatorSpecs/naming-owned/naming-address-attached-bridge-observation-rules.spec.md` | Naming-owned bridge observation rules for future address-attached observations | **Bounded normative supporting spec** (contract/specification slice; not current runtime truth) | Bridge contract implementation planning where Naming semantic observations attach to occurrence identity without emitting Tree conclusions | **Added under `naming-owned/`** because the rules are Naming-owned observation constraints that reference cross-slice occurrence identity | **Keep in `naming-owned/`; update alongside future Naming bridge contract slices** |
+| `doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md` | Naming registry model and slice interaction reference | **Bounded normative supporting spec** (suite-level model constraints) | Wiring/modeling decisions and slice-boundary context | **Moved to `cross-cutting/`** because forcing it under naming would blur suite-level ownership | **Keep in `cross-cutting/`; consider later split by concern only if document growth harms scanability** |
 | `doc/nl-config/cfg-namingValidator.md` | Repo-local naming NL/config note | **Supporting implementation guidance** (repo-local/external to validator-owned canonical set) | Implementation sequencing/context for local repo tasks | **Stay put** | **Reference only** |
-| `calculogic-validator/doc/naming-compatibility.inventory.md` | Naming migration/compatibility snapshot | **Transitional inventory** | Migration context, retirements, follow-up hardening routing | **Stay put** | **Keep as transitional inventory** |
-| `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md` | Naming routing and bounded reorg map | **Transitional inventory** | First-stop navigation for naming documentation and ownership decisions | **Moved to `naming-owned/`** to colocate the navigation map with the docs it routes | **Keep and maintain** |
-| `calculogic-validator/doc/ConventionRoutines/CCPP.md` | Comment/provenance protocol used during naming implementation changes | **Supporting implementation guidance** | Implementation discipline, provenance/comment consistency | **Stay put** | **Reference only** |
-| `calculogic-validator/doc/ConventionRoutines/CCS.md` | Concern-separation architecture conventions affecting naming changes | **Supporting implementation guidance** | Ownership boundaries and dependency-direction enforcement | **Stay put** | **Reference only** |
+| `doc/naming-compatibility.inventory.md` | Naming migration/compatibility snapshot | **Transitional inventory** | Migration context, retirements, follow-up hardening routing | **Stay put** | **Keep as transitional inventory** |
+| `doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md` | Naming routing and bounded reorg map | **Transitional inventory** | First-stop navigation for naming documentation and ownership decisions | **Moved to `naming-owned/`** to colocate the navigation map with the docs it routes | **Keep and maintain** |
+| `doc/ConventionRoutines/CCPP.md` | Comment/provenance protocol used during naming implementation changes | **Supporting implementation guidance** | Implementation discipline, provenance/comment consistency | **Stay put** | **Reference only** |
+| `doc/ConventionRoutines/CCS.md` | Concern-separation architecture conventions affecting naming changes | **Supporting implementation guidance** | Ownership boundaries and dependency-direction enforcement | **Stay put** | **Reference only** |
 | `doc/ConventionRoutines/General-NL-Skeletons.md` | NL skeleton conventions for deterministic doc/code structure | **Supporting implementation guidance** | NL-first documentation and structure consistency | **Stay put** | **Reference only** |
 | `doc/ConventionRoutines/NL-First-Workflow.md` | NL-first process contract | **Supporting implementation guidance** | Task sequencing and NL-first change workflow | **Stay put** | **Reference only** |
 

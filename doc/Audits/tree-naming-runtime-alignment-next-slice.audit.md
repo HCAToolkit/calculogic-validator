@@ -14,23 +14,23 @@ This audit is a planning and architecture artifact only. It documents current im
 
 Runtime authority treated as binding for this audit:
 
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorBridgeContracts.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
-- `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
-- `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
-- current runtime truth in `calculogic-validator/src/core/**`, `calculogic-validator/tree/**`, `calculogic-validator/naming/**`, and `package.json`
+- `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+- `doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
+- `doc/ConventionRoutines/ValidatorBridgeContracts.md`
+- `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
+- `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
+- `doc/ConventionRoutines/NamingValidatorSpec.md`
+- current runtime truth in `src/core/**`, `tree/**`, `naming/**`, and `package.json`
 
 Task-scoped supporting context:
 
-- `calculogic-validator/doc/Audits/naming-tree-suite-core-usage-alignment.audit.md`
-- `calculogic-validator/doc/Audits/tree-known-roots-remnant-cleanup.audit.md`
+- `doc/Audits/naming-tree-suite-core-usage-alignment.audit.md`
+- `doc/Audits/tree-known-roots-remnant-cleanup.audit.md`
 - #590, #598, #599 / PR #600, #601 / PR #602, #603 / PR #604, #605 / PR #607, #608 / PR #609, and #610 / PR #611
 
 Navigation-only context:
 
-- `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
+- `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
 
 ## Executive summary
 
@@ -189,10 +189,10 @@ Minimum tests for the recommended child:
 
 Recommended focused commands for that child:
 
-- `node --test --experimental-strip-types calculogic-validator/tree/test/tree-structure-advisor.test.mjs`
-- `node --test --experimental-strip-types calculogic-validator/tree/test/tree-occurrence-classification-parity-evidence.logic.test.mjs calculogic-validator/tree/test/tree-occurrence-classification-replacement-readiness.logic.test.mjs calculogic-validator/tree/test/tree-occurrence-classification-replacement-recommendation.logic.test.mjs`
-- `node --test --experimental-strip-types calculogic-validator/test/validator-runner.test.mjs calculogic-validator/test/validator-registry.test.mjs`
-- `node --test calculogic-validator/test/report-capture*.test.mjs`
+- `node --test --experimental-strip-types tree/test/tree-structure-advisor.test.mjs`
+- `node --test --experimental-strip-types tree/test/tree-occurrence-classification-parity-evidence.logic.test.mjs tree/test/tree-occurrence-classification-replacement-readiness.logic.test.mjs tree/test/tree-occurrence-classification-replacement-recommendation.logic.test.mjs`
+- `node --test --experimental-strip-types test/validator-runner.test.mjs test/validator-registry.test.mjs`
+- `node --test test/report-capture*.test.mjs`
 - `npm run validate:naming -- --scope=validator --target calculogic-validator/tree`
 - `git diff --check`
 
@@ -210,11 +210,11 @@ Implementation goal:
 
 Files likely touched:
 
-- `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` — document the scoped current runtime truth delta and parity gate.
-- `calculogic-validator/tree/src/tree-structure-advisor.logic.mjs` — route the top-level unexpected-folder decision through prepared classification when safe.
-- `calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs` — only if an explicit readiness flag or execution-contract field must be passed more directly; otherwise avoid changing wiring.
-- `calculogic-validator/tree/test/tree-structure-advisor.test.mjs` — focused behavior delta and fallback/parity tests.
-- `calculogic-validator/test/validator-runner.test.mjs` — only if runner-level parity for staged Naming + active Tree behavior needs an additional fixture.
+- `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` — document the scoped current runtime truth delta and parity gate.
+- `tree/src/tree-structure-advisor.logic.mjs` — route the top-level unexpected-folder decision through prepared classification when safe.
+- `tree/src/tree-structure-advisor.wiring.mjs` — only if an explicit readiness flag or execution-contract field must be passed more directly; otherwise avoid changing wiring.
+- `tree/test/tree-structure-advisor.test.mjs` — focused behavior delta and fallback/parity tests.
+- `test/validator-runner.test.mjs` — only if runner-level parity for staged Naming + active Tree behavior needs an additional fixture.
 - Existing report-capture/registry tests only if touched by the implementation, which should generally be unnecessary.
 
 Expected behavior delta:

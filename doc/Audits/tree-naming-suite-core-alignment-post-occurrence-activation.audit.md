@@ -12,23 +12,23 @@ This audit is planning/audit only. It records current implementation reality aft
 
 Runtime authority treated as binding for this audit:
 
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorBridgeContracts.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
-- `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
-- `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
-- current runtime truth in `calculogic-validator/src/core/**`, `calculogic-validator/tree/**`, `calculogic-validator/naming/**`, `calculogic-validator/scripts/**`, `calculogic-validator/test/report-capture*.test.mjs`, and `package.json`
+- `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+- `doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
+- `doc/ConventionRoutines/ValidatorBridgeContracts.md`
+- `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
+- `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
+- `doc/ConventionRoutines/NamingValidatorSpec.md`
+- current runtime truth in `src/core/**`, `tree/**`, `naming/**`, `scripts/**`, `test/report-capture*.test.mjs`, and `package.json`
 
 Task-scoped supporting context:
 
-- `calculogic-validator/doc/Audits/naming-tree-suite-core-usage-alignment.audit.md`
-- `calculogic-validator/doc/Audits/tree-naming-runtime-alignment-next-slice.audit.md`
-- `calculogic-validator/doc/Audits/tree-known-roots-remnant-cleanup.audit.md`
+- `doc/Audits/naming-tree-suite-core-usage-alignment.audit.md`
+- `doc/Audits/tree-naming-runtime-alignment-next-slice.audit.md`
+- `doc/Audits/tree-known-roots-remnant-cleanup.audit.md`
 
 Navigation-only context:
 
-- `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
+- `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
 
 ## 1. Current state summary
 
@@ -249,4 +249,4 @@ Required verification for this docs-only audit:
 
 If full validator-doc naming validation reports pre-existing findings, run focused validation on this audit document only:
 
-- `npm run validate:naming -- --scope=validator --target calculogic-validator/doc/Audits/tree-naming-suite-core-alignment-post-occurrence-activation.audit.md`
+- `npm run validate:naming -- --scope=validator --target doc/Audits/tree-naming-suite-core-alignment-post-occurrence-activation.audit.md`

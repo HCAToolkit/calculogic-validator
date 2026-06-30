@@ -45,7 +45,7 @@ Current runtime truth: Tree contributor code prefers prepared address-keyed join
 
 ### 2.6 Structural-addressing subtree
 
-Current implementation reality: `calculogic-validator/structural-addressing/` contains a profile, marker strategies, a tree-codebase addressed snapshot producer, render helpers, and tests. It models a `tree-codebase` profile and an `addressedTreeSnapshot` output with producer `structural-addressing` and primary consumer `tree`.
+Current implementation reality: `structural-addressing/` contains a profile, marker strategies, a tree-codebase addressed snapshot producer, render helpers, and tests. It models a `tree-codebase` profile and an `addressedTreeSnapshot` output with producer `structural-addressing` and primary consumer `tree`.
 
 Documented target direction: issue #618 states Addressing should own occurrence identity, address grammar/profile semantics, addressed snapshot semantics, lineage/depth/containment identity, and bridge-provider rules. The structural-addressing subtree aligns with that target direction, but current Tree runtime does not consume it as the active provider.
 
@@ -168,12 +168,12 @@ Keep these as-is in this task:
 
 **Likely affected files/surfaces:**
 
-- `calculogic-validator/structural-addressing/src/structural-addressing-profile.knowledge.mjs`
-- `calculogic-validator/structural-addressing/src/structural-addressing-tree-codebase.logic.mjs`
-- `calculogic-validator/tree/src/tree-occurrence-snapshot.logic.mjs`
-- `calculogic-validator/tree/src/tree-structural-address-snapshot.logic.mjs`
-- `calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs`
-- targeted tests under `calculogic-validator/structural-addressing/test/` and `calculogic-validator/tree/test/`
+- `structural-addressing/src/structural-addressing-profile.knowledge.mjs`
+- `structural-addressing/src/structural-addressing-tree-codebase.logic.mjs`
+- `tree/src/tree-occurrence-snapshot.logic.mjs`
+- `tree/src/tree-structural-address-snapshot.logic.mjs`
+- `tree/src/tree-structure-advisor.wiring.mjs`
+- targeted tests under `structural-addressing/test/` and `tree/test/`
 
 **What must remain unchanged:** Tree findings, report envelopes, runner staging, Naming bridge payload shape, canonical identity tuple, path fallback behavior, scope/target selection, and CLI scripts.
 
@@ -219,8 +219,8 @@ This audit does not:
 Verification run for this audit:
 
 - `git diff --check`
-- `git diff -- calculogic-validator/doc calculogic-validator/src/core calculogic-validator/naming calculogic-validator/tree calculogic-validator/structural-addressing`
-- `npm run validate:naming -- --scope=validator --target calculogic-validator/doc/Audits/address-keyed-join-helper-ownership-and-extraction.audit.md --target calculogic-validator/doc/Indexes/validator-docs.index.md`
+- `git diff -- calculogic-validator/doc src/core calculogic-validator/naming calculogic-validator/tree calculogic-validator/structural-addressing`
+- `npm run validate:naming -- --scope=validator --target doc/Audits/address-keyed-join-helper-ownership-and-extraction.audit.md --target doc/Indexes/validator-docs.index.md`
 - `npm run validate:tree -- --scope=validator --target calculogic-validator/doc`
 
 Runtime source change confirmation: no runtime source files were changed; the only intended repository changes are the audit artifact and the validator docs index entry.

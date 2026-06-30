@@ -94,7 +94,7 @@ test('handles non-folder occurrences and nested basename matches safely', () => 
     addressedOccurrenceRecords: [
       { addressPath: 'A', parentAddressPath: null, path: 'src', name: 'src', occurrenceType: 'folder' },
       { addressPath: 'A.1', parentAddressPath: 'A', path: 'src/index.mjs', name: 'index.mjs', occurrenceType: 'file' },
-      { addressPath: 'B', parentAddressPath: null, path: 'calculogic-validator/src', name: 'src', occurrenceType: 'folder' },
+      { addressPath: 'B', parentAddressPath: null, path: 'src', name: 'src', occurrenceType: 'folder' },
     ],
     structuralHomesRegistry: structuralHomesRegistryFixture,
   });

@@ -65,23 +65,23 @@ test('returns deterministic evidence-only records from tree-owned inputs', () =>
 test('emits relationship-qualified folder-kind evidence only for aligned mixed-folder relationships', () => {
   const result = prepareTreeFolderKindEvidence({
     addressedOccurrenceRecords: [
-      { addressPath: 'A.1', parentAddressPath: null, path: 'calculogic-validator/naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
-      { addressPath: 'A.2', parentAddressPath: null, path: 'calculogic-validator/tree/naming-src', name: 'naming-src', occurrenceType: 'folder' },
-      { addressPath: 'A.3', parentAddressPath: null, path: 'calculogic-validator/naming-without-context/naming-src', name: 'naming-src', occurrenceType: 'folder' },
+      { addressPath: 'A.1', parentAddressPath: null, path: 'naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
+      { addressPath: 'A.2', parentAddressPath: null, path: 'tree/naming-src', name: 'naming-src', occurrenceType: 'folder' },
+      { addressPath: 'A.3', parentAddressPath: null, path: 'naming-without-context/naming-src', name: 'naming-src', occurrenceType: 'folder' },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticNamingFolderTypeRelationshipEvidence: {
       relationshipRecords: [
-        { addressPath: 'A.1', path: 'calculogic-validator/naming/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
-        { addressPath: 'A.2', path: 'calculogic-validator/tree/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-semantic-context-mismatch', structuralRole: 'implementation-container', establishedSemanticContext: 'tree', semanticContextEvidenceAddressPath: 'A.tree' },
-        { addressPath: 'A.3', path: 'calculogic-validator/naming-without-context/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-context-unresolved', structuralRole: 'implementation-container' },
+        { addressPath: 'A.1', path: 'naming/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
+        { addressPath: 'A.2', path: 'tree/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-semantic-context-mismatch', structuralRole: 'implementation-container', establishedSemanticContext: 'tree', semanticContextEvidenceAddressPath: 'A.tree' },
+        { addressPath: 'A.3', path: 'naming-without-context/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-context-unresolved', structuralRole: 'implementation-container' },
       ],
     },
     folderKindsRegistry: folderKindsRegistryFixture,
   });
 
-  assert.deepEqual(result.evidenceRecords.map((record) => record.path), ['calculogic-validator/naming/naming-src']);
+  assert.deepEqual(result.evidenceRecords.map((record) => record.path), ['naming/naming-src']);
   assert.equal(result.evidenceRecords[0].folderKind, 'semantic-qualified-structural-container');
   assert.equal(result.evidenceRecords[0].relationshipQualified, true);
   assert.equal(result.evidenceRecords[0].relationshipInterpretation, 'semantic-qualified-structural-container-aligned');
@@ -92,13 +92,13 @@ test('emits relationship-qualified folder-kind evidence only for aligned mixed-f
 test('skips aligned relationship-qualified folder-kind evidence when addressed identity differs for the same path', () => {
   const result = prepareTreeFolderKindEvidence({
     addressedOccurrenceRecords: [
-      { addressPath: 'B.1', parentAddressPath: null, path: 'calculogic-validator/naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
+      { addressPath: 'B.1', parentAddressPath: null, path: 'naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticNamingFolderTypeRelationshipEvidence: {
       relationshipRecords: [
-        { addressPath: 'A.4.2', path: 'calculogic-validator/naming/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
+        { addressPath: 'A.4.2', path: 'naming/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
       ],
     },
     folderKindsRegistry: folderKindsRegistryFixture,
@@ -106,7 +106,7 @@ test('skips aligned relationship-qualified folder-kind evidence when addressed i
 
   assert.equal(
     result.evidenceRecords.some((record) =>
-      record.path === 'calculogic-validator/naming/naming-src' && record.relationshipQualified === true,
+      record.path === 'naming/naming-src' && record.relationshipQualified === true,
     ),
     false,
   );
@@ -116,20 +116,20 @@ test('skips aligned relationship-qualified folder-kind evidence when addressed i
 test('skips aligned relationship-qualified folder-kind evidence outside the current addressed scope', () => {
   const result = prepareTreeFolderKindEvidence({
     addressedOccurrenceRecords: [
-      { addressPath: 'A.2', parentAddressPath: null, path: 'calculogic-validator/tree/naming-src', name: 'naming-src', occurrenceType: 'folder' },
+      { addressPath: 'A.2', parentAddressPath: null, path: 'tree/naming-src', name: 'naming-src', occurrenceType: 'folder' },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticNamingFolderTypeRelationshipEvidence: {
       relationshipRecords: [
-        { addressPath: 'A.1', path: 'calculogic-validator/naming/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
+        { addressPath: 'A.1', path: 'naming/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
       ],
     },
     folderKindsRegistry: folderKindsRegistryFixture,
   });
 
   assert.equal(
-    result.evidenceRecords.some((record) => record.path === 'calculogic-validator/naming/naming-src'),
+    result.evidenceRecords.some((record) => record.path === 'naming/naming-src'),
     false,
   );
 });

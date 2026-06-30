@@ -17,22 +17,22 @@ Each target shim path was re-checked in current main state for internal repo usa
 
 ## Removed compat-only shim files (10)
 
-1. `calculogic-validator/src/npm-arg-forwarding-guard.logic.mjs`
-2. `calculogic-validator/src/repository-root.logic.mjs`
-3. `calculogic-validator/src/source-snapshot.logic.mjs`
-4. `calculogic-validator/src/validator-config.contracts.mjs`
-5. `calculogic-validator/src/validator-config.logic.mjs`
-6. `calculogic-validator/src/validator-exit-code.logic.mjs`
-7. `calculogic-validator/src/validator-report-meta.logic.mjs`
-8. `calculogic-validator/src/validator-report.contracts.mjs`
-9. `calculogic-validator/src/validator-root-files.knowledge.mjs`
-10. `calculogic-validator/src/validators/naming-validator.logic.mjs`
+1. `src/npm-arg-forwarding-guard.logic.mjs`
+2. `src/repository-root.logic.mjs`
+3. `src/source-snapshot.logic.mjs`
+4. `src/validator-config.contracts.mjs`
+5. `src/validator-config.logic.mjs`
+6. `src/validator-exit-code.logic.mjs`
+7. `src/validator-report-meta.logic.mjs`
+8. `src/validator-report.contracts.mjs`
+9. `src/validator-root-files.knowledge.mjs`
+10. `src/validators/naming-validator.logic.mjs`
 
 ## Direct residue cleanup performed
 
 Only direct residue from the removals was updated:
 
-- Removed obsolete naming-validator shim compatibility note from `calculogic-validator/README.md`.
+- Removed obsolete naming-validator shim compatibility note from `README.md`.
 - Removed obsolete temporary naming-validator shim path bullet from `doc/nl-config/cfg-namingValidator.md` repository layout contract.
 
 No broader refactor or compat-surface redesign was performed.
@@ -41,16 +41,16 @@ No broader refactor or compat-surface redesign was performed.
 
 ### Intentional non-debt boundaries preserved (unchanged)
 
-1. `calculogic-validator/src/index.mjs`
-2. `calculogic-validator/naming/src/naming-validator.host.mjs`
-3. `calculogic-validator/tree/src/tree-structure-advisor.host.mjs`
+1. `src/index.mjs`
+2. `naming/src/naming-validator.host.mjs`
+3. `tree/src/tree-structure-advisor.host.mjs`
 
 ### Still-test-referenced shim-debt files left for later passes (unchanged)
 
-1. `calculogic-validator/src/validator-runner.logic.mjs`
-2. `calculogic-validator/src/validator-registry.knowledge.mjs`
-3. `calculogic-validator/src/validator-scopes.logic.mjs`
-4. `calculogic-validator/src/tree-structure-advisor.host.mjs`
-5. `calculogic-validator/src/tree-structure-advisor.logic.mjs`
+1. `src/validator-runner.logic.mjs`
+2. `src/validator-registry.knowledge.mjs`
+3. `src/validator-scopes.logic.mjs`
+4. `src/tree-structure-advisor.host.mjs`
+5. `src/tree-structure-advisor.logic.mjs`
 
-Reason: these remain intentionally referenced by `calculogic-validator/test/core-compat-shims.test.mjs` for shim parity verification in this stage.
+Reason: these remain intentionally referenced by `test/core-compat-shims.test.mjs` for shim parity verification in this stage.

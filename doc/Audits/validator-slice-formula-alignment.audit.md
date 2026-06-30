@@ -2,7 +2,7 @@
 
 ## Scope
 
-This audit uses `calculogic-validator/doc/ConventionRoutines/ValidatorSliceAndReportFormula.md` as the rubric for Naming, Tree, and Structural Addressing / Addressing alignment with the validator slice and report formula.
+This audit uses `doc/ConventionRoutines/ValidatorSliceAndReportFormula.md` as the rubric for Naming, Tree, and Structural Addressing / Addressing alignment with the validator slice and report formula.
 
 This is an audit/planning slice, not an implementation slice. It records current runtime truth, current implementation reality, merged docs/spec truth, historical context, and future/planning-only intent without changing runtime behavior, report shape, report ids/descriptions, findings, summaries, severities, exit-code behavior, package scripts, package bins, registry loaders, Naming behavior, Tree behavior, Addressing behavior, or candidate behavior.
 
@@ -12,59 +12,59 @@ Provenance: this audit follows the validator slice/report formula introduced aft
 
 ### Runtime and suite-core evidence
 
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
-- `calculogic-validator/doc/Indexes/validator-docs.index.md`
-- `calculogic-validator/src/core/validator-registry.knowledge.mjs`
-- `calculogic-validator/src/core/validator-runner.logic.mjs`
-- `calculogic-validator/src/core/validator-report.contracts.mjs`
-- `calculogic-validator/src/core/validator-report-meta.logic.mjs`
-- `calculogic-validator/src/core/validator-exit-code.logic.mjs`
-- `calculogic-validator/src/core/validator-scopes.logic.mjs`
-- `calculogic-validator/src/core/scoped-target-paths.logic.mjs`
-- `calculogic-validator/src/core/suite-scoped-snapshot-input.logic.mjs`
-- `calculogic-validator/src/core/validator-candidate-policy.contracts.mjs`
-- `calculogic-validator/src/core/validator-candidate-policy.logic.mjs`
-- `calculogic-validator/src/core/validator-candidate-collection.logic.mjs`
-- `calculogic-validator/doc/Audits/validator-repeatable-slice-infrastructure.audit.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
+- `doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
+- `doc/Indexes/validator-docs.index.md`
+- `src/core/validator-registry.knowledge.mjs`
+- `src/core/validator-runner.logic.mjs`
+- `src/core/validator-report.contracts.mjs`
+- `src/core/validator-report-meta.logic.mjs`
+- `src/core/validator-exit-code.logic.mjs`
+- `src/core/validator-scopes.logic.mjs`
+- `src/core/scoped-target-paths.logic.mjs`
+- `src/core/suite-scoped-snapshot-input.logic.mjs`
+- `src/core/validator-candidate-policy.contracts.mjs`
+- `src/core/validator-candidate-policy.logic.mjs`
+- `src/core/validator-candidate-collection.logic.mjs`
+- `doc/Audits/validator-repeatable-slice-infrastructure.audit.md`
+- `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
 
 ### Naming evidence
 
-- `calculogic-validator/naming/src/**`
-- `calculogic-validator/naming/test/**`
-- `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
+- `naming/src/**`
+- `naming/test/**`
+- `doc/ConventionRoutines/NamingValidatorSpec.md`
 
 ### Tree evidence
 
-- `calculogic-validator/tree/src/**`
-- `calculogic-validator/tree/test/**`
-- `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md` as navigation/discovery only
-- `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` as current tree-slice runtime/spec authority
-- `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
+- `tree/src/**`
+- `tree/test/**`
+- `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md` as navigation/discovery only
+- `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` as current tree-slice runtime/spec authority
+- `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
 
 ### Structural Addressing / Addressing evidence
 
-- `calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
-- `calculogic-validator/scripts/addressing-get-tree.host.mjs`
-- `calculogic-validator/structural-addressing/src/**`
-- `calculogic-validator/structural-addressing/test/**`
-- `calculogic-validator/tree/src/tree-structural-address-snapshot.logic.mjs`
+- `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
+- `scripts/addressing-get-tree.host.mjs`
+- `structural-addressing/src/**`
+- `structural-addressing/test/**`
+- `tree/src/tree-structural-address-snapshot.logic.mjs`
 - Tree evidence modules that consume addressed occurrence records.
 
 ### Supporting convention evidence
 
-- `calculogic-validator/doc/ConventionRoutines/CCPP.md`
-- `calculogic-validator/doc/ConventionRoutines/CCS.md`
-- `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
+- `doc/ConventionRoutines/CCPP.md`
+- `doc/ConventionRoutines/CCS.md`
+- `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
 - `doc/ConventionRoutines/General-NL-Skeletons.md`
 - `doc/ConventionRoutines/NL-First-Workflow.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
-- `calculogic-validator/doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md`
-- `calculogic-validator/doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md`
+- `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+- `doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md`
+- `doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
+- `doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md`
+- `doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md`
 - `README.md`
-- `calculogic-validator/README.md`
+- `README.md`
 
 ## Classification legend
 
@@ -145,7 +145,7 @@ Structural Addressing / Addressing is classified for now as: **hybrid shared val
 It is:
 
 - **not pure suite-core** because it owns address grammar/profile/marker/domain-adapter semantics rather than repo-agnostic runner mechanics.
-- **not purely Tree-owned** because `calculogic-validator/structural-addressing/src/**` already owns standalone structural-addressing profile, marker strategy, tree-codebase addressed snapshot, and render-tree logic, and `calculogic-validator/scripts/addressing-get-tree.host.mjs` exposes a bounded Addressing-oriented host.
+- **not purely Tree-owned** because `structural-addressing/src/**` already owns standalone structural-addressing profile, marker strategy, tree-codebase addressed snapshot, and render-tree logic, and `scripts/addressing-get-tree.host.mjs` exposes a bounded Addressing-oriented host.
 - **not yet a standalone runnable validator slice** because it is not registered in `VALIDATOR_REGISTRY`, is not runner-visible, does not produce validator findings/summaries/severities, has no package bin, and its current host is a bounded get-tree/addressed-snapshot command rather than a validator report producer.
 
 Current repo reality supports this classification. It does not conflict with it.

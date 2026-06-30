@@ -40,8 +40,8 @@ export const buildNamingCliUsageLines = ({
     `  ✅ ${repoLocalNpmInvocation} --scope=app --target src/buildsurface`,
     `  ✅ ${repoLocalNpmInvocation} --scope=app --target src/buildsurface --target src/shared`,
     '  ✅ npm run validate:all -- --validators=naming --scope=docs',
-    '  ✅ node calculogic-validator/bin/calculogic-validate-naming.host.mjs --scope=app',
-    '  ✅ node calculogic-validator/bin/calculogic-validate.host.mjs --scope=docs',
+    '  ✅ node bin/calculogic-validate-naming.host.mjs --scope=app',
+    '  ✅ node bin/calculogic-validate.host.mjs --scope=docs',
     `  ✅ ${effectiveStrictExampleCommand}`,
   ];
 };

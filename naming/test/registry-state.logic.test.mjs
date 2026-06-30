@@ -7,7 +7,7 @@ import { resolveNamingRegistryInputs } from '../src/registries/registry-state.lo
 import { toSummaryBucketsRuntime } from '../src/naming-runtime-converters.logic.mjs';
 import { summarizeFindings } from '../src/naming-validator.logic.mjs';
 
-const REGISTRY_MODULE_ROOT = path.resolve('calculogic-validator/naming/src/registries');
+const REGISTRY_MODULE_ROOT = path.resolve('naming/src/registries');
 
 const DEFAULT_OVERLAY_CAPABILITIES_REGISTRY = {
   version: '1',

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const summarizerScriptPath = path.resolve(
-  'calculogic-validator/scripts/report-capture-summarize.host.mjs',
+  'scripts/report-capture-summarize.host.mjs',
 );
 
 const runSummarizer = (args) =>

@@ -10,7 +10,7 @@ import {
   getValidatorToolVersion,
 } from '../src/core/validator-report-meta.logic.mjs';
 
-test('getValidatorToolVersion matches calculogic-validator/package.json version', () => {
+test('getValidatorToolVersion matches package.json version', () => {
   const packageJsonPath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '..',
@@ -23,7 +23,7 @@ test('getValidatorToolVersion matches calculogic-validator/package.json version'
 
 test('validate-naming report includes stable configDigest when config is supplied', () => {
   const config = loadValidatorConfigFromFile(
-    'calculogic-validator/test/fixtures/validator-config.extensions.contracts.json',
+    'test/fixtures/validator-config.extensions.contracts.json',
     { cwd: process.cwd() },
   );
   const expectedDigest = computeConfigDigest(config);
@@ -33,9 +33,9 @@ test('validate-naming report includes stable configDigest when config is supplie
       process.execPath,
       [
         '--experimental-strip-types',
-        'calculogic-validator/scripts/validate-naming.host.mjs',
+        'scripts/validate-naming.host.mjs',
         '--scope=docs',
-        '--config=calculogic-validator/test/fixtures/validator-config.extensions.contracts.json',
+        '--config=test/fixtures/validator-config.extensions.contracts.json',
       ],
       { cwd: process.cwd(), encoding: 'utf8' },
     );

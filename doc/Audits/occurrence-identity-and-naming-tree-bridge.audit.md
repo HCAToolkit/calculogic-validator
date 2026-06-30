@@ -6,7 +6,7 @@ Issue context: Refs #619 and Refs #618.
 
 This audit is one planning slice only. It records current runtime truth before any address-keyed Naming bridge implementation work. It does not change runtime behavior, Naming bridge payloads, Tree join behavior, occurrence identity fields, known-roots behavior, CLI behavior, or report envelopes.
 
-Audit location rationale: `calculogic-validator/doc/Audits/` is the smallest established validator docs path for bounded repo-reality audits. This file is intentionally an audit artifact, not a new runtime/spec contract.
+Audit location rationale: `doc/Audits/` is the smallest established validator docs path for bounded repo-reality audits. This file is intentionally an audit artifact, not a new runtime/spec contract.
 
 Runtime authority was assigned in this order for this slice:
 
@@ -17,66 +17,66 @@ Runtime authority was assigned in this order for this slice:
 Files and surfaces inspected:
 
 - Suite-core transport and report surfaces:
-  - `calculogic-validator/src/core/scoped-target-paths.logic.mjs`
-  - `calculogic-validator/src/core/suite-scoped-snapshot-input.logic.mjs`
-  - `calculogic-validator/src/core/source-snapshot.logic.mjs`
-  - `calculogic-validator/src/core/validator-runner.logic.mjs`
-  - `calculogic-validator/src/core/validator-scopes.logic.mjs`
-  - `calculogic-validator/src/core/validator-root-files.knowledge.mjs`
-  - `calculogic-validator/src/core/cli/validator-cli-targets.logic.mjs`
+  - `src/core/scoped-target-paths.logic.mjs`
+  - `src/core/suite-scoped-snapshot-input.logic.mjs`
+  - `src/core/source-snapshot.logic.mjs`
+  - `src/core/validator-runner.logic.mjs`
+  - `src/core/validator-scopes.logic.mjs`
+  - `src/core/validator-root-files.knowledge.mjs`
+  - `src/core/cli/validator-cli-targets.logic.mjs`
   - `package.json`
-  - `calculogic-validator/package.json`
+  - `package.json`
 - Naming production surfaces:
-  - `calculogic-validator/naming/src/naming-validator.logic.mjs`
-  - `calculogic-validator/naming/src/naming-semantic-family-bridge-projection.logic.mjs`
-  - `calculogic-validator/naming/src/naming-semantic-evidence-bridge.logic.mjs`
-  - `calculogic-validator/naming/src/naming-runtime-converters.logic.mjs`
-  - `calculogic-validator/naming/src/rules/naming-rule-parse-canonical.logic.mjs`
-  - `calculogic-validator/naming/src/rules/naming-rule-derive-semantic-family.logic.mjs`
-  - `calculogic-validator/naming/src/rules/naming-rule-derive-disambiguation-hints.logic.mjs`
-  - `calculogic-validator/naming/test/naming-semantic-family-bridge-projection.test.mjs`
-  - `calculogic-validator/naming/test/naming-semantic-evidence-bridge.logic.test.mjs`
+  - `naming/src/naming-validator.logic.mjs`
+  - `naming/src/naming-semantic-family-bridge-projection.logic.mjs`
+  - `naming/src/naming-semantic-evidence-bridge.logic.mjs`
+  - `naming/src/naming-runtime-converters.logic.mjs`
+  - `naming/src/rules/naming-rule-parse-canonical.logic.mjs`
+  - `naming/src/rules/naming-rule-derive-semantic-family.logic.mjs`
+  - `naming/src/rules/naming-rule-derive-disambiguation-hints.logic.mjs`
+  - `naming/test/naming-semantic-family-bridge-projection.test.mjs`
+  - `naming/test/naming-semantic-evidence-bridge.logic.test.mjs`
 - Tree occurrence, address, bridge consumption, evidence, and advisor surfaces:
-  - `calculogic-validator/tree/src/tree-occurrence-snapshot.logic.mjs`
-  - `calculogic-validator/tree/src/tree-structural-address-snapshot.logic.mjs`
-  - `calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs`
-  - `calculogic-validator/tree/src/tree-structure-advisor.logic.mjs`
-  - `calculogic-validator/tree/src/tree-semantic-home-evidence.logic.mjs`
-  - `calculogic-validator/tree/src/tree-structural-home-evidence.logic.mjs`
-  - `calculogic-validator/tree/src/tree-folder-kind-evidence.logic.mjs`
-  - `calculogic-validator/tree/src/tree-occurrence-classification.logic.mjs`
-  - `calculogic-validator/tree/src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs`
-  - `calculogic-validator/tree/src/contributors/tree-naming-semantic-family-bridge-contributor.wiring.mjs`
-  - `calculogic-validator/tree/src/tree-structure-advisor-contributors-assembly.wiring.mjs`
-  - `calculogic-validator/tree/test/tree-occurrence-snapshot.test.mjs`
-  - `calculogic-validator/tree/test/tree-structural-address-snapshot.logic.test.mjs`
-  - `calculogic-validator/tree/test/tree-semantic-home-evidence.logic.test.mjs`
-  - `calculogic-validator/tree/test/tree-naming-semantic-family-bridge-contributor.test.mjs`
+  - `tree/src/tree-occurrence-snapshot.logic.mjs`
+  - `tree/src/tree-structural-address-snapshot.logic.mjs`
+  - `tree/src/tree-structure-advisor.wiring.mjs`
+  - `tree/src/tree-structure-advisor.logic.mjs`
+  - `tree/src/tree-semantic-home-evidence.logic.mjs`
+  - `tree/src/tree-structural-home-evidence.logic.mjs`
+  - `tree/src/tree-folder-kind-evidence.logic.mjs`
+  - `tree/src/tree-occurrence-classification.logic.mjs`
+  - `tree/src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs`
+  - `tree/src/contributors/tree-naming-semantic-family-bridge-contributor.wiring.mjs`
+  - `tree/src/tree-structure-advisor-contributors-assembly.wiring.mjs`
+  - `tree/test/tree-occurrence-snapshot.test.mjs`
+  - `tree/test/tree-structural-address-snapshot.logic.test.mjs`
+  - `tree/test/tree-semantic-home-evidence.logic.test.mjs`
+  - `tree/test/tree-naming-semantic-family-bridge-contributor.test.mjs`
 - Structural-addressing current shape:
-  - `calculogic-validator/structural-addressing/src/structural-addressing-profile.knowledge.mjs`
-  - `calculogic-validator/structural-addressing/src/structural-addressing-marker-strategies.logic.mjs`
-  - `calculogic-validator/structural-addressing/src/structural-addressing-tree-codebase.logic.mjs`
-  - `calculogic-validator/structural-addressing/src/structural-addressing-render-tree.logic.mjs`
-  - `calculogic-validator/structural-addressing/test/*.test.mjs`
+  - `structural-addressing/src/structural-addressing-profile.knowledge.mjs`
+  - `structural-addressing/src/structural-addressing-marker-strategies.logic.mjs`
+  - `structural-addressing/src/structural-addressing-tree-codebase.logic.mjs`
+  - `structural-addressing/src/structural-addressing-render-tree.logic.mjs`
+  - `structural-addressing/test/*.test.mjs`
 - Relevant docs inspected as contract/spec context:
-  - `calculogic-validator/doc/ConventionRoutines/CCPP.md`
-  - `calculogic-validator/doc/ConventionRoutines/CCS.md`
-  - `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
+  - `doc/ConventionRoutines/CCPP.md`
+  - `doc/ConventionRoutines/CCS.md`
+  - `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
   - `doc/ConventionRoutines/General-NL-Skeletons.md`
   - `doc/ConventionRoutines/NL-First-Workflow.md`
   - `README.md`
-  - `calculogic-validator/README.md`
-  - `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
-  - `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
-  - `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-  - `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
-  - `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
-  - `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
-  - `calculogic-validator/doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md`
-  - `calculogic-validator/doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
-  - `calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
-  - `calculogic-validator/doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md`
-  - `calculogic-validator/doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md`
+  - `README.md`
+  - `doc/ConventionRoutines/NamingValidatorSpec.md`
+  - `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
+  - `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+  - `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
+  - `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
+  - `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
+  - `doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md`
+  - `doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
+  - `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
+  - `doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md`
+  - `doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md`
 
 ## 2. Current runtime truth summary
 
@@ -87,7 +87,7 @@ Current runtime truth:
 - Tree currently prepares occurrence and structural-address snapshots for its own runtime, then consumes Naming evidence through two routes:
   - Tree semantic-home evidence joins addressed occurrence records to Naming semantic evidence records by `path`.
   - The Tree naming semantic-family contributor independently consumes the staged Naming bridge observations by `path` and semantic family to emit bounded advisory findings.
-- `calculogic-validator/structural-addressing/**` exists and has an active current implementation shape, but the normal Tree validator runtime inspected here uses Tree-local occurrence and structural-address snapshot modules rather than importing the structural-addressing slice provider.
+- `structural-addressing/**` exists and has an active current implementation shape, but the normal Tree validator runtime inspected here uses Tree-local occurrence and structural-address snapshot modules rather than importing the structural-addressing slice provider.
 - No current Naming bridge payload carries `addressProfileId`, `addressedSnapshotId`, `occurrenceAddress`, `addressPath`, `parentOccurrenceAddress`, `parentAddressPath`, `depth`, or `root lane`.
 - Current Tree addressed occurrence records carry address-like fields named `addressPath` and `parentAddressPath`, not `occurrenceAddress`.
 
@@ -157,7 +157,7 @@ Ownership classification:
 
 ### 4.3 Structural-addressing slice current shape
 
-`calculogic-validator/structural-addressing/**` exists. Its current code shape includes:
+`structural-addressing/**` exists. Its current code shape includes:
 
 - Profile constants:
   - `profileId: 'tree-codebase'`
@@ -359,65 +359,65 @@ Commands run for this audit:
 ```sh
 pwd && find .. -name AGENTS.md -print
 cat AGENTS.md
-for f in calculogic-validator/doc/ConventionRoutines/CCPP.md calculogic-validator/doc/ConventionRoutines/CCS.md calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md doc/ConventionRoutines/General-NL-Skeletons.md doc/ConventionRoutines/NL-First-Workflow.md README.md calculogic-validator/README.md calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md calculogic-validator/doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md calculogic-validator/doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md calculogic-validator/doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md calculogic-validator/doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md; do if [ ! -f "$f" ]; then echo "MISSING $f"; fi; done
-sed -n '1,220p' calculogic-validator/doc/ConventionRoutines/CCPP.md && printf '\n---CCS---\n' && sed -n '1,220p' calculogic-validator/doc/ConventionRoutines/CCS.md && printf '\n---FNM---\n' && sed -n '1,220p' calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md
+for f in doc/ConventionRoutines/CCPP.md doc/ConventionRoutines/CCS.md doc/ConventionRoutines/FileNamingMasterList-V1_1.md doc/ConventionRoutines/General-NL-Skeletons.md doc/ConventionRoutines/NL-First-Workflow.md README.md README.md doc/ConventionRoutines/NamingValidatorSpec.md doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md; do if [ ! -f "$f" ]; then echo "MISSING $f"; fi; done
+sed -n '1,220p' doc/ConventionRoutines/CCPP.md && printf '\n---CCS---\n' && sed -n '1,220p' doc/ConventionRoutines/CCS.md && printf '\n---FNM---\n' && sed -n '1,220p' doc/ConventionRoutines/FileNamingMasterList-V1_1.md
 gh issue view 619 --repo HCAToolkit/Calculogic_React_App --json number,title,body && printf '\n---618---\n' && gh issue view 618 --repo HCAToolkit/Calculogic_React_App --json number,title,body
-find calculogic-validator/src/core calculogic-validator/naming/src calculogic-validator/naming/test calculogic-validator/tree/src calculogic-validator/tree/test calculogic-validator/structural-addressing calculogic-validator/doc -maxdepth 3 -type f | sort | sed -n '1,220p'
-find calculogic-validator/naming/src calculogic-validator/naming/test calculogic-validator/tree/src calculogic-validator/tree/test calculogic-validator/src/core calculogic-validator/structural-addressing -type f | sort
-rg -n "occurrence|address|semantic family|bridge|selected paths|target descriptor|include roots|source snapshot|report metadata|scope" calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md calculogic-validator/doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md calculogic-validator/doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md calculogic-validator/doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md calculogic-validator/doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md
-sed -n '1,240p' calculogic-validator/src/core/scoped-target-paths.logic.mjs
-sed -n '1,220p' calculogic-validator/src/core/suite-scoped-snapshot-input.logic.mjs
-sed -n '1,220p' calculogic-validator/src/core/source-snapshot.logic.mjs
-sed -n '1,260p' calculogic-validator/src/core/validator-runner.logic.mjs
-sed -n '1,220p' calculogic-validator/src/core/cli/validator-cli-targets.logic.mjs
-sed -n '1,220p' calculogic-validator/src/core/validator-scopes.logic.mjs
-sed -n '1,160p' calculogic-validator/src/core/validator-root-files.knowledge.mjs
-sed -n '1,260p' calculogic-validator/naming/src/naming-semantic-evidence-bridge.logic.mjs
-sed -n '1,260p' calculogic-validator/naming/src/naming-semantic-family-bridge-projection.logic.mjs
-sed -n '1,220p' calculogic-validator/naming/src/naming-runtime-converters.logic.mjs
-sed -n '1,760p' calculogic-validator/naming/src/naming-validator.logic.mjs
-sed -n '1,160p' calculogic-validator/naming/src/rules/naming-rule-parse-canonical.logic.mjs
-sed -n '1,260p' calculogic-validator/naming/src/rules/naming-rule-derive-semantic-family.logic.mjs
-sed -n '1,240p' calculogic-validator/naming/src/rules/naming-rule-derive-disambiguation-hints.logic.mjs
-sed -n '1,260p' calculogic-validator/tree/src/tree-occurrence-snapshot.logic.mjs
-cat calculogic-validator/tree/src/tree-structural-address-snapshot.logic.mjs
-cat calculogic-validator/tree/src/tree-semantic-home-evidence.logic.mjs
-sed -n '1,260p' calculogic-validator/tree/src/tree-folder-kind-evidence.logic.mjs
-sed -n '1,260p' calculogic-validator/tree/src/tree-structural-home-evidence.logic.mjs
-sed -n '1,760p' calculogic-validator/tree/src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs
-sed -n '1,260p' calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs
-sed -n '1,760p' calculogic-validator/tree/src/tree-structure-advisor.logic.mjs
-cat calculogic-validator/tree/src/tree-structure-advisor-contributors-assembly.wiring.mjs
-cat calculogic-validator/tree/src/contributors/tree-naming-semantic-family-bridge-contributor.wiring.mjs
-for f in calculogic-validator/structural-addressing/src/*.mjs; do echo '---' $f; sed -n '1,240p' $f; done
+find src/core naming/src naming/test tree/src tree/test calculogic-validator/structural-addressing calculogic-validator/doc -maxdepth 3 -type f | sort | sed -n '1,220p'
+find naming/src naming/test tree/src tree/test src/core calculogic-validator/structural-addressing -type f | sort
+rg -n "occurrence|address|semantic family|bridge|selected paths|target descriptor|include roots|source snapshot|report metadata|scope" doc/ConventionRoutines/NamingValidatorSpec.md doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md
+sed -n '1,240p' src/core/scoped-target-paths.logic.mjs
+sed -n '1,220p' src/core/suite-scoped-snapshot-input.logic.mjs
+sed -n '1,220p' src/core/source-snapshot.logic.mjs
+sed -n '1,260p' src/core/validator-runner.logic.mjs
+sed -n '1,220p' src/core/cli/validator-cli-targets.logic.mjs
+sed -n '1,220p' src/core/validator-scopes.logic.mjs
+sed -n '1,160p' src/core/validator-root-files.knowledge.mjs
+sed -n '1,260p' naming/src/naming-semantic-evidence-bridge.logic.mjs
+sed -n '1,260p' naming/src/naming-semantic-family-bridge-projection.logic.mjs
+sed -n '1,220p' naming/src/naming-runtime-converters.logic.mjs
+sed -n '1,760p' naming/src/naming-validator.logic.mjs
+sed -n '1,160p' naming/src/rules/naming-rule-parse-canonical.logic.mjs
+sed -n '1,260p' naming/src/rules/naming-rule-derive-semantic-family.logic.mjs
+sed -n '1,240p' naming/src/rules/naming-rule-derive-disambiguation-hints.logic.mjs
+sed -n '1,260p' tree/src/tree-occurrence-snapshot.logic.mjs
+cat tree/src/tree-structural-address-snapshot.logic.mjs
+cat tree/src/tree-semantic-home-evidence.logic.mjs
+sed -n '1,260p' tree/src/tree-folder-kind-evidence.logic.mjs
+sed -n '1,260p' tree/src/tree-structural-home-evidence.logic.mjs
+sed -n '1,760p' tree/src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs
+sed -n '1,260p' tree/src/tree-structure-advisor.wiring.mjs
+sed -n '1,760p' tree/src/tree-structure-advisor.logic.mjs
+cat tree/src/tree-structure-advisor-contributors-assembly.wiring.mjs
+cat tree/src/contributors/tree-naming-semantic-family-bridge-contributor.wiring.mjs
+for f in structural-addressing/src/*.mjs; do echo '---' $f; sed -n '1,240p' $f; done
 cat package.json | sed -n '1,220p'
-cat calculogic-validator/package.json
-sed -n '1,260p' calculogic-validator/naming/test/naming-semantic-family-bridge-projection.test.mjs
-sed -n '1,260p' calculogic-validator/naming/test/naming-semantic-evidence-bridge.logic.test.mjs
-cat calculogic-validator/tree/test/tree-semantic-home-evidence.logic.test.mjs
-sed -n '1,260p' calculogic-validator/tree/test/tree-occurrence-snapshot.test.mjs
-sed -n '1,240p' calculogic-validator/tree/test/tree-structural-address-snapshot.logic.test.mjs
-sed -n '1,220p' calculogic-validator/tree/test/tree-naming-semantic-family-bridge-contributor.test.mjs
+cat package.json
+sed -n '1,260p' naming/test/naming-semantic-family-bridge-projection.test.mjs
+sed -n '1,260p' naming/test/naming-semantic-evidence-bridge.logic.test.mjs
+cat tree/test/tree-semantic-home-evidence.logic.test.mjs
+sed -n '1,260p' tree/test/tree-occurrence-snapshot.test.mjs
+sed -n '1,240p' tree/test/tree-structural-address-snapshot.logic.test.mjs
+sed -n '1,220p' tree/test/tree-naming-semantic-family-bridge-contributor.test.mjs
 git diff -- calculogic-validator/src calculogic-validator/naming calculogic-validator/tree calculogic-validator/structural-addressing calculogic-validator/doc
-node --test calculogic-validator/naming/test/*.test.mjs calculogic-validator/tree/test/*.test.mjs
+node --test naming/test/*.test.mjs tree/test/*.test.mjs
 npm run validate:naming -- --scope=validator --target calculogic-validator/naming
-node --experimental-strip-types calculogic-validator/scripts/validate-naming.host.mjs --scope=validator --target calculogic-validator/naming > /tmp/naming-audit.json; status=$?; node - <<'NODE'
+node --experimental-strip-types scripts/validate-naming.host.mjs --scope=validator --target calculogic-validator/naming > /tmp/naming-audit.json; status=$?; node - <<'NODE'
 import fs from 'node:fs';
 const data = JSON.parse(fs.readFileSync('/tmp/naming-audit.json','utf8'));
 console.log(JSON.stringify({status: data.counts, invalid: data.findings.filter(f => f.classification === 'invalid-ambiguous' || f.classification === 'legacy-exception').map(f => ({code:f.code,path:f.path,classification:f.classification}))}, null, 2));
 NODE
 exit $status
 npm run validate:tree -- --scope=validator --target calculogic-validator/tree
-npm run validate:naming -- --scope=validator --target calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md
+npm run validate:naming -- --scope=validator --target doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md
 ```
 
 Outcomes:
 
 - `gh issue view ...` could not run in this container because `gh` is not installed; the issues were inspected through the public GitHub web page instead.
 - The required canonical convention docs were present.
-- `calculogic-validator/structural-addressing/**` is present and has a current active source/test shape.
+- `structural-addressing/**` is present and has a current active source/test shape.
 - `git diff -- calculogic-validator/src calculogic-validator/naming calculogic-validator/tree calculogic-validator/structural-addressing calculogic-validator/doc` exited 0 with no output at the first required diff checkpoint because the audit artifact was still untracked.
-- `node --test calculogic-validator/naming/test/*.test.mjs calculogic-validator/tree/test/*.test.mjs` exited 0 with 348 passing tests.
-- `npm run validate:naming -- --scope=validator --target calculogic-validator/naming` exited 2 due existing focused-target findings in `calculogic-validator/naming/src/registries/_custom/reportable-extensions.registry.custom.json`, `calculogic-validator/naming/src/registries/_custom/roles.registry.custom.json`, and `calculogic-validator/naming/src/registries/registry-state.json`; this docs-only audit did not modify those files.
+- `node --test naming/test/*.test.mjs tree/test/*.test.mjs` exited 0 with 348 passing tests.
+- `npm run validate:naming -- --scope=validator --target calculogic-validator/naming` exited 2 due existing focused-target findings in `naming/src/registries/_custom/reportable-extensions.registry.custom.json`, `naming/src/registries/_custom/roles.registry.custom.json`, and `naming/src/registries/registry-state.json`; this docs-only audit did not modify those files.
 - `npm run validate:tree -- --scope=validator --target calculogic-validator/tree` exited 0 and reported existing advisory findings for Tree shim/bridge surfaces and one observed Tree semantic-family cluster.
-- `npm run validate:naming -- --scope=validator --target calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` exited 0 and classified this audit filename as canonical.
+- `npm run validate:naming -- --scope=validator --target doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` exited 0 and classified this audit filename as canonical.

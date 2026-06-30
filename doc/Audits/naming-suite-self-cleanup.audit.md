@@ -10,7 +10,7 @@ This document records current runtime truth and current implementation reality f
 
 Run date: 2026-05-04 (UTC).
 
-1. `npm run validate:naming -- --scope=validator --target calculogic-validator/naming/src/registries`
+1. `npm run validate:naming -- --scope=validator --target naming/src/registries`
    - Outcome: exited 2, findings present (expected audit input).
    - Key counts: canonical 20, legacy-exception 1, invalid-ambiguous 2.
 2. `npm run validate:naming -- --scope=validator --target calculogic-validator/src`
@@ -33,12 +33,12 @@ Run date: 2026-05-04 (UTC).
 
 ### Current active cleanup (inside #442 scope)
 
-- `calculogic-validator/src/**`
-  - `NAMING_MISSING_ROLE`: `calculogic-validator/src/index.mjs`.
-- `calculogic-validator/naming/src/registries/**`
-  - `NAMING_MISSING_ROLE`: `calculogic-validator/naming/src/registries/registry-state.json`.
+- `src/**`
+  - `NAMING_MISSING_ROLE`: `src/index.mjs`.
+- `naming/src/registries/**`
+  - `NAMING_MISSING_ROLE`: `naming/src/registries/registry-state.json`.
   - `NAMING_UNKNOWN_ROLE`: `_custom/*.registry.custom.json` pair.
-- `calculogic-validator/doc/**` (legacy-missing-role heavy cluster)
+- `doc/**` (legacy-missing-role heavy cluster)
   - 29 `NAMING_MISSING_ROLE` findings concentrated in `doc/Audits`, `doc/ConventionRoutines`, `doc/Indexes`, `doc/ValidatorSpecs/...`.
 
 ### Comparison vs historical audit (`validator-missing-role-decision-lanes.audit.md`)
@@ -66,39 +66,39 @@ Reason: remaining active findings are either role-vocabulary pressure, compatibi
 
 ## 5. Ambiguous files
 
-1. `calculogic-validator/doc/Audits/validator-shim-cleanup-design-checkpoint.md`
+1. `doc/Audits/validator-shim-cleanup-design-checkpoint.md`
    - Ambiguity: mixed checkpoint/decision posture.
    - Decision needed: lock as audit history vs planning note.
    - Recommended disposition: leave alone for now.
 
-2. `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-top-root-registry-transition-inventory.md`
+2. `doc/ValidatorSpecs/tree-owned/tree-top-root-registry-transition-inventory.md`
    - Ambiguity: inventory + spec-like semantics coexist.
    - Decision needed: split inventory from spec authority, or keep mixed with explicit classification.
    - Recommended disposition: defer to Tree work.
 
 ## 6. Role-vocabulary pressure
 
-1. `calculogic-validator/src/index.mjs`
+1. `src/index.mjs`
    - Responsibility: package export surface/barrel.
    - Distortion today: active roles (`logic`, `host`, `contracts`, etc.) do not honestly express barrel/export identity.
    - Candidate role: `inventory` or `note` does not fit; likely needs dedicated barrel/index handling later.
    - Recommendation: later role-addition/governance slice only.
 
-2. `calculogic-validator/naming/src/registries/registry-state.json`
+2. `naming/src/registries/registry-state.json`
    - Responsibility: tiny registry-state snapshot for active source resolution.
    - Distortion today: no active role honestly captures runtime state snapshot semantics.
    - Candidate role: `inventory`/`note` not a fit; this is configuration/state semantics.
    - Recommendation: defer until explicit registry-state naming policy slice.
 
-3. `calculogic-validator/doc/Indexes/validator-docs.index.md`
+3. `doc/Indexes/validator-docs.index.md`
    - Responsibility: doc routing index.
    - Distortion today: missing active role for index/inventory-like document surfaces.
    - Candidate role: `inventory` is plausible and should be considered in a later role-addition slice.
 
-4. `calculogic-validator/doc/ConventionRoutines/naming-interpretation-hardening-transitional.inventory.md`
-5. `calculogic-validator/doc/naming-compatibility.inventory.md`
-6. `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md`
-7. `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
+4. `doc/ConventionRoutines/naming-interpretation-hardening-transitional.inventory.md`
+5. `doc/naming-compatibility.inventory.md`
+6. `doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md`
+7. `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
    - Responsibility cluster: inventory/map/transition-note docs.
    - Distortion today: they are neither pure `spec` nor pure `audit`.
    - Candidate role: `inventory` is plausible; `note` may also be a secondary candidate when material is explanatory rather than indexed.
@@ -106,15 +106,15 @@ Reason: remaining active findings are either role-vocabulary pressure, compatibi
 
 ## 7. Post-split legacy compatibility scaffolding
 
-1. `calculogic-validator/naming/src/registries/_custom/reportable-extensions.registry.custom.json`
+1. `naming/src/registries/_custom/reportable-extensions.registry.custom.json`
    - Classification: defer to custom registry system.
    - Why: custom overlay compatibility surface; out of #442 scope.
 
-2. `calculogic-validator/naming/src/registries/_custom/roles.registry.custom.json`
+2. `naming/src/registries/_custom/roles.registry.custom.json`
    - Classification: defer to custom registry system.
    - Why: same custom overlay lane.
 
-3. `calculogic-validator/naming/src/registries/registry-state.json`
+3. `naming/src/registries/registry-state.json`
    - Classification: keep for now.
    - Why: current runtime truth uses this state host; removal/rename would change behavior contracts.
 
@@ -140,9 +140,9 @@ No `_custom` renames are proposed in this slice.
 
 Deferred explicitly (out of #442):
 
-- `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
-- `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-top-root-registry-transition-inventory.md`
-- `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
+- `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
+- `doc/ValidatorSpecs/tree-owned/tree-top-root-registry-transition-inventory.md`
+- `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
 
 Tree registry/runtime interpretation changes are not current runtime truth for this slice and remain deferred.
 

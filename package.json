@@ -28,5 +28,33 @@
     "calculogic-validate": "./bin/calculogic-validate.host.mjs",
     "calculogic-validate-naming": "./bin/calculogic-validate-naming.host.mjs",
     "calculogic-validator-health": "./bin/calculogic-validator-health.host.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "validate:naming": "node --experimental-strip-types scripts/validate-naming.host.mjs",
+    "validate:all": "node --experimental-strip-types scripts/validate-all.host.mjs",
+    "validate:tree": "node --experimental-strip-types scripts/validate-tree.host.mjs",
+    "health:validator": "node --experimental-strip-types scripts/validator-health-check.host.mjs",
+    "addressing:get-tree": "node --experimental-strip-types scripts/addressing-get-tree.host.mjs",
+    "report:naming:repo": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-repo -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=repo",
+    "report:naming:app": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-app -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=app",
+    "report:naming:docs": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-docs -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=docs",
+    "report:naming:validator": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-validator -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=validator",
+    "report:naming:validator:entry": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-validator-entry -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=validator --target bin --target scripts",
+    "report:naming:validator:naming": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-validator-naming -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=validator --target naming",
+    "report:naming:validator:tree": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-validator-tree -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=validator --target tree",
+    "report:naming:validator:doc": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-validator-doc -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=validator --target doc",
+    "report:naming:system": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-system -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=system",
+    "report:all:repo": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-all-repo -- node --experimental-strip-types scripts/validate-all.host.mjs --scope=repo",
+    "report:all:app": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-all-app -- node --experimental-strip-types scripts/validate-all.host.mjs --scope=app",
+    "report:all:docs": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-all-docs -- node --experimental-strip-types scripts/validate-all.host.mjs --scope=docs",
+    "report:all:validator": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-all-validator -- node --experimental-strip-types scripts/validate-all.host.mjs --scope=validator",
+    "report:all:system": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-all-system -- node --experimental-strip-types scripts/validate-all.host.mjs --scope=system",
+    "report:tree:repo": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-tree-repo -- node --experimental-strip-types scripts/validate-tree.host.mjs --scope=repo",
+    "report:tree:app": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-tree-app -- node --experimental-strip-types scripts/validate-tree.host.mjs --scope=app",
+    "report:tree:docs": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-tree-docs -- node --experimental-strip-types scripts/validate-tree.host.mjs --scope=docs",
+    "report:tree:validator": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-tree-validator -- node --experimental-strip-types scripts/validate-tree.host.mjs --scope=validator",
+    "report:tree:system": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-tree-system -- node --experimental-strip-types scripts/validate-tree.host.mjs --scope=system",
+    "report:addressing:get-tree:validator": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix addressing-get-tree-validator -- npm run addressing:get-tree -- --scope=validator --format=both"
   }
 }

@@ -73,7 +73,7 @@
       "path": "eslint.config.mjs",
       "classification": "allowed-special-case",
       "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
+      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
       "details": {
         "specialCaseType": "ecosystem-required"
       }
@@ -84,7 +84,7 @@
       "path": "package-lock.json",
       "classification": "allowed-special-case",
       "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
+      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
       "details": {
         "specialCaseType": "ecosystem-required"
       }
@@ -95,7 +95,7 @@
       "path": "package.json",
       "classification": "allowed-special-case",
       "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
+      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
       "details": {
         "specialCaseType": "ecosystem-required"
       }
@@ -106,7 +106,7 @@
       "path": "tsconfig.app.json",
       "classification": "allowed-special-case",
       "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
+      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
       "details": {
         "specialCaseType": "ecosystem-required"
       }
@@ -117,7 +117,7 @@
       "path": "tsconfig.json",
       "classification": "allowed-special-case",
       "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
+      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
       "details": {
         "specialCaseType": "ecosystem-required"
       }
@@ -128,7 +128,7 @@
       "path": "tsconfig.node.json",
       "classification": "allowed-special-case",
       "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
+      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
       "details": {
         "specialCaseType": "ecosystem-required"
       }
@@ -139,7 +139,7 @@
       "path": "vite.config.ts",
       "classification": "allowed-special-case",
       "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
+      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
       "details": {
         "specialCaseType": "ecosystem-required"
       }
