@@ -187,18 +187,18 @@ test('suite-core candidate helper reproduces current Naming repo candidate colle
     const newCandidatePaths = assertNamingCandidateParity(fixtureDir, { scope: 'repo' });
 
     assert.deepEqual(newCandidatePaths.selectedPaths, [
-      'src/core/example.logic.js',
-      'src/core/example.logic.mjs',
-      'test/example.test.mjs',
       'doc/guide.md',
       'package-lock.json',
       'package.json',
       'README.md',
       'src/app.logic.ts',
       'src/App.tsx',
+      'src/core/example.logic.js',
+      'src/core/example.logic.mjs',
       'src/data.json',
       'src/style.css',
       'test/app.test.js',
+      'test/example.test.mjs',
     ]);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
@@ -215,13 +215,25 @@ test('suite-core candidate helper reproduces current Naming scoped candidate col
     assert.deepEqual(appCandidates.selectedPaths, [
       'src/app.logic.ts',
       'src/App.tsx',
+      'src/core/example.logic.js',
+      'src/core/example.logic.mjs',
       'src/data.json',
       'src/style.css',
       'test/app.test.js',
+      'test/example.test.mjs',
     ]);
     assert.deepEqual(validatorCandidates.selectedPaths, [
+      'doc/guide.md',
+      'package-lock.json',
+      'package.json',
+      'README.md',
+      'src/app.logic.ts',
+      'src/App.tsx',
       'src/core/example.logic.js',
       'src/core/example.logic.mjs',
+      'src/data.json',
+      'src/style.css',
+      'test/app.test.js',
       'test/example.test.mjs',
     ]);
   } finally {
@@ -332,11 +344,11 @@ test('suite-core candidate helper preserves current Naming root-file and sorting
     });
 
     assert.deepEqual(rootFileCandidates.selectedPaths, [
-      'src/core/example.logic.mjs',
-      'test/example.test.mjs',
       'package-lock.json',
       'package.json',
       'src/app.logic.ts',
+      'src/core/example.logic.mjs',
+      'test/example.test.mjs',
     ]);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
@@ -362,10 +374,13 @@ test('Naming candidate helper migration preserves config overlay extension addit
       [
         'src/app.logic.ts',
         'src/App.tsx',
+        'src/core/example.logic.js',
+        'src/core/example.logic.mjs',
         'src/data.json',
         'src/overlay.customext',
         'src/style.css',
         'test/app.test.js',
+        'test/example.test.mjs',
       ],
     );
   } finally {

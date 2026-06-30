@@ -90,6 +90,10 @@ export const buildScopePathPredicate = (scopeProfile) => {
 
   return (relativePath) => {
     const normalizedPath = normalizePath(relativePath);
+    if (includeRootSet.has('.')) {
+      return true;
+    }
+
     if (normalizedPath.includes('/')) {
       const firstSegment = normalizedPath.split('/')[0];
       return includeRootSet.has(firstSegment);

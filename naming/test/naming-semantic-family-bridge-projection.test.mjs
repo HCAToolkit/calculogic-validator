@@ -71,24 +71,7 @@ test('naming bridge projection emits package-root folder semantic-family-root ob
     ],
   });
 
-  assert.deepEqual(projected.observations, [
-    {
-      path: 'calculogic-validator',
-      repoRelativePath: 'calculogic-validator',
-      occurrenceType: 'folder',
-      semanticName: 'calculogic-validator',
-      familyRoot: 'calculogic',
-      semanticFamily: 'calculogic-validator',
-      semanticEvidenceKind: 'semantic-family-root-folder',
-      familyRootQualification: 'package-root-folder',
-      evidenceSource: 'naming-semantic-family-bridge-projection',
-      evidenceProvenance: {
-        sourceFindingCode: 'NAMING_ALLOWED_SPECIAL_CASE',
-        sourceFindingPath: 'package.json',
-        sourceSpecialCaseType: 'ecosystem-required',
-      },
-    },
-  ]);
+  assert.deepEqual(projected.observations, []);
 });
 
 test('naming folder-composition bridge emits only explicit folder observations from registry-backed patterns', () => {

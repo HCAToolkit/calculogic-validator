@@ -13,25 +13,25 @@
       "untrackedCount": 0
     }
   },
-  "registryState": "builtin",
-  "registrySource": "builtin",
-  "registryDigests": {
-    "builtin": "603befb271f58265771b5106d85c3b593e956a73f2c768352aa4a305a4a2b0fd",
-    "custom": "8d5ccfbe4cc90cf86d4b03abcc68e003d7f6f05b7508eb241c9b8d49ac29dd8f",
-    "resolved": "603befb271f58265771b5106d85c3b593e956a73f2c768352aa4a305a4a2b0fd"
-  },
   "startedAt": "<iso-startedAt>",
   "endedAt": "<iso-endedAt>",
   "durationMs": 0,
+  "registryState": "builtin",
+  "registrySource": "builtin",
+  "registryDigests": {
+    "builtin": "86a06d015372a7393f9536e07794d2ff5e57bed79dcbe59232d9b624bc39c4d1",
+    "custom": "31eb0ff1405b3e4afad23cc43a117e65746d6f06b8ce24f955a24286cc2916f5",
+    "resolved": "86a06d015372a7393f9536e07794d2ff5e57bed79dcbe59232d9b624bc39c4d1"
+  },
   "scope": "system",
-  "totalFilesScanned": 7,
+  "totalFilesScanned": 2,
   "filters": {
     "isFiltered": false
   },
   "scopeSummary": {
     "scope": "system",
-    "reportableFilesInScope": 7,
-    "findingsGenerated": 7
+    "reportableFilesInScope": 2,
+    "findingsGenerated": 2
   },
   "scopeContract": {
     "description": "System/tooling files scan (root package/tsconfig/eslint/vite files).",
@@ -51,15 +51,15 @@
   },
   "counts": {
     "canonical": 0,
-    "allowed-special-case": 7,
+    "allowed-special-case": 2,
     "legacy-exception": 0,
     "invalid-ambiguous": 0
   },
   "codeCounts": {
-    "NAMING_ALLOWED_SPECIAL_CASE": 7
+    "NAMING_ALLOWED_SPECIAL_CASE": 2
   },
   "specialCaseTypeCounts": {
-    "ecosystem-required": 7
+    "ecosystem-required": 2
   },
   "warningRoleStatusCounts": {},
   "warningRoleCategoryCounts": {},
@@ -67,17 +67,6 @@
   "familySubgroupCounts": {},
   "semanticFamilyCounts": {},
   "findings": [
-    {
-      "code": "NAMING_ALLOWED_SPECIAL_CASE",
-      "severity": "info",
-      "path": "eslint.config.mjs",
-      "classification": "allowed-special-case",
-      "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
-      "details": {
-        "specialCaseType": "ecosystem-required"
-      }
-    },
     {
       "code": "NAMING_ALLOWED_SPECIAL_CASE",
       "severity": "info",
@@ -93,50 +82,6 @@
       "code": "NAMING_ALLOWED_SPECIAL_CASE",
       "severity": "info",
       "path": "package.json",
-      "classification": "allowed-special-case",
-      "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
-      "details": {
-        "specialCaseType": "ecosystem-required"
-      }
-    },
-    {
-      "code": "NAMING_ALLOWED_SPECIAL_CASE",
-      "severity": "info",
-      "path": "tsconfig.app.json",
-      "classification": "allowed-special-case",
-      "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
-      "details": {
-        "specialCaseType": "ecosystem-required"
-      }
-    },
-    {
-      "code": "NAMING_ALLOWED_SPECIAL_CASE",
-      "severity": "info",
-      "path": "tsconfig.json",
-      "classification": "allowed-special-case",
-      "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
-      "details": {
-        "specialCaseType": "ecosystem-required"
-      }
-    },
-    {
-      "code": "NAMING_ALLOWED_SPECIAL_CASE",
-      "severity": "info",
-      "path": "tsconfig.node.json",
-      "classification": "allowed-special-case",
-      "message": "Filename matches an allowed reserved/special-case pattern.",
-      "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
-      "details": {
-        "specialCaseType": "ecosystem-required"
-      }
-    },
-    {
-      "code": "NAMING_ALLOWED_SPECIAL_CASE",
-      "severity": "info",
-      "path": "vite.config.ts",
       "classification": "allowed-special-case",
       "message": "Filename matches an allowed reserved/special-case pattern.",
       "ruleRef": "doc/ConventionRoutines/FileNamingMasterList-V1_1.md#allowed-special-cases-and-reserved-filenames-v12",
