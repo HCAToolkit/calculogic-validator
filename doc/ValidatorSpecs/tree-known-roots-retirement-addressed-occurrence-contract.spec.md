@@ -85,8 +85,8 @@ Current runtime truth for addressed evidence in inspected Tree runtime paths:
 
 Current implementation reality for structural-addressing path discovery in this slice:
 
-- Prompt path `calculogic-validator/src/structural-addressing` was not found in this repository.
-- Inspected docs and inventory references indicate structural-addressing code under `calculogic-validator/structural-addressing/src/...` for addressed occurrence production context.
+- Prompt path `src/structural-addressing` was not found in this repository.
+- Inspected docs and inventory references indicate structural-addressing code under `structural-addressing/src/...` for addressed occurrence production context.
 
 Not current runtime truth (target/deferred for this contract slice):
 

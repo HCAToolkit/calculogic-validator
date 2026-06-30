@@ -8,15 +8,15 @@ import { test } from 'node:test';
 const repositoryRoot = process.cwd();
 const namingScriptPath = path.resolve(
   repositoryRoot,
-  'calculogic-validator/scripts/validate-naming.host.mjs',
+  'scripts/validate-naming.host.mjs',
 );
 const validateAllScriptPath = path.resolve(
   repositoryRoot,
-  'calculogic-validator/scripts/validate-all.host.mjs',
+  'scripts/validate-all.host.mjs',
 );
 const validateTreeScriptPath = path.resolve(
   repositoryRoot,
-  'calculogic-validator/scripts/validate-tree.host.mjs',
+  'scripts/validate-tree.host.mjs',
 );
 
 const writeFixtureRepo = async (fixtureDir) => {

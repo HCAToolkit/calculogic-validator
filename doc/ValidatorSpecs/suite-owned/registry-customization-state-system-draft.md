@@ -65,10 +65,10 @@ Proposed registry-state meta model (single state file):
 - Normal validation runs read state meta and registry payloads only.
 - Optional guard behavior (draft decision): validation run may recompute+warn on stale digest mismatch but should not silently rewrite state unless explicitly configured.
 
-## 4) File layout proposal (under `calculogic-validator/src/...`)
+## 4) File layout proposal (under `src/...`)
 
 ```text
-calculogic-validator/src/
+src/
   naming/
     registries/
       _builtin/

@@ -8,7 +8,7 @@ import { test } from 'node:test';
 const repositoryRoot = process.cwd();
 const validateAllScriptPath = path.resolve(
   repositoryRoot,
-  'calculogic-validator/scripts/validate-all.host.mjs',
+  'scripts/validate-all.host.mjs',
 );
 
 const runValidateAll = (fixtureDir, args) =>
@@ -137,7 +137,7 @@ test('validate-all target filtering suppresses shim findings outside selected ta
     );
     await fs.writeFile(
       path.join(fixtureDir, 'src', 'validator-runner.logic.mjs'),
-      "export * from '../calculogic-validator/src/core/validator-runner.logic.mjs';\n",
+      "export * from '../src/core/validator-runner.logic.mjs';\n",
       'utf8',
     );
 

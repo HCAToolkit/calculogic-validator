@@ -12,7 +12,7 @@ The model is designed to prevent token-only interpretation (for example treating
 Status posture for this document:
 
 - **Current modeling contract:** terms, object model, and interpretation rules in this file.
-- **Boundary audit reference:** `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-structural-address-snapshot-probe-boundary.audit.md` documents the checkpoint boundary between current occurrence snapshot runtime substrate and structural-address/get-tree probe formalization.
+- **Boundary audit reference:** `doc/ValidatorSpecs/tree-owned/tree-structural-address-snapshot-probe-boundary.audit.md` documents the checkpoint boundary between current occurrence snapshot runtime substrate and structural-address/get-tree probe formalization.
 - **No runtime change claim:** this pass does not change tree runtime behavior.
 - **Tree-specific addressing direction:** tree occurrence notation in this file is scoped modeling guidance unless/until promoted into canonical runtime grammar.
 
@@ -109,8 +109,8 @@ Repeated folder names can appear under different parents and at different depths
 Example occurrence set:
 
 - `calculogic-validator/src`
-- `calculogic-validator/naming/src`
-- `calculogic-validator/tree/src`
+- `naming/src`
+- `tree/src`
 
 All three terminal tokens are `src`, but tree modeling must treat them as three distinct folder occurrences because their parent-relative lineage differs.
 
@@ -128,7 +128,7 @@ This section is a concrete **illustrative tree-occurrence** example for this doc
 - Numbers represent **file occurrences**.
 - This notation is **tree-specific modeling guidance** scoped to this doc.
 - It is **not** declared canonical runtime grammar in this pass.
-- It does **not** replace `calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`.
+- It does **not** replace `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`.
 
 ### Concrete Tree Excerpt
 
@@ -190,7 +190,7 @@ Interpretation principle used below (Illustrative, tree-specific):
   - Occurrence type: `file occurrence`
   - Occurrence marker: `1`
   - Actual name: `LICENSE`
-  - Resolved path: `calculogic-validator/LICENSE`
+  - Resolved path: `LICENSE`
   - Meaning: first file occurrence directly under repo-root occurrence `A`.
 
 - `A.A`
@@ -198,7 +198,7 @@ Interpretation principle used below (Illustrative, tree-specific):
   - Occurrence type: `folder occurrence`
   - Occurrence marker: `A`
   - Actual name: `doc`
-  - Resolved path: `calculogic-validator/doc/`
+  - Resolved path: `doc/`
   - Meaning: first folder occurrence under repo-root occurrence `A`.
 
 - `A.A.A`
@@ -206,15 +206,15 @@ Interpretation principle used below (Illustrative, tree-specific):
   - Occurrence type: `folder occurrence`
   - Occurrence marker: `A`
   - Actual name: `ConventionRoutines`
-  - Resolved path: `calculogic-validator/doc/ConventionRoutines/`
-  - Meaning: first folder occurrence under `calculogic-validator/doc/`, distinguished by lineage from other `A` markers.
+  - Resolved path: `doc/ConventionRoutines/`
+  - Meaning: first folder occurrence under `doc/`, distinguished by lineage from other `A` markers.
 
 - `A.D`
   - Address: `A.D`
   - Occurrence type: `folder occurrence`
   - Occurrence marker: `D`
   - Actual name: `src`
-  - Resolved path: `calculogic-validator/src/`
+  - Resolved path: `src/`
   - Meaning: fourth folder occurrence directly under repo-root occurrence `A`.
 
 - `A.D.A`
@@ -222,16 +222,16 @@ Interpretation principle used below (Illustrative, tree-specific):
   - Occurrence type: `folder occurrence`
   - Occurrence marker: `A`
   - Actual name: `core`
-  - Resolved path: `calculogic-validator/src/core/`
-  - Meaning: first folder occurrence under `calculogic-validator/src/`, showing reused letter markers remain lineage-scoped.
+  - Resolved path: `src/core/`
+  - Meaning: first folder occurrence under `src/`, showing reused letter markers remain lineage-scoped.
 
 - `A.D.A.3`
   - Address: `A.D.A.3`
   - Occurrence type: `file occurrence`
   - Occurrence marker: `3`
   - Actual name: `validator-exit-code.logic.mjs`
-  - Resolved path: `calculogic-validator/src/core/validator-exit-code.logic.mjs`
-  - Meaning: third file occurrence under `calculogic-validator/src/core/`, interpreted by parent chain plus file-segment typing.
+  - Resolved path: `src/core/validator-exit-code.logic.mjs`
+  - Meaning: third file occurrence under `src/core/`, interpreted by parent chain plus file-segment typing.
 
 ### Nested Lineage and Depth Semantics (Illustrative, Tree-Specific)
 
@@ -361,7 +361,7 @@ Example illustration only (aligned with the concrete validator-tree style in thi
 
 Interpretation of the example:
 
-- `A.D.A` identifies a folder occurrence (marker chain resolves to `calculogic-validator/src/core/`),
+- `A.D.A` identifies a folder occurrence (marker chain resolves to `src/core/`),
 - `A.D.A.3` identifies a file occurrence under that same lineage (`validator-exit-code.logic.mjs`),
 - marker tokens (`A`, `D`, `3`) are occurrence markers in this illustrative system, not the actual folder/file names,
 - identity derives from lineage + terminal kind, not name-only.
@@ -373,8 +373,8 @@ Interpretation of the example:
 Given:
 
 - `calculogic-validator/src`
-- `calculogic-validator/naming/src`
-- `calculogic-validator/tree/src`
+- `naming/src`
+- `tree/src`
 
 Tree must model:
 

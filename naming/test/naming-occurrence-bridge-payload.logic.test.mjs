@@ -32,7 +32,7 @@ test('createNamingOccurrenceBridgePayload creates a versioned Naming bridge enve
   });
 
   assert.equal(result.bridgeContractVersion, 'naming-occurrence-bridge.v1');
-  assert.equal(result.bridgeSource, 'calculogic-validator/naming');
+  assert.equal(result.bridgeSource, 'naming');
   assert.equal(result.bridgeProducerId, 'naming-semantic-family-occurrence-bridge');
   assert.equal(result.addressProfileId, 'tree-codebase');
   assert.equal(result.addressedSnapshotId, 'snapshot-001');
@@ -130,7 +130,7 @@ test('createNamingOccurrenceBridgePayload attaches full occurrence identity and 
     namingSemanticFamilyBridge: {
       observations: [
         {
-          path: 'calculogic-validator/naming/src/naming-semantic-family-bridge-projection.logic.mjs',
+          path: 'naming/src/naming-semantic-family-bridge-projection.logic.mjs',
           semanticName: 'naming-semantic-family-bridge-projection',
           semanticFamily: 'naming-semantic-family',
           familyRoot: 'naming',
@@ -147,7 +147,7 @@ test('createNamingOccurrenceBridgePayload attaches full occurrence identity and 
         {
           occurrenceAddress: 'A.B.1',
           addressPath: 'A.B.1',
-          path: 'calculogic-validator/naming/src/naming-semantic-family-bridge-projection.logic.mjs',
+          path: 'naming/src/naming-semantic-family-bridge-projection.logic.mjs',
           occurrenceType: 'file',
         },
       ],
@@ -159,8 +159,8 @@ test('createNamingOccurrenceBridgePayload attaches full occurrence identity and 
       addressProfileId: 'tree-codebase',
       addressedSnapshotId: 'snapshot-001',
       occurrenceAddress: 'A.B.1',
-      repoRelativePath: 'calculogic-validator/naming/src/naming-semantic-family-bridge-projection.logic.mjs',
-      path: 'calculogic-validator/naming/src/naming-semantic-family-bridge-projection.logic.mjs',
+      repoRelativePath: 'naming/src/naming-semantic-family-bridge-projection.logic.mjs',
+      path: 'naming/src/naming-semantic-family-bridge-projection.logic.mjs',
       addressPath: 'A.B.1',
       occurrenceType: 'file',
       semanticName: 'naming-semantic-family-bridge-projection',

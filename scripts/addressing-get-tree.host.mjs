@@ -14,12 +14,12 @@ import {
 } from '../structural-addressing/src/structural-addressing-profile.knowledge.mjs';
 
 const SUPPORTED_SCOPE = 'validator';
-const SOURCE_NAMESPACE = 'calculogic-validator';
-const DEFAULT_SCOPE_ROOT = 'calculogic-validator';
+const SOURCE_NAMESPACE = 'validator';
+const DEFAULT_SCOPE_ROOT = '.';
 const EXCLUDED_WALK_NAMES = new Set(['.git', 'node_modules', '.reports', 'dist', 'build', 'coverage']);
 
 const USAGE_TEXT =
-  'Usage: node --experimental-strip-types calculogic-validator/scripts/addressing-get-tree.host.mjs --scope=validator [--target <path>] [--format text|json|both]';
+  'Usage: node --experimental-strip-types scripts/addressing-get-tree.host.mjs --scope=validator [--target <path>] [--format text|json|both]';
 
 const normalizeCliPath = (inputPath) => inputPath.trim().replaceAll('\\', '/');
 
@@ -186,8 +186,10 @@ const toOccurrenceNode = async ({ absolutePath, repoRoot }) => {
     return null;
   }
 
-  const relativePath = normalizeRelativePath({ absolutePath, repoRoot });
-  const name = path.basename(absolutePath);
+  const rawRelativePath = normalizeRelativePath({ absolutePath, repoRoot });
+  const isRepositoryRoot = rawRelativePath === '';
+  const name = isRepositoryRoot ? '.' : path.basename(absolutePath);
+  const relativePath = isRepositoryRoot ? '.' : rawRelativePath;
 
   if (stat.isDirectory()) {
     const children = await fs.readdir(absolutePath);

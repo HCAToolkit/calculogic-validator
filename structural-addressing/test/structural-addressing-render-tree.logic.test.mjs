@@ -13,16 +13,16 @@ const buildInput = () => ({
       path: 'calculogic-validator',
       occurrenceType: 'folder',
       children: [
-        { name: 'README.md', path: 'calculogic-validator/README.md', occurrenceType: 'file' },
-        { name: 'LICENSE', path: 'calculogic-validator/LICENSE', occurrenceType: 'file' },
+        { name: 'README.md', path: 'README.md', occurrenceType: 'file' },
+        { name: 'LICENSE', path: 'LICENSE', occurrenceType: 'file' },
         {
           name: 'doc',
-          path: 'calculogic-validator/doc',
+          path: 'doc',
           occurrenceType: 'folder',
           children: [
             {
               name: 'ConventionRoutines',
-              path: 'calculogic-validator/doc/ConventionRoutines',
+              path: 'doc/ConventionRoutines',
               occurrenceType: 'folder',
               children: [],
             },

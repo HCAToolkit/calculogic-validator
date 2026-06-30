@@ -25,9 +25,9 @@ This means the resolved minimum contract should be limited to the current additi
 
 Inspected surfaces:
 
-- `calculogic-validator/structural-addressing/src/structural-addressing-profile.knowledge.mjs`
-- `calculogic-validator/structural-addressing/src/structural-addressing-tree-codebase.logic.mjs`
-- `calculogic-validator/structural-addressing/test/`
+- `structural-addressing/src/structural-addressing-profile.knowledge.mjs`
+- `structural-addressing/src/structural-addressing-tree-codebase.logic.mjs`
+- `structural-addressing/test/`
 
 Current address profile and profile-shaped constants:
 
@@ -65,9 +65,9 @@ Renderer/provider assumptions and tests:
 
 Inspected surfaces:
 
-- `calculogic-validator/naming/src/naming-semantic-family-bridge-projection.logic.mjs`
-- `calculogic-validator/naming/src/naming-occurrence-bridge-payload.logic.mjs`
-- `calculogic-validator/naming/test/`
+- `naming/src/naming-semantic-family-bridge-projection.logic.mjs`
+- `naming/src/naming-occurrence-bridge-payload.logic.mjs`
+- `naming/test/`
 
 Current semantic-family bridge projection:
 
@@ -102,11 +102,11 @@ Current output mode:
 
 Inspected surfaces:
 
-- `calculogic-validator/tree/src/tree-naming-occurrence-intake.logic.mjs`
-- `calculogic-validator/tree/src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs`
-- `calculogic-validator/tree/src/contributors/tree-naming-semantic-family-bridge-contributor.wiring.mjs`
-- `calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs`
-- `calculogic-validator/tree/test/`
+- `tree/src/tree-naming-occurrence-intake.logic.mjs`
+- `tree/src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs`
+- `tree/src/contributors/tree-naming-semantic-family-bridge-contributor.wiring.mjs`
+- `tree/src/tree-structure-advisor.wiring.mjs`
+- `tree/test/`
 
 Current staged Naming occurrence bridge intake:
 
@@ -319,6 +319,6 @@ Candidate fields such as `parentAddressPath`, `depth`, `orderIndex`, `semanticTo
 Planned verification for this docs-only slice:
 
 - `git diff --check`
-- `git diff -- calculogic-validator/doc calculogic-validator/src/core calculogic-validator/naming calculogic-validator/tree calculogic-validator/structural-addressing`
-- `npm run validate:naming -- --scope=validator --target calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md --target calculogic-validator/doc/Indexes/validator-docs.index.md`
+- `git diff -- calculogic-validator/doc src/core calculogic-validator/naming calculogic-validator/tree calculogic-validator/structural-addressing`
+- `npm run validate:naming -- --scope=validator --target doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md --target doc/Indexes/validator-docs.index.md`
 - `npm run validate:tree -- --scope=validator --target calculogic-validator/doc`

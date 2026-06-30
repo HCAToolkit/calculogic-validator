@@ -32,7 +32,7 @@ However, this mixed behavior should not be treated as the long-term registry mod
 
 ## Relationship to deterministic structural addressing
 
-This profile aligns with `calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md` and reuses the same core principle:
+This profile aligns with `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md` and reuses the same core principle:
 - addressing deterministically locates a structural node,
 - addressing answers where an occurrence is.
 
@@ -74,9 +74,9 @@ The examples below are illustrative scope-modeling examples, not current runtime
 
 ```text
 A       = calculogic-validator/
-A.F     = calculogic-validator/tree/
-A.F.B   = calculogic-validator/tree/src/
-A.F.B.1 = calculogic-validator/tree/src/tree-structure-advisor.host.mjs
+A.F     = tree/
+A.F.B   = tree/src/
+A.F.B.1 = tree/src/tree-structure-advisor.host.mjs
 ```
 
 ### Example 2: active scope is whole repository root
@@ -84,9 +84,9 @@ A.F.B.1 = calculogic-validator/tree/src/tree-structure-advisor.host.mjs
 ```text
 A         = repo root
 A.C       = calculogic-validator/
-A.C.F     = calculogic-validator/tree/
-A.C.F.B   = calculogic-validator/tree/src/
-A.C.F.B.1 = calculogic-validator/tree/src/tree-structure-advisor.host.mjs
+A.C.F     = tree/
+A.C.F.B   = tree/src/
+A.C.F.B.1 = tree/src/tree-structure-advisor.host.mjs
 ```
 
 
@@ -127,7 +127,7 @@ suite scope profile
 
 Structural addressing should make repeated folder tokens less ambiguous.
 
-Example: `src` under `calculogic-validator/tree/` and `src` under `calculogic-validator/naming/` are not globally identical occurrences. They are separate addressed structural-home occurrences under different scope/semantic lineage.
+Example: `src` under `tree/` and `src` under `naming/` are not globally identical occurrences. They are separate addressed structural-home occurrences under different scope/semantic lineage.
 
 ## Known-root clarification
 

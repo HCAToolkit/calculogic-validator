@@ -163,8 +163,8 @@ This contract is a child shared-contract document under the suite-level registry
 
 Parent references:
 
-- `calculogic-validator/doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+- `doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
+- `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
 
 This child contract focuses specifically on filename interpretation and case-policy semantics.
 

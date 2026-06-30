@@ -30,36 +30,36 @@ These files have a clear current responsibility and an existing active role alre
 
 | Candidate file | Actual ownership / responsibility | Recommended role | Why this fits now |
 |---|---|---|---|
-| `calculogic-validator/bin/calculogic-validate-naming.host.mjs` | Public naming CLI entry surface that resolves repo root, builds usage text, and delegates to naming CLI runtime | `host` | Thin executable surface / public entry boundary; the owned logic already lives elsewhere. |
-| `calculogic-validator/bin/calculogic-validate.host.mjs` | Public suite runner CLI entry surface for registered validators | `host` | Entry-surface composition is clear and stable. |
-| `calculogic-validator/bin/calculogic-validator-health.host.mjs` | Public health-check entrypoint that hands off to the health host | `host` | It is a host surface, not the health logic itself. |
-| `calculogic-validator/scripts/generate-validator-report-examples.host.mjs` | Script host that orchestrates validator report example generation | `host` | Executable orchestration surface rather than reusable inner logic. |
-| `calculogic-validator/scripts/report-capture-summarize.host.mjs` | Standalone report-capture summarizer CLI surface | `host` | Public tool entry surface is the dominant responsibility. |
-| `calculogic-validator/scripts/report-capture-verify.host.mjs` | Standalone report-capture verification CLI surface | `host` | Same host-surface reasoning as the other script entrypoints. |
-| `calculogic-validator/scripts/validate-all.host.mjs` | npm-facing suite validator entry surface | `host` | Clear public runner surface. |
-| `calculogic-validator/scripts/validate-naming.host.mjs` | npm-facing naming validator entry surface | `host` | Clear public runner surface. |
-| `calculogic-validator/scripts/validate-tree.host.mjs` | npm-facing tree validator entry surface | `host` | Clear public runner surface. |
-| `calculogic-validator/doc/Audits/naming-slice-boundary-correction.md` | Point-in-time reconciliation record of the naming slice ownership move | `audit` | Snapshot verification / correction record. |
-| `calculogic-validator/doc/Audits/tree-slice-boundary-correction.md` | Point-in-time reconciliation record of the tree slice ownership move | `audit` | Snapshot verification / correction record. |
-| `calculogic-validator/doc/Audits/validator-shim-cleanup-pass-1.md` | Completed pass record for shim cleanup pass 1 | `audit` | Completed-state cleanup record, not future planning. |
-| `calculogic-validator/doc/Audits/validator-shim-cleanup-pass-2.md` | Completed pass record for shim cleanup pass 2 | `audit` | Completed-state cleanup record, not future planning. |
-| `calculogic-validator/doc/Audits/validator-shim-cleanup-pass-3-final-removal.md` | Completed pass record for shim cleanup pass 3 final removal | `audit` | Completed-state cleanup record, not future planning. |
-| `calculogic-validator/doc/ConventionRoutines/CCPP.md` | Repo-wide contributor convention/protocol for comments and provenance | `policy` | Governs contributor behavior and convention compliance. |
-| `calculogic-validator/doc/ConventionRoutines/CCS.md` | Repo-wide architectural convention for concern separation and purity | `policy` | Governs contributor-facing concern boundaries. |
-| `calculogic-validator/doc/ConventionRoutines/CSCS.md` | Repo-wide concern separation / coupling convention | `policy` | Behavior-governing convention rather than a one-off snapshot. |
-| `calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md` | Draft structural-addressing contract/specification | `spec` | The dominant responsibility is specification, even though draft status remains in the semantic name. |
-| `calculogic-validator/doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md` | Contributor-facing rule set for document content classification | `policy` | Normative convention / governance guidance. |
-| `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md` | Canonical naming grammar and taxonomy authority | `spec` | Primary naming contract/spec authority. |
-| `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md` | Canonical naming-slice runtime/spec behavior document | `spec` | Explicit slice-spec authority. |
-| `calculogic-validator/doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md` | Contributor-facing terminology-scoping convention | `policy` | Normative usage guidance rather than implementation planning. |
-| `calculogic-validator/doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md` | Canonical reuse-routing convention for validator helper ownership | `policy` | Normative helper routing rules for contributors. |
-| `calculogic-validator/doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md` | Canonical ownership contract for loader/converter/runtime boundaries | `spec` | Bounded contract/spec semantics dominate. |
-| `calculogic-validator/doc/ConventionRoutines/ValidatorReportSchema-V0_1.md` | Canonical current validator report-shape contract | `spec` | Schema/contract authority. |
-| `calculogic-validator/doc/ConventionRoutines/ValidatorRuleIds-Contract.md` | Canonical rule-id contract for validator findings | `spec` | Stable contract document. |
-| `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` | Canonical suite-level validator runtime contract | `spec` | Canonical suite contract document. |
-| `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md` | Canonical current shared-capability contract/inventory for suite reuse | `spec` | The doc is normative and contract-like enough that `spec` is honest without waiting for a new inventory role. |
-| `calculogic-validator/doc/ValidatorSpecs/filename-case-and-interpretation-contract.md` | Shared filename interpretation contract used across slices | `spec` | Bounded contract document. |
-| `calculogic-validator/doc/ValidatorSpecs/suite-owned/registry-customization-state-system-draft.md` | Forward-looking proposal for registry customization state handling | `plan` | The dominant responsibility is planned future work, not current runtime authority. |
+| `bin/calculogic-validate-naming.host.mjs` | Public naming CLI entry surface that resolves repo root, builds usage text, and delegates to naming CLI runtime | `host` | Thin executable surface / public entry boundary; the owned logic already lives elsewhere. |
+| `bin/calculogic-validate.host.mjs` | Public suite runner CLI entry surface for registered validators | `host` | Entry-surface composition is clear and stable. |
+| `bin/calculogic-validator-health.host.mjs` | Public health-check entrypoint that hands off to the health host | `host` | It is a host surface, not the health logic itself. |
+| `scripts/generate-validator-report-examples.host.mjs` | Script host that orchestrates validator report example generation | `host` | Executable orchestration surface rather than reusable inner logic. |
+| `scripts/report-capture-summarize.host.mjs` | Standalone report-capture summarizer CLI surface | `host` | Public tool entry surface is the dominant responsibility. |
+| `scripts/report-capture-verify.host.mjs` | Standalone report-capture verification CLI surface | `host` | Same host-surface reasoning as the other script entrypoints. |
+| `scripts/validate-all.host.mjs` | npm-facing suite validator entry surface | `host` | Clear public runner surface. |
+| `scripts/validate-naming.host.mjs` | npm-facing naming validator entry surface | `host` | Clear public runner surface. |
+| `scripts/validate-tree.host.mjs` | npm-facing tree validator entry surface | `host` | Clear public runner surface. |
+| `doc/Audits/naming-slice-boundary-correction.md` | Point-in-time reconciliation record of the naming slice ownership move | `audit` | Snapshot verification / correction record. |
+| `doc/Audits/tree-slice-boundary-correction.md` | Point-in-time reconciliation record of the tree slice ownership move | `audit` | Snapshot verification / correction record. |
+| `doc/Audits/validator-shim-cleanup-pass-1.md` | Completed pass record for shim cleanup pass 1 | `audit` | Completed-state cleanup record, not future planning. |
+| `doc/Audits/validator-shim-cleanup-pass-2.md` | Completed pass record for shim cleanup pass 2 | `audit` | Completed-state cleanup record, not future planning. |
+| `doc/Audits/validator-shim-cleanup-pass-3-final-removal.md` | Completed pass record for shim cleanup pass 3 final removal | `audit` | Completed-state cleanup record, not future planning. |
+| `doc/ConventionRoutines/CCPP.md` | Repo-wide contributor convention/protocol for comments and provenance | `policy` | Governs contributor behavior and convention compliance. |
+| `doc/ConventionRoutines/CCS.md` | Repo-wide architectural convention for concern separation and purity | `policy` | Governs contributor-facing concern boundaries. |
+| `doc/ConventionRoutines/CSCS.md` | Repo-wide concern separation / coupling convention | `policy` | Behavior-governing convention rather than a one-off snapshot. |
+| `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md` | Draft structural-addressing contract/specification | `spec` | The dominant responsibility is specification, even though draft status remains in the semantic name. |
+| `doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md` | Contributor-facing rule set for document content classification | `policy` | Normative convention / governance guidance. |
+| `doc/ConventionRoutines/FileNamingMasterList-V1_1.md` | Canonical naming grammar and taxonomy authority | `spec` | Primary naming contract/spec authority. |
+| `doc/ConventionRoutines/NamingValidatorSpec.md` | Canonical naming-slice runtime/spec behavior document | `spec` | Explicit slice-spec authority. |
+| `doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md` | Contributor-facing terminology-scoping convention | `policy` | Normative usage guidance rather than implementation planning. |
+| `doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md` | Canonical reuse-routing convention for validator helper ownership | `policy` | Normative helper routing rules for contributors. |
+| `doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md` | Canonical ownership contract for loader/converter/runtime boundaries | `spec` | Bounded contract/spec semantics dominate. |
+| `doc/ConventionRoutines/ValidatorReportSchema-V0_1.md` | Canonical current validator report-shape contract | `spec` | Schema/contract authority. |
+| `doc/ConventionRoutines/ValidatorRuleIds-Contract.md` | Canonical rule-id contract for validator findings | `spec` | Stable contract document. |
+| `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` | Canonical suite-level validator runtime contract | `spec` | Canonical suite contract document. |
+| `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md` | Canonical current shared-capability contract/inventory for suite reuse | `spec` | The doc is normative and contract-like enough that `spec` is honest without waiting for a new inventory role. |
+| `doc/ValidatorSpecs/filename-case-and-interpretation-contract.md` | Shared filename interpretation contract used across slices | `spec` | Bounded contract document. |
+| `doc/ValidatorSpecs/suite-owned/registry-customization-state-system-draft.md` | Forward-looking proposal for registry customization state handling | `plan` | The dominant responsibility is planned future work, not current runtime authority. |
 
 ## 4. Bucket 2 — Needs ownership clarification first
 
@@ -67,8 +67,8 @@ These files are still mixed enough that renaming now would risk encoding the wro
 
 | Candidate file | Why ownership is still ambiguous | Why not rename yet |
 |---|---|---|
-| `calculogic-validator/doc/Audits/validator-shim-cleanup-design-checkpoint.md` | The document mixes checkpoint analysis, compatibility-policy choice, and pre-pass-3 readiness framing. It is partly historical assessment and partly decision memo for future action. | Renaming it now to either `*.audit.md` or `*.plan.md` would prematurely collapse that mixed responsibility into one lane. Clarify whether it should remain a retrospective checkpoint record or be reframed as a planning/decision artifact first. |
-| `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-top-root-registry-transition-inventory.md` | The document self-identifies as both transition inventory and contract. Its current content mixes migration inventory with bounded normative modeling. | Renaming directly to `*.spec.md` would bury the transition/inventory identity; renaming toward a future inventory/index lane would bury the contract content. Split or tighten ownership first. |
+| `doc/Audits/validator-shim-cleanup-design-checkpoint.md` | The document mixes checkpoint analysis, compatibility-policy choice, and pre-pass-3 readiness framing. It is partly historical assessment and partly decision memo for future action. | Renaming it now to either `*.audit.md` or `*.plan.md` would prematurely collapse that mixed responsibility into one lane. Clarify whether it should remain a retrospective checkpoint record or be reframed as a planning/decision artifact first. |
+| `doc/ValidatorSpecs/tree-owned/tree-top-root-registry-transition-inventory.md` | The document self-identifies as both transition inventory and contract. Its current content mixes migration inventory with bounded normative modeling. | Renaming directly to `*.spec.md` would bury the transition/inventory identity; renaming toward a future inventory/index lane would bury the contract content. Split or tighten ownership first. |
 
 ## 5. Bucket 3 — Suggests later role-vocabulary discussion
 
@@ -76,59 +76,59 @@ These files have clear current responsibility, but the current active role vocab
 
 | Candidate file | Actual ownership / responsibility | Why existing active roles would distort it |
 |---|---|---|
-| `calculogic-validator/src/index.mjs` | Package/root export barrel for validator public exports | `host`, `wiring`, and `contracts` all miss the dominant barrel/export-surface identity. This looks more like a reserved barrel/special-case or a later explicit surface role discussion than a forced rename target. |
-| `calculogic-validator/naming/src/registries/registry-state.json` | Tiny runtime state snapshot selecting active registry source | Active roles do not honestly express state-snapshot/config-state ownership. Forcing `contracts` or `knowledge` would blur mutable runtime-state semantics. |
-| `calculogic-validator/doc/Indexes/validator-docs.index.md` | Pure validator documentation routing/index surface | Current active roles do not honestly capture index/navigation ownership. This is direct evidence for the later `index` / inventory-family discussion already foreshadowed in the master list. |
-| `calculogic-validator/doc/naming-compatibility.inventory.md` | Transitional compatibility inventory / migration tracking note | `plan`, `audit`, and `spec` all distort the inventory-tracking responsibility. |
-| `calculogic-validator/doc/ConventionRoutines/naming-interpretation-hardening-transitional.inventory.md` | Transitional hardening inventory for implementation mapping | Same inventory-role pressure; not honestly a spec/policy/workflow. |
-| `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md` | Naming routing map plus bounded reorg inventory metadata | Current active roles do not express map/inventory navigation ownership. |
-| `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md` | Tree routing map plus bounded reorg inventory metadata | Same map/inventory vocabulary pressure. |
-| `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md` | Validator-owned NL/config implementation note | The active roles do not honestly capture “NL/config note” semantics; forcing `spec`, `workflow`, or `plan` would flatten an implementation-note lane into the wrong authority level. |
+| `src/index.mjs` | Package/root export barrel for validator public exports | `host`, `wiring`, and `contracts` all miss the dominant barrel/export-surface identity. This looks more like a reserved barrel/special-case or a later explicit surface role discussion than a forced rename target. |
+| `naming/src/registries/registry-state.json` | Tiny runtime state snapshot selecting active registry source | Active roles do not honestly express state-snapshot/config-state ownership. Forcing `contracts` or `knowledge` would blur mutable runtime-state semantics. |
+| `doc/Indexes/validator-docs.index.md` | Pure validator documentation routing/index surface | Current active roles do not honestly capture index/navigation ownership. This is direct evidence for the later `index` / inventory-family discussion already foreshadowed in the master list. |
+| `doc/naming-compatibility.inventory.md` | Transitional compatibility inventory / migration tracking note | `plan`, `audit`, and `spec` all distort the inventory-tracking responsibility. |
+| `doc/ConventionRoutines/naming-interpretation-hardening-transitional.inventory.md` | Transitional hardening inventory for implementation mapping | Same inventory-role pressure; not honestly a spec/policy/workflow. |
+| `doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md` | Naming routing map plus bounded reorg inventory metadata | Current active roles do not express map/inventory navigation ownership. |
+| `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md` | Tree routing map plus bounded reorg inventory metadata | Same map/inventory vocabulary pressure. |
+| `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md` | Validator-owned NL/config implementation note | The active roles do not honestly capture “NL/config note” semantics; forcing `spec`, `workflow`, or `plan` would flatten an implementation-note lane into the wrong authority level. |
 
 ## 6. Candidate files reviewed
 
 This pass reviewed every current validator-scope `NAMING_MISSING_ROLE` finding from the 2026-03-20 report run:
 
-1. `calculogic-validator/bin/calculogic-validate-naming.host.mjs`
-2. `calculogic-validator/bin/calculogic-validate.host.mjs`
-3. `calculogic-validator/bin/calculogic-validator-health.host.mjs`
-4. `calculogic-validator/doc/Audits/naming-slice-boundary-correction.md`
-5. `calculogic-validator/doc/Audits/tree-slice-boundary-correction.md`
-6. `calculogic-validator/doc/Audits/validator-shim-cleanup-design-checkpoint.md`
-7. `calculogic-validator/doc/Audits/validator-shim-cleanup-pass-1.md`
-8. `calculogic-validator/doc/Audits/validator-shim-cleanup-pass-2.md`
-9. `calculogic-validator/doc/Audits/validator-shim-cleanup-pass-3-final-removal.md`
-10. `calculogic-validator/doc/ConventionRoutines/CCPP.md`
-11. `calculogic-validator/doc/ConventionRoutines/CCS.md`
-12. `calculogic-validator/doc/ConventionRoutines/CSCS.md`
-13. `calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
-14. `calculogic-validator/doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md`
-15. `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
-16. `calculogic-validator/doc/ConventionRoutines/naming-interpretation-hardening-transitional.inventory.md`
-17. `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
-18. `calculogic-validator/doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md`
-19. `calculogic-validator/doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md`
-20. `calculogic-validator/doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
-21. `calculogic-validator/doc/ConventionRoutines/ValidatorReportSchema-V0_1.md`
-22. `calculogic-validator/doc/ConventionRoutines/ValidatorRuleIds-Contract.md`
-23. `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-24. `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
-25. `calculogic-validator/doc/Indexes/validator-docs.index.md`
-26. `calculogic-validator/doc/naming-compatibility.inventory.md`
-27. `calculogic-validator/doc/ValidatorSpecs/filename-case-and-interpretation-contract.md`
-28. `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md`
-29. `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
-30. `calculogic-validator/doc/ValidatorSpecs/suite-owned/registry-customization-state-system-draft.md`
-31. `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
-32. `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-top-root-registry-transition-inventory.md`
-33. `calculogic-validator/naming/src/registries/registry-state.json`
-34. `calculogic-validator/scripts/generate-validator-report-examples.host.mjs`
-35. `calculogic-validator/scripts/report-capture-summarize.host.mjs`
-36. `calculogic-validator/scripts/report-capture-verify.host.mjs`
-37. `calculogic-validator/scripts/validate-all.host.mjs`
-38. `calculogic-validator/scripts/validate-naming.host.mjs`
-39. `calculogic-validator/scripts/validate-tree.host.mjs`
-40. `calculogic-validator/src/index.mjs`
+1. `bin/calculogic-validate-naming.host.mjs`
+2. `bin/calculogic-validate.host.mjs`
+3. `bin/calculogic-validator-health.host.mjs`
+4. `doc/Audits/naming-slice-boundary-correction.md`
+5. `doc/Audits/tree-slice-boundary-correction.md`
+6. `doc/Audits/validator-shim-cleanup-design-checkpoint.md`
+7. `doc/Audits/validator-shim-cleanup-pass-1.md`
+8. `doc/Audits/validator-shim-cleanup-pass-2.md`
+9. `doc/Audits/validator-shim-cleanup-pass-3-final-removal.md`
+10. `doc/ConventionRoutines/CCPP.md`
+11. `doc/ConventionRoutines/CCS.md`
+12. `doc/ConventionRoutines/CSCS.md`
+13. `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
+14. `doc/ConventionRoutines/DocumentContentClassificationConvention-V1.md`
+15. `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
+16. `doc/ConventionRoutines/naming-interpretation-hardening-transitional.inventory.md`
+17. `doc/ConventionRoutines/NamingValidatorSpec.md`
+18. `doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md`
+19. `doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md`
+20. `doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
+21. `doc/ConventionRoutines/ValidatorReportSchema-V0_1.md`
+22. `doc/ConventionRoutines/ValidatorRuleIds-Contract.md`
+23. `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+24. `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
+25. `doc/Indexes/validator-docs.index.md`
+26. `doc/naming-compatibility.inventory.md`
+27. `doc/ValidatorSpecs/filename-case-and-interpretation-contract.md`
+28. `doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md`
+29. `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
+30. `doc/ValidatorSpecs/suite-owned/registry-customization-state-system-draft.md`
+31. `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
+32. `doc/ValidatorSpecs/tree-owned/tree-top-root-registry-transition-inventory.md`
+33. `naming/src/registries/registry-state.json`
+34. `scripts/generate-validator-report-examples.host.mjs`
+35. `scripts/report-capture-summarize.host.mjs`
+36. `scripts/report-capture-verify.host.mjs`
+37. `scripts/validate-all.host.mjs`
+38. `scripts/validate-naming.host.mjs`
+39. `scripts/validate-tree.host.mjs`
+40. `src/index.mjs`
 
 ## 7. Highest-ROI subset for the next rename tranche
 
@@ -138,8 +138,8 @@ The best next bounded tranche is the files from Bucket 1 that are both high-volu
 
 Rename the validator entry surfaces to `*.host.*` first:
 
-- all three `calculogic-validator/bin/*` missing-role files,
-- all six missing-role files in `calculogic-validator/scripts/`.
+- all three `bin/*` missing-role files,
+- all six missing-role files in `scripts/`.
 
 Why this is highest ROI:
 

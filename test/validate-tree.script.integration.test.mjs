@@ -8,7 +8,7 @@ import { test } from 'node:test';
 const repositoryRoot = process.cwd();
 const validateTreeScriptPath = path.resolve(
   repositoryRoot,
-  'calculogic-validator/scripts/validate-tree.host.mjs',
+  'scripts/validate-tree.host.mjs',
 );
 
 const runValidateTree = (cwd, args, extraEnv = {}) =>
@@ -41,7 +41,7 @@ test('validate-tree runs tree-structure-advisor only and preserves target filter
     );
     await fs.writeFile(
       path.join(fixtureDir, 'src', 'validator-runner.logic.mjs'),
-      "export * from '../calculogic-validator/src/core/validator-runner.logic.mjs';\n",
+      "export * from '../src/core/validator-runner.logic.mjs';\n",
       'utf8',
     );
 
@@ -76,7 +76,7 @@ test('validate-tree emits report JSON and exits 2 for warning-level advisory fin
     );
     await fs.writeFile(
       path.join(fixtureDir, 'src', 'validator-runner.logic.mjs'),
-      "export * from '../calculogic-validator/src/core/validator-runner.logic.mjs';\n",
+      "export * from '../src/core/validator-runner.logic.mjs';\n",
       'utf8',
     );
 
@@ -126,13 +126,13 @@ test('validate-tree help keeps current command usage surface', () => {
       '  - docs: Documentation-focused scan (doc/docs and root conventional docs: README.md).',
       '  - repo: Repository-wide scan of all reportable files.',
       '  - system: System/tooling files scan (root package/tsconfig/eslint/vite files).',
-      '  - validator: Validator-only scan (calculogic-validator/**).',
+      '  - validator: Validator-only scan (validator-owned repository paths).',
       'Default scope: validator default (repo for tree-structure-advisor)',
       'Validator: tree-structure-advisor',
       'Examples:',
       '  ✅ npm run validate:tree -- --scope=repo',
       '  ✅ npm run validate:tree -- --scope=app --target src/tree',
-      '  ✅ npm run validate:tree -- --target calculogic-validator/tree/src',
+      '  ✅ npm run validate:tree -- --target tree/src',
       '  ✅ npm run validate:all -- --validators=tree-structure-advisor --scope=repo',
       '',
     ].join('\n'),
@@ -142,16 +142,16 @@ test('validate-tree help keeps current command usage surface', () => {
 test('validate-tree direct report entry preserves no-finding shape against runner tree selection', () => {
   const directResult = runValidateTree(repositoryRoot, [
     '--scope=validator',
-    '--target=calculogic-validator/src/core',
+    '--target=src/core',
   ]);
   const runnerResult = spawnSync(
     process.execPath,
     [
       '--experimental-strip-types',
-      path.resolve(repositoryRoot, 'calculogic-validator/scripts/validate-all.host.mjs'),
+      path.resolve(repositoryRoot, 'scripts/validate-all.host.mjs'),
       '--scope=validator',
       '--validators=tree-structure-advisor',
-      '--target=calculogic-validator/src/core',
+      '--target=src/core',
     ],
     { cwd: repositoryRoot, encoding: 'utf8' },
   );
@@ -172,16 +172,16 @@ test('validate-tree direct report entry preserves no-finding shape against runne
 });
 
 test('validate-tree direct report entry preserves finding codes severities and summaries against runner tree selection', () => {
-  const args = ['--scope=validator', '--target=calculogic-validator/tree'];
+  const args = ['--scope=validator', '--target=tree'];
   const directResult = runValidateTree(repositoryRoot, args);
   const runnerResult = spawnSync(
     process.execPath,
     [
       '--experimental-strip-types',
-      path.resolve(repositoryRoot, 'calculogic-validator/scripts/validate-all.host.mjs'),
+      path.resolve(repositoryRoot, 'scripts/validate-all.host.mjs'),
       '--scope=validator',
       '--validators=tree-structure-advisor',
-      '--target=calculogic-validator/tree',
+      '--target=tree',
     ],
     { cwd: repositoryRoot, encoding: 'utf8' },
   );
@@ -272,7 +272,7 @@ test('validate-tree rejects unsupported tree-specific config surfaces', async ()
 test('validate-tree accepts --config and includes configDigest in runner report envelope', () => {
   const result = runValidateTree(repositoryRoot, [
     '--scope=system',
-    '--config=calculogic-validator/test/fixtures/validator-config.extensions.contracts.json',
+    '--config=test/fixtures/validator-config.extensions.contracts.json',
   ]);
 
   assert.ok([0, 1, 2].includes(result.status));

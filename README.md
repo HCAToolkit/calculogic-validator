@@ -1,8 +1,8 @@
-# calculogic-validator
+# validator
 
 ## 1) Overview
 
-`calculogic-validator` is a repository-local, **modular, configurable, policy-driven validator suite** in `calculogic-validator/`, including CLI binaries, host scripts, schema, and tests for naming and full validation workflows. The suite is **report-first by default** and can escalate through policy modes when explicitly configured. Canonical suite contract and mode semantics are centralized in [`doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`](./doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md). In this repo, the recommended way to run it is from the **repo root** via npm scripts so command behavior, arguments, and report capture stay consistent with CI and team workflows.
+`validator` is a repository-local, **modular, configurable, policy-driven validator suite** in ``, including CLI binaries, host scripts, schema, and tests for naming and full validation workflows. The suite is **report-first by default** and can escalate through policy modes when explicitly configured. Canonical suite contract and mode semantics are centralized in [`doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`](./doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md). In this repo, the recommended way to run it is from the **repo root** via npm scripts so command behavior, arguments, and report capture stay consistent with CI and team workflows.
 
 Registry expansion roadmap note: see [`doc/ConventionRoutines/registry-expansion-candidates.audit.md`](./doc/ConventionRoutines/registry-expansion-candidates.audit.md) for the current hardcoded-policy audit and prioritized extraction plan.
 
@@ -16,7 +16,7 @@ Suite-core canonical modules are owned under `src/core/`; `src/` is reserved for
 The naming reflects modular suite-core boundaries, owned validator slice roots (`naming/` and `tree/`), and configurable policy surfaces.
 
 ```text
-calculogic-validator/
+
 ├─ LICENSE
 ├─ README.md
 ├─ package.json
@@ -239,20 +239,20 @@ npm run report:naming:validator:doc
 ```
 
 Preset target mapping:
-- `entry` → `calculogic-validator/bin` + `calculogic-validator/scripts`
-- `naming` → `calculogic-validator/naming`
-- `tree` → `calculogic-validator/tree`
-- `doc` → `calculogic-validator/doc`
+- `entry` → `bin` + `scripts`
+- `naming` → `naming`
+- `tree` → `tree`
+- `doc` → `doc`
 
 ## 5) Validator entrypoints and direct invocation
 
 This section includes package-defined validator entrypoints plus direct script invocation where useful, all executable from repo root.
 
 ```bash
-node calculogic-validator/bin/calculogic-validate.host.mjs
-node calculogic-validator/bin/calculogic-validate-naming.host.mjs
-node calculogic-validator/bin/calculogic-validator-health.host.mjs
-node calculogic-validator/scripts/validate-tree.host.mjs --scope=repo
+node bin/calculogic-validate.host.mjs
+node bin/calculogic-validate-naming.host.mjs
+node bin/calculogic-validator-health.host.mjs
+node scripts/validate-tree.host.mjs --scope=repo
 ```
 
 What each entrypoint does:
@@ -282,7 +282,7 @@ npm run validate:all -- --scope=validator
 npm run validate:all -- --scope=system
 npm run validate:tree -- --scope=repo
 npm run validate:tree -- --scope=validator
-npm run validate:tree -- --scope=repo --target calculogic-validator
+npm run validate:tree -- --scope=repo --target validator
 ```
 
 Use scope-specific `report:*` commands when you want one-command capture per target/scope combination.
@@ -290,12 +290,12 @@ Use scope-specific `report:*` commands when you want one-command capture per tar
 Raw target-filter pattern (adaptable to your own validator-focused areas/files):
 
 ```bash
-npm run validate:naming -- --scope=validator --target calculogic-validator/doc
-npm run validate:naming -- --scope=validator --target calculogic-validator/naming
-npm run validate:naming -- --scope=validator --target calculogic-validator/tree
-npm run validate:naming -- --scope=validator --target calculogic-validator/bin --target calculogic-validator/scripts
-npm run validate:naming -- --scope=validator --target calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md
-calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-validator-doc -- node --experimental-strip-types calculogic-validator/scripts/validate-naming.host.mjs --scope=validator --target calculogic-validator/doc
+npm run validate:naming -- --scope=validator --target doc
+npm run validate:naming -- --scope=validator --target naming
+npm run validate:naming -- --scope=validator --target tree
+npm run validate:naming -- --scope=validator --target bin --target scripts
+npm run validate:naming -- --scope=validator --target doc/ConventionRoutines/NamingValidatorSpec.md
+calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-validator-doc -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=validator --target doc
 ```
 
 Scope boundary note: validator-internal presets do not create new built-in scope profiles. `validator` remains the actual scope, and `--target` is the narrowing layer inside that scope.
@@ -304,7 +304,7 @@ Scope boundary note: validator-internal presets do not create new built-in scope
 
 Validator config schema:
 
-- `calculogic-validator/src/validator-config.schema.json`
+- `src/validator-config.schema.json`
 
 Runtime behavior is strict and rejects unknown keys where the schema disallows them. Root-level `$schema` is allowed as an editor hint.
 
@@ -314,7 +314,7 @@ Use `--config=<path>` to pass a config file explicitly:
 
 ```bash
 npm run validate:naming -- --scope=app --config=./.calculogic/validator/config.json
-node calculogic-validator/bin/calculogic-validate-naming.host.mjs --scope=docs --config=./.calculogic/validator/config.json
+node bin/calculogic-validate-naming.host.mjs --scope=docs --config=./.calculogic/validator/config.json
 ```
 
 Canonical config spec: `doc/ValidatorSpecs/validator-config.spec.md`.
@@ -323,7 +323,7 @@ Example:
 
 ```json
 {
-  "$schema": "./calculogic-validator/src/validator-config.schema.json",
+  "$schema": "./src/validator-config.schema.json",
   "version": "0.1",
   "naming": {
     "roles": {

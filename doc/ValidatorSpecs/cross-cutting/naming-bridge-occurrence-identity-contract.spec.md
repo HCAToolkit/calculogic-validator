@@ -4,7 +4,7 @@
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
-- **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
+- **Repo-reality input:** `doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
 ## 1. Purpose and authority boundary
 

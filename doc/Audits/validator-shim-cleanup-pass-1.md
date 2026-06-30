@@ -12,8 +12,8 @@ This pass canonicalizes **in-repo** usage of confirmed validator compatibility s
 
 Internal references were rewritten from shim-debt paths to canonical owned modules (`src/core/**`, `src/core/config/**`, `naming/src/**`) across:
 
-- installable bins under `calculogic-validator/bin/`
-- naming-related validator tests under `calculogic-validator/test/`
+- installable bins under `bin/`
+- naming-related validator tests under `test/`
 - NL/config/spec docs that still pointed to shim-debt paths as canonical
 
 ### Rewrite count
@@ -43,7 +43,7 @@ Internal references were rewritten from shim-debt paths to canonical owned modul
 4. `src/tree-structure-advisor.host.mjs`
 5. `src/tree-structure-advisor.logic.mjs`
 
-Reason in this pass: these remaining references are in `calculogic-validator/test/core-compat-shims.test.mjs`, where shim imports are intentional to verify shim parity against canonical modules.
+Reason in this pass: these remaining references are in `test/core-compat-shims.test.mjs`, where shim imports are intentional to verify shim parity against canonical modules.
 
 ## Notes and boundaries preserved
 

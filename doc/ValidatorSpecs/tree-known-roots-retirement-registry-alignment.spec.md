@@ -39,7 +39,7 @@ Confirmed runtime dependency paths that remain active in current implementation 
 
 ### 3.1 `tree-known-roots.registry.json`
 
-- **Current location:** `calculogic-validator/tree/src/registries/_builtin/tree-known-roots.registry.json`
+- **Current location:** `tree/src/registries/_builtin/tree-known-roots.registry.json`
 - **Ownership status in current implementation reality:** Tree-local builtin registry consumed by Tree runtime loaders/advisor/classifier.
 - **Current role:** transitional compatibility vocabulary for top roots (`topRoots`) and compatibility allow-list projection (`knownTopLevelDirectories`).
 - **Relationship to known-roots retirement:** this is the compatibility source that must eventually be retired after replacement evidence/interpretation lanes exist.
@@ -47,7 +47,7 @@ Confirmed runtime dependency paths that remain active in current implementation 
 
 ### 3.2 `folder-kinds.registry.json`
 
-- **Current location:** `calculogic-validator/tree/src/registries/_builtin/folder-kinds.registry.json`
+- **Current location:** `tree/src/registries/_builtin/folder-kinds.registry.json`
 - **Ownership status in current implementation reality:** Tree-local builtin registry.
 - **Current role:** provides folder-kind vocabulary data for Tree-owned modeling surfaces.
 - **Relationship to known-roots retirement:** expected long-term contributor to Tree folder-kind interpretation lane.
@@ -55,7 +55,7 @@ Confirmed runtime dependency paths that remain active in current implementation 
 
 ### 3.3 `structural-homes.registry.json`
 
-- **Current location:** `calculogic-validator/tree/src/registries/_builtin/structural-homes.registry.json`
+- **Current location:** `tree/src/registries/_builtin/structural-homes.registry.json`
 - **Ownership status in current implementation reality:** Tree-local builtin registry.
 - **Current role:** structural-home identity vocabulary and bounded definitions.
 - **Relationship to known-roots retirement:** candidate source for Tree structural-home interpretation evidence lane.
@@ -63,7 +63,7 @@ Confirmed runtime dependency paths that remain active in current implementation 
 
 ### 3.4 `surface-structural-home-perspective.registry.json`
 
-- **Current location:** `calculogic-validator/tree/src/registries/_builtin/surface-structural-home-perspective.registry.json`
+- **Current location:** `tree/src/registries/_builtin/surface-structural-home-perspective.registry.json`
 - **Ownership status in current implementation reality:** Tree-local builtin perspective registry.
 - **Current role:** perspective mapping data between surface-oriented labels and structural-home references.
 - **Relationship to known-roots retirement:** contextual support for future evidence preparation and perspective modeling boundaries.

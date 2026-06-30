@@ -14,16 +14,16 @@ Status/Authority:
 This inventory covers Tree-registry policy ownership for the requested target files only.
 
 Runtime/spec authority read order used for this audit:
-1. `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-2. `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
-3. `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
-4. `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
-5. `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md` (navigation-only)
+1. `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+2. `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
+3. `doc/ConventionRoutines/NamingValidatorSpec.md`
+4. `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
+5. `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md` (navigation-only)
 
 Additional registry-model context used:
-- `calculogic-validator/doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
-- `calculogic-validator/doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
-- `calculogic-validator/doc/ValidatorSpecs/cross-cutting/registry-blueprint-implementation-map.spec.md`
+- `doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
+- `doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
+- `doc/ValidatorSpecs/cross-cutting/registry-blueprint-implementation-map.spec.md`
 
 ## 2) Ownership boundaries (binding for this inventory)
 
@@ -45,7 +45,7 @@ Additional registry-model context used:
 | `folder-kinds.registry.json` | Tree-owned | No | n/a | none in current runtime truth | Tree folder-kind interpretation layer in runtime/spec | hardcoded/derived (Tree-owned interpretation) | add | Low blast radius; clean ownership if introduced as data-only evidence vocabulary.
 | `structural-home-signal-policy.registry.json` | Tree-owned | No | n/a | none in current runtime truth | Tree structural signals from known roots, shim signals, validator-owned signals | hardcoded + derived | defer | Risk: premature policy freeze while signal heuristics are still tranche-bounded.
 | `semantic-home-policy.registry.json` | Tree-owned | No | n/a | none in current runtime truth | Tree semantic-home derivation from folder context + Naming bridge | derived + hardcoded interpretation rules | defer | Risk: could incorrectly externalize Naming semantics into Tree registry nouns.
-| `agnostic-core-meanings.registry.json` | shared suite | Yes | `calculogic-validator/naming/src/registries/_builtin/agnostic-core-meanings.registry.json` | Naming runtime consumer | n/a | registry-backed in Naming; not consumed by Tree runtime today | no-op | Risk: forcing direct Tree coupling to Naming-internal registry path.
+| `agnostic-core-meanings.registry.json` | shared suite | Yes | `naming/src/registries/_builtin/agnostic-core-meanings.registry.json` | Naming runtime consumer | n/a | registry-backed in Naming; not consumed by Tree runtime today | no-op | Risk: forcing direct Tree coupling to Naming-internal registry path.
 | `relationship-types.registry.json` | shared suite | No | n/a | none | cross-cutting blueprint/spec planning only | documented-only | defer | Risk: creating relationship taxonomy without first stabilizing Tree-owned policy substrate.
 | `relationships.registry.json` | shared suite | No | n/a | none | cross-cutting blueprint/spec planning only | documented-only | defer | Risk: may duplicate inferred relationships that are not current runtime truth.
 

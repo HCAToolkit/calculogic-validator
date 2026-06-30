@@ -1,6 +1,6 @@
 const BRIDGE_CONTRACT_VERSION = 'naming-occurrence-bridge.v1';
 const ENRICHMENT_SIDECAR_VERSION = 'naming-occurrence-bridge-enrichment.v1';
-const BRIDGE_SOURCE = 'calculogic-validator/naming';
+const BRIDGE_SOURCE = 'naming';
 const BRIDGE_PRODUCER_ID = 'naming-semantic-family-occurrence-bridge';
 
 const NAMING_SEMANTIC_FIELDS = [

@@ -77,7 +77,7 @@ const isDeterministicShimContentCandidate = (relativePath, pathSignals) => {
     return true;
   }
 
-  return relativePath === 'calculogic-validator/src/index.mjs';
+  return relativePath === 'src/index.mjs';
 };
 
 export const parseThinReexportShim = (rawContent) => {
@@ -118,7 +118,7 @@ export const parseThinReexportShim = (rawContent) => {
 };
 
 export const parsePublicEntrypointBarrelPassThrough = (relativePath, rawContent) => {
-  if (relativePath !== 'calculogic-validator/src/index.mjs' || typeof rawContent !== 'string') {
+  if (relativePath !== 'src/index.mjs' || typeof rawContent !== 'string') {
     return null;
   }
 
@@ -181,7 +181,7 @@ export const collectShimEvidence = (relativePath, rawContent) => {
   const isCanonicalHostPassThrough = detectCanonicalHostPassThrough(relativePath, thinReexportSignal);
   const isPublicEntryPointPassThrough = detectPublicEntrypointPassThrough(relativePath, rawContent);
   const isShimDetectorImplementationModule =
-    relativePath.startsWith('calculogic-validator/tree/src/') &&
+    relativePath.startsWith('tree/src/') &&
     basenameTokens.includes('shim') &&
     basenameTokens.some((token) => TREE_SIGNAL_POLICY.shimDetectorImplementationTokens.has(token));
 
@@ -210,7 +210,7 @@ const collectPathOnlyShimEvidence = (relativePath) => {
     insideCompatSurface: shimSignals.insideCompatSurface,
     shouldReadContent: isDeterministicShimContentCandidate(relativePath, shimSignals),
     isShimDetectorImplementationModule:
-      relativePath.startsWith('calculogic-validator/tree/src/') &&
+      relativePath.startsWith('tree/src/') &&
       basenameTokens.includes('shim') &&
       basenameTokens.some((token) => TREE_SIGNAL_POLICY.shimDetectorImplementationTokens.has(token)),
   };
@@ -293,7 +293,7 @@ export const collectShimCompatFindings = (paths, getFileContent) => {
       message: evidence.thinReexportShim
         ? 'Thin re-export shim signal detected; maintain a discoverable and deterministic compatibility surface while cleanup is pending.'
         : 'Shim/compat naming/path signals are present with no thin re-export evidence; treat this as low-confidence observability, not immediate shim debt.',
-      ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
+      ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
       details: {
         artifactSurface: evidence.surface,
         matchedShimSignals,
@@ -314,7 +314,7 @@ export const collectShimCompatFindings = (paths, getFileContent) => {
       classification: 'advisory-structure',
       message:
         'Shim-like path is outside a discoverable compat/shims surface; consider consolidating compat entries to support later cleanup work.',
-      ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
+      ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
       details: {
         artifactSurface: evidence.surface,
         matchedShimSignals,

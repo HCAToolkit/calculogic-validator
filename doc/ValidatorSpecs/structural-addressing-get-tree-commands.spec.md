@@ -40,7 +40,7 @@ NPM forwarding separator is required:
 ### Direct host command (non-validation)
 
 ```bash
-node --experimental-strip-types calculogic-validator/scripts/addressing-get-tree.host.mjs --scope=validator --format=both
+node --experimental-strip-types scripts/addressing-get-tree.host.mjs --scope=validator --format=both
 ```
 
 The direct host command is useful for local inspection and mirrors the npm command target.

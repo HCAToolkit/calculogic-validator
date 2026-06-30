@@ -22,7 +22,7 @@ test('config naming.roles.add recognizes added role and changes classification d
     assert.equal(noConfigFinding.code, 'NAMING_UNKNOWN_ROLE');
 
     const config = loadValidatorConfigFromFile(
-      'calculogic-validator/test/fixtures/validator-config.roles.contracts.json',
+      'test/fixtures/validator-config.roles.contracts.json',
       { cwd: process.cwd() },
     );
     const withConfig = runNamingValidator(tempRoot, { scope: 'repo', config });

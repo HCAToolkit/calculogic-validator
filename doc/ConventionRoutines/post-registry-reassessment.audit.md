@@ -8,13 +8,13 @@ This is a planning artifact only: **no runtime behavior changes are proposed in 
 
 Primary inspection scope:
 
-- `calculogic-validator/src/core/`
-- `calculogic-validator/naming/src/`
-- `calculogic-validator/tree/src/`
+- `src/core/`
+- `naming/src/`
+- `tree/src/`
 
 Reference baseline:
 
-- `calculogic-validator/doc/ConventionRoutines/registry-expansion-candidates.audit.md`
+- `doc/ConventionRoutines/registry-expansion-candidates.audit.md`
 
 ---
 

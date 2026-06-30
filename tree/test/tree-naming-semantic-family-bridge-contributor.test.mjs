@@ -90,16 +90,16 @@ test('tree naming bridge contributor drops incomplete observations instead of re
 
 test('tree naming bridge placement model resolves structural home and semantic container separately', () => {
   const placement = toNamingBridgePlacementRecord({
-    path: 'calculogic-validator/tree/src/contributors/tree-occurrence.logic.mjs',
+    path: 'tree/src/contributors/tree-occurrence.logic.mjs',
     semanticName: 'tree-occurrence',
     familyRoot: 'tree',
     semanticFamily: 'tree-occurrence',
   });
 
-  assert.equal(placement.structuralHome, 'calculogic-validator/src');
+  assert.equal(placement.structuralHome, 'src');
   assert.deepEqual(placement.structuralSurfaceChain, ['calculogic-validator', 'src']);
-  assert.equal(placement.semanticContainerIdentity, 'calculogic-validator/tree');
-  assert.equal(placement.semanticHome, 'calculogic-validator/tree');
+  assert.equal(placement.semanticContainerIdentity, 'tree');
+  assert.equal(placement.semanticHome, 'tree');
   assert.equal(placement.localStructuralHome, 'contributors');
   assert.equal(placement.localPlacementCoherence, 'divergent-local-placement');
   assert.equal(placement.localPlacementCoherenceDetails.reason, 'semantic-home-diverges-from-structural-home');
@@ -137,16 +137,16 @@ test('tree naming bridge placement model classifies divergent local placement wh
 
 test('tree naming bridge placement model can represent semantic subhome from family subgroup signals', () => {
   const placement = toNamingBridgePlacementRecord({
-    path: 'calculogic-validator/naming/src/lane/naming-lane.logic.mjs',
+    path: 'naming/src/lane/naming-lane.logic.mjs',
     semanticName: 'naming-lane',
     familyRoot: 'naming',
     semanticFamily: 'naming-lane',
     familySubgroup: 'lane',
   });
 
-  assert.equal(placement.semanticContainerIdentity, 'calculogic-validator/naming');
-  assert.equal(placement.semanticRoot, 'calculogic-validator/naming');
-  assert.equal(placement.semanticSubhome, 'calculogic-validator/naming/src/lane');
+  assert.equal(placement.semanticContainerIdentity, 'naming');
+  assert.equal(placement.semanticRoot, 'naming');
+  assert.equal(placement.semanticSubhome, 'naming/src/lane');
   assert.equal(placement.localPlacementCoherence, 'divergent-local-placement');
   assert.equal(
     placement.localPlacementCoherenceDetails.reason,
@@ -207,7 +207,7 @@ test('tree naming bridge placement model classifies no semantic home when no sem
 
 test('tree naming bridge placement model stays deterministic for identical inputs', () => {
   const observation = {
-    path: 'calculogic-validator/naming/src/lanes/naming-lane.logic.mjs',
+    path: 'naming/src/lanes/naming-lane.logic.mjs',
     semanticName: 'naming-lane',
     familyRoot: 'naming',
     semanticFamily: 'naming-lane',
@@ -221,7 +221,7 @@ test('tree naming bridge placement model stays deterministic for identical input
 
 test('tree naming bridge folder-kind interpretation classifies structural semantic and unspecified folders deterministically', () => {
   const observation = {
-    path: 'calculogic-validator/tree/src/contributors/registry/tree-structure-advisor.logic.mjs',
+    path: 'tree/src/contributors/registry/tree-structure-advisor.logic.mjs',
     semanticName: 'tree-structure-advisor',
     familyRoot: 'tree',
     semanticFamily: 'tree-structure-advisor',
@@ -245,30 +245,30 @@ test('tree naming bridge folder-kind interpretation classifies structural semant
 
 test('tree naming bridge placement model keeps semantic roots out of structural-home derivation by position', () => {
   const placement = toNamingBridgePlacementRecord({
-    path: 'calculogic-validator/naming/src/registry/naming-registry.logic.mjs',
+    path: 'naming/src/registry/naming-registry.logic.mjs',
     semanticName: 'naming-registry',
     familyRoot: 'naming',
     semanticFamily: 'naming-registry',
     familySubgroup: 'registry',
   });
 
-  assert.equal(placement.structuralHome, 'calculogic-validator/src');
-  assert.equal(placement.semanticRoot, 'calculogic-validator/naming');
-  assert.equal(placement.semanticHome, 'calculogic-validator/naming');
-  assert.equal(placement.semanticSubhome, 'calculogic-validator/naming/src/registry');
+  assert.equal(placement.structuralHome, 'src');
+  assert.equal(placement.semanticRoot, 'naming');
+  assert.equal(placement.semanticHome, 'naming');
+  assert.equal(placement.semanticSubhome, 'naming/src/registry');
 });
 
 test('tree naming bridge placement model represents family-root and semantic-family as root plus lower semantic grouping', () => {
   const placement = toNamingBridgePlacementRecord({
-    path: 'calculogic-validator/tree/src/tree-structure-advisor/report-capture.logic.mjs',
+    path: 'tree/src/tree-structure-advisor/report-capture.logic.mjs',
     semanticName: 'report-capture',
     familyRoot: 'tree',
     semanticFamily: 'tree-structure-advisor',
   });
 
-  assert.equal(placement.semanticRoot, 'calculogic-validator/tree');
-  assert.equal(placement.semanticHome, 'calculogic-validator/tree/src/tree-structure-advisor');
-  assert.equal(placement.semanticContainerIdentity, 'calculogic-validator/tree');
+  assert.equal(placement.semanticRoot, 'tree');
+  assert.equal(placement.semanticHome, 'tree/src/tree-structure-advisor');
+  assert.equal(placement.semanticContainerIdentity, 'tree');
   assert.equal(placement.semanticHome === placement.semanticRoot, false);
 });
 
@@ -501,19 +501,19 @@ test('tree naming bridge contributor keeps non-shared families on shared family 
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/logic/tree-spine.logic.mjs',
+        path: 'tree/src/logic/tree-spine.logic.mjs',
         semanticName: 'tree-spine',
         familyRoot: 'tree',
         semanticFamily: 'tree-spine',
       },
       {
-        path: 'calculogic-validator/tree/src/results/tree-spine.results.mjs',
+        path: 'tree/src/results/tree-spine.results.mjs',
         semanticName: 'tree-spine',
         familyRoot: 'tree',
         semanticFamily: 'tree-spine',
       },
       {
-        path: 'calculogic-validator/tree/test/tree-spine.test.mjs',
+        path: 'tree/test/tree-spine.test.mjs',
         semanticName: 'tree-spine',
         familyRoot: 'tree',
         semanticFamily: 'tree-spine',
@@ -556,19 +556,19 @@ test('tree naming bridge contributor treats one naming-aligned semantic containe
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/contributors/tree-family.logic.mjs',
+        path: 'tree/src/contributors/tree-family.logic.mjs',
         semanticName: 'tree-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-family',
       },
       {
-        path: 'calculogic-validator/tree/src/tree-family.results.mjs',
+        path: 'tree/src/tree-family.results.mjs',
         semanticName: 'tree-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-family',
       },
       {
-        path: 'calculogic-validator/tree/src/tests/tree-family.test.mjs',
+        path: 'tree/src/tests/tree-family.test.mjs',
         semanticName: 'tree-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-family',
@@ -585,28 +585,28 @@ test('tree naming bridge contributor treats local-subgroup-first as the primary 
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/naming/src/lanes/naming-lane.logic.mjs',
+        path: 'naming/src/lanes/naming-lane.logic.mjs',
         semanticName: 'naming-lane',
         familyRoot: 'naming',
         semanticFamily: 'naming-lane',
         familySubgroup: 'lane',
       },
       {
-        path: 'calculogic-validator/naming/src/families/naming-lane.results.mjs',
+        path: 'naming/src/families/naming-lane.results.mjs',
         semanticName: 'naming-lane',
         familyRoot: 'naming',
         semanticFamily: 'naming-lane',
         familySubgroup: 'lane',
       },
       {
-        path: 'calculogic-validator/naming/test/naming-lane.test.mjs',
+        path: 'naming/test/naming-lane.test.mjs',
         semanticName: 'naming-lane',
         familyRoot: 'naming',
         semanticFamily: 'naming-lane',
         familySubgroup: 'lane',
       },
       {
-        path: 'calculogic-validator/naming/src/naming-lane.knowledge.mjs',
+        path: 'naming/src/naming-lane.knowledge.mjs',
         semanticName: 'naming-lane',
         familyRoot: 'naming',
         semanticFamily: 'naming-lane',
@@ -624,19 +624,19 @@ test('tree naming bridge contributor suppresses broad scatter for bounded allowe
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-model.spec.md',
+        path: 'doc/ValidatorSpecs/tree-owned/tree-model.spec.md',
         semanticName: 'tree-model',
         familyRoot: 'tree',
         semanticFamily: 'tree-model',
       },
       {
-        path: 'calculogic-validator/tree/src/tree-model.logic.mjs',
+        path: 'tree/src/tree-model.logic.mjs',
         semanticName: 'tree-model',
         familyRoot: 'tree',
         semanticFamily: 'tree-model',
       },
       {
-        path: 'calculogic-validator/tree/test/tree-model.test.mjs',
+        path: 'tree/test/tree-model.test.mjs',
         semanticName: 'tree-model',
         familyRoot: 'tree',
         semanticFamily: 'tree-model',
@@ -674,26 +674,53 @@ test('tree naming bridge contributor applies broader-spread review and keeps exp
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
 });
 
-test('tree naming bridge contributor treats canonical docs/runtime pairings as broader explainable spread before scatter', () => {
+test('tree naming bridge contributor treats top-level tree docs/runtime pairings as broader explainable spread before scatter', () => {
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-router.spec.md',
+        path: 'doc/ValidatorSpecs/tree-owned/tree-router.spec.md',
         semanticName: 'tree-router',
         familyRoot: 'tree',
         semanticFamily: 'tree-router',
       },
       {
-        path: 'calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-router.audit.md',
+        path: 'doc/ValidatorSpecs/tree-owned/tree-router.audit.md',
         semanticName: 'tree-router',
         familyRoot: 'tree',
         semanticFamily: 'tree-router',
       },
       {
-        path: 'calculogic-validator/tree/src/tree-router.logic.mjs',
+        path: 'tree/src/tree-router.logic.mjs',
         semanticName: 'tree-router',
         familyRoot: 'tree',
         semanticFamily: 'tree-router',
+      },
+    ],
+  });
+
+  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
+});
+
+test('tree naming bridge contributor treats top-level naming docs/runtime pairings as broader explainable spread before scatter', () => {
+  const findings = collectNamingSemanticFamilyBridgeFindings({
+    observations: [
+      {
+        path: 'doc/ValidatorSpecs/naming-owned/naming-router.spec.md',
+        semanticName: 'naming-router',
+        familyRoot: 'naming',
+        semanticFamily: 'naming-router',
+      },
+      {
+        path: 'doc/ValidatorSpecs/naming-owned/naming-router.audit.md',
+        semanticName: 'naming-router',
+        familyRoot: 'naming',
+        semanticFamily: 'naming-router',
+      },
+      {
+        path: 'naming/src/naming-router.logic.mjs',
+        semanticName: 'naming-router',
+        familyRoot: 'naming',
+        semanticFamily: 'naming-router',
       },
     ],
   });
@@ -705,19 +732,19 @@ test('tree naming bridge contributor keeps cross-concern but explainable spread 
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/tree-occurrence/tree-occurrence.logic.mjs',
+        path: 'tree/src/tree-occurrence/tree-occurrence.logic.mjs',
         semanticName: 'tree-occurrence',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
       },
       {
-        path: 'calculogic-validator/tree/test/tree-occurrence/tree-occurrence.test.mjs',
+        path: 'tree/test/tree-occurrence/tree-occurrence.test.mjs',
         semanticName: 'tree-occurrence',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
       },
       {
-        path: 'calculogic-validator/tree/validator-cli/tree-occurrence.host.mjs',
+        path: 'tree/validator-cli/tree-occurrence.host.mjs',
         semanticName: 'tree-occurrence',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
@@ -761,19 +788,19 @@ test('tree naming bridge contributor keeps locally aligned family observations i
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/placements/tree-placement.logic.mjs',
+        path: 'tree/src/placements/tree-placement.logic.mjs',
         semanticName: 'tree-placement',
         familyRoot: 'tree',
         semanticFamily: 'tree-placement',
       },
       {
-        path: 'calculogic-validator/tree/src/placements/tree-placement.results.mjs',
+        path: 'tree/src/placements/tree-placement.results.mjs',
         semanticName: 'tree-placement',
         familyRoot: 'tree',
         semanticFamily: 'tree-placement',
       },
       {
-        path: 'calculogic-validator/tree/src/placements/tree-placement.knowledge.mjs',
+        path: 'tree/src/placements/tree-placement.knowledge.mjs',
         semanticName: 'tree-placement',
         familyRoot: 'tree',
         semanticFamily: 'tree-placement',
@@ -788,25 +815,25 @@ test('tree naming bridge contributor keeps local-density-first families out of b
   const payload = {
     observations: [
       {
-        path: 'calculogic-validator/tree/src/local-density/density-pack.logic.mjs',
+        path: 'tree/src/local-density/density-pack.logic.mjs',
         semanticName: 'density-pack',
         familyRoot: 'tree',
         semanticFamily: 'density-pack',
       },
       {
-        path: 'calculogic-validator/tree/src/local-density/density-pack.results.mjs',
+        path: 'tree/src/local-density/density-pack.results.mjs',
         semanticName: 'density-pack',
         familyRoot: 'tree',
         semanticFamily: 'density-pack',
       },
       {
-        path: 'calculogic-validator/tree/test/local-density/density-pack.test.mjs',
+        path: 'tree/test/local-density/density-pack.test.mjs',
         semanticName: 'density-pack',
         familyRoot: 'tree',
         semanticFamily: 'density-pack',
       },
       {
-        path: 'calculogic-validator/tree/src/local-density/density-pack.knowledge.mjs',
+        path: 'tree/src/local-density/density-pack.knowledge.mjs',
         semanticName: 'density-pack',
         familyRoot: 'tree',
         semanticFamily: 'density-pack',
@@ -826,28 +853,28 @@ test('tree naming bridge contributor keeps local-subgroup-first families out of 
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/naming/src/lane/naming-lane.logic.mjs',
+        path: 'naming/src/lane/naming-lane.logic.mjs',
         semanticName: 'naming-lane',
         familyRoot: 'naming',
         semanticFamily: 'naming-lane',
         familySubgroup: 'lane',
       },
       {
-        path: 'calculogic-validator/naming/src/family/naming-lane.results.mjs',
+        path: 'naming/src/family/naming-lane.results.mjs',
         semanticName: 'naming-lane',
         familyRoot: 'naming',
         semanticFamily: 'naming-lane',
         familySubgroup: 'lane',
       },
       {
-        path: 'calculogic-validator/naming/test/lane/naming-lane.test.mjs',
+        path: 'naming/test/lane/naming-lane.test.mjs',
         semanticName: 'naming-lane',
         familyRoot: 'naming',
         semanticFamily: 'naming-lane',
         familySubgroup: 'lane',
       },
       {
-        path: 'calculogic-validator/naming/src/naming-lane.knowledge.mjs',
+        path: 'naming/src/naming-lane.knowledge.mjs',
         semanticName: 'naming-lane',
         familyRoot: 'naming',
         semanticFamily: 'naming-lane',
@@ -962,25 +989,25 @@ test('tree naming bridge contributor emits one cluster finding for local-density
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/cluster/observed-family.logic.mjs',
+        path: 'tree/src/cluster/observed-family.logic.mjs',
         semanticName: 'observed-family',
         familyRoot: 'tree',
         semanticFamily: 'observed-family',
       },
       {
-        path: 'calculogic-validator/tree/src/cluster/observed-family.results.mjs',
+        path: 'tree/src/cluster/observed-family.results.mjs',
         semanticName: 'observed-family',
         familyRoot: 'tree',
         semanticFamily: 'observed-family',
       },
       {
-        path: 'calculogic-validator/tree/src/cluster/observed-family.knowledge.mjs',
+        path: 'tree/src/cluster/observed-family.knowledge.mjs',
         semanticName: 'observed-family',
         familyRoot: 'tree',
         semanticFamily: 'observed-family',
       },
       {
-        path: 'calculogic-validator/tree/test/observed-family.test.mjs',
+        path: 'tree/test/observed-family.test.mjs',
         semanticName: 'observed-family',
         familyRoot: 'tree',
         semanticFamily: 'observed-family',
@@ -991,38 +1018,38 @@ test('tree naming bridge contributor emits one cluster finding for local-density
   const clusterFindings = findings.filter((finding) => finding.code === 'TREE_OBSERVED_FAMILY_CLUSTER');
   assert.equal(clusterFindings.length, 1);
   assert.equal(clusterFindings[0].details.aggregationUnit, 'semanticFamily-in-container');
-  assert.equal(clusterFindings[0].details.semanticContainerIdentity, 'calculogic-validator/tree');
+  assert.equal(clusterFindings[0].details.semanticContainerIdentity, 'tree');
 });
 
 test('tree naming bridge contributor keeps dense family files in one container from inflating cluster count', () => {
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/a/tree-density.logic.mjs',
+        path: 'tree/src/a/tree-density.logic.mjs',
         semanticName: 'tree-density',
         familyRoot: 'tree',
         semanticFamily: 'tree-density',
       },
       {
-        path: 'calculogic-validator/tree/src/b/tree-density.results.mjs',
+        path: 'tree/src/b/tree-density.results.mjs',
         semanticName: 'tree-density',
         familyRoot: 'tree',
         semanticFamily: 'tree-density',
       },
       {
-        path: 'calculogic-validator/tree/src/c/tree-density.knowledge.mjs',
+        path: 'tree/src/c/tree-density.knowledge.mjs',
         semanticName: 'tree-density',
         familyRoot: 'tree',
         semanticFamily: 'tree-density',
       },
       {
-        path: 'calculogic-validator/tree/src/d/tree-density.wiring.mjs',
+        path: 'tree/src/d/tree-density.wiring.mjs',
         semanticName: 'tree-density',
         familyRoot: 'tree',
         semanticFamily: 'tree-density',
       },
       {
-        path: 'calculogic-validator/tree/src/e/tree-density.host.mjs',
+        path: 'tree/src/e/tree-density.host.mjs',
         semanticName: 'tree-density',
         familyRoot: 'tree',
         semanticFamily: 'tree-density',
@@ -1037,49 +1064,49 @@ test('tree naming bridge contributor can emit distinct cluster observations acro
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/tree-multi-container/src/first/component.logic.mjs',
+        path: 'tree/tree-multi-container/src/first/component.logic.mjs',
         semanticName: 'tree-multi-container',
         familyRoot: 'tree',
         semanticFamily: 'tree-multi-container',
       },
       {
-        path: 'calculogic-validator/tree/tree-multi-container/src/first/component.results.mjs',
+        path: 'tree/tree-multi-container/src/first/component.results.mjs',
         semanticName: 'tree-multi-container',
         familyRoot: 'tree',
         semanticFamily: 'tree-multi-container',
       },
       {
-        path: 'calculogic-validator/tree/tree-multi-container/src/first/component.knowledge.mjs',
+        path: 'tree/tree-multi-container/src/first/component.knowledge.mjs',
         semanticName: 'tree-multi-container',
         familyRoot: 'tree',
         semanticFamily: 'tree-multi-container',
       },
       {
-        path: 'calculogic-validator/tree/tree-multi-container/test/component.test.mjs',
+        path: 'tree/tree-multi-container/test/component.test.mjs',
         semanticName: 'tree-multi-container',
         familyRoot: 'tree',
         semanticFamily: 'tree-multi-container',
       },
       {
-        path: 'calculogic-validator/naming/tree-multi-container/src/first/component.logic.mjs',
+        path: 'naming/tree-multi-container/src/first/component.logic.mjs',
         semanticName: 'tree-multi-container',
         familyRoot: 'tree',
         semanticFamily: 'tree-multi-container',
       },
       {
-        path: 'calculogic-validator/naming/tree-multi-container/src/first/component.results.mjs',
+        path: 'naming/tree-multi-container/src/first/component.results.mjs',
         semanticName: 'tree-multi-container',
         familyRoot: 'tree',
         semanticFamily: 'tree-multi-container',
       },
       {
-        path: 'calculogic-validator/naming/tree-multi-container/src/first/component.knowledge.mjs',
+        path: 'naming/tree-multi-container/src/first/component.knowledge.mjs',
         semanticName: 'tree-multi-container',
         familyRoot: 'tree',
         semanticFamily: 'tree-multi-container',
       },
       {
-        path: 'calculogic-validator/naming/tree-multi-container/test/component.test.mjs',
+        path: 'naming/tree-multi-container/test/component.test.mjs',
         semanticName: 'tree-multi-container',
         familyRoot: 'tree',
         semanticFamily: 'tree-multi-container',
@@ -1096,28 +1123,28 @@ test('tree naming bridge contributor emits subgroup opportunity for dense lower-
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/tree-occurrence/tree-occurrence-observed.logic.mjs',
+        path: 'tree/src/tree-occurrence/tree-occurrence-observed.logic.mjs',
         semanticName: 'tree-occurrence-observed',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
         familySubgroup: 'occurrence',
       },
       {
-        path: 'calculogic-validator/tree/src/tree-shim/tree-occurrence-observed.wiring.mjs',
+        path: 'tree/src/tree-shim/tree-occurrence-observed.wiring.mjs',
         semanticName: 'tree-occurrence-observed',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
         familySubgroup: 'occurrence',
       },
       {
-        path: 'calculogic-validator/tree/test/tree-occurrence/tree-occurrence-observed.test.mjs',
+        path: 'tree/test/tree-occurrence/tree-occurrence-observed.test.mjs',
         semanticName: 'tree-occurrence-observed',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
         familySubgroup: 'occurrence',
       },
       {
-        path: 'calculogic-validator/tree/validator-cli/tree-occurrence-observed.host.mjs',
+        path: 'tree/validator-cli/tree-occurrence-observed.host.mjs',
         semanticName: 'tree-occurrence-observed',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
@@ -1128,7 +1155,7 @@ test('tree naming bridge contributor emits subgroup opportunity for dense lower-
 
   const subgroupFindings = findings.filter((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY');
   assert.equal(subgroupFindings.length, 1);
-  assert.equal(subgroupFindings[0].details.semanticContainerIdentity, 'calculogic-validator/tree');
+  assert.equal(subgroupFindings[0].details.semanticContainerIdentity, 'tree');
   assert.deepEqual(subgroupFindings[0].details.observedContainerLocalHomes, ['src', 'test', 'validator-cli']);
 });
 
@@ -1136,21 +1163,21 @@ test('tree naming bridge contributor does not emit subgroup opportunity for ordi
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/tree-occurrence/tree-occurrence-lower.logic.mjs',
+        path: 'tree/src/tree-occurrence/tree-occurrence-lower.logic.mjs',
         semanticName: 'tree-occurrence-lower',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
         familySubgroup: 'occurrence',
       },
       {
-        path: 'calculogic-validator/tree/test/tree-occurrence/tree-occurrence-lower.test.mjs',
+        path: 'tree/test/tree-occurrence/tree-occurrence-lower.test.mjs',
         semanticName: 'tree-occurrence-lower',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
         familySubgroup: 'occurrence',
       },
       {
-        path: 'calculogic-validator/tree/validator-cli/tree-occurrence-lower.host.mjs',
+        path: 'tree/validator-cli/tree-occurrence-lower.host.mjs',
         semanticName: 'tree-occurrence-lower',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
@@ -1166,14 +1193,14 @@ test('tree naming bridge contributor keeps broad cross-container spread as TREE_
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/tree-shim/tree-shim-family.logic.mjs',
+        path: 'tree/src/tree-shim/tree-shim-family.logic.mjs',
         semanticName: 'tree-shim-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-shim',
         familySubgroup: 'shim',
       },
       {
-        path: 'calculogic-validator/naming/src/naming-lane/tree-shim-family.wiring.mjs',
+        path: 'naming/src/naming-lane/tree-shim-family.wiring.mjs',
         semanticName: 'tree-shim-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-shim',
@@ -1197,7 +1224,7 @@ test('tree naming bridge contributor does not emit subgroup opportunity from amb
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/tree-occurrence/tree-occurrence-ambiguous.logic.mjs',
+        path: 'tree/src/tree-occurrence/tree-occurrence-ambiguous.logic.mjs',
         semanticName: 'tree-occurrence-ambiguous',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
@@ -1205,7 +1232,7 @@ test('tree naming bridge contributor does not emit subgroup opportunity from amb
         ambiguityFlags: ['family-boundary-heuristic'],
       },
       {
-        path: 'calculogic-validator/tree/src/tree-shim/tree-occurrence-ambiguous.wiring.mjs',
+        path: 'tree/src/tree-shim/tree-occurrence-ambiguous.wiring.mjs',
         semanticName: 'tree-occurrence-ambiguous',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
@@ -1213,7 +1240,7 @@ test('tree naming bridge contributor does not emit subgroup opportunity from amb
         ambiguityFlags: ['family-boundary-heuristic'],
       },
       {
-        path: 'calculogic-validator/tree/test/tree-occurrence/tree-occurrence-ambiguous.test.mjs',
+        path: 'tree/test/tree-occurrence/tree-occurrence-ambiguous.test.mjs',
         semanticName: 'tree-occurrence-ambiguous',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
@@ -1221,7 +1248,7 @@ test('tree naming bridge contributor does not emit subgroup opportunity from amb
         ambiguityFlags: ['family-boundary-heuristic'],
       },
       {
-        path: 'calculogic-validator/tree/validator-cli/tree-occurrence-ambiguous.host.mjs',
+        path: 'tree/validator-cli/tree-occurrence-ambiguous.host.mjs',
         semanticName: 'tree-occurrence-ambiguous',
         familyRoot: 'tree',
         semanticFamily: 'tree-occurrence',
@@ -1238,28 +1265,28 @@ test('tree naming bridge contributor emits deterministic subgroup opportunity fi
   const payload = {
     observations: [
       {
-        path: 'calculogic-validator/tree/validator-cli/tree-subgroup-deterministic.host.mjs',
+        path: 'tree/validator-cli/tree-subgroup-deterministic.host.mjs',
         semanticName: 'tree-subgroup-deterministic',
         familyRoot: 'tree',
         semanticFamily: 'tree-subgroup',
         familySubgroup: 'subgroup',
       },
       {
-        path: 'calculogic-validator/tree/test/tree-subgroup/tree-subgroup-deterministic.test.mjs',
+        path: 'tree/test/tree-subgroup/tree-subgroup-deterministic.test.mjs',
         semanticName: 'tree-subgroup-deterministic',
         familyRoot: 'tree',
         semanticFamily: 'tree-subgroup',
         familySubgroup: 'subgroup',
       },
       {
-        path: 'calculogic-validator/tree/src/tree-shim/tree-subgroup-deterministic.wiring.mjs',
+        path: 'tree/src/tree-shim/tree-subgroup-deterministic.wiring.mjs',
         semanticName: 'tree-subgroup-deterministic',
         familyRoot: 'tree',
         semanticFamily: 'tree-subgroup',
         familySubgroup: 'subgroup',
       },
       {
-        path: 'calculogic-validator/tree/src/tree-occurrence/tree-subgroup-deterministic.logic.mjs',
+        path: 'tree/src/tree-occurrence/tree-subgroup-deterministic.logic.mjs',
         semanticName: 'tree-subgroup-deterministic',
         familyRoot: 'tree',
         semanticFamily: 'tree-subgroup',
@@ -1283,28 +1310,28 @@ test('tree naming bridge contributor keeps ambiguity-only dense families as non-
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'calculogic-validator/tree/src/a/tree-ambiguous-cluster.logic.mjs',
+        path: 'tree/src/a/tree-ambiguous-cluster.logic.mjs',
         semanticName: 'tree-ambiguous-cluster',
         familyRoot: 'tree',
         semanticFamily: 'tree-ambiguous-cluster',
         ambiguityFlags: ['family-boundary-heuristic'],
       },
       {
-        path: 'calculogic-validator/tree/src/b/tree-ambiguous-cluster.results.mjs',
+        path: 'tree/src/b/tree-ambiguous-cluster.results.mjs',
         semanticName: 'tree-ambiguous-cluster',
         familyRoot: 'tree',
         semanticFamily: 'tree-ambiguous-cluster',
         ambiguityFlags: ['family-boundary-heuristic'],
       },
       {
-        path: 'calculogic-validator/tree/src/c/tree-ambiguous-cluster.knowledge.mjs',
+        path: 'tree/src/c/tree-ambiguous-cluster.knowledge.mjs',
         semanticName: 'tree-ambiguous-cluster',
         familyRoot: 'tree',
         semanticFamily: 'tree-ambiguous-cluster',
         ambiguityFlags: ['family-boundary-heuristic'],
       },
       {
-        path: 'calculogic-validator/tree/src/d/tree-ambiguous-cluster.wiring.mjs',
+        path: 'tree/src/d/tree-ambiguous-cluster.wiring.mjs',
         semanticName: 'tree-ambiguous-cluster',
         familyRoot: 'tree',
         semanticFamily: 'tree-ambiguous-cluster',
@@ -1321,49 +1348,49 @@ test('tree naming bridge contributor keeps local-first routing deterministic whe
   const payload = {
     observations: [
       {
-        path: 'calculogic-validator/tree/tree-ordering-family/test/component.test.mjs',
+        path: 'tree/tree-ordering-family/test/component.test.mjs',
         semanticName: 'tree-ordering-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-ordering-family',
       },
       {
-        path: 'calculogic-validator/tree/tree-ordering-family/src/c/component.knowledge.mjs',
+        path: 'tree/tree-ordering-family/src/c/component.knowledge.mjs',
         semanticName: 'tree-ordering-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-ordering-family',
       },
       {
-        path: 'calculogic-validator/tree/tree-ordering-family/src/b/component.results.mjs',
+        path: 'tree/tree-ordering-family/src/b/component.results.mjs',
         semanticName: 'tree-ordering-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-ordering-family',
       },
       {
-        path: 'calculogic-validator/tree/tree-ordering-family/src/a/component.logic.mjs',
+        path: 'tree/tree-ordering-family/src/a/component.logic.mjs',
         semanticName: 'tree-ordering-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-ordering-family',
       },
       {
-        path: 'calculogic-validator/naming/tree-ordering-family/test/component.test.mjs',
+        path: 'naming/tree-ordering-family/test/component.test.mjs',
         semanticName: 'tree-ordering-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-ordering-family',
       },
       {
-        path: 'calculogic-validator/naming/tree-ordering-family/src/c/component.knowledge.mjs',
+        path: 'naming/tree-ordering-family/src/c/component.knowledge.mjs',
         semanticName: 'tree-ordering-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-ordering-family',
       },
       {
-        path: 'calculogic-validator/naming/tree-ordering-family/src/b/component.results.mjs',
+        path: 'naming/tree-ordering-family/src/b/component.results.mjs',
         semanticName: 'tree-ordering-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-ordering-family',
       },
       {
-        path: 'calculogic-validator/naming/tree-ordering-family/src/a/component.logic.mjs',
+        path: 'naming/tree-ordering-family/src/a/component.logic.mjs',
         semanticName: 'tree-ordering-family',
         familyRoot: 'tree',
         semanticFamily: 'tree-ordering-family',

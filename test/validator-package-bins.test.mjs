@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+
+const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 const runBin = (args) =>
   spawnSync(process.execPath, args, {
@@ -8,8 +11,13 @@ const runBin = (args) =>
     encoding: 'utf8',
   });
 
+test('package preserves public health bin contract', () => {
+  assert.equal(packageJson.bin['calculogic-validator-health'], './bin/calculogic-validator-health.host.mjs');
+  assert.equal(fs.existsSync('bin/calculogic-validator-health.host.mjs'), true);
+});
+
 test('calculogic-validate bin prints help', () => {
-  const result = runBin(['calculogic-validator/bin/calculogic-validate.host.mjs', '--help']);
+  const result = runBin(['bin/calculogic-validate.host.mjs', '--help']);
 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Usage: calculogic-validate/);
@@ -17,7 +25,7 @@ test('calculogic-validate bin prints help', () => {
 
 test('calculogic-validate bin runs naming validator and returns JSON', () => {
   const result = runBin([
-    'calculogic-validator/bin/calculogic-validate.host.mjs',
+    'bin/calculogic-validate.host.mjs',
     '--scope=app',
     '--validators=naming',
   ]);
@@ -28,7 +36,7 @@ test('calculogic-validate bin runs naming validator and returns JSON', () => {
 });
 
 test('calculogic-validate-naming bin returns naming report JSON', () => {
-  const result = runBin(['calculogic-validator/bin/calculogic-validate-naming.host.mjs', '--scope=app']);
+  const result = runBin(['bin/calculogic-validate-naming.host.mjs', '--scope=app']);
 
   assert.ok([0, 1, 2].includes(result.status), result.stderr);
   const report = JSON.parse(result.stdout);
@@ -39,7 +47,7 @@ test('calculogic-validate-naming bin returns naming report JSON', () => {
 test('calculogic-validate-naming bin prints usage on runtime target resolution errors', () => {
   const result = runBin([
     '--experimental-strip-types',
-    'calculogic-validator/bin/calculogic-validate-naming.host.mjs',
+    'bin/calculogic-validate-naming.host.mjs',
     '--scope=app',
     '--target=does-not-exist',
   ]);
@@ -51,10 +59,10 @@ test('calculogic-validate-naming bin prints usage on runtime target resolution e
 
 test('calculogic-validate bin accepts --config path', () => {
   const result = runBin([
-    'calculogic-validator/bin/calculogic-validate.host.mjs',
+    'bin/calculogic-validate.host.mjs',
     '--scope=app',
     '--validators=naming',
-    '--config=calculogic-validator/test/fixtures/validator-config.extensions.contracts.json',
+    '--config=test/fixtures/validator-config.extensions.contracts.json',
   ]);
 
   assert.ok([0, 1, 2].includes(result.status), result.stderr);
@@ -64,9 +72,9 @@ test('calculogic-validate bin accepts --config path', () => {
 
 test('calculogic-validate-naming bin fails deterministically on invalid config', () => {
   const result = runBin([
-    'calculogic-validator/bin/calculogic-validate-naming.host.mjs',
+    'bin/calculogic-validate-naming.host.mjs',
     '--scope=app',
-    '--config=calculogic-validator/test/fixtures/not-found.json',
+    '--config=test/fixtures/not-found.json',
   ]);
 
   assert.notEqual(result.status, 0);

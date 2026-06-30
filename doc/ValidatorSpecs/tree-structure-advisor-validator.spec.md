@@ -16,8 +16,8 @@ This slice exists to reduce “tree drift” as additional validators beyond nam
 
 Tree advisor structural reasoning also includes an ownership-boundary principle aligned with current repo architecture:
 
-- `calculogic-validator/src/**` is suite-core/shared infrastructure and compat-boundary surface
-- validator-owned slices with their own internal growth path belong in slice roots outside suite-core `src/` (for example `calculogic-validator/naming/src/**`, `calculogic-validator/tree/src/**`)
+- `src/**` is suite-core/shared infrastructure and compat-boundary surface
+- validator-owned slices with their own internal growth path belong in slice roots outside suite-core `src/` (for example `naming/src/**`, `tree/src/**`)
 - continued owned-slice growth inside suite-core `src/` is structural drift because it predicts avoidable future extraction/shim/refactor debt
 
 This principle is advisory and architecture-oriented; it does not mean one universal folder layout is required for every repo.
@@ -29,7 +29,7 @@ Read these first before tree implementation work (runtime, wiring, or contracts)
 1. Suite contract and scope boundary: [`ValidatorSuite-Contracts-And-Modes.md`](../ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md)
 2. Tree validator spec (this document): runtime behavior + bounded modeling notes
 3. Naming boundary context: [`NamingValidatorSpec.md`](../ConventionRoutines/NamingValidatorSpec.md)
-4. Tree NL/config implementation note: [`calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`](./nl-config/cfg-treeStructureAdvisor.md)
+4. Tree NL/config implementation note: [`doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`](./nl-config/cfg-treeStructureAdvisor.md)
 5. Tree documentation map (navigation metadata): [`tree-documentation-map-and-reorg-inventory.md`](./tree-owned/tree-documentation-map-and-reorg-inventory.md)
 
 Status interpretation used in this document:
@@ -63,11 +63,11 @@ This slice follows the shared suite contract in [`ValidatorSuite-Contracts-And-M
 ## Source-of-Truth References
 
 - Deterministic address grammar + concern slot semantics:
-  - `calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
+  - `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
 - Canonical filename grammar + role registry categories/status:
-  - `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
+  - `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
 - Naming validator conventions (classification shape, determinism expectations):
-  - `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
+  - `doc/ConventionRoutines/NamingValidatorSpec.md`
 
 ---
 
@@ -370,7 +370,7 @@ Ownership boundary remains unchanged:
 - naming owns semantic-family derivation and validity semantics,
 - tree owns structural interpretation/gating decisions that consume naming bridge evidence.
 
-Boundary note (canonical_target for this slice): tree validator ownership is under `calculogic-validator/tree/src/**`. Legacy flat suite-core paths such as `calculogic-validator/src/tree-structure-advisor.*.mjs` are compatibility wrappers only, not canonical ownership.
+Boundary note (canonical_target for this slice): tree validator ownership is under `tree/src/**`. Legacy flat suite-core paths such as `src/tree-structure-advisor.*.mjs` are compatibility wrappers only, not canonical ownership.
 
 ## Top-Root Registry Classes and Ownership Boundary (Status: Bounded modeling note)
 
@@ -588,7 +588,7 @@ Detect when subpackages (e.g., `tools/report-capture`) contain mixed surfaces th
 
 ### 5) Owned-slice boundary drift
 
-Detect when validator-owned subsystem growth is accumulating under suite-core `calculogic-validator/src/**` instead of an owned slice root.
+Detect when validator-owned subsystem growth is accumulating under suite-core `src/**` instead of an owned slice root.
 
 Signals may include subsystem-local host/wiring/logic files, registries, tests, docs, scripts, and scaffolds that indicate package-like internal growth.
 
@@ -684,13 +684,13 @@ Intent:
 
 Pattern examples (conceptual):
 
-- from: `calculogic-validator/src/<subsystem>/**`
+- from: `src/<subsystem>/**`
 - to: `calculogic-validator/<subsystem>/src/**`
 
 Current architecture alignment examples:
 
-- canonical naming slice root: `calculogic-validator/naming/src/**`
-- canonical tree slice root: `calculogic-validator/tree/src/**`
+- canonical naming slice root: `naming/src/**`
+- canonical tree slice root: `tree/src/**`
 
 Non-claim boundary:
 
@@ -717,7 +717,7 @@ V0.1.4 hardened subset:
 - thin flat re-export files (`export * from ...` / `export { ... } from ...` only) remain the strongest/high-confidence shim signal
 - intentional pass-through entrypoints are excluded from shim debt findings:
   - canonical `*.host.* -> sibling *.wiring.*` pass-through in owned slices
-  - `calculogic-validator/src/index.mjs` package/public entrypoint barrel
+  - `src/index.mjs` package/public entrypoint barrel
 - weak token/path-only shim signals on non-runtime surfaces (`quality/docs/examples/fixtures`) are suppressed from shim-debt output
 - runtimeish token/path-only shim signals remain info-only observability
 
@@ -916,7 +916,7 @@ Current script usage:
 - `--config=<path>` is accepted through shared suite CLI plumbing for config validation + runner-envelope `configDigest`; current tree runtime does not apply tree-local config semantics yet.
 - The command remains report-only in the non-mutating/report-first sense. Exit status still follows the shared suite exit contract after report emission, so warning-level advisory findings can currently yield exit `2`.
 
-Npm forwarding requirement remains: pass flags after `--` (for example `npm run validate:tree -- --scope=validator --target calculogic-validator/tree/src`).
+Npm forwarding requirement remains: pass flags after `--` (for example `npm run validate:tree -- --scope=validator --target tree/src`).
 
 ---
 

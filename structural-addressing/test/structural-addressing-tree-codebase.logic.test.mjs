@@ -12,16 +12,16 @@ const buildFixtureInput = () => ({
       path: 'calculogic-validator',
       occurrenceType: 'folder',
       children: [
-        { name: 'LICENSE', path: 'calculogic-validator/LICENSE', occurrenceType: 'file' },
-        { name: 'README.md', path: 'calculogic-validator/README.md', occurrenceType: 'file' },
+        { name: 'LICENSE', path: 'LICENSE', occurrenceType: 'file' },
+        { name: 'README.md', path: 'README.md', occurrenceType: 'file' },
         {
           name: 'doc',
-          path: 'calculogic-validator/doc',
+          path: 'doc',
           occurrenceType: 'folder',
           children: [
             {
               name: 'ConventionRoutines',
-              path: 'calculogic-validator/doc/ConventionRoutines',
+              path: 'doc/ConventionRoutines',
               occurrenceType: 'folder',
               children: [],
             },
@@ -61,11 +61,11 @@ test('scope root and descendants receive deterministic address paths', () => {
   const result = prepareTreeCodebaseAddressedSnapshot(buildFixtureInput());
 
   assert.equal(getRecordByPath(result.occurrenceRecords, 'calculogic-validator')?.addressPath, 'A');
-  assert.equal(getRecordByPath(result.occurrenceRecords, 'calculogic-validator/LICENSE')?.addressPath, 'A.1');
-  assert.equal(getRecordByPath(result.occurrenceRecords, 'calculogic-validator/README.md')?.addressPath, 'A.2');
-  assert.equal(getRecordByPath(result.occurrenceRecords, 'calculogic-validator/doc')?.addressPath, 'A.A');
+  assert.equal(getRecordByPath(result.occurrenceRecords, 'LICENSE')?.addressPath, 'A.1');
+  assert.equal(getRecordByPath(result.occurrenceRecords, 'README.md')?.addressPath, 'A.2');
+  assert.equal(getRecordByPath(result.occurrenceRecords, 'doc')?.addressPath, 'A.A');
   assert.equal(
-    getRecordByPath(result.occurrenceRecords, 'calculogic-validator/doc/ConventionRoutines')?.addressPath,
+    getRecordByPath(result.occurrenceRecords, 'doc/ConventionRoutines')?.addressPath,
     'A.A.A',
   );
 });
@@ -126,7 +126,7 @@ test('multiple scope roots receive deterministic root folder markers', () => {
 test('occurrence records include required fields with deterministic parentAddressPath/depth/orderIndex', () => {
   const result = prepareTreeCodebaseAddressedSnapshot(buildFixtureInput());
   const root = getRecordByPath(result.occurrenceRecords, 'calculogic-validator');
-  const childFile = getRecordByPath(result.occurrenceRecords, 'calculogic-validator/LICENSE');
+  const childFile = getRecordByPath(result.occurrenceRecords, 'LICENSE');
 
   assert.deepEqual(Object.keys(root).sort(), [
     'address',
@@ -217,17 +217,17 @@ test('sibling marker assignment stays stable across varied input sibling order i
         path: 'calculogic-validator',
         occurrenceType: 'folder',
         children: [
-          { name: 'README.md', path: 'calculogic-validator/README.md', occurrenceType: 'file' },
-          { name: 'LICENSE', path: 'calculogic-validator/LICENSE', occurrenceType: 'file' },
+          { name: 'README.md', path: 'README.md', occurrenceType: 'file' },
+          { name: 'LICENSE', path: 'LICENSE', occurrenceType: 'file' },
           {
             name: 'doc',
-            path: 'calculogic-validator/doc',
+            path: 'doc',
             occurrenceType: 'folder',
             children: [
-              { name: 'Zeta', path: 'calculogic-validator/doc/Zeta', occurrenceType: 'folder', children: [] },
-              { name: 'Alpha', path: 'calculogic-validator/doc/Alpha', occurrenceType: 'folder', children: [] },
-              { name: 'z-note.md', path: 'calculogic-validator/doc/z-note.md', occurrenceType: 'file' },
-              { name: 'a-note.md', path: 'calculogic-validator/doc/a-note.md', occurrenceType: 'file' },
+              { name: 'Zeta', path: 'doc/Zeta', occurrenceType: 'folder', children: [] },
+              { name: 'Alpha', path: 'doc/Alpha', occurrenceType: 'folder', children: [] },
+              { name: 'z-note.md', path: 'doc/z-note.md', occurrenceType: 'file' },
+              { name: 'a-note.md', path: 'doc/a-note.md', occurrenceType: 'file' },
             ],
           },
         ],
@@ -247,17 +247,17 @@ test('sibling marker assignment stays stable across varied input sibling order i
         children: [
           {
             name: 'doc',
-            path: 'calculogic-validator/doc',
+            path: 'doc',
             occurrenceType: 'folder',
             children: [
-              { name: 'a-note.md', path: 'calculogic-validator/doc/a-note.md', occurrenceType: 'file' },
-              { name: 'Alpha', path: 'calculogic-validator/doc/Alpha', occurrenceType: 'folder', children: [] },
-              { name: 'z-note.md', path: 'calculogic-validator/doc/z-note.md', occurrenceType: 'file' },
-              { name: 'Zeta', path: 'calculogic-validator/doc/Zeta', occurrenceType: 'folder', children: [] },
+              { name: 'a-note.md', path: 'doc/a-note.md', occurrenceType: 'file' },
+              { name: 'Alpha', path: 'doc/Alpha', occurrenceType: 'folder', children: [] },
+              { name: 'z-note.md', path: 'doc/z-note.md', occurrenceType: 'file' },
+              { name: 'Zeta', path: 'doc/Zeta', occurrenceType: 'folder', children: [] },
             ],
           },
-          { name: 'LICENSE', path: 'calculogic-validator/LICENSE', occurrenceType: 'file' },
-          { name: 'README.md', path: 'calculogic-validator/README.md', occurrenceType: 'file' },
+          { name: 'LICENSE', path: 'LICENSE', occurrenceType: 'file' },
+          { name: 'README.md', path: 'README.md', occurrenceType: 'file' },
         ],
       },
     ],
@@ -273,14 +273,14 @@ test('sibling marker assignment stays stable across varied input sibling order i
   const addressMapB = getAddressMap(resultB.occurrenceRecords);
 
   assert.equal(addressMapA['calculogic-validator'], 'A');
-  assert.equal(addressMapA['calculogic-validator/LICENSE'], 'A.1');
-  assert.equal(addressMapA['calculogic-validator/README.md'], 'A.2');
-  assert.equal(addressMapA['calculogic-validator/doc'], 'A.A');
+  assert.equal(addressMapA['LICENSE'], 'A.1');
+  assert.equal(addressMapA['README.md'], 'A.2');
+  assert.equal(addressMapA['doc'], 'A.A');
 
-  assert.equal(addressMapA['calculogic-validator/doc/a-note.md'], 'A.A.1');
-  assert.equal(addressMapA['calculogic-validator/doc/z-note.md'], 'A.A.2');
-  assert.equal(addressMapA['calculogic-validator/doc/Alpha'], 'A.A.A');
-  assert.equal(addressMapA['calculogic-validator/doc/Zeta'], 'A.A.B');
+  assert.equal(addressMapA['doc/a-note.md'], 'A.A.1');
+  assert.equal(addressMapA['doc/z-note.md'], 'A.A.2');
+  assert.equal(addressMapA['doc/Alpha'], 'A.A.A');
+  assert.equal(addressMapA['doc/Zeta'], 'A.A.B');
 
   assert.deepEqual(addressMapB, addressMapA);
 });
@@ -296,15 +296,15 @@ test('input child arrays are not mutated while assigning sorted markers', () => 
         path: 'calculogic-validator',
         occurrenceType: 'folder',
         children: [
-          { name: 'README.md', path: 'calculogic-validator/README.md', occurrenceType: 'file' },
-          { name: 'LICENSE', path: 'calculogic-validator/LICENSE', occurrenceType: 'file' },
+          { name: 'README.md', path: 'README.md', occurrenceType: 'file' },
+          { name: 'LICENSE', path: 'LICENSE', occurrenceType: 'file' },
           {
             name: 'doc',
-            path: 'calculogic-validator/doc',
+            path: 'doc',
             occurrenceType: 'folder',
             children: [
-              { name: 'z-note.md', path: 'calculogic-validator/doc/z-note.md', occurrenceType: 'file' },
-              { name: 'a-note.md', path: 'calculogic-validator/doc/a-note.md', occurrenceType: 'file' },
+              { name: 'z-note.md', path: 'doc/z-note.md', occurrenceType: 'file' },
+              { name: 'a-note.md', path: 'doc/a-note.md', occurrenceType: 'file' },
             ],
           },
         ],
@@ -332,8 +332,8 @@ test('malformed sibling missing name fails deterministically before sort compara
             path: 'calculogic-validator',
             occurrenceType: 'folder',
             children: [
-              { occurrenceType: 'file', path: 'calculogic-validator/B.md' },
-              { name: 'A.md', path: 'calculogic-validator/A.md', occurrenceType: 'file' },
+              { occurrenceType: 'file', path: 'B.md' },
+              { name: 'A.md', path: 'A.md', occurrenceType: 'file' },
             ],
           },
         ],
@@ -353,7 +353,7 @@ test('malformed sibling missing path fails deterministically before sort compara
             occurrenceType: 'folder',
             children: [
               { name: 'B.md', occurrenceType: 'file' },
-              { name: 'A.md', path: 'calculogic-validator/A.md', occurrenceType: 'file' },
+              { name: 'A.md', path: 'A.md', occurrenceType: 'file' },
             ],
           },
         ],
@@ -372,8 +372,8 @@ test('malformed sibling unsupported occurrenceType fails deterministically befor
             path: 'calculogic-validator',
             occurrenceType: 'folder',
             children: [
-              { name: 'B.md', path: 'calculogic-validator/B.md', occurrenceType: 'unsupported' },
-              { name: 'A.md', path: 'calculogic-validator/A.md', occurrenceType: 'file' },
+              { name: 'B.md', path: 'B.md', occurrenceType: 'unsupported' },
+              { name: 'A.md', path: 'A.md', occurrenceType: 'file' },
             ],
           },
         ],
@@ -394,11 +394,11 @@ test('malformed sibling invalid children shape fails deterministically before so
             children: [
               {
                 name: 'doc',
-                path: 'calculogic-validator/doc',
+                path: 'doc',
                 occurrenceType: 'folder',
                 children: {},
               },
-              { name: 'A.md', path: 'calculogic-validator/A.md', occurrenceType: 'file' },
+              { name: 'A.md', path: 'A.md', occurrenceType: 'file' },
             ],
           },
         ],

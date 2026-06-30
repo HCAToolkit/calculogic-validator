@@ -23,7 +23,7 @@ const policy = (policyId = 'relationship-qualified-semantic-qualified-structural
 const matchingClassification = (overrides = {}) => ({
   addressPath: 'A.2.1.1',
   parentAddressPath: 'A.2.1',
-  path: 'calculogic-validator/naming/naming-src',
+  path: 'naming/naming-src',
   name: 'naming-src',
   occurrenceType: 'folder',
   structuralClass: 'relationship-qualified-structural-container',
@@ -51,7 +51,7 @@ test('one exact matching classification produces one coherent assessment record'
   assert.deepEqual(result.assessmentRecords[0], {
     addressPath: 'A.2.1.1',
     parentAddressPath: 'A.2.1',
-    path: 'calculogic-validator/naming/naming-src',
+    path: 'naming/naming-src',
     name: 'naming-src',
     occurrenceType: 'folder',
     structuralClass: 'relationship-qualified-structural-container',

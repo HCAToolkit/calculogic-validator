@@ -37,7 +37,7 @@ tree-known-roots is transitional compatibility data only.
 
 Important distinction: Structural Addressing replaces known-roots only for deterministic occurrence/location evidence. Tree replaces known-roots for structural-home and semantic-home interpretation. Naming provides semantic-name and semantic-family evidence through an explicit prepared-evidence bridge. The compatibility adapter is scaffolding, not target architecture, and known-roots must not be promoted into permanent canonical truth.
 
-Required artifact inspection result: `calculogic-validator/tree/src/tree-known-roots-registry.logic.mjs` was listed for inspection but does not exist in current implementation reality. The current registry loader path is `calculogic-validator/tree/src/registries/tree-known-roots-registry.logic.mjs`.
+Required artifact inspection result: `tree/src/tree-known-roots-registry.logic.mjs` was listed for inspection but does not exist in current implementation reality. The current registry loader path is `tree/src/registries/tree-known-roots-registry.logic.mjs`.
 
 ## 2. Current known-roots artifacts
 
@@ -45,56 +45,56 @@ Required artifact inspection result: `calculogic-validator/tree/src/tree-known-r
 
 | Artifact | Current role |
 | --- | --- |
-| `calculogic-validator/tree/src/registries/_builtin/tree-known-roots.registry.json` | Stores `topRoots` entries and legacy-compatible `knownTopLevelDirectories`. Current entries include structural roots such as `src`, `doc`, `test`, `scripts`, and semantic custom roots such as `calculogic-validator` and `calculogic-doc-engine`. |
+| `tree/src/registries/_builtin/tree-known-roots.registry.json` | Stores `topRoots` entries and legacy-compatible `knownTopLevelDirectories`. Current entries include structural roots such as `src`, `doc`, `test`, `scripts`, and semantic custom roots such as `calculogic-validator` and `calculogic-doc-engine`. |
 
 ### Registry loaders/normalizers
 
 | Artifact | Current role |
 | --- | --- |
-| `calculogic-validator/tree/src/registries/tree-known-roots-registry.logic.mjs` | Loads and caches the builtin known-roots registry. Normalizes structured `topRoots`, validates enum values for `kind` and `ownershipSource`, validates optional `styleClass`, deduplicates compatible duplicate structured roots, supports legacy flat `knownTopLevelDirectories`, and returns both canonical `topRoots` and a `knownTopLevelDirectories` `Set`. |
-| `calculogic-validator/tree/src/tree-known-roots-registry.logic.mjs` | Missing. No current artifact exists at this path. |
+| `tree/src/registries/tree-known-roots-registry.logic.mjs` | Loads and caches the builtin known-roots registry. Normalizes structured `topRoots`, validates enum values for `kind` and `ownershipSource`, validates optional `styleClass`, deduplicates compatible duplicate structured roots, supports legacy flat `knownTopLevelDirectories`, and returns both canonical `topRoots` and a `knownTopLevelDirectories` `Set`. |
+| `tree/src/tree-known-roots-registry.logic.mjs` | Missing. No current artifact exists at this path. |
 
 ### Compatibility evidence adapter
 
 | Artifact | Current role |
 | --- | --- |
-| `calculogic-validator/tree/src/tree-known-roots-compatibility-evidence.logic.mjs` | Removed by the #569 cleanup bridge. It was dead compatibility-bridge preparation after guarded replacement coverage existed for occurrence classification and unexpected top-level folder policy; no current legacy/fallback runtime path consumes `preparedDependencies.treeKnownRootsCompatibilityEvidence`. |
+| `tree/src/tree-known-roots-compatibility-evidence.logic.mjs` | Removed by the #569 cleanup bridge. It was dead compatibility-bridge preparation after guarded replacement coverage existed for occurrence classification and unexpected top-level folder policy; no current legacy/fallback runtime path consumes `preparedDependencies.treeKnownRootsCompatibilityEvidence`. |
 
 ### Tree advisor wiring/prepared dependencies
 
 | Artifact | Current role |
 | --- | --- |
-| `calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs` | Prepares occurrence and structural-address snapshots, loads builtin known-roots for default legacy/fallback compatibility paths and parity planning, and passes normal Tree advisor inputs and contributors into runtime. It no longer prepares `preparedDependencies.treeKnownRootsCompatibilityEvidence`. |
-| `calculogic-validator/tree/src/tree-occurrence-snapshot.logic.mjs` | Produces Tree occurrence records with deterministic scope roots, lineage, occurrence markers, depth, scoped-root flags, and scope-top occurrence flags from selected paths and targets. It does not interpret known-roots directly. |
-| `calculogic-validator/tree/src/tree-structural-address-snapshot.logic.mjs` | Converts occurrence snapshot records into addressed snapshot records with `path`, `name`, `addressPath`, and `parentAddressPath` fields used by Tree evidence preparation. It does not interpret structural homes, semantic homes, or placement policy. |
+| `tree/src/tree-structure-advisor.wiring.mjs` | Prepares occurrence and structural-address snapshots, loads builtin known-roots for default legacy/fallback compatibility paths and parity planning, and passes normal Tree advisor inputs and contributors into runtime. It no longer prepares `preparedDependencies.treeKnownRootsCompatibilityEvidence`. |
+| `tree/src/tree-occurrence-snapshot.logic.mjs` | Produces Tree occurrence records with deterministic scope roots, lineage, occurrence markers, depth, scoped-root flags, and scope-top occurrence flags from selected paths and targets. It does not interpret known-roots directly. |
+| `tree/src/tree-structural-address-snapshot.logic.mjs` | Converts occurrence snapshot records into addressed snapshot records with `path`, `name`, `addressPath`, and `parentAddressPath` fields used by Tree evidence preparation. It does not interpret structural homes, semantic homes, or placement policy. |
 
 ### Tree advisor logic/report paths
 
 | Artifact | Current role |
 | --- | --- |
-| `calculogic-validator/tree/src/tree-structure-advisor.logic.mjs` | Loads builtin known-roots at runtime, uses `knownTopLevelDirectories` as the allow-list for `TREE_UNEXPECTED_TOP_LEVEL_FOLDER` findings in repo scope, and passes `TREE_KNOWN_ROOTS` into `classifyTreeOccurrenceRecords(...)` for occurrence-derived classification. Report-visible unexpected top-level folder behavior and internal file-reasoning classification still depend on known-roots. |
-| `calculogic-validator/tree/src/tree-occurrence-classification.logic.mjs` | Consumes known-roots `topRoots` metadata to classify repo-top occurrence records. It reads `topRoots[].kind`, then produces `structuralClass`, `structuralKind`, `isKnownTopRoot`, `isStructuralRoot`, and `isSemanticRoot` fields for occurrence records. |
+| `tree/src/tree-structure-advisor.logic.mjs` | Loads builtin known-roots at runtime, uses `knownTopLevelDirectories` as the allow-list for `TREE_UNEXPECTED_TOP_LEVEL_FOLDER` findings in repo scope, and passes `TREE_KNOWN_ROOTS` into `classifyTreeOccurrenceRecords(...)` for occurrence-derived classification. Report-visible unexpected top-level folder behavior and internal file-reasoning classification still depend on known-roots. |
+| `tree/src/tree-occurrence-classification.logic.mjs` | Consumes known-roots `topRoots` metadata to classify repo-top occurrence records. It reads `topRoots[].kind`, then produces `structuralClass`, `structuralKind`, `isKnownTopRoot`, `isStructuralRoot`, and `isSemanticRoot` fields for occurrence records. |
 
 ### Tests
 
 | Artifact | Current role |
 | --- | --- |
-| `calculogic-validator/tree/test/tree-known-roots-registry.test.mjs` | Locks registry normalization, legacy flat payload support, structured payload support, structured precedence over dual-shape payloads, enum validation, duplicate conflict failures, non-empty requirements, `styleClass` validation, and current stable known-root values including semantic custom entries. |
-| `calculogic-validator/tree/test/tree-known-roots-compatibility-evidence.logic.test.mjs` | Removed by the #569 cleanup bridge because it only covered dead compatibility evidence preparation state. |
-| `calculogic-validator/tree/test/tree-structure-advisor.test.mjs` | Locks Tree advisor wiring and output behavior: runtime report output remains deterministic, known roots remain available for bounded default legacy/fallback registry policy, unexpected top-level folder behavior remains stable, explicit guarded replacement behavior remains stable, and finding summaries remain deterministic. |
-| `calculogic-validator/tree/test/tree-occurrence-classification.test.mjs` | Locks current occurrence classification behavior for known repo-top structural roots, known repo-top semantic roots, scoped rebasing, repeated names across depth/context, and unknown cases. It confirms structural and semantic repo-top classification behavior derived from known-roots metadata. |
+| `tree/test/tree-known-roots-registry.test.mjs` | Locks registry normalization, legacy flat payload support, structured payload support, structured precedence over dual-shape payloads, enum validation, duplicate conflict failures, non-empty requirements, `styleClass` validation, and current stable known-root values including semantic custom entries. |
+| `tree/test/tree-known-roots-compatibility-evidence.logic.test.mjs` | Removed by the #569 cleanup bridge because it only covered dead compatibility evidence preparation state. |
+| `tree/test/tree-structure-advisor.test.mjs` | Locks Tree advisor wiring and output behavior: runtime report output remains deterministic, known roots remain available for bounded default legacy/fallback registry policy, unexpected top-level folder behavior remains stable, explicit guarded replacement behavior remains stable, and finding summaries remain deterministic. |
+| `tree/test/tree-occurrence-classification.test.mjs` | Locks current occurrence classification behavior for known repo-top structural roots, known repo-top semantic roots, scoped rebasing, repeated names across depth/context, and unknown cases. It confirms structural and semantic repo-top classification behavior derived from known-roots metadata. |
 
 ### Docs/specs/audits
 
 | Artifact | Current role |
 | --- | --- |
-| `calculogic-validator/doc/ValidatorSpecs/tree-known-roots-structural-addressing-bridge.spec.md` | Documents current implementation reality for the retired known-roots / Structural Addressing compatibility evidence bridge. It states that retained known-roots runtime references remain default legacy/fallback compatibility truth and final-deletion candidates, not target architecture. |
-| `calculogic-validator/doc/ValidatorSpecs/tree-known-roots-derived-compatibility-path.audit.md` | Audits derived compatibility path options and documents the bridge between current known-roots behavior and a target architecture that separates occurrence evidence from Tree interpretation. |
-| `calculogic-validator/doc/ValidatorSpecs/tree-structural-address-usage-inventory.spec.md` | Inventories Tree structural-address usage and documents that Structural Addressing provides deterministic addressed occurrence evidence while Tree remains responsible for interpretation. |
-| `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-addressed-occurrence-evidence-model.spec.md` | Defines Tree-owned addressed occurrence evidence modeling boundaries and reinforces that address evidence locates occurrences rather than owning structural-home, semantic-home, or placement interpretation. |
-| `calculogic-validator/doc/ValidatorSpecs/tree-occurrence-addressing-profile.audit.md` | Describes Tree occurrence addressing profile context and explicitly identifies known-roots as current runtime top-root occurrence vocabulary and compatibility truth, not long-term canonical Structural Home or Semantic Home truth. |
-| `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` | Defines current Tree advisor runtime/spec behavior, including current advisory-structure behavior and bounded modeling notes used as runtime authority for Tree advisor validation. |
-| `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md` | Validator-owned NL/config note for Tree advisor behavior and current Tree configuration context. |
+| `doc/ValidatorSpecs/tree-known-roots-structural-addressing-bridge.spec.md` | Documents current implementation reality for the retired known-roots / Structural Addressing compatibility evidence bridge. It states that retained known-roots runtime references remain default legacy/fallback compatibility truth and final-deletion candidates, not target architecture. |
+| `doc/ValidatorSpecs/tree-known-roots-derived-compatibility-path.audit.md` | Audits derived compatibility path options and documents the bridge between current known-roots behavior and a target architecture that separates occurrence evidence from Tree interpretation. |
+| `doc/ValidatorSpecs/tree-structural-address-usage-inventory.spec.md` | Inventories Tree structural-address usage and documents that Structural Addressing provides deterministic addressed occurrence evidence while Tree remains responsible for interpretation. |
+| `doc/ValidatorSpecs/tree-owned/tree-addressed-occurrence-evidence-model.spec.md` | Defines Tree-owned addressed occurrence evidence modeling boundaries and reinforces that address evidence locates occurrences rather than owning structural-home, semantic-home, or placement interpretation. |
+| `doc/ValidatorSpecs/tree-occurrence-addressing-profile.audit.md` | Describes Tree occurrence addressing profile context and explicitly identifies known-roots as current runtime top-root occurrence vocabulary and compatibility truth, not long-term canonical Structural Home or Semantic Home truth. |
+| `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` | Defines current Tree advisor runtime/spec behavior, including current advisory-structure behavior and bounded modeling notes used as runtime authority for Tree advisor validation. |
+| `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md` | Validator-owned NL/config note for Tree advisor behavior and current Tree configuration context. |
 
 ## 3. Current responsibilities carried by known-roots
 

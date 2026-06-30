@@ -11,17 +11,17 @@ import {
 } from '../src/core/validator-report-capture-metadata.logic.mjs';
 
 const rootPackageJson = JSON.parse(
-  fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+  fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
 );
 
 const directScriptByPreset = {
-  'report:naming:system': 'calculogic-validator/scripts/validate-naming.host.mjs',
-  'report:tree:system': 'calculogic-validator/scripts/validate-tree.host.mjs',
-  'report:all:system': 'calculogic-validator/scripts/validate-all.host.mjs',
+  'report:naming:system': 'scripts/validate-naming.host.mjs',
+  'report:tree:system': 'scripts/validate-tree.host.mjs',
+  'report:all:system': 'scripts/validate-all.host.mjs',
 };
 
 const reportCapturePackageScripts = Object.entries(rootPackageJson.scripts)
-  .filter(([, command]) => command.includes('calculogic-report-capture'))
+  .filter(([scriptName]) => scriptName.startsWith('report:') && scriptName !== 'report:verify')
   .map(([scriptName]) => scriptName)
   .sort((left, right) => left.localeCompare(right));
 
@@ -47,7 +47,7 @@ const runDirectReport = ({ scriptPath, scope }) => {
 
 const runCapturedReport = ({ preset, outputDir }) => {
   const hostPath = path.resolve(
-    'calculogic-validator/tools/report-capture/src/report-capture.host.mjs',
+    'tools/report-capture/src/report-capture.host.mjs',
   );
   const result = spawnSync(
     process.execPath,
@@ -95,7 +95,7 @@ test('report-capture preset metadata matches current package script surfaces exa
     );
     assert.deepEqual(getValidatorReportCapturePresetByScriptName(preset.scriptName), preset);
     assert.equal(preset.commandSurface, 'validator-report-capture');
-    assert.equal(preset.capture.captureCommand, 'calculogic-report-capture');
+    assert.equal(preset.capture.captureCommand, 'node tools/report-capture/src/report-capture.host.mjs');
     assert.equal(preset.capture.json, true);
     assert.equal(preset.capture.dir, './.reports');
     assert.equal(preset.capture.keep, 20);

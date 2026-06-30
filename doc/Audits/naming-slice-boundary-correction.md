@@ -2,19 +2,19 @@
 
 ## 1. Purpose
 
-This audit records the ownership-boundary correction that moved the canonical naming validator slice out of suite-core `calculogic-validator/src/` and into its own owned slice root.
+This audit records the ownership-boundary correction that moved the canonical naming validator slice out of suite-core `src/` and into its own owned slice root.
 
 ## 2. Canonical path correction
 
-- Previous canonical_source naming location: `calculogic-validator/src/naming/**`
-- New canonical_source naming location: `calculogic-validator/naming/src/**`
-- Suite-core `calculogic-validator/src/**` remains shared infra + compat boundary only.
+- Previous canonical_source naming location: `src/naming/**`
+- New canonical_source naming location: `naming/src/**`
+- Suite-core `src/**` remains shared infra + compat boundary only.
 
 ## 3. Runtime/module updates applied
 
 ### 3.1 Naming module move
 
-Moved canonical naming-owned implementation files from `calculogic-validator/src/naming/` to `calculogic-validator/naming/src/`, including:
+Moved canonical naming-owned implementation files from `src/naming/` to `naming/src/`, including:
 
 - `naming-validator.host.mjs`
 - `naming-validator.wiring.mjs`
@@ -28,12 +28,12 @@ Moved canonical naming-owned implementation files from `calculogic-validator/src
 
 Updated runtime import targets to the new canonical naming slice path:
 
-- `calculogic-validator/src/index.mjs`
-- `calculogic-validator/src/core/validator-registry.knowledge.mjs`
-- `calculogic-validator/scripts/validate-naming.host.mjs`
-- `calculogic-validator/scripts/validator-health-check.host.mjs`
-- `calculogic-validator/bin/calculogic-validate-naming.host.mjs`
-- `calculogic-validator/bin/calculogic-validator-health.host.mjs`
+- `src/index.mjs`
+- `src/core/validator-registry.knowledge.mjs`
+- `scripts/validate-naming.host.mjs`
+- `scripts/validator-health-check.host.mjs`
+- `bin/calculogic-validate-naming.host.mjs`
+- `bin/calculogic-validator-health.host.mjs`
 
 ## 4. Package boundary and script updates
 
@@ -42,7 +42,7 @@ Updated runtime import targets to the new canonical naming slice path:
 
 ## 5. Naming-owned tests boundary updates
 
-Moved naming-owned tests from suite-level `calculogic-validator/test/` into naming slice-owned `calculogic-validator/naming/test/`, and repointed test imports/assertions to `calculogic-validator/naming/src/**`.
+Moved naming-owned tests from suite-level `test/` into naming slice-owned `naming/test/`, and repointed test imports/assertions to `naming/src/**`.
 
 ## 6. Docs/NL and audit path updates
 

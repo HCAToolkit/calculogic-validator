@@ -7,7 +7,7 @@ import { VALIDATOR_CONFIG_VERSION } from '../src/core/config/validator-config.co
 test('validator config schema version const matches runtime contract version', () => {
   const schemaPath = path.join(
     process.cwd(),
-    'calculogic-validator/src/validator-config.schema.json',
+    'src/validator-config.schema.json',
   );
   const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
 
@@ -18,7 +18,7 @@ test('validator config schema version const matches runtime contract version', (
 test('validator config schema allows naming.caseRules.semanticName.style kebab-case only', () => {
   const schemaPath = path.join(
     process.cwd(),
-    'calculogic-validator/src/validator-config.schema.json',
+    'src/validator-config.schema.json',
   );
   const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
 
@@ -31,7 +31,7 @@ test('validator config schema allows naming.caseRules.semanticName.style kebab-c
 test('legacy core schema path is not independently maintained', () => {
   const legacySchemaPath = path.join(
     process.cwd(),
-    'calculogic-validator/src/core/config/validator-config.schema.json',
+    'src/core/config/validator-config.schema.json',
   );
 
   assert.equal(fs.existsSync(legacySchemaPath), false);

@@ -11,7 +11,7 @@ import {
 const runValidatorCli = (args) =>
   spawnSync(
     process.execPath,
-    ['--experimental-strip-types', 'calculogic-validator/scripts/validate-naming.host.mjs', ...args],
+    ['--experimental-strip-types', 'scripts/validate-naming.host.mjs', ...args],
     {
       cwd: process.cwd(),
       encoding: 'utf8',
@@ -20,7 +20,7 @@ const runValidatorCli = (args) =>
   );
 
 const BUILTIN_SCOPE_PROFILES_REGISTRY_PATH =
-  'calculogic-validator/src/registries/_builtin/scope-profiles.registry.json';
+  'src/registries/_builtin/scope-profiles.registry.json';
 
 test('scope registry exposes deterministic supported scopes', () => {
   assert.deepEqual(listNamingValidatorScopes(), ['app', 'docs', 'repo', 'system', 'validator']);
@@ -43,9 +43,9 @@ test('default/no-scope behavior resolves to repo', () => {
 
 test('--scope=repo aligns with repo contract roots', () => {
   const repoPaths = collectRepositoryPaths(process.cwd(), { scope: 'repo' });
-  assert.ok(repoPaths.includes('calculogic-validator/naming/src/naming-validator.host.mjs'));
+  assert.ok(repoPaths.includes('naming/src/naming-validator.host.mjs'));
   assert.ok(
-    repoPaths.includes('calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md'),
+    repoPaths.includes('doc/ConventionRoutines/NamingValidatorSpec.md'),
   );
   assert.ok(repoPaths.includes('README.md'));
 });
@@ -62,7 +62,7 @@ test('--scope=docs includes doc/**, docs/**, and root README.md only from root c
     false,
   );
   assert.equal(
-    docsPaths.some((pathname) => pathname.startsWith('calculogic-validator/')),
+    docsPaths.some((pathname) => pathname.startsWith('')),
     false,
   );
 });
@@ -80,7 +80,7 @@ test('--scope=app includes src/test and excludes docs, validator, and root tooli
     false,
   );
   assert.equal(
-    appPaths.some((pathname) => pathname.startsWith('calculogic-validator/')),
+    appPaths.some((pathname) => pathname.startsWith('')),
     false,
   );
   assert.equal(appPaths.includes('package.json'), false);
@@ -88,9 +88,9 @@ test('--scope=app includes src/test and excludes docs, validator, and root tooli
 
 test('--scope=validator includes calculogic-validator only and excludes app/docs/system files', () => {
   const validatorPaths = collectRepositoryPaths(process.cwd(), { scope: 'validator' });
-  assert.ok(validatorPaths.includes('calculogic-validator/scripts/validate-naming.host.mjs'));
-  assert.ok(validatorPaths.some((pathname) => pathname.startsWith('calculogic-validator/src/')));
-  assert.ok(validatorPaths.some((pathname) => pathname.startsWith('calculogic-validator/test/')));
+  assert.ok(validatorPaths.includes('scripts/validate-naming.host.mjs'));
+  assert.ok(validatorPaths.some((pathname) => pathname.startsWith('src/')));
+  assert.ok(validatorPaths.some((pathname) => pathname.startsWith('test/')));
   assert.equal(
     validatorPaths.some((pathname) => pathname.startsWith('src/')),
     false,
@@ -127,7 +127,7 @@ test('--scope=system includes root tooling files only and excludes all folders',
     false,
   );
   assert.equal(
-    systemPaths.some((pathname) => pathname.startsWith('calculogic-validator/')),
+    systemPaths.some((pathname) => pathname.startsWith('')),
     false,
   );
   assert.equal(

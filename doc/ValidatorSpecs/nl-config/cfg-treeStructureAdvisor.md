@@ -8,16 +8,16 @@ Status labeling for this NL/config note:
 
 Navigation backlinks:
 
-- Tree validator spec (runtime authority): [`calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`](../tree-structure-advisor-validator.spec.md)
-- Tree documentation map (navigation metadata): [`calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`](../tree-owned/tree-documentation-map-and-reorg-inventory.md)
+- Tree validator spec (runtime authority): [`doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`](../tree-structure-advisor-validator.spec.md)
+- Tree documentation map (navigation metadata): [`doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`](../tree-owned/tree-documentation-map-and-reorg-inventory.md)
 - Pointer stub at prior path: [`doc/nl-config/cfg-treeStructureAdvisor.md`](../../../../doc/nl-config/cfg-treeStructureAdvisor.md)
 
 Canonical reading order for tree implementation work:
 
-1. `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-2. `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
-3. `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
-4. `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md` (this document)
+1. `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+2. `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
+3. `doc/ConventionRoutines/NamingValidatorSpec.md`
+4. `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md` (this document)
 
 ## 0.0 Version
 
@@ -27,7 +27,7 @@ Current implementation target: **V0.1.7** (bounded occurrence-level structural c
 
 Add a conservative tree-structure advisor validator slice that proves validator-suite multi-slice execution while remaining report-only and non-destructive.
 
-V0.1.1 converges this slice to a canonical owned boundary under `calculogic-validator/tree/src/` to match naming-slice boundary conventions.
+V0.1.1 converges this slice to a canonical owned boundary under `tree/src/` to match naming-slice boundary conventions.
 
 ## 2.0 Inputs and Source of Truth
 
@@ -81,7 +81,7 @@ Current boundary note: shipped tree heuristics may ingest naming-derived semanti
    - Token/path-only shim signals on non-runtime surfaces (`quality/docs/examples/fixtures`) are suppressed from shim-debt findings.
    - Intentional pass-through surfaces are excluded from shim debt:
      - canonical `*.host.* -> sibling *.wiring.*` forwarding inside owned slices
-     - public package entrypoint barrel (`calculogic-validator/src/index.mjs`) including `export * from`, namespace re-export (`export * as <name> from`), and optional `export { ... } from` forms
+     - public package entrypoint barrel (`src/index.mjs`) including `export * from`, namespace re-export (`export * as <name> from`), and optional `export { ... } from` forms
    - Runtimeish token/path-only matches remain info-level observability (`TREE_SHIM_SURFACE_PRESENT`) and do not emit debt-style `TREE_SHIM_OUTSIDE_COMPAT` unless thin re-export evidence exists.
 
 
@@ -148,14 +148,14 @@ Each finding follows existing report conventions:
 ## 4.0 Registration, Boundary, and Execution
 
 - Canonical tree slice boundary lives at:
-  - `calculogic-validator/tree/src/tree-structure-advisor.host.mjs`
-  - `calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs`
-  - `calculogic-validator/tree/src/tree-structure-advisor-contributors-assembly.wiring.mjs`
-  - `calculogic-validator/tree/src/tree-structure-advisor.logic.mjs`
-  - shim evidence/runtime helpers: `calculogic-validator/tree/src/tree-shim-detection.logic.mjs`
-  - optional contracts surface: `calculogic-validator/tree/src/tree-structure-advisor.contracts.mjs`
+  - `tree/src/tree-structure-advisor.host.mjs`
+  - `tree/src/tree-structure-advisor.wiring.mjs`
+  - `tree/src/tree-structure-advisor-contributors-assembly.wiring.mjs`
+  - `tree/src/tree-structure-advisor.logic.mjs`
+  - shim evidence/runtime helpers: `tree/src/tree-shim-detection.logic.mjs`
+  - optional contracts surface: `tree/src/tree-structure-advisor.contracts.mjs`
 - Registry/index/package exports target the canonical `tree/src/` host boundary.
-- Flat legacy paths under `calculogic-validator/src/tree-structure-advisor.*.mjs` remain compatibility shims only (re-export wrappers) during migration.
+- Flat legacy paths under `src/tree-structure-advisor.*.mjs` remain compatibility shims only (re-export wrappers) during migration.
 - Default runner execution includes both `naming` and `tree-structure-advisor` in deterministic registry order.
 - Dedicated `validate-tree` execution includes only `tree-structure-advisor` while preserving shared runner scope/target semantics.
 - Current dedicated CLI also accepts `--config=<path>` through shared runner plumbing, but unsupported tree-specific config surfaces are rejected by the canonical validator-config contract rather than interpreted locally by tree.

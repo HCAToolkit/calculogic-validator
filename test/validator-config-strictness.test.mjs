@@ -4,10 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadValidatorConfigFromFile } from '../src/core/config/validator-config.logic.mjs';
 
-const fixturePath = 'calculogic-validator/test/fixtures/validator-config.roles.contracts.json';
+const fixturePath = 'test/fixtures/validator-config.roles.contracts.json';
 
 const writeTempConfig = (filename, payload) => {
-  const tempPath = path.join(process.cwd(), `calculogic-validator/test/fixtures/${filename}`);
+  const tempPath = path.join(process.cwd(), `test/fixtures/${filename}`);
   fs.writeFileSync(tempPath, JSON.stringify(payload));
   return tempPath;
 };
@@ -30,7 +30,7 @@ test('fails when config root contains unknown key', () => {
 
 test('allows optional root $schema editor hint key and normalizes deterministically', () => {
   const tempPath = writeTempConfig('tmp-config-with-root-schema-key.json', {
-    $schema: './calculogic-validator/src/validator-config.schema.json',
+    $schema: './src/validator-config.schema.json',
     version: '0.1',
   });
 

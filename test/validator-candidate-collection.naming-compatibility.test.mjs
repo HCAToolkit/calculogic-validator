@@ -111,9 +111,9 @@ const createCandidateFixture = async () => {
     writeFixtureFile(fixtureDir, 'src/data.json', '{}\n'),
     writeFixtureFile(fixtureDir, 'test/app.test.js'),
     writeFixtureFile(fixtureDir, 'doc/guide.md', '# guide\n'),
-    writeFixtureFile(fixtureDir, 'calculogic-validator/src/core/example.logic.mjs'),
-    writeFixtureFile(fixtureDir, 'calculogic-validator/src/core/example.logic.js'),
-    writeFixtureFile(fixtureDir, 'calculogic-validator/test/example.test.mjs'),
+    writeFixtureFile(fixtureDir, 'src/core/example.logic.mjs'),
+    writeFixtureFile(fixtureDir, 'src/core/example.logic.js'),
+    writeFixtureFile(fixtureDir, 'test/example.test.mjs'),
     writeFixtureFile(fixtureDir, 'node_modules/pkg/ignored.logic.ts'),
     writeFixtureFile(fixtureDir, 'dist/ignored.logic.ts'),
     writeFixtureFile(fixtureDir, '.hidden/ignored.logic.ts'),
@@ -187,9 +187,9 @@ test('suite-core candidate helper reproduces current Naming repo candidate colle
     const newCandidatePaths = assertNamingCandidateParity(fixtureDir, { scope: 'repo' });
 
     assert.deepEqual(newCandidatePaths.selectedPaths, [
-      'calculogic-validator/src/core/example.logic.js',
-      'calculogic-validator/src/core/example.logic.mjs',
-      'calculogic-validator/test/example.test.mjs',
+      'src/core/example.logic.js',
+      'src/core/example.logic.mjs',
+      'test/example.test.mjs',
       'doc/guide.md',
       'package-lock.json',
       'package.json',
@@ -220,9 +220,9 @@ test('suite-core candidate helper reproduces current Naming scoped candidate col
       'test/app.test.js',
     ]);
     assert.deepEqual(validatorCandidates.selectedPaths, [
-      'calculogic-validator/src/core/example.logic.js',
-      'calculogic-validator/src/core/example.logic.mjs',
-      'calculogic-validator/test/example.test.mjs',
+      'src/core/example.logic.js',
+      'src/core/example.logic.mjs',
+      'test/example.test.mjs',
     ]);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
@@ -302,20 +302,20 @@ test('suite-core candidate helper reproduces current Naming target filtering', a
   try {
     const targetCandidates = assertNamingCandidateParity(fixtureDir, {
       scope: 'validator',
-      targets: ['calculogic-validator/src/core'],
+      targets: ['src/core'],
     });
 
     assert.deepEqual(targetCandidates.selectedPaths, [
-      'calculogic-validator/src/core/example.logic.js',
-      'calculogic-validator/src/core/example.logic.mjs',
+      'src/core/example.logic.js',
+      'src/core/example.logic.mjs',
     ]);
     assert.deepEqual(targetCandidates.targetDescriptors, [
       {
         kind: 'dir',
-        relPath: 'calculogic-validator/src/core',
+        relPath: 'src/core',
       },
     ]);
-    assert.deepEqual(targetCandidates.targets, ['calculogic-validator/src/core']);
+    assert.deepEqual(targetCandidates.targets, ['src/core']);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }
@@ -332,8 +332,8 @@ test('suite-core candidate helper preserves current Naming root-file and sorting
     });
 
     assert.deepEqual(rootFileCandidates.selectedPaths, [
-      'calculogic-validator/src/core/example.logic.mjs',
-      'calculogic-validator/test/example.test.mjs',
+      'src/core/example.logic.mjs',
+      'test/example.test.mjs',
       'package-lock.json',
       'package.json',
       'src/app.logic.ts',
@@ -379,7 +379,7 @@ test('Naming report findings and summaries remain stable when selected paths com
   try {
     const prepared = prepareNamingValidatorInputs(fixtureDir, {
       scope: 'validator',
-      targets: ['calculogic-validator/src/core'],
+      targets: ['src/core'],
     });
     const legacySelectedPaths = filterLegacyNamingPathsByTargets(
       fixtureDir,
@@ -389,19 +389,19 @@ test('Naming report findings and summaries remain stable when selected paths com
         reportableRootFiles: prepared.reportableRootFiles,
         walkExclusions: prepared.walkExclusions,
       }),
-      ['calculogic-validator/src/core'],
+      ['src/core'],
     );
 
     assert.deepEqual(prepared.selectedPaths, legacySelectedPaths);
 
     const migratedReport = runNamingValidator(fixtureDir, {
       scope: 'validator',
-      targets: ['calculogic-validator/src/core'],
+      targets: ['src/core'],
     });
     const legacyReport = runNamingValidatorRuntime({
       ...prepared,
       selectedPaths: legacySelectedPaths,
-      targets: ['calculogic-validator/src/core'],
+      targets: ['src/core'],
     });
     const migratedSummary = summarizeFindings(migratedReport.findings);
     const legacySummary = summarizeFindings(legacyReport.findings);

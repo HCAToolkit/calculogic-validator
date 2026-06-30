@@ -107,12 +107,12 @@ test('handles empty inputs and deterministically rejects invalid payloads', () =
 test('excludes folder context and mixed folder composition observations from generic semantic-home evidence', () => {
   const result = prepareTreeSemanticHomeEvidence({
     addressedOccurrenceRecords: [
-      { addressPath: 'A.1', parentAddressPath: null, path: 'calculogic-validator/naming', name: 'naming', occurrenceType: 'folder' },
-      { addressPath: 'A.1.1', parentAddressPath: 'A.1', path: 'calculogic-validator/naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
+      { addressPath: 'A.1', parentAddressPath: null, path: 'naming', name: 'naming', occurrenceType: 'folder' },
+      { addressPath: 'A.1.1', parentAddressPath: 'A.1', path: 'naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
     ],
     namingSemanticEvidenceRecords: [
-      { addressPath: 'A.1', path: 'calculogic-validator/naming', occurrenceType: 'folder', semanticName: 'naming', semanticFamily: 'naming', familyRoot: 'naming', semanticEvidenceKind: 'folder-semantic-context', semanticContext: 'naming' },
-      { addressPath: 'A.1.1', path: 'calculogic-validator/naming/naming-src', occurrenceType: 'folder', semanticName: 'naming', semanticFamily: 'naming', familyRoot: 'naming', semanticEvidenceKind: 'folder-semantic-structural-composition', folderCompositionKind: 'semantic-qualified-structural-container', semanticQualifier: 'naming', structuralRoleToken: 'src' },
+      { addressPath: 'A.1', path: 'naming', occurrenceType: 'folder', semanticName: 'naming', semanticFamily: 'naming', familyRoot: 'naming', semanticEvidenceKind: 'folder-semantic-context', semanticContext: 'naming' },
+      { addressPath: 'A.1.1', path: 'naming/naming-src', occurrenceType: 'folder', semanticName: 'naming', semanticFamily: 'naming', familyRoot: 'naming', semanticEvidenceKind: 'folder-semantic-structural-composition', folderCompositionKind: 'semantic-qualified-structural-container', semanticQualifier: 'naming', structuralRoleToken: 'src' },
     ],
   });
 

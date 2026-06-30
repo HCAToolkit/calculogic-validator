@@ -166,16 +166,16 @@ If a future trigger appears, open a new child issue with a narrow scope that cit
 
 Repository evidence inspected:
 
-- `calculogic-validator/src/core/validator-candidate-policy.contracts.mjs` normalizes the candidate-policy contract shape and input sets, but contains no default extension/root-file values.
-- `calculogic-validator/src/core/validator-candidate-policy.logic.mjs` performs candidate path matching and exposes `createValidatorCandidatePolicyFromValues(...)` as an adapter from external values.
-- `calculogic-validator/src/core/validator-candidate-collection.logic.mjs` owns deterministic collection mechanics over scoped snapshot inputs and candidate filtering.
-- `calculogic-validator/src/core/suite-scoped-snapshot-input.logic.mjs` and `calculogic-validator/src/core/scoped-target-paths.logic.mjs` own shared scope/target walking, filtering, descriptor, sorting, and path-normalization mechanics.
-- `calculogic-validator/naming/src/naming-validator.wiring.mjs` prepares Naming inputs, resolves Naming registries, and feeds Naming-owned values into suite-core candidate collection.
-- `calculogic-validator/naming/src/naming-validator.logic.mjs` now delegates candidate collection through suite-core for `collectRepositoryPaths(...)` and consumes prepared `selectedPaths` for Naming interpretation.
-- `calculogic-validator/naming/src/registries/_builtin/reportable-extensions.registry.json` and `calculogic-validator/naming/src/registries/_builtin/reportable-root-files.registry.json` remain the current value sources for reportable extensions and reportable root files.
-- `calculogic-validator/naming/src/registries/_builtin/overlay-capabilities.registry.json` keeps the config overlay surface under `naming.reportableExtensions.add`; there is no suite-level candidate-default config surface.
-- `calculogic-validator/naming/src/registries/registry-state.logic.mjs` still owns Naming registry resolution, config overlay application, canonicalization, digesting, and resolved payload assembly for `reportableExtensions` and `reportableRootFiles`.
-- `calculogic-validator/test/validator-candidate-collection.naming-compatibility.test.mjs` proves the suite helper can preserve current Naming candidate behavior from Naming-fed values.
-- `calculogic-validator/test/suite-scoped-snapshot-input.test.mjs` preserves suite scoped snapshot behavior separately from Naming value authority.
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md` explicitly describes the suite-core candidate helper as contract/helper reuse for adapting slice-owned values without moving registry authority.
-- `calculogic-validator/doc/Audits/validator-candidate-collection-slice-applicability-ownership.audit.md` recommended Option C as target architecture before the #580 and #582 slices: split suite-core candidate policy from slice-owned applicability/interpretation. Current implementation reality has completed the high-ROI mechanics side of that split, while leaving the value-authority movement as a question that no longer has enough duplication pressure to justify immediate implementation.
+- `src/core/validator-candidate-policy.contracts.mjs` normalizes the candidate-policy contract shape and input sets, but contains no default extension/root-file values.
+- `src/core/validator-candidate-policy.logic.mjs` performs candidate path matching and exposes `createValidatorCandidatePolicyFromValues(...)` as an adapter from external values.
+- `src/core/validator-candidate-collection.logic.mjs` owns deterministic collection mechanics over scoped snapshot inputs and candidate filtering.
+- `src/core/suite-scoped-snapshot-input.logic.mjs` and `src/core/scoped-target-paths.logic.mjs` own shared scope/target walking, filtering, descriptor, sorting, and path-normalization mechanics.
+- `naming/src/naming-validator.wiring.mjs` prepares Naming inputs, resolves Naming registries, and feeds Naming-owned values into suite-core candidate collection.
+- `naming/src/naming-validator.logic.mjs` now delegates candidate collection through suite-core for `collectRepositoryPaths(...)` and consumes prepared `selectedPaths` for Naming interpretation.
+- `naming/src/registries/_builtin/reportable-extensions.registry.json` and `naming/src/registries/_builtin/reportable-root-files.registry.json` remain the current value sources for reportable extensions and reportable root files.
+- `naming/src/registries/_builtin/overlay-capabilities.registry.json` keeps the config overlay surface under `naming.reportableExtensions.add`; there is no suite-level candidate-default config surface.
+- `naming/src/registries/registry-state.logic.mjs` still owns Naming registry resolution, config overlay application, canonicalization, digesting, and resolved payload assembly for `reportableExtensions` and `reportableRootFiles`.
+- `test/validator-candidate-collection.naming-compatibility.test.mjs` proves the suite helper can preserve current Naming candidate behavior from Naming-fed values.
+- `test/suite-scoped-snapshot-input.test.mjs` preserves suite scoped snapshot behavior separately from Naming value authority.
+- `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md` explicitly describes the suite-core candidate helper as contract/helper reuse for adapting slice-owned values without moving registry authority.
+- `doc/Audits/validator-candidate-collection-slice-applicability-ownership.audit.md` recommended Option C as target architecture before the #580 and #582 slices: split suite-core candidate policy from slice-owned applicability/interpretation. Current implementation reality has completed the high-ROI mechanics side of that split, while leaving the value-authority movement as a question that no longer has enough duplication pressure to justify immediate implementation.

@@ -28,18 +28,18 @@ const stableRegistry = {
 
 const stableScopeProfile = {
   description: 'Stable validator scope profile for direct report parity tests.',
-  includeRoots: ['calculogic-validator/src'],
+  includeRoots: ['src'],
   includeRootFiles: ['package.json'],
 };
 
 const stableCanonicalFinding = {
   code: 'NAMING_CANONICAL',
   severity: 'info',
-  path: 'calculogic-validator/src/core/validator-direct-report.logic.mjs',
+  path: 'src/core/validator-direct-report.logic.mjs',
   classification: 'canonical',
   message: 'Filename is canonical.',
   ruleRef:
-    'calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#core-filename-grammar',
+    'doc/ConventionRoutines/FileNamingMasterList-V1_1.md#core-filename-grammar',
   details: {
     semanticName: 'validator-direct-report',
     role: 'logic',
@@ -71,7 +71,7 @@ const buildLegacyNamingDirectReportShape = ({ findings, configDigest }) => {
     durationMs: fixedEndedAtDate.getTime() - fixedStartedAtDate.getTime(),
     scope: 'validator',
     totalFilesScanned: findings.length,
-    filters: { isFiltered: true, targets: ['calculogic-validator/src/core'] },
+    filters: { isFiltered: true, targets: ['src/core'] },
     scopeSummary: {
       scope: 'validator',
       reportableFilesInScope: findings.length,
@@ -99,7 +99,7 @@ const buildCurrentNamingDirectReport = ({ findings, configDigest }) =>
     findings,
     totalFilesScanned: findings.length,
     scope: 'validator',
-    filters: { isFiltered: true, targets: ['calculogic-validator/src/core'] },
+    filters: { isFiltered: true, targets: ['src/core'] },
     registry: stableRegistry,
     toolVersion: '0.1.0-test',
     ...(configDigest ? { configDigest } : {}),
@@ -129,7 +129,7 @@ const runValidateNaming = (args) =>
     process.execPath,
     [
       '--experimental-strip-types',
-      'calculogic-validator/scripts/validate-naming.host.mjs',
+      'scripts/validate-naming.host.mjs',
       ...args,
     ],
     { cwd: process.cwd(), encoding: 'utf8' },
@@ -138,7 +138,7 @@ const runValidateNaming = (args) =>
 test('validate:naming direct stdout remains parseable JSON with findings present', () => {
   const result = runValidateNaming([
     '--scope=validator',
-    '--target=calculogic-validator/test/fixtures',
+    '--target=test/fixtures',
   ]);
 
   assert.equal(result.status, 2);
@@ -149,7 +149,7 @@ test('validate:naming direct stdout remains parseable JSON with findings present
   assert.equal(report.validatorId, 'naming');
   assert.equal(report.scope, 'validator');
   assert.equal(report.filters.isFiltered, true);
-  assert.deepEqual(report.filters.targets, ['calculogic-validator/test/fixtures']);
+  assert.deepEqual(report.filters.targets, ['test/fixtures']);
   assert.equal(report.findings.length > 0, true);
   assert.equal(report.scopeSummary.findingsGenerated, report.findings.length);
   assert.equal(report.scopeSummary.reportableFilesInScope, report.totalFilesScanned);
@@ -162,7 +162,7 @@ test('validate:naming direct stdout remains parseable JSON with findings present
 test('validate:naming direct stdout remains parseable JSON with no findings present', () => {
   const result = runValidateNaming([
     '--scope=validator',
-    '--target=calculogic-validator/test/fixtures/no-reportable-files',
+    '--target=test/fixtures/no-reportable-files',
   ]);
 
   assert.equal(result.status, 0);
@@ -193,15 +193,15 @@ test('validate:naming help keeps current command usage surface from registry com
       '  - docs: Documentation-focused scan (doc/docs and root conventional docs: README.md).',
       '  - repo: Repository-wide scan of all reportable files.',
       '  - system: System/tooling files scan (root package/tsconfig/eslint/vite files).',
-      '  - validator: Validator-only scan (calculogic-validator/**).',
+      '  - validator: Validator-only scan (validator-owned repository paths).',
       'Default scope: repo',
       'Examples:',
       '  ✅ npm run validate:naming -- --scope=app',
       '  ✅ npm run validate:naming -- --scope=app --target src/buildsurface',
       '  ✅ npm run validate:naming -- --scope=app --target src/buildsurface --target src/shared',
       '  ✅ npm run validate:all -- --validators=naming --scope=docs',
-      '  ✅ node calculogic-validator/bin/calculogic-validate-naming.host.mjs --scope=app',
-      '  ✅ node calculogic-validator/bin/calculogic-validate.host.mjs --scope=docs',
+      '  ✅ node bin/calculogic-validate-naming.host.mjs --scope=app',
+      '  ✅ node bin/calculogic-validate.host.mjs --scope=docs',
       '  ✅ npm run validate:naming -- --scope=repo --strict',
       '',
     ].join('\n'),

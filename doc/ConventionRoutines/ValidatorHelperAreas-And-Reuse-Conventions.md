@@ -17,13 +17,13 @@ The goal is to preserve clear ownership boundaries and avoid generic catch-all h
 
 Current validator helper areas are:
 
-- suite-core CLI helper area: `calculogic-validator/src/core/cli/`
-- naming-owned CLI helper area: `calculogic-validator/naming/src/cli/`
-- naming-owned health helper area: `calculogic-validator/naming/src/health/`
+- suite-core CLI helper area: `src/core/cli/`
+- naming-owned CLI helper area: `naming/src/cli/`
+- naming-owned health helper area: `naming/src/health/`
 
 Current suite-core CLI area note:
 
-- `calculogic-validator/src/core/cli/validator-cli-runner.logic.mjs` is the suite-core home for shared runner-style CLI orchestration used by multiple runner-style suite CLIs (currently `validate:all` and `validate:tree`).
+- `src/core/cli/validator-cli-runner.logic.mjs` is the suite-core home for shared runner-style CLI orchestration used by multiple runner-style suite CLIs (currently `validate:all` and `validate:tree`).
 
 Do not infer additional helper areas from this document beyond those that currently exist.
 
@@ -31,7 +31,7 @@ Do not infer additional helper areas from this document beyond those that curren
 
 Ownership follows semantic owner boundaries:
 
-- suite-wide, cross-slice concerns belong in `calculogic-validator/src/core/<area>/`
+- suite-wide, cross-slice concerns belong in `src/core/<area>/`
 - slice-owned shared concerns belong in `calculogic-validator/<slice>/src/<area>/`
 
 Ownership is determined by concern and boundary, not by file count or temporary convenience.
@@ -67,15 +67,15 @@ Avoid the following:
 
 Current mapping examples:
 
-- report output, usage flow, target parsing helpers, and shared runner-style CLI orchestration (`validator-cli-runner.logic.mjs`) -> `calculogic-validator/src/core/cli/`
-- naming CLI parsing, usage, runner/report building helpers -> `calculogic-validator/naming/src/cli/`
-- naming health assertions and naming health host wrapper -> `calculogic-validator/naming/src/health/`
+- report output, usage flow, target parsing helpers, and shared runner-style CLI orchestration (`validator-cli-runner.logic.mjs`) -> `src/core/cli/`
+- naming CLI parsing, usage, runner/report building helpers -> `naming/src/cli/`
+- naming health assertions and naming health host wrapper -> `naming/src/health/`
 
 These examples illustrate current ownership and reuse conventions only.
 
 ## 8) Runner-style CLI orchestration boundary (suite-core CLI area)
 
-`calculogic-validator/src/core/cli/validator-cli-runner.logic.mjs` is a bounded suite-core helper for runner-style CLI orchestration shared by multiple consumers.
+`src/core/cli/validator-cli-runner.logic.mjs` is a bounded suite-core helper for runner-style CLI orchestration shared by multiple consumers.
 
 What belongs in this helper boundary:
 

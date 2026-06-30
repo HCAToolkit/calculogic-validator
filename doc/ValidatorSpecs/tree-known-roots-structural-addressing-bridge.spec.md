@@ -77,13 +77,13 @@ Current implementation reality includes:
 
 ### Retired adapter ownership
 
-`calculogic-validator/tree/src/tree-known-roots-compatibility-evidence.logic.mjs` was a Tree-side evidence-only adapter for known-roots compatibility matching. Current implementation reality after the #569 cleanup bridge is that the adapter and its wiring handoff are removed because no guarded replacement or fallback runtime path consumes `preparedDependencies.treeKnownRootsCompatibilityEvidence`.
+`tree/src/tree-known-roots-compatibility-evidence.logic.mjs` was a Tree-side evidence-only adapter for known-roots compatibility matching. Current implementation reality after the #569 cleanup bridge is that the adapter and its wiring handoff are removed because no guarded replacement or fallback runtime path consumes `preparedDependencies.treeKnownRootsCompatibilityEvidence`.
 
 Retained known-roots references remain compatibility/fallback dependencies for the default legacy path and final-deletion candidates for a later known-roots deletion slice.
 
 ### Implemented addressed occurrence enrichment support
 
-`calculogic-validator/tree/src/tree-structural-address-snapshot.logic.mjs` enriches internal structural-address snapshot occurrence records with addressed fields used by Tree evidence preparation:
+`tree/src/tree-structural-address-snapshot.logic.mjs` enriches internal structural-address snapshot occurrence records with addressed fields used by Tree evidence preparation:
 
 - `path`
 - `name`

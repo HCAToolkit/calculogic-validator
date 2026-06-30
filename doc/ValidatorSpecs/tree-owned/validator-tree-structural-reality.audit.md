@@ -18,8 +18,8 @@ Classification: Audit
 ## Current structure strengths
 
 1. **Suite-core vs slice-owned boundary is already legible and mostly deterministic.**
-   - `calculogic-validator/src/core/**` is a coherent suite-core helper/runtime lane.
-   - `calculogic-validator/naming/src/**` and `calculogic-validator/tree/src/**` are explicit owned-slice lanes with their own `test/` surfaces.
+   - `src/core/**` is a coherent suite-core helper/runtime lane.
+   - `naming/src/**` and `tree/src/**` are explicit owned-slice lanes with their own `test/` surfaces.
    - This shape supports independent slice evolution while preserving a stable suite contract center.
 
 2. **Tree-owned internals already show meaningful semantic grouping.**
@@ -43,7 +43,7 @@ Classification: Audit
 
 ### Opportunity A — Suite-level `test/` surface is too flat for family growth
 
-- **Structural pattern:** `calculogic-validator/test/` has many mixed families (`validator-config*`, `report-capture*`, runner/cli/exit/scope tests) in one directory with only `fixtures/` nested.
+- **Structural pattern:** `test/` has many mixed families (`validator-config*`, `report-capture*`, runner/cli/exit/scope tests) in one directory with only `fixtures/` nested.
 - **Why this is a real opportunity:** test ownership is readable now, but future additions will increase scan noise and make ownership/extraction less obvious.
 - **Likely better grouping shape:** introduce bounded family subfolders while preserving filenames, e.g.:
   - `test/suite-core/` (runner/exit/scope/report-meta)

@@ -22,15 +22,13 @@ const makeWritableBuffer = () => {
 
 const createFixtureRepo = async () => {
   const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'addressing-get-tree-host-'));
-  const validatorRoot = path.join(fixtureRoot, 'calculogic-validator');
-
   await fs.mkdir(path.join(fixtureRoot, '.git'), { recursive: true });
-  await fs.mkdir(path.join(validatorRoot, 'structural-addressing', 'src'), { recursive: true });
-  await fs.mkdir(path.join(validatorRoot, 'node_modules', 'x'), { recursive: true });
+  await fs.mkdir(path.join(fixtureRoot, 'structural-addressing', 'src'), { recursive: true });
+  await fs.mkdir(path.join(fixtureRoot, 'node_modules', 'x'), { recursive: true });
 
-  await fs.writeFile(path.join(validatorRoot, 'README.md'), 'readme\n');
-  await fs.writeFile(path.join(validatorRoot, 'structural-addressing', 'src', 'alpha.mjs'), 'export const a = 1;\n');
-  await fs.writeFile(path.join(validatorRoot, 'node_modules', 'x', 'ignored.js'), 'ignored\n');
+  await fs.writeFile(path.join(fixtureRoot, 'README.md'), 'readme\n');
+  await fs.writeFile(path.join(fixtureRoot, 'structural-addressing', 'src', 'alpha.mjs'), 'export const a = 1;\n');
+  await fs.writeFile(path.join(fixtureRoot, 'node_modules', 'x', 'ignored.js'), 'ignored\n');
 
   return fixtureRoot;
 };
@@ -97,24 +95,70 @@ test('parse errors are deterministic for missing scope, unsupported scope/format
   assert.throws(() => parseAddressingGetTreeArgs(['--scope=validator', '--format']), /Missing required value for --format/u);
 });
 
-test('default validator root resolves correctly from repo root and calculogic-validator subdirectory', async () => {
+test('default validator root resolves correctly from repo root and subdirectory', async () => {
   const repoRoot = await createFixtureRepo();
 
   const rootStdout = makeWritableBuffer();
   const rootStderr = makeWritableBuffer();
   const rootExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd: repoRoot, stdout: rootStdout, stderr: rootStderr });
   assert.equal(rootExitCode, 0);
-  assert.match(rootStdout.read(), /^A: calculogic-validator\//mu);
+  assert.match(rootStdout.read(), /^A: \./mu);
   assert.equal(rootStderr.read(), '');
 
   const subdirStdout = makeWritableBuffer();
   const subdirStderr = makeWritableBuffer();
-  const subdirExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd: path.join(repoRoot, 'calculogic-validator'), stdout: subdirStdout, stderr: subdirStderr });
+  const subdirExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd: path.join(repoRoot, 'structural-addressing'), stdout: subdirStdout, stderr: subdirStderr });
   assert.equal(subdirExitCode, 0);
-  assert.match(subdirStdout.read(), /^A: calculogic-validator\//mu);
+  assert.match(subdirStdout.read(), /^A: \./mu);
   assert.equal(subdirStderr.read(), '');
 
   await fs.rm(repoRoot, { recursive: true, force: true });
+});
+
+test('default validator root path identity is stable across checkout directory names', async () => {
+  const firstRepoRoot = await createFixtureRepo();
+  const secondRepoRoot = await createFixtureRepo();
+
+  try {
+    const firstStdout = makeWritableBuffer();
+    const firstStderr = makeWritableBuffer();
+    const firstExitCode = await runAddressingGetTreeHost({
+      argv: ['--scope=validator', '--format=json'],
+      cwd: firstRepoRoot,
+      stdout: firstStdout,
+      stderr: firstStderr,
+    });
+
+    const secondStdout = makeWritableBuffer();
+    const secondStderr = makeWritableBuffer();
+    const secondExitCode = await runAddressingGetTreeHost({
+      argv: ['--scope=validator', '--format=json'],
+      cwd: secondRepoRoot,
+      stdout: secondStdout,
+      stderr: secondStderr,
+    });
+
+    assert.equal(firstExitCode, 0);
+    assert.equal(secondExitCode, 0);
+    assert.equal(firstStderr.read(), '');
+    assert.equal(secondStderr.read(), '');
+
+    const firstRoot = JSON.parse(firstStdout.read()).addressedTreeSnapshot.scopeRoots[0];
+    const secondRoot = JSON.parse(secondStdout.read()).addressedTreeSnapshot.scopeRoots[0];
+
+    assert.equal(firstRoot.path, '.');
+    assert.equal(secondRoot.path, '.');
+    assert.equal(firstRoot.name, '.');
+    assert.equal(secondRoot.name, '.');
+    assert.equal(firstRoot.path, secondRoot.path);
+    assert.deepEqual(
+      firstRoot.children.map((child) => child.path),
+      ['README.md', 'structural-addressing'],
+    );
+  } finally {
+    await fs.rm(firstRepoRoot, { recursive: true, force: true });
+    await fs.rm(secondRepoRoot, { recursive: true, force: true });
+  }
 });
 
 test('repo-relative targets resolve from repository root and output paths stay repo-relative', async () => {
@@ -123,15 +167,15 @@ test('repo-relative targets resolve from repository root and output paths stay r
   const stdout = makeWritableBuffer();
   const stderr = makeWritableBuffer();
   const exitCode = await runAddressingGetTreeHost({
-    argv: ['--scope=validator', '--target', 'calculogic-validator/README.md', '--format=json'],
-    cwd: path.join(repoRoot, 'calculogic-validator'),
+    argv: ['--scope=validator', '--target', 'README.md', '--format=json'],
+    cwd: path.join(repoRoot, 'structural-addressing'),
     stdout,
     stderr,
   });
 
   assert.equal(exitCode, 0);
   const parsed = JSON.parse(stdout.read());
-  assert.equal(parsed.addressedTreeSnapshot.scopeRoots[0].path, 'calculogic-validator/README.md');
+  assert.equal(parsed.addressedTreeSnapshot.scopeRoots[0].path, 'README.md');
   assert.equal(stderr.read(), '');
 
   await fs.rm(repoRoot, { recursive: true, force: true });
@@ -146,14 +190,14 @@ test('--scope=validator --format=json emits valid JSON; both emits deterministic
   assert.equal(jsonExitCode, 0);
   const parsedJson = JSON.parse(jsonOut.read());
   assert.equal(parsedJson.addressedTreeSnapshot.scope, 'validator');
-  assert.equal(parsedJson.addressedTreeSnapshot.sourceNamespace, 'calculogic-validator');
+  assert.equal(parsedJson.addressedTreeSnapshot.sourceNamespace, 'validator');
   assert.equal(parsedJson.addressedTreeSnapshot.target, null);
   assert.equal(jsonErr.read(), '');
 
   const bothOut = makeWritableBuffer();
   const bothErr = makeWritableBuffer();
   const bothExitCode = await runAddressingGetTreeHost({
-    argv: ['--scope=validator', '--target', 'calculogic-validator/structural-addressing', '--target=calculogic-validator/README.md', '--format', 'both'],
+    argv: ['--scope=validator', '--target', 'structural-addressing', '--target=README.md', '--format', 'both'],
     cwd,
     stdout: bothOut,
     stderr: bothErr,
@@ -162,8 +206,8 @@ test('--scope=validator --format=json emits valid JSON; both emits deterministic
   assert.equal(bothExitCode, 0);
   const parsedBoth = JSON.parse(bothOut.read());
   assert.deepEqual(parsedBoth.addressedTreeSnapshot.target, [
-    'calculogic-validator/structural-addressing',
-    'calculogic-validator/README.md',
+    'structural-addressing',
+    'README.md',
   ]);
   assert.match(parsedBoth.renderedTree, /structural-addressing\//u);
   assert.match(parsedBoth.renderedTree, /README\.md/u);
@@ -177,7 +221,7 @@ test('outside target and nonexistent target fail deterministically', async () =>
   const outsideStderr = makeWritableBuffer();
 
   const outsideExitCode = await runAddressingGetTreeHost({
-    argv: ['--scope=validator', '--target', 'README.md'],
+    argv: ['--scope=validator', '--target', '../outside.md'],
     cwd,
     stdout: outsideStdout,
     stderr: outsideStderr,
@@ -188,14 +232,14 @@ test('outside target and nonexistent target fail deterministically', async () =>
   const missingStdout = makeWritableBuffer();
   const missingStderr = makeWritableBuffer();
   const missingExitCode = await runAddressingGetTreeHost({
-    argv: ['--scope=validator', '--target', 'calculogic-validator/missing-path'],
+    argv: ['--scope=validator', '--target', 'missing-path'],
     cwd,
     stdout: missingStdout,
     stderr: missingStderr,
   });
 
   assert.equal(missingExitCode, 1);
-  assert.match(missingStderr.read(), /Target path does not exist/u);
+  assert.match(missingStderr.read(), /Target path does not exist: missing-path/u);
 
   await fs.rm(cwd, { recursive: true, force: true });
 });
@@ -231,7 +275,7 @@ test('symlink targets are handled safely and never recursively traversed', async
   const linkStdout = makeWritableBuffer();
   const linkStderr = makeWritableBuffer();
   const linkExitCode = await runAddressingGetTreeHost({
-    argv: ['--scope=validator', '--target', 'calculogic-validator/linked-root', '--format=text'],
+    argv: ['--scope=validator', '--target', 'linked-root', '--format=text'],
     cwd,
     stdout: linkStdout,
     stderr: linkStderr,
@@ -244,7 +288,7 @@ test('symlink targets are handled safely and never recursively traversed', async
   const traversedStdout = makeWritableBuffer();
   const traversedStderr = makeWritableBuffer();
   const traversedExitCode = await runAddressingGetTreeHost({
-    argv: ['--scope=validator', '--target', 'calculogic-validator/link-out/inner', '--format=text'],
+    argv: ['--scope=validator', '--target', 'link-out/inner', '--format=text'],
     cwd,
     stdout: traversedStdout,
     stderr: traversedStderr,

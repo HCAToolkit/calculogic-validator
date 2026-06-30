@@ -5,7 +5,7 @@ import path from 'node:path';
 import { loadValidatorConfigFromFile } from '../src/core/config/validator-config.logic.mjs';
 
 const writeTempConfig = (filename, payload) => {
-  const tempPath = path.join(process.cwd(), `calculogic-validator/test/fixtures/${filename}`);
+  const tempPath = path.join(process.cwd(), `test/fixtures/${filename}`);
   fs.writeFileSync(tempPath, JSON.stringify(payload));
   return tempPath;
 };

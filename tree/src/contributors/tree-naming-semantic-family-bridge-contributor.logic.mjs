@@ -6,7 +6,7 @@ const FAMILY_CLUSTER_INFO_MIN_FILES = 4;
 const FAMILY_SUBGROUP_OPPORTUNITY_MIN_FILES_IN_CONTAINER = 4;
 const FAMILY_SUBGROUP_OPPORTUNITY_MIN_DISTINCT_CONTAINER_LOCAL_HOMES = 2;
 const FAMILY_SUBGROUP_OPPORTUNITY_REQUIRES_LOWER_LEVEL_GROUPING_SIGNAL = true;
-const TREE_STRUCTURAL_ROOT_SURFACES = ['src', 'test', 'doc', 'docs', 'scripts', 'tools', 'bin', 'public', 'calculogic-validator'];
+const TREE_STRUCTURAL_ROOT_SURFACES = ['src', 'test', 'doc', 'docs', 'scripts', 'tools', 'bin', 'public', 'validator'];
 const TREE_STRUCTURAL_ROOT_SURFACE_SET = new Set(TREE_STRUCTURAL_ROOT_SURFACES);
 const TREE_SEMANTIC_ROOT_FOLDERS = ['tree', 'naming'];
 const TREE_SEMANTIC_ROOT_FOLDER_SET = new Set(TREE_SEMANTIC_ROOT_FOLDERS);
@@ -17,8 +17,8 @@ const ALLOWED_STRUCTURAL_ROOT_PAIRINGS = [
 const ALLOWED_STRUCTURAL_ROOT_PAIRING_SET = new Set(
   ALLOWED_STRUCTURAL_ROOT_PAIRINGS.map((pair) => pair.slice().sort((left, right) => left.localeCompare(right)).join('::')),
 );
-const CANONICAL_DOC_AUTHORITY_ROOT_PREFIX = 'calculogic-validator/doc/';
-const CANONICAL_VALIDATOR_ROOT_PREFIX = 'calculogic-validator/';
+const CANONICAL_DOC_AUTHORITY_ROOT_PREFIX = 'doc/';
+const CANONICAL_VALIDATOR_ROOT_PREFIX = '';
 const SHARED_ROOT_SEMANTIC_GROUPING_SUPPORTED_ROOTS = ['src/shared'];
 const SHARED_ROOT_LANE_FIRST_PARTITIONS = ['build', 'build-style', 'logic', 'knowledge', 'results', 'results-style', 'tests', 'docs'];
 const SHARED_ROOT_LANE_FIRST_PARTITION_SET = new Set(SHARED_ROOT_LANE_FIRST_PARTITIONS);
@@ -337,6 +337,16 @@ const isAllowedStructuralRootPairing = (leftPlacement, rightPlacement) => {
   return ALLOWED_STRUCTURAL_ROOT_PAIRING_SET.has(key);
 };
 
+const toCanonicalRuntimeContainerSegment = (semanticContainerIdentity) => {
+  const segments = semanticContainerIdentity?.split('/').filter(Boolean) ?? [];
+
+  if (segments.length === 1 && TREE_SEMANTIC_ROOT_FOLDER_SET.has(segments[0])) {
+    return segments[0];
+  }
+
+  return segments[1] ?? null;
+};
+
 const isAllowedCanonicalDocAuthorityRuntimePairing = (leftPlacement, rightPlacement) => {
   const placementPair = [leftPlacement, rightPlacement];
   const docPlacement = placementPair.find((placement) => placement.path.startsWith(CANONICAL_DOC_AUTHORITY_ROOT_PREFIX));
@@ -353,7 +363,7 @@ const isAllowedCanonicalDocAuthorityRuntimePairing = (leftPlacement, rightPlacem
     return false;
   }
 
-  const runtimeContainerSegment = runtimePlacement.semanticContainerIdentity?.split('/')[1];
+  const runtimeContainerSegment = toCanonicalRuntimeContainerSegment(runtimePlacement.semanticContainerIdentity);
   if (!runtimeContainerSegment) {
     return false;
   }
@@ -924,7 +934,7 @@ const collectFamilyScatterFindings = (familySharedSpineAnalysisEntries) =>
           classification: 'advisory-structure',
           message:
             'Naming-owned semantic-family evidence is spread across multiple structural homes and may benefit from clearer semantic-first grouping.',
-          ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
+          ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
           details: {
             semanticFamily,
             observedPaths: familyAnalysis.sortedPaths,
@@ -937,7 +947,7 @@ const collectFamilyScatterFindings = (familySharedSpineAnalysisEntries) =>
             ...toSemanticHomeEvidenceDetails(familyAnalysis.familyEntries),
             allowedCrossContainerPatterns: {
               structuralRootPairings: ALLOWED_STRUCTURAL_ROOT_PAIRINGS,
-              canonicalDocAuthorityRuntimePairing: 'calculogic-validator/doc/** <-> calculogic-validator/<semantic-container>/**',
+              canonicalDocAuthorityRuntimePairing: 'doc/** <-> <semantic-container>/**',
             },
             thresholds: {
               minFamilyFiles: FAMILY_SCATTER_MIN_FILES,
@@ -963,7 +973,7 @@ const collectFamilyClusterFindings = (familySharedSpineAnalysisEntries) =>
           classification: 'advisory-structure',
           message:
             'Naming-owned semantic-family cluster size is high enough to consider a clearer structural grouping surface.',
-          ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
+          ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
           details: {
             semanticFamily,
             semanticContainerIdentity: familyAnalysis.semanticContainerIdentities[0] ?? null,
@@ -995,7 +1005,7 @@ const collectFamilySubgroupOpportunityFindings = (familySharedSpineAnalysisEntri
           classification: 'advisory-structure',
           message:
             'Naming-owned semantic-family evidence is dense inside one naming-aligned semantic container and may benefit from a lower-level subgroup folder.',
-          ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
+          ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
           details: {
             semanticFamily,
             semanticContainerIdentity: familyAnalysis.semanticContainerIdentities[0],
@@ -1060,7 +1070,7 @@ const collectSharedRootFamilyScatterAcrossLanesFindings = (familySharedSpineAnal
             classification: 'advisory-structure',
             message:
               'Naming-owned semantic-family evidence is spread across lane-first partitions under a shared root and may benefit from semantic-first grouping.',
-            ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
+            ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
             details: {
               sharedRootPath: sharedRoot,
               semanticFamily,

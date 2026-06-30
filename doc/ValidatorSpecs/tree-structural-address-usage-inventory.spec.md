@@ -43,39 +43,39 @@ Primary terms searched:
 
 Minimum requested areas inspected for this slice:
 
-- `calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs`
-- `calculogic-validator/tree/src/tree-structure-advisor.logic.mjs`
-- `calculogic-validator/tree/src/tree-structural-address-snapshot.logic.mjs`
-- `calculogic-validator/tree/src/tree-occurrence-snapshot.logic.mjs`
-- `calculogic-validator/tree/test/tree-structural-address-snapshot.logic.test.mjs`
-- `calculogic-validator/tree/test/tree-occurrence-snapshot.test.mjs`
-- `calculogic-validator/structural-addressing/src/structural-addressing-tree-codebase.logic.mjs`
-- `calculogic-validator/structural-addressing/src/structural-addressing-render-tree.logic.mjs`
-- `calculogic-validator/structural-addressing/test/structural-addressing-render-tree.logic.test.mjs`
-- `calculogic-validator/scripts/addressing-get-tree.host.mjs`
-- `calculogic-validator/doc/ValidatorSpecs/structural-addressing-get-tree-commands.spec.md`
-- `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
-- `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-- `calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
+- `tree/src/tree-structure-advisor.wiring.mjs`
+- `tree/src/tree-structure-advisor.logic.mjs`
+- `tree/src/tree-structural-address-snapshot.logic.mjs`
+- `tree/src/tree-occurrence-snapshot.logic.mjs`
+- `tree/test/tree-structural-address-snapshot.logic.test.mjs`
+- `tree/test/tree-occurrence-snapshot.test.mjs`
+- `structural-addressing/src/structural-addressing-tree-codebase.logic.mjs`
+- `structural-addressing/src/structural-addressing-render-tree.logic.mjs`
+- `structural-addressing/test/structural-addressing-render-tree.logic.test.mjs`
+- `scripts/addressing-get-tree.host.mjs`
+- `doc/ValidatorSpecs/structural-addressing-get-tree-commands.spec.md`
+- `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
+- `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+- `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
 
 ## Findings
 
 | File | Usage | Finding type | Classification | Notes |
 | --- | --- | --- | --- | --- |
-| `calculogic-validator/structural-addressing/src/structural-addressing-tree-codebase.logic.mjs` | Produces addressed occurrence records (`addressPath`, `parentAddressPath`, marker strategy output, scope metadata). | address-production logic | canonical Structural Addressing owner | Current production authority for deterministic addressed evidence preparation is Structural Addressing slice code, not Tree runtime code. |
-| `calculogic-validator/structural-addressing/src/structural-addressing-render-tree.logic.mjs` | Consumes addressed snapshot and produces deterministic `renderedTree`. | address-production logic | canonical Structural Addressing owner | Rendering contract is part of Structural Addressing V0 inspection path. |
-| `calculogic-validator/scripts/addressing-get-tree.host.mjs` | Host command wiring for get-tree V0 (`scopeRoots`, addressed snapshot, `renderedTree`, formats). | advisor handoff evidence | canonical Structural Addressing owner | Command surface is in scripts layer but forwards to Structural Addressing ownership. |
-| `calculogic-validator/tree/src/tree-structure-advisor.wiring.mjs` | Builds `structuralAddressSnapshot` via `prepareTreeStructuralAddressSnapshot` and passes it into Tree prepared input envelope. | address-consumption logic | Tree consumer-side use | Tree wiring currently consumes/forwards address-like evidence for advisor context; no deterministic address generation rules are defined here. |
-| `calculogic-validator/tree/src/tree-structural-address-snapshot.logic.mjs` | `prepareTreeStructuralAddressSnapshot` returns `scope`, `scopeRoots`, `occurrenceRecords` from Tree occurrence snapshot preparation fallback. | address-consumption logic | transitional Tree-owned duplicate | Snapshot shape mirrors addressed evidence envelope terminology, but current implementation relies on Tree occurrence records (`occurrenceMarker`) rather than Structural Addressing V0 `addressPath` contract; this is a likely bridge target. |
-| `calculogic-validator/tree/src/tree-occurrence-snapshot.logic.mjs` | Produces `scopeRoots`, `occurrenceRecords`, and per-node `occurrenceMarker` using Tree-local marker logic. | address-production logic | transitional Tree-owned duplicate | Tree-local marker/address-like production appears to overlap conceptual surface with Structural Addressing deterministic production and should be evaluated in follow-up bridge slice. |
-| `calculogic-validator/tree/src/tree-structure-advisor.logic.mjs` | Consumes `occurrenceSnapshot.occurrenceRecords` for tree interpretation/classification flow. | address-consumption logic | Tree consumer-side use | Tree runtime acts as consumer/interpreter of occurrence evidence for advisor behavior. |
-| `calculogic-validator/tree/test/tree-structural-address-snapshot.logic.test.mjs` | Asserts neutral envelope shape and snapshot fields for Tree structural-address snapshot helper. | test fixture / assertion | Tree consumer-side use | Confirms existing Tree wrapper contract but does not establish Structural Addressing production authority. |
-| `calculogic-validator/tree/test/tree-occurrence-snapshot.test.mjs` | Asserts uppercase folder markers, scope roots, and occurrence records in Tree-local snapshot builder. | test fixture / assertion | transitional Tree-owned duplicate | Test expectations lock current Tree-local marker/address-like behavior; defer runtime changes until bridge spec is explicit. |
-| `calculogic-validator/doc/ValidatorSpecs/structural-addressing-get-tree-commands.spec.md` | Declares get-tree V0 inspection boundary and `renderedTree` / addressed snapshot outputs. | conceptual documentation | canonical Structural Addressing owner | Current authoritative command/status wording aligns production ownership to Structural Addressing V0. |
-| `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` | Tree spec references structural addressing boundaries and tree consumption posture. | conceptual documentation | Tree consumer-side use | Treat as tree runtime/spec authority for advisor behavior; contains boundary statements that Tree consumes but does not own address grammar production. |
-| `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md` | Navigation map references Structural Addressing draft/spec docs in reading map context. | navigation-only / historical documentation | navigation-only doc reference | Inventory/map role only; non-canonical for runtime behavior. |
-| `calculogic-validator/doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md` | Defines deterministic structural-address grammar and terms. | conceptual documentation | canonical Structural Addressing owner | Grammar authority reference; draft status still applies for deferred decisions. |
-| `calculogic-validator/tree/src/tree-structural-address-snapshot.logic.mjs` + `calculogic-validator/structural-addressing/src/*` | Similar envelope concepts (`scopeRoots`, occurrence records) but different marker/address fields and generation source. | advisor handoff evidence | unclear / needs follow-up slice | Boundary is visible, but exact adapter/bridge mapping from Tree occurrence marker model to Structural Addressing V0 addressed model should be defined in a dedicated bridge slice spec before code migration. |
+| `structural-addressing/src/structural-addressing-tree-codebase.logic.mjs` | Produces addressed occurrence records (`addressPath`, `parentAddressPath`, marker strategy output, scope metadata). | address-production logic | canonical Structural Addressing owner | Current production authority for deterministic addressed evidence preparation is Structural Addressing slice code, not Tree runtime code. |
+| `structural-addressing/src/structural-addressing-render-tree.logic.mjs` | Consumes addressed snapshot and produces deterministic `renderedTree`. | address-production logic | canonical Structural Addressing owner | Rendering contract is part of Structural Addressing V0 inspection path. |
+| `scripts/addressing-get-tree.host.mjs` | Host command wiring for get-tree V0 (`scopeRoots`, addressed snapshot, `renderedTree`, formats). | advisor handoff evidence | canonical Structural Addressing owner | Command surface is in scripts layer but forwards to Structural Addressing ownership. |
+| `tree/src/tree-structure-advisor.wiring.mjs` | Builds `structuralAddressSnapshot` via `prepareTreeStructuralAddressSnapshot` and passes it into Tree prepared input envelope. | address-consumption logic | Tree consumer-side use | Tree wiring currently consumes/forwards address-like evidence for advisor context; no deterministic address generation rules are defined here. |
+| `tree/src/tree-structural-address-snapshot.logic.mjs` | `prepareTreeStructuralAddressSnapshot` returns `scope`, `scopeRoots`, `occurrenceRecords` from Tree occurrence snapshot preparation fallback. | address-consumption logic | transitional Tree-owned duplicate | Snapshot shape mirrors addressed evidence envelope terminology, but current implementation relies on Tree occurrence records (`occurrenceMarker`) rather than Structural Addressing V0 `addressPath` contract; this is a likely bridge target. |
+| `tree/src/tree-occurrence-snapshot.logic.mjs` | Produces `scopeRoots`, `occurrenceRecords`, and per-node `occurrenceMarker` using Tree-local marker logic. | address-production logic | transitional Tree-owned duplicate | Tree-local marker/address-like production appears to overlap conceptual surface with Structural Addressing deterministic production and should be evaluated in follow-up bridge slice. |
+| `tree/src/tree-structure-advisor.logic.mjs` | Consumes `occurrenceSnapshot.occurrenceRecords` for tree interpretation/classification flow. | address-consumption logic | Tree consumer-side use | Tree runtime acts as consumer/interpreter of occurrence evidence for advisor behavior. |
+| `tree/test/tree-structural-address-snapshot.logic.test.mjs` | Asserts neutral envelope shape and snapshot fields for Tree structural-address snapshot helper. | test fixture / assertion | Tree consumer-side use | Confirms existing Tree wrapper contract but does not establish Structural Addressing production authority. |
+| `tree/test/tree-occurrence-snapshot.test.mjs` | Asserts uppercase folder markers, scope roots, and occurrence records in Tree-local snapshot builder. | test fixture / assertion | transitional Tree-owned duplicate | Test expectations lock current Tree-local marker/address-like behavior; defer runtime changes until bridge spec is explicit. |
+| `doc/ValidatorSpecs/structural-addressing-get-tree-commands.spec.md` | Declares get-tree V0 inspection boundary and `renderedTree` / addressed snapshot outputs. | conceptual documentation | canonical Structural Addressing owner | Current authoritative command/status wording aligns production ownership to Structural Addressing V0. |
+| `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` | Tree spec references structural addressing boundaries and tree consumption posture. | conceptual documentation | Tree consumer-side use | Treat as tree runtime/spec authority for advisor behavior; contains boundary statements that Tree consumes but does not own address grammar production. |
+| `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md` | Navigation map references Structural Addressing draft/spec docs in reading map context. | navigation-only / historical documentation | navigation-only doc reference | Inventory/map role only; non-canonical for runtime behavior. |
+| `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md` | Defines deterministic structural-address grammar and terms. | conceptual documentation | canonical Structural Addressing owner | Grammar authority reference; draft status still applies for deferred decisions. |
+| `tree/src/tree-structural-address-snapshot.logic.mjs` + `structural-addressing/src/*` | Similar envelope concepts (`scopeRoots`, occurrence records) but different marker/address fields and generation source. | advisor handoff evidence | unclear / needs follow-up slice | Boundary is visible, but exact adapter/bridge mapping from Tree occurrence marker model to Structural Addressing V0 addressed model should be defined in a dedicated bridge slice spec before code migration. |
 
 ## Candidate next-slice recommendations
 
