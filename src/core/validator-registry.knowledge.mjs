@@ -286,7 +286,7 @@ export const VALIDATOR_REGISTRY = [
       },
       packageBin: {
         expectedName: 'calculogic-validate-tree',
-        available: false,
+        available: true,
       },
       runner: {
         defaultIncludedInValidateAll: true,
