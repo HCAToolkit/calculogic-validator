@@ -75,7 +75,6 @@ export const prepareTreeStructuralHomeEvidence = (input) => {
 
   const structuralHomeLookup = toStructuralHomeLookup(input.structuralHomesRegistry.structuralHomes);
   const evidenceRecords = [];
-  const seenEvidencePaths = new Set();
 
   for (const occurrenceRecord of input.addressedOccurrenceRecords) {
     if (!occurrenceRecord || typeof occurrenceRecord !== 'object' || Array.isArray(occurrenceRecord)) {
@@ -96,11 +95,6 @@ export const prepareTreeStructuralHomeEvidence = (input) => {
       continue;
     }
 
-    if (seenEvidencePaths.has(repoTopToken)) {
-      continue;
-    }
-
-    seenEvidencePaths.add(repoTopToken);
     evidenceRecords.push(toEvidenceRecord(occurrenceRecord, structuralHomeMetadata));
   }
 

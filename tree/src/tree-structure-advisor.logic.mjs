@@ -7,16 +7,15 @@ const TREE_REPO_SHAPE_POLICY = getBuiltinTreeRepoShapePolicy();
 const ALLOWED_TOP_LEVEL_DIRECTORY_NAMES = TREE_REPO_SHAPE_POLICY.allowedTopLevelDirectories;
 const ALLOWED_TOP_LEVEL_DIRECTORY_NAME_SET = new Set(ALLOWED_TOP_LEVEL_DIRECTORY_NAMES);
 
-const VALIDATOR_OWNED_ROOT_PREFIXES = ['src/', 'test/', 'naming/', 'tree/', 'structural-addressing/', 'bin/', 'scripts/', 'tools/'];
-const VALIDATOR_SUITE_CORE_ROOT = 'src/';
+const VALIDATOR_SUITE_CORE_ROOT = 'calculogic-validator/src/';
 const SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_PREFIXES = [
-  'src/core/',
-  'src/compat/',
-  'src/registries/',
+  'calculogic-validator/src/core/',
+  'calculogic-validator/src/compat/',
+  'calculogic-validator/src/registries/',
 ];
 const SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_EXACT_PATHS = new Set([
-  'src/index.mjs',
-  'src/validator-config.schema.json',
+  'calculogic-validator/src/index.mjs',
+  'calculogic-validator/src/validator-config.schema.json',
 ]);
 const SUITE_CORE_BOUNDARY_DRIFT_OWNED_SUBSYSTEM_MIN_FILES = 2;
 
@@ -33,8 +32,7 @@ const sortByPathThenCode = (left, right) => {
 };
 
 const isValidatorOwnedBasenameSignal = (basename) =>
-  TREE_SIGNAL_POLICY.validatorOwnedBasenameSignalMatchers.some(({ matcher }) => matcher.test(basename)) ||
-  BOUNDARY_DRIFT_BASENAME_SIGNAL_MATCHER.test(basename);
+  TREE_SIGNAL_POLICY.validatorOwnedBasenameSignalMatchers.some(({ matcher }) => matcher.test(basename));
 
 const createNeutralReplacementRuntime = () => ({
   classifyOccurrenceRecords: (occurrenceRecords = []) => occurrenceRecords,
@@ -193,7 +191,7 @@ const collectTopLevelUnexpectedFolderFindings = (preparedInputs, replacementRunt
       classification: 'advisory-structure',
       message:
         'Top-level folder is outside the known project shape for this repository and may indicate structural drift.',
-      ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
+      ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
       details: {
         allowedTopLevelDirectories,
       },
@@ -202,7 +200,7 @@ const collectTopLevelUnexpectedFolderFindings = (preparedInputs, replacementRunt
 
 const collectValidatorOwnedOutsideTreeFindings = (paths) =>
   paths
-    .filter((relativePath) => !VALIDATOR_OWNED_ROOT_PREFIXES.some((prefix) => prefix && relativePath.startsWith(prefix)))
+    .filter((relativePath) => !relativePath.startsWith('calculogic-validator/'))
     .filter((relativePath) => isValidatorOwnedBasenameSignal(path.posix.basename(relativePath)))
     .sort((left, right) => left.localeCompare(right))
     .map((relativePath) => ({
@@ -211,10 +209,10 @@ const collectValidatorOwnedOutsideTreeFindings = (paths) =>
       path: relativePath,
       classification: 'advisory-structure',
       message:
-        'Path appears validator-owned by basename signal but is located outside validator-owned repository paths.',
-      ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
+        'Path appears validator-owned by basename signal but is located outside calculogic-validator/**.',
+      ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
       details: {
-        expectedRoot: VALIDATOR_OWNED_ROOT_PREFIXES.join('|'),
+        expectedRoot: 'calculogic-validator/',
       },
     }));
 
@@ -265,8 +263,8 @@ const collectOwnedSliceBoundaryDriftFindings = (paths) => {
           path: `${VALIDATOR_SUITE_CORE_ROOT}${topLevelSegment}/`,
           classification: 'advisory-structure',
           message:
-            'Likely validator-owned subsystem growth is accumulating under suite-core src/** rather than an owned slice root.',
-          ruleRef: 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
+            'Likely validator-owned subsystem growth is accumulating under suite-core calculogic-validator/src/** rather than an owned slice root.',
+          ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
           details: {
             suiteCoreRoot: VALIDATOR_SUITE_CORE_ROOT,
             observedSubtree: topLevelSegment,

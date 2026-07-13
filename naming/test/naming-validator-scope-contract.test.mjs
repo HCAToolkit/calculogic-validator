@@ -62,7 +62,7 @@ test('--scope=docs includes doc/**, docs/**, and root README.md only from root c
     false,
   );
   assert.equal(
-    docsPaths.some((pathname) => pathname.startsWith('naming/')),
+    docsPaths.some((pathname) => pathname.startsWith('calculogic-validator/')),
     false,
   );
 });
@@ -80,27 +80,29 @@ test('--scope=app includes src/test and excludes docs, validator, and root tooli
     false,
   );
   assert.equal(
-    appPaths.some((pathname) => pathname.startsWith('naming/')),
+    appPaths.some((pathname) => pathname.startsWith('calculogic-validator/')),
     false,
   );
   assert.equal(appPaths.includes('package.json'), false);
 });
 
-test('--scope=validator selects the standalone validator root while preserving the validator scope name', () => {
-  const repoPaths = collectRepositoryPaths(process.cwd(), { scope: 'repo' });
+test('--scope=validator includes standalone validator development files and includes package manifest', () => {
   const validatorPaths = collectRepositoryPaths(process.cwd(), { scope: 'validator' });
-  assert.deepEqual(validatorPaths, repoPaths);
   assert.ok(validatorPaths.includes('scripts/validate-naming.host.mjs'));
   assert.ok(validatorPaths.some((pathname) => pathname.startsWith('src/')));
-  assert.ok(validatorPaths.some((pathname) => pathname.startsWith('naming/')));
-  assert.ok(validatorPaths.some((pathname) => pathname.startsWith('tree/')));
-  assert.ok(validatorPaths.some((pathname) => pathname.startsWith('doc/')));
-  assert.ok(validatorPaths.includes('package.json'));
+  assert.ok(validatorPaths.some((pathname) => pathname.startsWith('test/')));
+    assert.ok(validatorPaths.some((pathname) => pathname.startsWith('doc/')));
+  assert.equal(
+    validatorPaths.some((pathname) => pathname.startsWith('docs/')),
+    false,
+  );
+  assert.equal(validatorPaths.includes('package.json'), true);
 });
 
 test('--scope=system includes root tooling files only and excludes all folders', () => {
   const systemPaths = collectRepositoryPaths(process.cwd(), { scope: 'system' });
   assert.ok(systemPaths.includes('package.json'));
+  assert.equal(systemPaths.includes('tsconfig.json'), fs.existsSync('tsconfig.json'));
   assert.equal(
     systemPaths.some((pathname) => pathname.startsWith('src/')),
     false,
@@ -115,6 +117,10 @@ test('--scope=system includes root tooling files only and excludes all folders',
   );
   assert.equal(
     systemPaths.some((pathname) => pathname.startsWith('docs/')),
+    false,
+  );
+  assert.equal(
+    systemPaths.some((pathname) => pathname.startsWith('calculogic-validator/')),
     false,
   );
   assert.equal(

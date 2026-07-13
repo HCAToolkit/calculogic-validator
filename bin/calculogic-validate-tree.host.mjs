@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { resolveRepositoryRoot } from '../src/core/repository-root.logic.mjs';
 import {
   buildDirectValidatorRunnerUsageLines,
@@ -10,11 +12,12 @@ const repositoryRoot = resolveRepositoryRoot();
 const usageLines = buildDirectValidatorRunnerUsageLines({
   validatorId: 'tree-structure-advisor',
   defaultScopeLine: 'Default scope: validator default (repo for tree-structure-advisor)',
+  repositoryRoot,
   examples: [
-    '  ✅ npm run validate:tree -- --scope=repo',
-    '  ✅ npm run validate:tree -- --scope=app --target src/tree',
-    '  ✅ npm run validate:tree -- --target calculogic-validator/tree/src',
-    '  ✅ npm run validate:all -- --validators=tree-structure-advisor --scope=repo',
+    '  ✅ calculogic-validate-tree --scope=repo',
+    '  ✅ calculogic-validate-tree --scope=app --target src/tree',
+    '  ✅ calculogic-validate-tree --target calculogic-validator/tree/src',
+    '  ✅ calculogic-validate --validators=tree-structure-advisor --scope=repo',
   ],
 });
 

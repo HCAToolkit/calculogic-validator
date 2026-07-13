@@ -14,14 +14,14 @@ const rootPackageJson = JSON.parse(
   fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
 );
 
-const directScriptByPreset = {
-  'report:naming:system': 'scripts/validate-naming.host.mjs',
-  'report:tree:system': 'scripts/validate-tree.host.mjs',
-  'report:all:system': 'scripts/validate-all.host.mjs',
+const packageCommandByPreset = {
+  'report:naming:system': 'calculogic-validate-naming',
+  'report:tree:system': 'calculogic-validate-tree',
+  'report:all:system': 'calculogic-validate',
 };
 
 const reportCapturePackageScripts = Object.entries(rootPackageJson.scripts)
-  .filter(([scriptName]) => scriptName.startsWith('report:') && scriptName !== 'report:verify')
+  .filter(([, command]) => command.includes('report-capture.host.mjs'))
   .map(([scriptName]) => scriptName)
   .sort((left, right) => left.localeCompare(right));
 
@@ -33,11 +33,13 @@ const normalizeReport = (report) => {
   return normalized;
 };
 
-const runDirectReport = ({ scriptPath, scope }) => {
-  const result = spawnSync(
-    process.execPath,
-    ['--experimental-strip-types', scriptPath, `--scope=${scope}`],
-    { cwd: process.cwd(), encoding: 'utf8' },
+const runPackageCommandReport = ({ commandExecutable, scope }) => {
+  const localBinPath = path.resolve('bin', commandExecutable + '.host.mjs');
+  const result = spawnSync('node', ['--experimental-strip-types', localBinPath, '--scope=' + scope],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    },
   );
 
   assert.ok([0, 1, 2].includes(result.status));
@@ -49,6 +51,7 @@ const runCapturedReport = ({ preset, outputDir }) => {
   const hostPath = path.resolve(
     'tools/report-capture/src/report-capture.host.mjs',
   );
+  const binPath = path.resolve('node_modules/.bin');
   const result = spawnSync(
     process.execPath,
     [
@@ -64,7 +67,11 @@ const runCapturedReport = ({ preset, outputDir }) => {
       preset.wrappedCommand.executable,
       ...preset.wrappedCommand.args,
     ],
-    { cwd: process.cwd(), encoding: 'utf8' },
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${binPath}${path.delimiter}${process.env.PATH ?? ''}` },
+    },
   );
 
   assert.ok([0, 1, 2].includes(result.status));
@@ -159,13 +166,13 @@ test('report-capture preset metadata records command mechanics but not semantic 
   );
 });
 
-for (const [scriptName, scriptPath] of Object.entries(directScriptByPreset)) {
+for (const [scriptName, commandExecutable] of Object.entries(packageCommandByPreset)) {
   test(`${scriptName} capture metadata preserves emitted report JSON`, () => {
     const preset = getValidatorReportCapturePresetByScriptName(scriptName);
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'report-capture-registry-parity-'));
 
     try {
-      const directReport = runDirectReport({ scriptPath, scope: 'system' });
+      const directReport = runPackageCommandReport({ commandExecutable, scope: 'system' });
       const capturedReport = runCapturedReport({ preset, outputDir: tempDir });
 
       assert.deepEqual(normalizeReport(capturedReport), normalizeReport(directReport));

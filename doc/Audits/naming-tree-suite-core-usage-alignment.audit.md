@@ -16,60 +16,60 @@ This audit is a planning and evidence snapshot only. It documents current implem
 
 Runtime authority treated as binding for this audit:
 
-- `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
-- `doc/ConventionRoutines/NamingValidatorSpec.md`
-- `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
-- current runtime truth in `src/core/**`, `naming/**`, `tree/**`, `scripts/**`, `bin/**`, and `package.json`
+- `calculogic-validator/doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+- `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md`
+- `calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`
+- current runtime truth in `calculogic-validator/src/core/**`, `calculogic-validator/naming/**`, `calculogic-validator/tree/**`, `calculogic-validator/scripts/**`, `calculogic-validator/bin/**`, and `package.json`
 
 Task-scoped supporting context:
 
-- `doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
-- `doc/Audits/validator-slice-formula-alignment.audit.md`
-- `doc/ConventionRoutines/ValidatorBridgeContracts.md`
-- `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
+- `calculogic-validator/doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
+- `calculogic-validator/doc/Audits/validator-slice-formula-alignment.audit.md`
+- `calculogic-validator/doc/ConventionRoutines/ValidatorBridgeContracts.md`
+- `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
 
 Navigation-only context:
 
-- `doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
+- `calculogic-validator/doc/ValidatorSpecs/tree-owned/tree-documentation-map-and-reorg-inventory.md`
 
 ## Evidence reviewed
 
 Repository evidence directly inspected for this audit:
 
 - Suite-core helpers and registry surfaces:
-  - `src/core/scoped-target-paths.logic.mjs`
-  - `src/core/suite-scoped-snapshot-input.logic.mjs`
-  - `src/core/validator-candidate-collection.logic.mjs`
-  - `src/core/validator-candidate-policy.contracts.mjs`
-  - `src/core/validator-candidate-policy.logic.mjs`
-  - `src/core/validator-exit-code.logic.mjs`
-  - `src/core/validator-registry.knowledge.mjs`
-  - `src/core/validator-report-meta.logic.mjs`
-  - `src/core/validator-runner.logic.mjs`
-  - `src/core/validator-scopes.logic.mjs`
-  - `src/core/source-snapshot.logic.mjs`
-  - `src/core/cli/**`
+  - `calculogic-validator/src/core/scoped-target-paths.logic.mjs`
+  - `calculogic-validator/src/core/suite-scoped-snapshot-input.logic.mjs`
+  - `calculogic-validator/src/core/validator-candidate-collection.logic.mjs`
+  - `calculogic-validator/src/core/validator-candidate-policy.contracts.mjs`
+  - `calculogic-validator/src/core/validator-candidate-policy.logic.mjs`
+  - `calculogic-validator/src/core/validator-exit-code.logic.mjs`
+  - `calculogic-validator/src/core/validator-registry.knowledge.mjs`
+  - `calculogic-validator/src/core/validator-report-meta.logic.mjs`
+  - `calculogic-validator/src/core/validator-runner.logic.mjs`
+  - `calculogic-validator/src/core/validator-scopes.logic.mjs`
+  - `calculogic-validator/src/core/source-snapshot.logic.mjs`
+  - `calculogic-validator/src/core/cli/**`
 - Naming runtime, wiring, CLI, bridge, registries, and tests:
-  - `naming/src/**`
-  - `naming/test/**`
+  - `calculogic-validator/naming/src/**`
+  - `calculogic-validator/naming/test/**`
 - Tree runtime, wiring, contributors, registries, and tests:
-  - `tree/src/**`
-  - `tree/test/**`
+  - `calculogic-validator/tree/src/**`
+  - `calculogic-validator/tree/test/**`
 - Host scripts and bins:
-  - `scripts/validate-naming.host.mjs`
-  - `scripts/validate-tree.host.mjs`
-  - `scripts/validate-all.host.mjs`
-  - `bin/**`
+  - `calculogic-validator/scripts/validate-naming.host.mjs`
+  - `calculogic-validator/scripts/validate-tree.host.mjs`
+  - `calculogic-validator/scripts/validate-all.host.mjs`
+  - `calculogic-validator/bin/**`
 - Cross-suite tests:
-  - `test/**`
+  - `calculogic-validator/test/**`
 - Command/package surface:
   - `package.json`
 - Formula and bridge context:
-  - `doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
-  - `doc/Audits/validator-slice-formula-alignment.audit.md`
-  - `doc/ConventionRoutines/ValidatorBridgeContracts.md`
-  - `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
-  - `doc/Indexes/validator-docs.index.md`
+  - `calculogic-validator/doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
+  - `calculogic-validator/doc/Audits/validator-slice-formula-alignment.audit.md`
+  - `calculogic-validator/doc/ConventionRoutines/ValidatorBridgeContracts.md`
+  - `calculogic-validator/doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
+  - `calculogic-validator/doc/Indexes/validator-docs.index.md`
 
 ## Executive summary
 
@@ -343,8 +343,8 @@ Addressing remains a deferred hybrid/shared validator layer plus bridge-provider
 Required verification for this audit was run on 2026-06-11:
 
 - PASS — `git diff --check`
-- PASS — `node --experimental-strip-types scripts/validate-naming.host.mjs --scope=validator --target doc/Audits`
-- PASS — `node --experimental-strip-types scripts/validate-naming.host.mjs --scope=validator --target doc/Indexes/validator-docs.index.md`
+- PASS — `node --experimental-strip-types calculogic-validator/scripts/validate-naming.host.mjs --scope=validator --target calculogic-validator/doc/Audits`
+- PASS — `node --experimental-strip-types calculogic-validator/scripts/validate-naming.host.mjs --scope=validator --target calculogic-validator/doc/Indexes/validator-docs.index.md`
 
 No runtime test suite was required because this audit adds documentation only and does not add or modify tests.
 

@@ -133,8 +133,8 @@ not root-token-only matching.
 
 Short example:
 
-- `tree/src`
-- `naming/src`
+- `calculogic-validator/tree/src`
+- `calculogic-validator/naming/src`
 
 Both include token `src`, but they are separate addressed occurrences with different lineage and semantic context.
 

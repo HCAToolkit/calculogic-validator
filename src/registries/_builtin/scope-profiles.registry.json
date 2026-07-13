@@ -34,9 +34,7 @@
       ]
     },
     "validator": {
-      "includeRoots": [
-        "."
-      ],
+      "includeRoots": [],
       "includeRootFiles": []
     }
   }

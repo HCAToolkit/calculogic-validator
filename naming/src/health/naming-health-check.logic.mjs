@@ -5,6 +5,7 @@ import {
   runNamingValidator,
   summarizeFindings,
 } from '../naming-validator.host.mjs';
+import { listAvailableValidatorScopes } from '../../../src/core/validator-scopes.logic.mjs';
 
 export const NAMING_HEALTH_SCOPES = ['repo', 'app', 'docs', 'validator', 'system'];
 
@@ -59,15 +60,17 @@ export const assertDeterministicNamingScope = (repositoryRoot, scope) => {
   }
 };
 
-export const assertNamingHealthDocs = (repositoryRoot) => {
-  const docsToValidate = [
+export const getNamingHealthDocPaths = (repositoryRoot) => [
     path.resolve(
       repositoryRoot,
-      'doc/ConventionRoutines/NamingValidatorSpec.md',
+      'calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md',
     ),
+    path.resolve(repositoryRoot, 'doc/nl-config/cfg-namingValidator.md'),
   ];
 
-  const requiredMentions = ['src/', 'test/', 'doc/'];
+export const assertNamingHealthDocs = (repositoryRoot) => {
+  const docsToValidate = getNamingHealthDocPaths(repositoryRoot);
+  const requiredMentions = ['src/', 'test/', 'calculogic-validator/'];
 
   for (const absoluteDocPath of docsToValidate) {
     const content = fs.readFileSync(absoluteDocPath, 'utf8');
@@ -81,10 +84,19 @@ export const assertNamingHealthDocs = (repositoryRoot) => {
   }
 };
 
-export const runNamingHealthCheck = (repositoryRoot) => {
-  for (const scope of NAMING_HEALTH_SCOPES) {
+export const runNamingHealthCheck = (repositoryRoot, { requireDocs = true } = {}) => {
+  const availableScopes = listAvailableValidatorScopes({ targetRepositoryRoot: repositoryRoot });
+  for (const scope of NAMING_HEALTH_SCOPES.filter((candidateScope) => availableScopes.includes(candidateScope))) {
     assertDeterministicNamingScope(repositoryRoot, scope);
   }
 
-  assertNamingHealthDocs(repositoryRoot);
+  const docsAvailable = getNamingHealthDocPaths(repositoryRoot).every((docPath) =>
+    fs.existsSync(docPath),
+  );
+
+  if (requireDocs || docsAvailable) {
+    assertNamingHealthDocs(repositoryRoot);
+  }
+
+  return { docsChecked: docsAvailable };
 };

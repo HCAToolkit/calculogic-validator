@@ -41,7 +41,7 @@ test('validate-tree runs tree-structure-advisor only and preserves target filter
     );
     await fs.writeFile(
       path.join(fixtureDir, 'src', 'validator-runner.logic.mjs'),
-      "export * from '../src/core/validator-runner.logic.mjs';\n",
+      "export * from '../calculogic-validator/src/core/validator-runner.logic.mjs';\n",
       'utf8',
     );
 
@@ -76,7 +76,7 @@ test('validate-tree emits report JSON and exits 2 for warning-level advisory fin
     );
     await fs.writeFile(
       path.join(fixtureDir, 'src', 'validator-runner.logic.mjs'),
-      "export * from '../src/core/validator-runner.logic.mjs';\n",
+      "export * from '../calculogic-validator/src/core/validator-runner.logic.mjs';\n",
       'utf8',
     );
 
@@ -126,13 +126,13 @@ test('validate-tree help keeps current command usage surface', () => {
       '  - docs: Documentation-focused scan (doc/docs and root conventional docs: README.md).',
       '  - repo: Repository-wide scan of all reportable files.',
       '  - system: System/tooling files scan (root package/tsconfig/eslint/vite files).',
-      '  - validator: Validator-only scan (validator-owned repository paths).',
+      '  - validator: Validator development-root scan (available only in validator owner/development contexts).',
       'Default scope: validator default (repo for tree-structure-advisor)',
       'Validator: tree-structure-advisor',
       'Examples:',
       '  ✅ npm run validate:tree -- --scope=repo',
       '  ✅ npm run validate:tree -- --scope=app --target src/tree',
-      '  ✅ npm run validate:tree -- --target tree/src',
+      '  ✅ npm run validate:tree -- --target calculogic-validator/tree/src',
       '  ✅ npm run validate:all -- --validators=tree-structure-advisor --scope=repo',
       '',
     ].join('\n'),
@@ -142,7 +142,7 @@ test('validate-tree help keeps current command usage surface', () => {
 test('validate-tree direct report entry preserves no-finding shape against runner tree selection', () => {
   const directResult = runValidateTree(repositoryRoot, [
     '--scope=validator',
-    '--target=src/core',
+    '--target=src/index.mjs',
   ]);
   const runnerResult = spawnSync(
     process.execPath,
@@ -151,7 +151,7 @@ test('validate-tree direct report entry preserves no-finding shape against runne
       path.resolve(repositoryRoot, 'scripts/validate-all.host.mjs'),
       '--scope=validator',
       '--validators=tree-structure-advisor',
-      '--target=src/core',
+      '--target=src/index.mjs',
     ],
     { cwd: repositoryRoot, encoding: 'utf8' },
   );

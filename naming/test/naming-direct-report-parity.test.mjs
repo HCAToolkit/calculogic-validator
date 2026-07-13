@@ -28,14 +28,14 @@ const stableRegistry = {
 
 const stableScopeProfile = {
   description: 'Stable validator scope profile for direct report parity tests.',
-  includeRoots: ['src'],
+  includeRoots: ['calculogic-validator/src'],
   includeRootFiles: ['package.json'],
 };
 
 const stableCanonicalFinding = {
   code: 'NAMING_CANONICAL',
   severity: 'info',
-  path: 'src/core/validator-direct-report.logic.mjs',
+  path: 'calculogic-validator/src/core/validator-direct-report.logic.mjs',
   classification: 'canonical',
   message: 'Filename is canonical.',
   ruleRef:
@@ -71,7 +71,7 @@ const buildLegacyNamingDirectReportShape = ({ findings, configDigest }) => {
     durationMs: fixedEndedAtDate.getTime() - fixedStartedAtDate.getTime(),
     scope: 'validator',
     totalFilesScanned: findings.length,
-    filters: { isFiltered: true, targets: ['src/core'] },
+    filters: { isFiltered: true, targets: ['calculogic-validator/src/core'] },
     scopeSummary: {
       scope: 'validator',
       reportableFilesInScope: findings.length,
@@ -99,7 +99,7 @@ const buildCurrentNamingDirectReport = ({ findings, configDigest }) =>
     findings,
     totalFilesScanned: findings.length,
     scope: 'validator',
-    filters: { isFiltered: true, targets: ['src/core'] },
+    filters: { isFiltered: true, targets: ['calculogic-validator/src/core'] },
     registry: stableRegistry,
     toolVersion: '0.1.0-test',
     ...(configDigest ? { configDigest } : {}),
@@ -193,7 +193,7 @@ test('validate:naming help keeps current command usage surface from registry com
       '  - docs: Documentation-focused scan (doc/docs and root conventional docs: README.md).',
       '  - repo: Repository-wide scan of all reportable files.',
       '  - system: System/tooling files scan (root package/tsconfig/eslint/vite files).',
-      '  - validator: Validator-only scan (validator-owned repository paths).',
+      '  - validator: Validator development-root scan (available only in validator owner/development contexts).',
       'Default scope: repo',
       'Examples:',
       '  ✅ npm run validate:naming -- --scope=app',
