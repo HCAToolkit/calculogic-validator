@@ -48,7 +48,7 @@ For successful validator report runs across suite CLIs (`validate:naming`, `vali
 
 This keeps report capture deterministic while preserving explicit invalid-usage and explicit-failure behavior.
 
-Implementation note: suite CLI scripts should reuse suite-core helpers in `src/core/cli/` (for example `validator-cli-runner.logic.mjs`, `validator-cli-output.logic.mjs`, `validator-cli-usage.logic.mjs`, `validator-cli-targets.logic.mjs`, and `validator-cli-scopes.logic.mjs`) for shared runner-style CLI orchestration, report emission, usage/error output flow, and repeatable `--target` parsing rather than duplicating ad hoc CLI scaffolding. `validator-cli-runner.logic.mjs` is the bounded suite-core orchestration helper for runner-style CLIs that currently has multiple real consumers (`validate:all` and `validate:tree`) and should not be treated as a generic CLI catch-all area. This suite-core CLI helper area is intentionally discoverable for current and future validator slices.
+Implementation note: suite CLI scripts should reuse suite-core helpers in `calculogic-validator/src/core/cli/` (for example `validator-cli-runner.logic.mjs`, `validator-cli-output.logic.mjs`, `validator-cli-usage.logic.mjs`, `validator-cli-targets.logic.mjs`, and `validator-cli-scopes.logic.mjs`) for shared runner-style CLI orchestration, report emission, usage/error output flow, and repeatable `--target` parsing rather than duplicating ad hoc CLI scaffolding. `validator-cli-runner.logic.mjs` is the bounded suite-core orchestration helper for runner-style CLIs that currently has multiple real consumers (`validate:all` and `validate:tree`) and should not be treated as a generic CLI catch-all area. This suite-core CLI helper area is intentionally discoverable for current and future validator slices.
 
 For helper-area ownership and reuse routing across suite-core and slice-owned semantic areas, see [`ValidatorHelperAreas-And-Reuse-Conventions.md`](./ValidatorHelperAreas-And-Reuse-Conventions.md).
 For canonical loader → converter → runtime ownership boundaries (including what belongs to policy-data loaders/converters vs engine runtime mechanics), see [`ValidatorLoaderConverterRuntimeOwnership-Contract.md`](./ValidatorLoaderConverterRuntimeOwnership-Contract.md).
@@ -138,6 +138,36 @@ Helper ownership includes:
 Guardrail: the helper does not own slice meaning. Slice runtimes remain responsible for interpreting in-scope paths.
 
 Cross-slice validators should start from this shared scoped snapshot/input layer before applying cross-slice interpretation rules.
+
+
+### 6.7 Validator development context for `validator` scope (Canonical)
+
+The `validator` scope is a validator owner/development capability. It is context-aware and is available only when the runtime can resolve a validator development root for the current command context. It is not an alias for `repo`, is not the package installation directory, is not `node_modules`, and is unavailable by default in ordinary installed consumers.
+
+Suite-core distinguishes three independently owned locations:
+
+1. **Package root**: physical location of the `@calculogic/validator` runtime code.
+2. **Target repository root**: repository the command validates.
+3. **Validator development root**: optional owner/development checkout or subtree whose contents are eligible for `validator` scope.
+
+Current runtime truth for required contexts:
+
+- embedded React-app development
+  - package root: `<target>/calculogic-validator`
+  - target root: `<target>`
+  - validator development root: `<target>/calculogic-validator`
+- standalone validator development
+  - package root: `<target>`
+  - target root: `<target>`
+  - validator development root: `<target>`
+- ordinary installed consumer
+  - package root: `<target>/node_modules/@calculogic/validator` or another external installed location
+  - target root: `<target>`
+  - validator development root: absent by default
+
+Context resolution uses the package-root and target-root relationship for these current contexts. If that relationship is insufficient for a later context, the suite should stop and model that context explicitly rather than guessing from documentation files, arbitrary sibling directory names, or `node_modules` path substrings.
+
+Intentional non-goal for this slice: this contract does not introduce a general user-facing configuration file or CLI flag for declaring arbitrary validator development roots.
 
 ## 7) Shared report-envelope boundary (Canonical + transitional/current mapping)
 

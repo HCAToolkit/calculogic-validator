@@ -5,12 +5,13 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=22.6.0"
   },
   "files": [
     "src/**",
-    "naming/**",
-    "tree/**",
+    "naming/src/**",
+    "tree/src/**",
+    "structural-addressing/src/**",
     "bin/**",
     "scripts/**",
     "README.md",
@@ -27,10 +28,11 @@
   "bin": {
     "calculogic-validate": "./bin/calculogic-validate.host.mjs",
     "calculogic-validate-naming": "./bin/calculogic-validate-naming.host.mjs",
-    "calculogic-validator-health": "./bin/calculogic-validator-health.host.mjs"
+    "calculogic-validator-health": "./bin/calculogic-validator-health.host.mjs",
+    "calculogic-validate-tree": "./bin/calculogic-validate-tree.host.mjs"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test --experimental-strip-types test/**/*.test.mjs naming/test/**/*.test.mjs tree/test/**/*.test.mjs structural-addressing/test/**/*.test.mjs",
     "validate:naming": "node --experimental-strip-types scripts/validate-naming.host.mjs",
     "validate:all": "node --experimental-strip-types scripts/validate-all.host.mjs",
     "validate:tree": "node --experimental-strip-types scripts/validate-tree.host.mjs",

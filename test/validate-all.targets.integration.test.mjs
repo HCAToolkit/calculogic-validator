@@ -137,7 +137,7 @@ test('validate-all target filtering suppresses shim findings outside selected ta
     );
     await fs.writeFile(
       path.join(fixtureDir, 'src', 'validator-runner.logic.mjs'),
-      "export * from '../src/core/validator-runner.logic.mjs';\n",
+      "export * from '../calculogic-validator/src/core/validator-runner.logic.mjs';\n",
       'utf8',
     );
 

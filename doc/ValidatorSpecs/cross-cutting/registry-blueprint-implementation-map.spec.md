@@ -33,7 +33,7 @@ Interpretation guardrails:
 
 Currently implemented under:
 
-`naming/src/registries/_builtin/`
+`calculogic-validator/naming/src/registries/_builtin/`
 
 Current registry payloads include:
 
@@ -51,7 +51,7 @@ Current registry payloads include:
 
 Current owner:
 
-`naming/src/registries/registry-state.logic.mjs`
+`calculogic-validator/naming/src/registries/registry-state.logic.mjs`
 
 Current behavior:
 

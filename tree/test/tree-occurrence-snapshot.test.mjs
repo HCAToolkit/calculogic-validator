@@ -9,16 +9,16 @@ const byResolvedPath = (occurrenceRecords) =>
 test('tree occurrence snapshot disambiguates repeated names by lineage', () => {
   const snapshot = prepareTreeOccurrenceSnapshot({
     selectedPaths: [
-      'src/core/runtime.mjs',
-      'naming/src/naming.logic.mjs',
+      'calculogic-validator/src/core/runtime.mjs',
+      'calculogic-validator/naming/src/naming.logic.mjs',
       'tree/src/tree.logic.mjs',
     ],
     targets: [],
-    includeRoots: ['.'],
+    includeRoots: ['calculogic-validator'],
   });
 
   const recordsByPath = byResolvedPath(snapshot.occurrenceRecords);
-  const srcRecords = ['src', 'naming/src', 'tree/src'].map(
+  const srcRecords = ['calculogic-validator/src', 'calculogic-validator/naming/src', 'tree/src'].map(
     (resolvedPath) => recordsByPath[resolvedPath],
   );
 
@@ -31,13 +31,13 @@ test('tree occurrence snapshot preserves deterministic lineage and depth', () =>
   const snapshot = prepareTreeOccurrenceSnapshot({
     selectedPaths: ['tree/src/registries/tree-structural-homes-registry.logic.mjs'],
     targets: [],
-    includeRoots: ['.'],
+    includeRoots: ['tree'],
   });
 
   const recordsByPath = byResolvedPath(snapshot.occurrenceRecords);
 
-  assert.deepEqual(recordsByPath['tree/src'].lineageSegments, ['tree', 'src']);
-  assert.equal(recordsByPath['tree/src'].depth, 1);
+    assert.deepEqual(recordsByPath['tree/src'].lineageSegments, ['tree', 'src']);
+    assert.equal(recordsByPath['tree/src'].depth, 1);
   assert.equal(
     recordsByPath['tree/src/registries/tree-structural-homes-registry.logic.mjs'].parentResolvedPath,
     'tree/src/registries',
@@ -48,7 +48,7 @@ test('tree occurrence snapshot distinguishes folders and files from path structu
   const snapshot = prepareTreeOccurrenceSnapshot({
     selectedPaths: ['tree/src/tree-structure-advisor.logic.mjs'],
     targets: [],
-    includeRoots: ['.'],
+    includeRoots: ['tree'],
   });
 
   const recordsByPath = byResolvedPath(snapshot.occurrenceRecords);
@@ -69,7 +69,7 @@ test('tree occurrence snapshot rebases scoped lineage from targeted subtree root
   const snapshot = prepareTreeOccurrenceSnapshot({
     selectedPaths: ['tree/src/tree-structure-advisor.logic.mjs'],
     targets: [{ relPath: 'tree', kind: 'dir' }],
-    includeRoots: ['.'],
+    includeRoots: ['tree'],
   });
 
   const recordsByPath = byResolvedPath(snapshot.occurrenceRecords);
@@ -89,7 +89,7 @@ test('tree occurrence snapshot file targets rebase from containing folder and av
   const snapshot = prepareTreeOccurrenceSnapshot({
     selectedPaths: ['tree/src/tree-structure-advisor.logic.mjs'],
     targets: [{ relPath: 'tree/src/tree-structure-advisor.logic.mjs', kind: 'file' }],
-    includeRoots: ['.'],
+    includeRoots: ['calculogic-validator'],
   });
 
   const recordsByPath = byResolvedPath(snapshot.occurrenceRecords);

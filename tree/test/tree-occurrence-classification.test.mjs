@@ -28,14 +28,14 @@ const classifySnapshot = (snapshot) => {
     },
     treeSemanticHomeEvidence: {
       source: 'test',
-      evidenceRecords: [{ path: 'tree', occurrenceType: 'folder', semanticHome: 'tree' }],
+      evidenceRecords: [{ path: 'calculogic-validator', occurrenceType: 'folder', semanticHome: 'validator' }],
     },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
       source: 'test',
       evidenceRecords: [
         { path: 'src', occurrenceType: 'folder', folderKind: 'structural' },
-        { path: 'tree', occurrenceType: 'folder', folderKind: 'semantic' },
+        { path: 'calculogic-validator', occurrenceType: 'folder', folderKind: 'semantic' },
         { path: 'experiments', occurrenceType: 'folder', folderKind: 'unspecified' },
       ],
     },
@@ -65,38 +65,38 @@ test('tree occurrence classification marks replacement repo-top structural roots
 
 test('tree occurrence classification marks replacement repo-top semantic roots deterministically', () => {
   const snapshot = prepareTreeOccurrenceSnapshot({
-    selectedPaths: ['tree/index.mjs'],
+    selectedPaths: ['calculogic-validator/src/index.mjs'],
     includeRoots: [],
     targets: [],
   });
 
   const records = byResolvedPath(classifySnapshot(snapshot));
 
-  assert.equal(records.tree.structuralClass, 'repo-top-semantic-root');
-  assert.equal(records.tree.structuralKind, 'semantic-root');
-  assert.equal(records.tree.isRepoShapeAllowedTopLevelDirectory, true);
-  assert.equal(records.tree.isStructuralRoot, false);
-  assert.equal(records.tree.isSemanticRoot, true);
+  assert.equal(records['calculogic-validator'].structuralClass, 'repo-top-semantic-root');
+  assert.equal(records['calculogic-validator'].structuralKind, 'semantic-root');
+  assert.equal(records['calculogic-validator'].isRepoShapeAllowedTopLevelDirectory, true);
+  assert.equal(records['calculogic-validator'].isStructuralRoot, false);
+  assert.equal(records['calculogic-validator'].isSemanticRoot, true);
 });
 
 test('tree occurrence classification keeps repo-top class semantics stable across scoped rebasing', () => {
   const snapshot = prepareTreeOccurrenceSnapshot({
-    selectedPaths: ['tree/src/tree-structure-advisor.logic.mjs'],
-    includeRoots: ['.'],
-    targets: [{ relPath: 'tree', kind: 'dir' }],
+    selectedPaths: ['calculogic-validator/tree/src/tree-structure-advisor.logic.mjs'],
+    includeRoots: ['calculogic-validator'],
+    targets: [{ relPath: 'calculogic-validator/tree', kind: 'dir' }],
   });
 
   const records = byResolvedPath(classifySnapshot(snapshot));
 
-  assert.equal(records['tree'].isScopedRootOccurrence, true);
-  assert.equal(records['tree'].isRepoTopOccurrence, true);
-  assert.equal(records['tree'].structuralClass, 'repo-top-semantic-root');
-  assert.equal(records['tree'].structuralKind, 'semantic-root');
+  assert.equal(records['calculogic-validator/tree'].isScopedRootOccurrence, true);
+  assert.equal(records['calculogic-validator/tree'].isRepoTopOccurrence, false);
+  assert.equal(records['calculogic-validator/tree'].structuralClass, 'unclassified');
+  assert.equal(records['calculogic-validator/tree'].structuralKind, 'unknown');
 });
 
 test('tree occurrence classification keeps repeated names distinct across depth and context', () => {
   const snapshot = prepareTreeOccurrenceSnapshot({
-    selectedPaths: ['src/components/button.js', 'src/tree/components/rule.mjs'],
+    selectedPaths: ['src/components/button.js', 'calculogic-validator/src/tree/components/rule.mjs'],
     includeRoots: [],
     targets: [],
   });
@@ -105,12 +105,12 @@ test('tree occurrence classification keeps repeated names distinct across depth 
 
   assert.equal(records['src/components'].structuralClass, 'subtree-structural-partition-candidate');
   assert.equal(
-    records['src/tree/components'].structuralClass,
+    records['calculogic-validator/src/tree/components'].structuralClass,
     'subtree-structural-partition-candidate',
   );
   assert.notEqual(
     records['src/components'].lineageSegments.join('/'),
-    records['src/tree/components'].lineageSegments.join('/'),
+    records['calculogic-validator/src/tree/components'].lineageSegments.join('/'),
   );
 });
 
@@ -132,13 +132,13 @@ test('tree occurrence classification keeps unknown cases deterministic and bound
 
 test('tree occurrence classification replacement runtime classifies from prepared Tree evidence', () => {
   const snapshot = prepareTreeOccurrenceSnapshot({
-    selectedPaths: ['src/components/button.js', 'tree/index.mjs'],
+    selectedPaths: ['src/components/button.js', 'calculogic-validator/tree/index.mjs'],
     includeRoots: [],
     targets: [],
   });
   const addressedSnapshot = prepareTreeStructuralAddressSnapshot({
     occurrenceSnapshot: snapshot,
-    selectedPaths: ['src/components/button.js', 'tree/index.mjs'],
+    selectedPaths: ['src/components/button.js', 'calculogic-validator/tree/index.mjs'],
     targets: [],
     includeRoots: [],
     scope: { source: 'test' },
@@ -150,14 +150,14 @@ test('tree occurrence classification replacement runtime classifies from prepare
     },
     treeSemanticHomeEvidence: {
       source: 'test',
-      evidenceRecords: [{ path: 'tree', occurrenceType: 'folder', semanticHome: 'tree' }],
+      evidenceRecords: [{ path: 'calculogic-validator', occurrenceType: 'folder', semanticHome: 'validator' }],
     },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
       source: 'test',
       evidenceRecords: [
         { path: 'src', occurrenceType: 'folder', folderKind: 'structural' },
-        { path: 'tree', occurrenceType: 'folder', folderKind: 'semantic' },
+        { path: 'calculogic-validator', occurrenceType: 'folder', folderKind: 'semantic' },
       ],
     },
   });
@@ -170,11 +170,11 @@ test('tree occurrence classification replacement runtime classifies from prepare
   assert.equal(records.src.isRepoShapeAllowedTopLevelDirectory, true);
   assert.equal(records.src.isStructuralRoot, true);
   assert.equal(records.src.isSemanticRoot, false);
-  assert.equal(records.tree.structuralClass, 'repo-top-semantic-root');
-  assert.equal(records.tree.structuralKind, 'semantic-root');
-  assert.equal(records.tree.isRepoShapeAllowedTopLevelDirectory, true);
-  assert.equal(records.tree.isStructuralRoot, false);
-  assert.equal(records.tree.isSemanticRoot, true);
+  assert.equal(records['calculogic-validator'].structuralClass, 'repo-top-semantic-root');
+  assert.equal(records['calculogic-validator'].structuralKind, 'semantic-root');
+  assert.equal(records['calculogic-validator'].isRepoShapeAllowedTopLevelDirectory, true);
+  assert.equal(records['calculogic-validator'].isStructuralRoot, false);
+  assert.equal(records['calculogic-validator'].isSemanticRoot, true);
   assert.equal(records['src/components'].structuralClass, 'subtree-structural-partition-candidate');
   assert.equal(records['src/components'].isSubtreePartitionCandidate, true);
 });
@@ -187,14 +187,14 @@ test('tree occurrence classification replacement runtime collects unexpected top
     },
     treeSemanticHomeEvidence: {
       source: 'test',
-      evidenceRecords: [{ path: 'tree', occurrenceType: 'folder', semanticHome: 'tree' }],
+      evidenceRecords: [{ path: 'calculogic-validator', occurrenceType: 'folder', semanticHome: 'validator' }],
     },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
       source: 'test',
       evidenceRecords: [
         { path: 'src', occurrenceType: 'folder', folderKind: 'structural' },
-        { path: 'tree', occurrenceType: 'folder', folderKind: 'semantic' },
+        { path: 'calculogic-validator', occurrenceType: 'folder', folderKind: 'semantic' },
         { path: 'experiments', occurrenceType: 'folder', folderKind: 'unspecified' },
       ],
     },
@@ -248,7 +248,7 @@ test('tree occurrence classification consumes approved relationship-qualified fo
       source: 'test',
       evidenceRecords: [
         {
-          path: 'naming/naming-src',
+          path: 'calculogic-validator/naming/naming-src',
           addressPath: 'A.1',
           occurrenceType: 'folder',
           folderKind: 'semantic-qualified-structural-container',
@@ -265,8 +265,8 @@ test('tree occurrence classification consumes approved relationship-qualified fo
 
   const [record] = replacementRuntime.classifyOccurrenceRecords([
     {
-      path: 'naming/naming-src',
-      resolvedPath: 'naming/naming-src',
+      path: 'calculogic-validator/naming/naming-src',
+      resolvedPath: 'calculogic-validator/naming/naming-src',
       actualName: 'naming-src',
       name: 'naming-src',
       addressPath: 'A.1',
@@ -300,7 +300,7 @@ test('tree occurrence classification does not consume stale same-path relationsh
       evidenceRecords: [
         { path: 'src', occurrenceType: 'folder', folderKind: 'structural' },
         {
-          path: 'naming/naming-src',
+          path: 'calculogic-validator/naming/naming-src',
           addressPath: 'A.4.2',
           occurrenceType: 'folder',
           folderKind: 'semantic-qualified-structural-container',
@@ -314,12 +314,12 @@ test('tree occurrence classification does not consume stale same-path relationsh
   });
 
   const records = byResolvedPath(replacementRuntime.classifyOccurrenceRecords([
-    { path: 'naming/naming-src', resolvedPath: 'naming/naming-src', actualName: 'naming-src', addressPath: 'B.1', occurrenceType: 'folder' },
+    { path: 'calculogic-validator/naming/naming-src', resolvedPath: 'calculogic-validator/naming/naming-src', actualName: 'naming-src', addressPath: 'B.1', occurrenceType: 'folder' },
     { path: 'src', resolvedPath: 'src', actualName: 'src', addressPath: 'B.2', occurrenceType: 'folder' },
   ]));
 
-  assert.equal(records['naming/naming-src'].structuralClass, 'unclassified');
-  assert.equal(records['naming/naming-src'].classificationEvidenceKind, undefined);
+  assert.equal(records['calculogic-validator/naming/naming-src'].structuralClass, 'unclassified');
+  assert.equal(records['calculogic-validator/naming/naming-src'].classificationEvidenceKind, undefined);
   assert.equal(records.src.structuralClass, 'repo-top-structural-root');
   assert.equal(records.src.isStructuralRoot, true);
 });
@@ -331,7 +331,7 @@ test('tree occurrence classification rejects unapproved relationship-qualified f
     { addressPath: 'C.3', relationshipQualified: true, folderKind: 'semantic-qualified-structural-container', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-semantic-context-mismatch' },
     { relationshipQualified: true, folderKind: 'semantic-qualified-structural-container', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned' },
   ].map((record, index) => ({
-    path: `naming/unapproved-${index}`,
+    path: `calculogic-validator/naming/unapproved-${index}`,
     occurrenceType: 'folder',
     structuralRole: 'implementation-container',
     ...record,
@@ -365,7 +365,7 @@ test('tree occurrence classification requires explicit structural role for relat
       source: 'test',
       evidenceRecords: [
         {
-          path: 'naming/naming-src',
+          path: 'calculogic-validator/naming/naming-src',
           addressPath: 'E.1',
           occurrenceType: 'folder',
           folderKind: 'semantic-qualified-structural-container',
@@ -380,8 +380,8 @@ test('tree occurrence classification requires explicit structural role for relat
 
   const [record] = replacementRuntime.classifyOccurrenceRecords([
     {
-      path: 'naming/naming-src',
-      resolvedPath: 'naming/naming-src',
+      path: 'calculogic-validator/naming/naming-src',
+      resolvedPath: 'calculogic-validator/naming/naming-src',
       actualName: 'naming-src',
       addressPath: 'E.1',
       occurrenceType: 'folder',
@@ -400,12 +400,12 @@ test('tree occurrence classification keeps files outside the relationship-qualif
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
       source: 'test',
-      evidenceRecords: [{ path: 'naming/naming-src.logic.mjs', addressPath: 'D.1', occurrenceType: 'file', folderKind: 'semantic-qualified-structural-container', relationshipQualified: true, relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container' }],
+      evidenceRecords: [{ path: 'calculogic-validator/naming/naming-src.logic.mjs', addressPath: 'D.1', occurrenceType: 'file', folderKind: 'semantic-qualified-structural-container', relationshipQualified: true, relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container' }],
     },
   });
 
   const [record] = replacementRuntime.classifyOccurrenceRecords([
-    { path: 'naming/naming-src.logic.mjs', resolvedPath: 'naming/naming-src.logic.mjs', actualName: 'naming-src.logic.mjs', addressPath: 'D.1', occurrenceType: 'file' },
+    { path: 'calculogic-validator/naming/naming-src.logic.mjs', resolvedPath: 'calculogic-validator/naming/naming-src.logic.mjs', actualName: 'naming-src.logic.mjs', addressPath: 'D.1', occurrenceType: 'file' },
   ]);
 
   assert.equal(record.structuralClass, 'unclassified');

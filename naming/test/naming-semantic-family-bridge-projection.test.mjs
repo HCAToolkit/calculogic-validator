@@ -51,9 +51,16 @@ test('naming bridge projection tolerates missing findings arrays with empty obse
   assert.deepEqual(projectNamingSemanticFamilyBridge({}), { observations: [] });
 });
 
-test('naming bridge projection intentionally omits standalone root package-root folder evidence', () => {
+test('naming bridge projection omits package-root folder observations when package root is repo root', () => {
   const projected = projectNamingSemanticFamilyBridge({
     findings: [
+      {
+        code: 'NAMING_ALLOWED_SPECIAL_CASE',
+        severity: 'info',
+        path: 'package.json',
+        classification: 'allowed-special-case',
+        details: { specialCaseType: 'ecosystem-required' },
+      },
       {
         code: 'NAMING_ALLOWED_SPECIAL_CASE',
         severity: 'info',
@@ -67,46 +74,12 @@ test('naming bridge projection intentionally omits standalone root package-root 
   assert.deepEqual(projected.observations, []);
 });
 
-test('naming bridge projection emits named package-root folder semantic-family-root observations', () => {
-  const projected = projectNamingSemanticFamilyBridge({
-    findings: [
-      {
-        code: 'NAMING_ALLOWED_SPECIAL_CASE',
-        severity: 'info',
-        path: 'naming/package.json',
-        classification: 'allowed-special-case',
-        details: { specialCaseType: 'ecosystem-required' },
-      },
-      {
-        code: 'NAMING_ALLOWED_SPECIAL_CASE',
-        severity: 'info',
-        path: 'tree/package.json',
-        classification: 'allowed-special-case',
-        details: { specialCaseType: 'ecosystem-required' },
-      },
-    ],
-  });
-
-  assert.deepEqual(
-    projected.observations.map((observation) => [
-      observation.path,
-      observation.semanticEvidenceKind,
-      observation.familyRootQualification,
-      observation.evidenceProvenance.sourceFindingPath,
-    ]),
-    [
-      ['naming', 'semantic-family-root-folder', 'package-root-folder', 'naming/package.json'],
-      ['tree', 'semantic-family-root-folder', 'package-root-folder', 'tree/package.json'],
-    ],
-  );
-});
-
 test('naming folder-composition bridge emits only explicit folder observations from registry-backed patterns', () => {
   const result = projectNamingFolderCompositionBridge({
     folderOccurrenceRecords: [
-      { path: 'naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
-      { path: 'naming/naming-src.logic.mjs', name: 'naming-src.logic.mjs', occurrenceType: 'file' },
-      { path: 'naming/tree-src', name: 'tree-src', occurrenceType: 'folder' },
+      { path: 'calculogic-validator/naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
+      { path: 'calculogic-validator/naming/naming-src.logic.mjs', name: 'naming-src.logic.mjs', occurrenceType: 'file' },
+      { path: 'calculogic-validator/naming/tree-src', name: 'tree-src', occurrenceType: 'folder' },
     ],
     folderCompositionPatternsRegistry: {
       folderCompositionPatterns: [{
@@ -134,7 +107,7 @@ test('naming folder-composition bridge emits only explicit folder observations f
   assert.deepEqual(
     result.observations.map((observation) => [observation.path, observation.semanticEvidenceKind]),
     [
-      ['naming/naming-src', 'folder-semantic-structural-composition'],
+      ['calculogic-validator/naming/naming-src', 'folder-semantic-structural-composition'],
     ],
   );
   assert.equal(result.observations[0].semanticQualifier, 'naming');
@@ -145,8 +118,8 @@ test('naming folder-composition bridge emits only explicit folder observations f
 test('naming folder-composition projection emits explicit ancestor semantic-context observations separately from composition observations', () => {
   const result = projectNamingFolderCompositionBridge({
     folderOccurrenceRecords: [
-      { path: 'naming', name: 'naming', occurrenceType: 'folder' },
-      { path: 'naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
+      { path: 'calculogic-validator/naming', name: 'naming', occurrenceType: 'folder' },
+      { path: 'calculogic-validator/naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
     ],
     folderCompositionPatternsRegistry: {
       folderCompositionPatterns: [{
@@ -172,8 +145,8 @@ test('naming folder-composition projection emits explicit ancestor semantic-cont
   assert.deepEqual(
     result.observations.map((observation) => [observation.path, observation.semanticEvidenceKind, observation.semanticContext ?? observation.semanticQualifier]),
     [
-      ['naming', 'folder-semantic-context', 'naming'],
-      ['naming/naming-src', 'folder-semantic-structural-composition', 'naming'],
+      ['calculogic-validator/naming', 'folder-semantic-context', 'naming'],
+      ['calculogic-validator/naming/naming-src', 'folder-semantic-structural-composition', 'naming'],
     ],
   );
 });
