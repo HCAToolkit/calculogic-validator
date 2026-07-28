@@ -198,9 +198,20 @@ const collectTopLevelUnexpectedFolderFindings = (preparedInputs, replacementRunt
     }));
 };
 
-const collectValidatorOwnedOutsideTreeFindings = (paths) =>
-  paths
-    .filter((relativePath) => !relativePath.startsWith('calculogic-validator/'))
+const isPathWithinValidatorDevelopmentRoot = (relativePath, validatorDevelopmentRoot) =>
+  validatorDevelopmentRoot === '.' ||
+  relativePath === validatorDevelopmentRoot ||
+  relativePath.startsWith(`${validatorDevelopmentRoot}/`);
+
+const collectValidatorOwnedOutsideTreeFindings = (paths, validatorDevelopmentRoot) => {
+  if (typeof validatorDevelopmentRoot !== 'string' || validatorDevelopmentRoot.length === 0) {
+    return [];
+  }
+
+  const expectedRoot = validatorDevelopmentRoot === '.' ? '.' : `${validatorDevelopmentRoot}/`;
+
+  return paths
+    .filter((relativePath) => !isPathWithinValidatorDevelopmentRoot(relativePath, validatorDevelopmentRoot))
     .filter((relativePath) => isValidatorOwnedBasenameSignal(path.posix.basename(relativePath)))
     .sort((left, right) => left.localeCompare(right))
     .map((relativePath) => ({
@@ -209,12 +220,13 @@ const collectValidatorOwnedOutsideTreeFindings = (paths) =>
       path: relativePath,
       classification: 'advisory-structure',
       message:
-        'Path appears validator-owned by basename signal but is located outside calculogic-validator/**.',
+        `Path appears validator-owned by basename signal but is located outside ${expectedRoot}.`,
       ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
       details: {
-        expectedRoot: 'calculogic-validator/',
+        expectedRoot,
       },
     }));
+};
 
 const isBoundaryDriftCarveoutPath = (relativePath) =>
   SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_EXACT_PATHS.has(relativePath) ||
@@ -397,7 +409,10 @@ export const runTreeStructureAdvisor = (preparedInputs = {}) => {
 
   const findings = [
     ...collectTopLevelUnexpectedFolderFindings(prepared, replacementRuntime),
-    ...collectValidatorOwnedOutsideTreeFindings(selectedPathsForReasoning),
+    ...collectValidatorOwnedOutsideTreeFindings(
+      selectedPathsForReasoning,
+      prepared.validatorDevelopmentRoot,
+    ),
     ...collectOwnedSliceBoundaryDriftFindings(selectedPathsForReasoning),
     ...collectContributorFindings(prepared),
   ].sort(sortByPathThenCode);
