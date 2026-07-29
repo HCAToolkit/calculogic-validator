@@ -81,7 +81,7 @@ export const prepareTreeStructureAdvisorInputs = (
   });
   const validatorDevelopmentRoot = developmentContext.validatorDevelopmentRoot === null
     ? null
-    : (path.relative(repositoryRoot, developmentContext.validatorDevelopmentRoot) || '.')
+    : (path.relative(developmentContext.targetRepositoryRoot, developmentContext.validatorDevelopmentRoot) || '.')
       .split(path.sep)
       .join('/');
   const selectedPaths = scopedSnapshotInputs.selectedPaths;

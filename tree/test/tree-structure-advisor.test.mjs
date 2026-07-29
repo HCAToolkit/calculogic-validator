@@ -1522,6 +1522,36 @@ test('tree validator-owned paths consume standalone development-root context det
   }
 });
 
+test('tree validator-owned paths preserve standalone root context through a symlinked checkout', async () => {
+  const fixtureParent = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-symlinked-root-'));
+  const checkoutRoot = path.join(fixtureParent, 'checkout');
+  const symlinkedRoot = path.join(fixtureParent, 'checkout-link');
+
+  try {
+    await fs.mkdir(path.join(checkoutRoot, 'tree', 'src'), { recursive: true });
+    await fs.writeFile(
+      path.join(checkoutRoot, 'tree', 'src', 'tree-structure-advisor.logic.mjs'),
+      'export const fixture = true\n',
+      'utf8',
+    );
+    await fs.symlink(checkoutRoot, symlinkedRoot, 'dir');
+
+    const inputs = prepareTreeStructureAdvisorInputs(symlinkedRoot, {
+      scope: 'repo',
+      packageRoot: symlinkedRoot,
+    });
+    const result = runTreeStructureAdvisorRuntime(inputs);
+
+    assert.equal(inputs.validatorDevelopmentRoot, '.');
+    assert.equal(
+      result.findings.some((finding) => finding.code === 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE'),
+      false,
+    );
+  } finally {
+    await fs.rm(fixtureParent, { recursive: true, force: true });
+  }
+});
+
 test('tree validator-owned paths preserve embedded development-root context', async () => {
   const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-embedded-root-'));
   const packageRoot = path.join(fixtureDir, 'calculogic-validator');
