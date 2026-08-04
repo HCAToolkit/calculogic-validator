@@ -817,6 +817,8 @@ Deferred candidates above are a documentation menu only. They are not current ru
 ### Runtime boundary
 
 - Tree core consumes **prepared tree-core inputs only** and fails closed when that contract is bypassed.
+- Tree wiring consumes suite core's resolved development context and prepares an optional repository-relative `validatorDevelopmentRoot` for Tree core. Standalone development resolves this root to `.`, embedded development resolves it to `calculogic-validator`, and installed consumer context leaves it absent (`null`).
+- `TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE` compares validator-owned basename signals with that prepared contextual root; it does not infer the root from repository-name literals, package-name substrings, `node_modules`, or current working directory. Without a validator development root, this finding is not emitted.
 - Tree core consumes occurrence-derived file records from `occurrenceSnapshot.occurrenceRecords` when available for bounded structural helpers (`TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE`, `TREE_OWNED_SLICE_BOUNDARY_DRIFT`) while keeping findings path output on resolved paths.
 - Occurrence-derived records are enriched with a bounded structural class interpretation layer (`structuralClass`, `structuralKind`, `isRepoShapeAllowedTopLevelDirectory`, `isSemanticRoot`, `isStructuralRoot`, `isSubtreePartitionCandidate`, `isRepoTopOccurrence`, `isScopedRootOccurrence`) for tree-local reasoning substrate use; findings envelopes remain unchanged.
 - Tree known-roots registry/runtime dependencies are retired in current runtime truth: `topRoots[].kind` does not back occurrence classification and `knownTopLevelDirectories` does not back unexpected top-level folder policy.

@@ -1146,8 +1146,9 @@ test('tree-structure-advisor findings are deterministic and summary-stable', asy
       'utf8',
     );
 
-    const first = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
-    const second = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    const packageRoot = path.join(fixtureDir, 'calculogic-validator');
+    const first = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot });
+    const second = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot });
 
     assert.deepEqual(first.findings, second.findings);
 
@@ -1464,7 +1465,10 @@ test('tree-structure-advisor flags validator-owned-looking file outside validato
       'utf8',
     );
 
-    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    const result = runTreeStructureAdvisor(fixtureDir, {
+      scope: 'repo',
+      packageRoot: path.join(fixtureDir, 'calculogic-validator'),
+    });
     const advisory = result.findings.find(
       (finding) => finding.code === 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE',
     );
@@ -1473,6 +1477,134 @@ test('tree-structure-advisor flags validator-owned-looking file outside validato
     assert.equal(advisory.severity, 'info');
     assert.equal(advisory.classification, 'advisory-structure');
     assert.equal(advisory.path, 'src/naming-validator.wiring.mjs');
+    assert.deepEqual(advisory.details, { expectedRoot: 'calculogic-validator/' });
+  } finally {
+    await fs.rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test('tree validator-owned paths consume standalone development-root context deterministically', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-standalone-root-'));
+
+  try {
+    const ownedPaths = [
+      'bin/calculogic-validate.host.mjs',
+      'src/core/validator-runner.logic.mjs',
+      'naming/src/naming-validator.logic.mjs',
+      'tree/src/tree-structure-advisor.logic.mjs',
+      'scripts/validate-tree.host.mjs',
+      'structural-addressing/src/structural-addressing-profile.knowledge.mjs',
+    ];
+    for (const relativePath of ownedPaths) {
+      await fs.mkdir(path.dirname(path.join(fixtureDir, relativePath)), { recursive: true });
+      await fs.writeFile(path.join(fixtureDir, relativePath), 'export const fixture = true\n', 'utf8');
+    }
+
+    const firstInputs = prepareTreeStructureAdvisorInputs(fixtureDir, {
+      scope: 'repo',
+      packageRoot: fixtureDir,
+    });
+    const secondInputs = prepareTreeStructureAdvisorInputs(fixtureDir, {
+      scope: 'repo',
+      packageRoot: fixtureDir,
+    });
+    const first = runTreeStructureAdvisorRuntime(firstInputs);
+    const second = runTreeStructureAdvisorRuntime(secondInputs);
+
+    assert.equal(firstInputs.validatorDevelopmentRoot, '.');
+    assert.deepEqual(first.findings, second.findings);
+    assert.equal(
+      first.findings.some((finding) => finding.code === 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE'),
+      false,
+    );
+  } finally {
+    await fs.rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test('tree validator-owned paths preserve standalone root context through a symlinked checkout', async () => {
+  const fixtureParent = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-symlinked-root-'));
+  const checkoutRoot = path.join(fixtureParent, 'checkout');
+  const symlinkedRoot = path.join(fixtureParent, 'checkout-link');
+
+  try {
+    await fs.mkdir(path.join(checkoutRoot, 'tree', 'src'), { recursive: true });
+    await fs.writeFile(
+      path.join(checkoutRoot, 'tree', 'src', 'tree-structure-advisor.logic.mjs'),
+      'export const fixture = true\n',
+      'utf8',
+    );
+    await fs.symlink(checkoutRoot, symlinkedRoot, 'dir');
+
+    const inputs = prepareTreeStructureAdvisorInputs(symlinkedRoot, {
+      scope: 'repo',
+      packageRoot: symlinkedRoot,
+    });
+    const result = runTreeStructureAdvisorRuntime(inputs);
+
+    assert.equal(inputs.validatorDevelopmentRoot, '.');
+    assert.equal(
+      result.findings.some((finding) => finding.code === 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE'),
+      false,
+    );
+  } finally {
+    await fs.rm(fixtureParent, { recursive: true, force: true });
+  }
+});
+
+test('tree validator-owned paths preserve embedded development-root context', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-embedded-root-'));
+  const packageRoot = path.join(fixtureDir, 'calculogic-validator');
+
+  try {
+    await fs.mkdir(path.join(packageRoot, 'tree', 'src'), { recursive: true });
+    await fs.mkdir(path.join(fixtureDir, 'src'), { recursive: true });
+    await fs.writeFile(
+      path.join(packageRoot, 'tree', 'src', 'tree-structure-advisor.logic.mjs'),
+      'export const inside = true\n',
+      'utf8',
+    );
+    await fs.writeFile(
+      path.join(fixtureDir, 'src', 'validator-runner.logic.mjs'),
+      'export const outside = true\n',
+      'utf8',
+    );
+
+    const inputs = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', packageRoot });
+    const result = runTreeStructureAdvisorRuntime(inputs);
+    const advisories = result.findings.filter(
+      (finding) => finding.code === 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE',
+    );
+
+    assert.equal(inputs.validatorDevelopmentRoot, 'calculogic-validator');
+    assert.deepEqual(advisories.map((finding) => finding.path), ['src/validator-runner.logic.mjs']);
+    assert.deepEqual(advisories[0].details, { expectedRoot: 'calculogic-validator/' });
+  } finally {
+    await fs.rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test('tree installed-consumer context does not invent a validator development root', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-consumer-root-'));
+  const packageRoot = path.join(fixtureDir, 'node_modules', '@calculogic', 'validator');
+
+  try {
+    await fs.mkdir(path.join(fixtureDir, 'src'), { recursive: true });
+    await fs.mkdir(packageRoot, { recursive: true });
+    await fs.writeFile(
+      path.join(fixtureDir, 'src', 'validator-runner.logic.mjs'),
+      'export const consumerFile = true\n',
+      'utf8',
+    );
+
+    const inputs = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', packageRoot });
+    const result = runTreeStructureAdvisorRuntime(inputs);
+
+    assert.equal(inputs.validatorDevelopmentRoot, null);
+    assert.equal(
+      result.findings.some((finding) => finding.code === 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE'),
+      false,
+    );
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }
@@ -1605,10 +1737,12 @@ test('tree-structure-advisor directory target narrows analyzed paths/findings', 
       'utf8',
     );
 
-    const unfiltered = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    const packageRoot = path.join(fixtureDir, 'calculogic-validator');
+    const unfiltered = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot });
     const filtered = runTreeStructureAdvisor(fixtureDir, {
       scope: 'repo',
       targets: ['calculogic-validator'],
+      packageRoot,
     });
 
     assert.equal(filtered.filters.isFiltered, true);
@@ -1837,6 +1971,7 @@ test('tree-structure-advisor computes occurrence-derived file reasoning input on
   const result = runTreeStructureAdvisorRuntime({
     scope: 'repo',
     selectedPaths: ['doc/README.md'],
+    validatorDevelopmentRoot: 'calculogic-validator',
     occurrenceSnapshot,
     topLevelDirectoryNames: [],
     targets: [],

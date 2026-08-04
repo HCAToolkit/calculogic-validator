@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import {
   runTreeStructureAdvisor as runTreeStructureAdvisorRuntime,
   summarizeFindings,
@@ -9,6 +10,7 @@ import {
 import {
   collectSuiteScopedSnapshotInputs,
 } from '../../src/core/suite-scoped-snapshot-input.logic.mjs';
+import { resolveValidatorDevelopmentContext } from '../../src/core/validator-development-context.logic.mjs';
 import { prepareTreeOccurrenceSnapshot } from './tree-occurrence-snapshot.logic.mjs';
 import { prepareTreeStructuralAddressSnapshot } from './tree-structural-address-snapshot.logic.mjs';
 import { prepareTreeStructuralHomeEvidence } from './tree-structural-home-evidence.logic.mjs';
@@ -73,6 +75,15 @@ export const prepareTreeStructureAdvisorInputs = (
     skipDotDirectories: true,
     packageRoot,
   });
+  const developmentContext = resolveValidatorDevelopmentContext({
+    targetRepositoryRoot: repositoryRoot,
+    packageRoot,
+  });
+  const validatorDevelopmentRoot = developmentContext.validatorDevelopmentRoot === null
+    ? null
+    : (path.relative(developmentContext.targetRepositoryRoot, developmentContext.validatorDevelopmentRoot) || '.')
+      .split(path.sep)
+      .join('/');
   const selectedPaths = scopedSnapshotInputs.selectedPaths;
   const structuralAddressTargets = scopedSnapshotInputs.targetDescriptors ?? scopedSnapshotInputs.targets;
   const occurrenceSnapshot = prepareTreeOccurrenceSnapshot({
@@ -203,6 +214,7 @@ export const prepareTreeStructureAdvisorInputs = (
   return {
     scope: scopedSnapshotInputs.scope,
     selectedPaths,
+    validatorDevelopmentRoot,
     occurrenceSnapshot,
     topLevelDirectoryNames: collectTopLevelDirectoryNames(repositoryRoot),
     targets: scopedSnapshotInputs.targets,

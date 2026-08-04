@@ -68,7 +68,8 @@ Current boundary note: shipped tree heuristics may ingest naming-derived semanti
    - Emit info advisory for clearly unusual non-hidden top-level folders outside known repo shape.
    - Builtin Tree-owned repo-shape policy remains bounded/deterministic and includes stable current peers: `bin`, `calculogic-doc-engine`, `calculogic-validator`, `doc`, `docs`, `public`, `scripts`, `src`, `test`, `tools`.
 2. **Validator-owned-looking file outside validator tree**
-   - Emit info advisory when filename/path signal strongly indicates validator ownership but file is outside `calculogic-validator/**`.
+   - Consume the optional validator development root resolved by suite core and emit an info advisory when a filename/path signal strongly indicates validator ownership but the file is outside that contextual root.
+   - Standalone development uses the repository root, embedded development uses `calculogic-validator/`, and installed consumer context does not invent a validator development root.
 
 3. **Shim/compat surface advisory (hardened evidence precedence, V0.1.5)**
    - Collects deterministic shim evidence with staged evaluation (path/surface/token-first; content reads only for deterministic shim candidates) and bounded fields:
