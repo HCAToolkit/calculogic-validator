@@ -143,6 +143,9 @@ Authority labels used in this index:
 - `doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`
   **Authority:** audit snapshot. **Intended use:** Slice 1 docs-only audit and contract-planning artifact for Addressing-backed Naming bridge enrichment and later Tree consumption, including current Addressing, Naming bridge, Tree intake/join surfaces, neutral context allowances, ownership boundaries, unresolved contract questions, and recommended follow-up.
 
+- `doc/Audits/package-consumption-and-dev-link-readiness.audit.md`
+  **Authority:** audit snapshot. **Intended use:** standalone package-consumption and dev-link readiness evidence covering packed artifacts, pinned Git, local-folder installs, npm link, update/unlink/relink workflows, root-context behavior, blocker classification, and the current-stage workflow recommendation.
+
 ## 8) Maintenance note
 
 - When adding a new validator doc, classify it in this index using one of the authority labels above.
