@@ -2,7 +2,7 @@
 
 ## 1) Overview
 
-`calculogic-validator` is a repository-local, **modular, configurable, policy-driven validator suite** in `calculogic-validator/`, including CLI binaries, host scripts, schema, and tests for naming and full validation workflows. The suite is **report-first by default** and can escalate through policy modes when explicitly configured. Canonical suite contract and mode semantics are centralized in [`doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`](./doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md). In this repo, the recommended way to run it is from the **repo root** via npm scripts so command behavior, arguments, and report capture stay consistent with CI and team workflows.
+`calculogic-validator` is a standalone, **modular, configurable, policy-driven validator suite and package**, including CLI binaries, host scripts, schema, and tests for naming and full validation workflows. The suite is **report-first by default** and can escalate through policy modes when explicitly configured. Canonical suite contract and mode semantics are centralized in [`doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`](./doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md). When working inside this validator repository, the recommended self-development interface is the **repository root** npm scripts so command behavior, arguments, and report capture stay consistent with CI and team workflows.
 
 Registry expansion roadmap note: see [`doc/ConventionRoutines/registry-expansion-candidates.audit.md`](./doc/ConventionRoutines/registry-expansion-candidates.audit.md) for the current hardcoded-policy audit and prioritized extraction plan.
 
