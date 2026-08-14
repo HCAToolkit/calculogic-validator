@@ -279,30 +279,98 @@ No stale checkout/link path or manual root repair remained.
 
 ## 9. Update behavior
 
-A deterministic prior artifact was produced outside the working checkout from commit `96cd85d`, then the consumer was returned to the current tested artifact:
+The update slice used two refs with genuinely different packed runtime contents:
+
+- old: `10f458bf5437cdc0358f2cbdb207b3e9f254c3e4`;
+- current: `c9c906550b2aa876745d88d26b17168d53d0641b`; and
+- changed fingerprint target: `tree/src/tree-structure-advisor.wiring.mjs` (12 lines added between the refs).
+
+Both refs were extracted into clean temporary source directories, so neither artifact build modified the working checkout:
 
 ```bash
-mkdir -p /tmp/calculogic-audit-10/prior-source
-git -C /workspace/calculogic-validator archive 96cd85d \
-  | tar -x -C /tmp/calculogic-audit-10/prior-source
+mkdir -p /tmp/calculogic-audit-10/update-old-source
+mkdir -p /tmp/calculogic-audit-10/update-current-source
 
-cd /tmp/calculogic-audit-10/prior-source
+git -C /workspace/calculogic-validator archive \
+  10f458bf5437cdc0358f2cbdb207b3e9f254c3e4 \
+  | tar -x -C /tmp/calculogic-audit-10/update-old-source
+
+git -C /workspace/calculogic-validator archive \
+  c9c906550b2aa876745d88d26b17168d53d0641b \
+  | tar -x -C /tmp/calculogic-audit-10/update-current-source
+
+cd /tmp/calculogic-audit-10/update-old-source
 npm pack --json
 
-cd /tmp/calculogic-audit-10/link
-npm install /tmp/calculogic-audit-10/prior-source/calculogic-validator-0.1.0.tgz
-npm install /workspace/calculogic-validator/calculogic-validator-0.1.0.tgz
+cd /tmp/calculogic-audit-10/update-current-source
+npm pack --json
 ```
 
-Both installs exited `0`. The repository version was not modified or faked; both commits declared `0.1.0`. After replacement:
+A clean consumer at `/tmp/calculogic-audit-10/update-consumer` installed the old artifact first, fingerprinted the installed runtime file, and then installed the current artifact over it:
 
-- resolution remained in the consumer's `node_modules`;
-- the package was not a symlink;
-- the public Naming bin continued to resolve and exited `0`;
-- `sourceSnapshot.repositoryRoot` remained `/tmp/calculogic-audit-10/link`; and
-- only `package-lock.json`, `package.json`, and `src/audit-fixture.logic.js` appeared in the focused report paths.
+```bash
+git init -q
+npm init -y
+mkdir -p src
+printf 'export const auditValue = 1;\n' > src/audit-fixture.logic.js
 
-**Answer:** yes. In the tested packed-artifact path, another repository could replace/update the validator without another rootization pass, path repair, or stale-link cleanup.
+npm install /tmp/calculogic-audit-10/update-old-source/calculogic-validator-0.1.0.tgz
+sha256sum node_modules/@calculogic/validator/tree/src/tree-structure-advisor.wiring.mjs
+test ! -L node_modules/@calculogic/validator
+
+npm install /tmp/calculogic-audit-10/update-current-source/calculogic-validator-0.1.0.tgz
+sha256sum node_modules/@calculogic/validator/tree/src/tree-structure-advisor.wiring.mjs
+test ! -L node_modules/@calculogic/validator
+```
+
+Both installs exited `0`; npm described the second operation as `changed 1 package`. The repository version was not modified or faked: both refs declared `0.1.0`. The installed file fingerprints proved that npm replaced actual runtime payload content:
+
+| Installed artifact | `tree/src/tree-structure-advisor.wiring.mjs` SHA-256 |
+|---|---|
+| Old ref | `85d1caa311e2bda5705160cbbc9bfddb48e9a47c5c64794ca93f098f5bd4b4ad` |
+| Current ref | `63d1856c0f24b290d2a677b6a07ea9c8d55a1a4432a9f22951e06a3a609f6cfb` |
+
+The hashes differed, so this was a package-content update rather than a same-payload reinstall. Before and after replacement, `test ! -L node_modules/@calculogic/validator` succeeded. After the current artifact was installed, package resolution was:
+
+```text
+file:///tmp/calculogic-audit-10/update-consumer/node_modules/@calculogic/validator/src/index.mjs
+```
+
+No linked-checkout path remained. The updated package's four public bins all resolved and exited `0` for the audit invocation:
+
+```bash
+npx --no-install calculogic-validate --help
+npx --no-install calculogic-validate-naming --help
+npx --no-install calculogic-validate-tree --help
+npx --no-install calculogic-validator-health --help
+```
+
+The representative post-update command also exited `0`:
+
+```bash
+npx --no-install calculogic-validate-naming --scope=repo
+```
+
+Its focused report evidence was:
+
+```json
+{
+  "sourceSnapshot": {
+    "source": "fs",
+    "repositoryRoot": "/tmp/calculogic-audit-10/update-consumer"
+  },
+  "totalFilesScanned": 3,
+  "paths": [
+    "package-lock.json",
+    "package.json",
+    "src/audit-fixture.logic.js"
+  ]
+}
+```
+
+`node_modules` did not appear in the report, and no consumer-side `calculogic-validator/` directory existed or was required. `npx --no-install calculogic-validate --scope=validator` exited `1` with the expected `validator-development-root-unavailable` result, confirming that the updated ordinary install did not become a validator development root.
+
+**Answer:** yes. The corrected packed-artifact test proved an update across changed validator runtime contents without another rootization pass, manual path repair, stale npm-link state, target-root confusion, or public-bin breakage.
 
 ## 10. Public command matrix
 
