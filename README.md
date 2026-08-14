@@ -8,6 +8,128 @@ Registry expansion roadmap note: see [`doc/ConventionRoutines/registry-expansion
 
 Canonical ownership boundary note: for loader → converter → runtime ownership and policy-data vs engine-mechanics separation, see [`doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`](./doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md).
 
+## Using the validator from another repository
+
+The workflows below describe the package behavior verified in the package-consumption audit. For the tested environment, commands, root-context evidence, and blocker classifications, see [`doc/Audits/package-consumption-and-dev-link-readiness.audit.md`](./doc/Audits/package-consumption-and-dev-link-readiness.audit.md).
+
+### Consumption model
+
+Keep the implementation source and validation target distinct:
+
+- the validator package or validator checkout supplies the implementation;
+- the consumer repository is the repository being validated.
+
+For an ordinary installed consumer, the target repository root is the consumer repository and the validator development root is unavailable by default. The presence of `node_modules/@calculogic/validator` supplies the package; it does not make that installed directory the validation target.
+
+### Stable install: packed artifact
+
+The preferred currently verified stable-consumer workflow is a packed artifact. From the validator checkout, create it with:
+
+```bash
+npm pack
+```
+
+npm produces an artifact with a name such as `calculogic-validator-<version>.tgz`. From the consumer repository, install that artifact and check the public command surface:
+
+```bash
+npm install /absolute/path/to/calculogic-validator-<version>.tgz
+npx --no-install calculogic-validate --help
+npx --no-install calculogic-validator-health --help
+```
+
+The audit verified that this mode installs normal package contents, exposes the public commands, and keeps the consumer repository as the validation target. It does not require an embedded `calculogic-validator/` directory or manual root/path repair, and installation under `node_modules` does not cause `node_modules` to be scanned. This workflow does not imply that the package is currently published to the npm registry.
+
+### Active development: `npm link`
+
+Use `npm link` when actively changing the validator from a separate checkout. From the validator checkout:
+
+```bash
+npm link
+```
+
+Then, from the consumer repository:
+
+```bash
+npm link @calculogic/validator
+npx --no-install calculogic-validate --help
+```
+
+In this mode, the validator checkout is the live runtime implementation source while the consumer repository remains the validation target. The audit verified that changes in the validator checkout become visible to new consumer processes without reinstalling the package. This is a cross-repository development workflow, not the preferred stable distribution mode.
+
+### Return to stable mode
+
+From the consumer repository, remove its live link and reinstall a packed artifact:
+
+```bash
+npm unlink @calculogic/validator
+npm install /absolute/path/to/calculogic-validator-<version>.tgz
+```
+
+This removes the consumer's live validator link, restores ordinary installed package contents, and retains the consumer as the validation target without manual path or root cleanup.
+
+If the workstation-level link is no longer needed, clean it up separately from the validator checkout:
+
+```bash
+npm unlink -g @calculogic/validator
+```
+
+Global link cleanup removes the link registered with the workstation's npm installation; it does not replace the consumer dependency, so restore the consumer install separately as shown above.
+
+### Update the installed validator
+
+Create the newer artifact from the validator checkout and install it from the consumer repository:
+
+```bash
+# In the validator checkout
+npm pack
+
+# In the consumer repository
+npm install /absolute/path/to/newer/calculogic-validator-<version>.tgz
+```
+
+The audit verified npm replacing an existing package with genuinely different validator runtime contents. The public bins continued to resolve, the package remained an ordinary installed directory, the consumer remained the target repository, and no stale npm-link path or root/path repair remained. Deleting `node_modules` is not a normal part of this update workflow. This evidence does not establish a semantic-version publishing or version-bump policy.
+
+### Local-folder development install
+
+An optional development-oriented form is:
+
+```bash
+npm install /absolute/path/to/calculogic-validator
+```
+
+In the npm environment tested by the audit, this resolved to a symlink to the validator checkout. Treat it as a development convenience rather than the preferred stable workflow; representation may differ across npm versions or platforms. When explicit live-development behavior is intended, `npm link` communicates that intent more clearly.
+
+### Pinned Git install status
+
+The intended deterministic Git form is:
+
+```bash
+npm install github:HCAToolkit/calculogic-validator#<commit-sha>
+```
+
+This is a **candidate workflow, not a workflow verified by the package-consumption audit**. The audit environment could not reach GitHub, so the test could not proceed far enough to evaluate Git installation behavior; that result does not show that Git installs are broken. Once separately verified, a stable Git dependency should remain pinned to a deterministic commit, tag, or ref rather than `main`.
+
+### Public consumer commands
+
+Use the package's public bins, rather than invoking `bin/**` or `scripts/**` as the normal consumer integration contract:
+
+```bash
+npx --no-install calculogic-validate --help
+npx --no-install calculogic-validate-naming --help
+npx --no-install calculogic-validate-tree --help
+npx --no-install calculogic-validator-health --help
+```
+
+### Consumer validator-scope note
+
+In an ordinary installed or linked consumer repository, this command may report `validator-development-root-unavailable`:
+
+```bash
+npx --no-install calculogic-validate --scope=validator
+```
+
+That result is expected: the consumer repository is not being treated as the validator's own development checkout. Do not point validator scope at `node_modules`, create a fake `calculogic-validator/` directory, or manually override package-root behavior. For normal consumer validation, use the appropriate consumer scope, such as `repo`, according to the existing CLI contract.
+
 ## 2) Projected package layout (target)
 
 This is the intended target structure for the validator suite as refactors continue.
