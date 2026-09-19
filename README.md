@@ -1,5 +1,11 @@
 # calculogic-validator
 
+## Origin and purpose
+
+The Validator first developed inside the [Calculogic React app](https://github.com/HCAToolkit/Calculogic_React_App) as its naming, structure, and project conventions became increasingly explicit. Those conventions needed deterministic, inspectable checks rather than relying on memory or one-off manual review. Naming validation was an early deterministic implementation; Tree and structure reasoning followed as the Validator expanded into a reusable, modular validation suite beyond host-specific tooling.
+
+The suite was extracted so it could have independent ownership and be consumed by Calculogic without remaining coupled to the host application. This standalone `HCAToolkit/calculogic-validator` repository is now the **authoritative source for Validator implementation**. `HCAToolkit/Calculogic_React_App` remains the originating Calculogic application and is a current consumer and integration environment for the standalone package. Its historical `Calculogic_React_App/calculogic-validator/` directory is the pre-extraction embedded implementation, not a second independently maintained authoritative source.
+
 ## 1) Overview
 
 `calculogic-validator` is a standalone, **modular, configurable, policy-driven validator suite and package**, including CLI binaries, host scripts, schema, and tests for naming and full validation workflows. The suite is **report-first by default** and can escalate through policy modes when explicitly configured. Canonical suite contract and mode semantics are centralized in [`doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`](./doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md). When working inside this validator repository, the recommended self-development interface is the **repository root** npm scripts so command behavior, arguments, and report capture stay consistent with CI and team workflows.
