@@ -140,9 +140,10 @@ For suite-core/shared-helper reuse, cross-slice implementation, CLI scaffolding,
 scope or target collection, exit-policy derivation, report metadata, or helper-area
 ownership decisions, read in this order:
 
-1. `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
-2. `doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md`
-3. `doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
+1. `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`
+2. `doc/ConventionRoutines/ValidatorSuiteOwnedSharedHelpers-And-Capabilities.md`
+3. `doc/ConventionRoutines/ValidatorHelperAreas-And-Reuse-Conventions.md`
+4. `doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
 
 Before adding suite-core or cross-slice helper logic, check the capability inventory
 first. Reuse a matching suite-owned capability when concern and owner match. If none
