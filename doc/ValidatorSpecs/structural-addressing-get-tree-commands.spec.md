@@ -45,6 +45,25 @@ node --experimental-strip-types calculogic-validator/scripts/addressing-get-tree
 
 The direct host command is useful for local inspection and mirrors the npm command target.
 
+### Validator development root layouts
+
+`--scope=validator` resolves its development root from the found repository root in either of
+two supported layouts, checked in this order:
+
+1. **Embedded layout** - a `calculogic-validator/` directory exists beneath the repository root
+   (the historical form shown above, when this package is vendored inside a consumer repository).
+2. **Standalone layout** - no such nested directory exists, but the repository root itself is
+   this package (its own `package.json` `name` is `@calculogic/validator`) - covers running the
+   command directly inside this repository, including via a consumer's
+   `npm --prefix node_modules/@calculogic/validator run addressing:get-tree -- ...` invocation
+   against an `npm link`-ed development checkout.
+
+In both layouts, `sourceNamespace` and all reported occurrence paths remain prefixed with the
+stable `calculogic-validator/` namespace label - this label is a naming convention, not a literal
+on-disk directory, and does not change based on physical nesting. A repository matching neither
+layout fails with a `validator-development-root-unavailable` error rather than silently scanning
+an unrelated tree.
+
 ### Report-capture wrapper command
 
 ```bash
@@ -126,4 +145,7 @@ This slice does not implement:
 - structural-home interpretation.
 - validator findings/severity for addressing.
 
-This spec is documentation/contract cleanup only and introduces no runtime behavior changes.
+This spec was originally documentation/contract cleanup only. The "Validator development root
+layouts" section above documents a subsequent runtime fix (Refs #22): the standalone layout was
+not previously resolvable and failed with a filesystem error rather than the
+`validator-development-root-unavailable` message reserved for genuinely unsupported contexts.

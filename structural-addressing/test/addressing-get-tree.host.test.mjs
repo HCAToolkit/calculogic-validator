@@ -44,6 +44,37 @@ const tryCreateSymlink = async ({ target, linkPath, type }) => {
   }
 };
 
+// Standalone-checkout layout: the repository root itself is the `@calculogic/validator`
+// package (no nested `calculogic-validator/` subdirectory). `withSiblingDecoy` places an
+// unrelated directory literally named `calculogic-validator` NEXT TO (not beneath) the
+// fixture root, to prove resolution is not fooled by an accidentally matching sibling.
+const createStandaloneFixtureRepo = async ({ withSiblingDecoy = false } = {}) => {
+  const parentDir = await fs.mkdtemp(path.join(os.tmpdir(), 'addressing-get-tree-standalone-'));
+  const fixtureRoot = path.join(parentDir, 'standalone-checkout');
+
+  await fs.mkdir(path.join(fixtureRoot, '.git'), { recursive: true });
+  await fs.writeFile(
+    path.join(fixtureRoot, 'package.json'),
+    `${JSON.stringify({ name: '@calculogic/validator' }, null, 2)}\n`,
+  );
+  await fs.mkdir(path.join(fixtureRoot, 'structural-addressing', 'src'), { recursive: true });
+  await fs.mkdir(path.join(fixtureRoot, 'node_modules', 'x'), { recursive: true });
+
+  await fs.writeFile(path.join(fixtureRoot, 'README.md'), 'readme\n');
+  await fs.writeFile(path.join(fixtureRoot, 'structural-addressing', 'src', 'alpha.mjs'), 'export const a = 1;\n');
+  await fs.writeFile(path.join(fixtureRoot, 'node_modules', 'x', 'ignored.js'), 'ignored\n');
+
+  if (withSiblingDecoy) {
+    await fs.mkdir(path.join(parentDir, 'calculogic-validator'), { recursive: true });
+    await fs.writeFile(
+      path.join(parentDir, 'calculogic-validator', 'decoy-sibling-marker.md'),
+      'This sibling directory must never be walked by the standalone-checkout layout.\n',
+    );
+  }
+
+  return { parentDir, fixtureRoot };
+};
+
 test('--help exits 0 and prints usage', async () => {
   const stdout = makeWritableBuffer();
   const stderr = makeWritableBuffer();
@@ -268,4 +299,72 @@ test('host output does not include validator findings/severity/report-shaped out
   assert.equal(okStderr.read(), '');
 
   await fs.rm(cwd, { recursive: true, force: true });
+});
+
+test('standalone checkout layout resolves the repository root as the validator scope, independent of an accidentally matching sibling directory', async () => {
+  const { parentDir, fixtureRoot } = await createStandaloneFixtureRepo({ withSiblingDecoy: true });
+
+  const textStdout = makeWritableBuffer();
+  const textStderr = makeWritableBuffer();
+  const textExitCode = await runAddressingGetTreeHost({
+    argv: ['--scope=validator', '--format=text'],
+    cwd: fixtureRoot,
+    stdout: textStdout,
+    stderr: textStderr,
+  });
+
+  assert.equal(textExitCode, 0);
+  assert.equal(textStderr.read(), '');
+  const rendered = textStdout.read();
+  assert.match(rendered, /^A: calculogic-validator\//mu);
+  assert.match(rendered, /README\.md/u);
+  assert.match(rendered, /alpha\.mjs/u);
+  assert.doesNotMatch(rendered, /decoy-sibling-marker/u);
+  assert.doesNotMatch(rendered, /node_modules/u);
+
+  const jsonStdout = makeWritableBuffer();
+  const jsonStderr = makeWritableBuffer();
+  const jsonExitCode = await runAddressingGetTreeHost({
+    argv: ['--scope=validator', '--format=json'],
+    cwd: fixtureRoot,
+    stdout: jsonStdout,
+    stderr: jsonStderr,
+  });
+
+  assert.equal(jsonExitCode, 0);
+  const parsed = JSON.parse(jsonStdout.read());
+  assert.equal(parsed.addressedTreeSnapshot.sourceNamespace, 'calculogic-validator');
+  assert.equal(parsed.addressedTreeSnapshot.scopeRoots[0].name, 'calculogic-validator');
+  assert.equal(parsed.addressedTreeSnapshot.scopeRoots[0].path, 'calculogic-validator');
+  const readmeChild = parsed.addressedTreeSnapshot.scopeRoots[0].children.find(
+    (child) => child.name === 'README.md',
+  );
+  assert.equal(readmeChild.path, 'calculogic-validator/README.md');
+  assert.equal(jsonStderr.read(), '');
+
+  await fs.rm(parentDir, { recursive: true, force: true });
+});
+
+test('a repository with neither an embedded calculogic-validator directory nor a matching standalone package name fails with a clear, actionable error', async () => {
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'addressing-get-tree-unrelated-'));
+  await fs.mkdir(path.join(fixtureRoot, '.git'), { recursive: true });
+  await fs.writeFile(
+    path.join(fixtureRoot, 'package.json'),
+    `${JSON.stringify({ name: 'some-unrelated-package' }, null, 2)}\n`,
+  );
+
+  const stdout = makeWritableBuffer();
+  const stderr = makeWritableBuffer();
+  const exitCode = await runAddressingGetTreeHost({
+    argv: ['--scope=validator', '--format=text'],
+    cwd: fixtureRoot,
+    stdout,
+    stderr,
+  });
+
+  assert.equal(exitCode, 1);
+  assert.match(stderr.read(), /validator-development-root-unavailable/u);
+  assert.equal(stdout.read(), '');
+
+  await fs.rm(fixtureRoot, { recursive: true, force: true });
 });
