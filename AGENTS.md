@@ -66,6 +66,19 @@ do not govern this checkout.
 - Treat a draft as binding only inside the scope it explicitly closes. Open and
   deferred draft decisions are not implementation authority.
 
+### Documentation task fidelity and status wording
+
+- Preserve required sections and acceptance criteria in structural documentation
+  tasks unless they conflict with current repository truth.
+- Do not satisfy a structural documentation task with wording cleanup alone.
+- Keep task-specific supporting references scoped to the relevant task rather than
+  making them global requirements.
+- Distinguish current implementation reality from target architecture and staged or
+  deferred behavior. Describe planned destinations, transition sequences, and
+  future enforcement as such; do not present them as current standalone Validator
+  behavior. Apply consumer-migration wording only when the task actually concerns
+  that integration boundary.
+
 ## Baseline reading for every task
 
 Before editing, read these repository-local convention sources:
@@ -195,6 +208,33 @@ implemented. Structural addressing owns address grammar; it does not take over
 Naming interpretation or Tree placement policy.
 
 ## Registries and deterministic reasoning
+
+- Do not make Surface equivalent to Structural Home.
+- Do not make Agnostic-Core Meaning replace Category, Role, Surface, or Structural
+  Home identity.
+
+For registry-model work, read these sources in this order:
+
+1. `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
+2. `doc/ConventionRoutines/NamingValidatorSpec.md`
+3. `doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md`
+4. `doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
+5. `doc/ValidatorSpecs/cross-cutting/registry-blueprint-implementation-map.spec.md`
+
+This sequence is conditional on registry-model work and is not an additional
+baseline for every task. Keep task-specific supporting references task-scoped.
+
+When a task actually owns a registry migration, use this sequence:
+
+1. Docs/spec alignment
+2. Data-only registry payloads
+3. Registry shape tests
+4. Loader compatibility bridges
+5. Runtime behavior migration
+6. Extraction preparation
+
+Do not imply that a documentation-only task or other work that does not own a
+registry migration performs this sequence.
 
 - Treat the owning canonical spec as semantic authority and the owning registry as
   policy data implementing that authority. Do not let navigation documents,
