@@ -45,6 +45,45 @@ node --experimental-strip-types calculogic-validator/scripts/addressing-get-tree
 
 The direct host command is useful for local inspection and mirrors the npm command target.
 
+### Validator development root layouts
+
+`--scope=validator` resolves its development root by delegating identity to the canonical
+`resolveValidatorDevelopmentContext` contract
+(`src/core/validator-development-context.logic.mjs`) - the same mechanism `--scope=validator`'s
+other entrypoints already use (see `src/core/validator-scopes.logic.mjs`). That contract compares
+two things, both filesystem locations, never file content:
+
+- `packageRoot` - where this executing implementation module actually, physically lives on disk
+  (its own real, symlink-resolved location, anchored in `import.meta.url`).
+- `targetRepositoryRoot` - the repository root the command is invoked against (the found
+  repository root beneath `cwd`).
+
+This yields two supported layouts:
+
+1. **Embedded layout** - `packageRoot` is `targetRepositoryRoot/calculogic-validator` (the
+   historical form shown above, when this package is vendored inside a consumer repository).
+2. **Standalone layout** - `packageRoot` and `targetRepositoryRoot` are the same directory -
+   covers running the command directly inside this repository, including via a consumer's
+   `npm --prefix node_modules/@calculogic/validator run addressing:get-tree -- ...` invocation
+   against an `npm link`-ed development checkout, where the linked target's own real (symlink-
+   resolved) location is both the executing code's home and the found repository root.
+
+Deliberately **not** used: `package.json` `name`, an `AGENTS.md` file, or any other content the
+target repository controls. A consumer repository can declare any package name or ship any marker
+file it likes; it cannot make itself *be* the directory this implementation's own code is actually
+running from. `--scope=validator` is described as "validator development-root scan (available
+only in validator owner/development contexts)" - an ordinary installed/packaged copy invoked from
+inside an unrelated consumer's repository is not such a context (its `targetRepositoryRoot`
+resolves to the consumer's own root, not to `packageRoot` or `packageRoot`'s parent), matching the
+restriction other consumer contexts already receive, regardless of what that consumer's own
+`package.json` or `AGENTS.md` happen to say.
+
+In both layouts, `sourceNamespace` and all reported occurrence paths remain prefixed with the
+stable `calculogic-validator/` namespace label - this label is a naming convention, not a literal
+on-disk directory, and does not change based on physical nesting. A repository matching neither
+layout fails with a `validator-development-root-unavailable` error rather than silently scanning
+an unrelated tree.
+
 ### Report-capture wrapper command
 
 ```bash
@@ -126,4 +165,7 @@ This slice does not implement:
 - structural-home interpretation.
 - validator findings/severity for addressing.
 
-This spec is documentation/contract cleanup only and introduces no runtime behavior changes.
+This spec was originally documentation/contract cleanup only. The "Validator development root
+layouts" section above documents a subsequent runtime fix (Refs #22): the standalone layout was
+not previously resolvable and failed with a filesystem error rather than the
+`validator-development-root-unavailable` message reserved for genuinely unsupported contexts.

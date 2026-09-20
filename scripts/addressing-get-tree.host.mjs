@@ -12,10 +12,12 @@ import {
   STRUCTURAL_ADDRESSING_RENDER_FORMATS,
   STRUCTURAL_ADDRESSING_OCCURRENCE_TYPES,
 } from '../structural-addressing/src/structural-addressing-profile.knowledge.mjs';
+import { resolveValidatorDevelopmentContext } from '../src/core/validator-development-context.logic.mjs';
 
 const SUPPORTED_SCOPE = 'validator';
 const SOURCE_NAMESPACE = 'calculogic-validator';
-const DEFAULT_SCOPE_ROOT = 'calculogic-validator';
+const EMBEDDED_SCOPE_ROOT = 'calculogic-validator';
+const STANDALONE_SCOPE_ROOT = '.';
 const EXCLUDED_WALK_NAMES = new Set(['.git', 'node_modules', '.reports', 'dist', 'build', 'coverage']);
 
 const USAGE_TEXT =
@@ -23,7 +25,15 @@ const USAGE_TEXT =
 
 const normalizeCliPath = (inputPath) => inputPath.trim().replaceAll('\\', '/');
 
-const normalizeRelativePath = ({ absolutePath, repoRoot }) => normalizeCliPath(path.relative(repoRoot, absolutePath));
+// Occurrence paths are always expressed relative to the scope root and prefixed with the
+// stable `sourceNamespace` label (see DeterministicStructuralAddressingSpec-Draft.md) - this
+// label is a naming convention, not a physical directory: it is literally the scope root's own
+// name for embedded-nested layouts, and a synthesized prefix for the standalone-checkout layout
+// (where the scope root and the repository root are the same directory on disk).
+const namespacedRelativePath = ({ absolutePath, allowedRootAbsolute, sourceNamespace }) => {
+  const relativeToScopeRoot = normalizeCliPath(path.relative(allowedRootAbsolute, absolutePath));
+  return relativeToScopeRoot === '' ? sourceNamespace : `${sourceNamespace}/${relativeToScopeRoot}`;
+};
 
 const resolveRepoRelativeTarget = ({ repoRoot, target }) => path.resolve(repoRoot, target);
 
@@ -49,16 +59,60 @@ export const findRepositoryRoot = async ({ cwd }) => {
   }
 };
 
-const buildScopeConfig = ({ scope, repoRoot }) => {
+// Resolves the validator development root by delegating identity to the canonical
+// `resolveValidatorDevelopmentContext` contract (src/core/validator-development-context.logic.mjs),
+// the same mechanism `--scope=validator`'s other entrypoints (validator-scopes.logic.mjs) already
+// use. That contract compares `packageRoot` - where THIS EXECUTING implementation module actually,
+// physically lives on disk (its own real, symlink-resolved location, anchored in `import.meta.url`
+// when the caller does not override it for testing) - against `targetRepositoryRoot` - the
+// repository the command is invoked against. This is deliberately NOT based on any content the
+// target repository controls (package.json `name`, an AGENTS.md file, or any other file the
+// target could plausibly contain): a consumer repository can declare any package name or ship any
+// marker file it likes, but it cannot make itself BE the directory the Validator's own code is
+// actually running from. `kind` is one of:
+//   - 'standalone-development': packageRoot === targetRepositoryRoot (running this package's own
+//     code from inside its own repository root).
+//   - 'embedded-development': packageRoot === targetRepositoryRoot/calculogic-validator (the
+//     historical React-app-embedded, vendored-nested shape).
+//   - 'installed-consumer': neither - includes the ordinary `npm --prefix
+//     node_modules/@calculogic/validator run ...` case against an installed (non-linked) copy,
+//     where `targetRepositoryRoot` resolves to the outer consumer's own unrelated repository root.
+// Neither matching is a clear, explicit error rather than silently treating an unrelated
+// repository, or an installed package, as the validator development root.
+const resolveScopeRootLayout = ({ repoRoot, packageRoot }) => {
+  const context = resolveValidatorDevelopmentContext({ targetRepositoryRoot: repoRoot, packageRoot });
+
+  if (context.kind === 'embedded-development') {
+    return { relativeRoot: EMBEDDED_SCOPE_ROOT, allowedRootAbsolute: context.validatorDevelopmentRoot };
+  }
+
+  if (context.kind === 'standalone-development') {
+    return { relativeRoot: STANDALONE_SCOPE_ROOT, allowedRootAbsolute: context.validatorDevelopmentRoot };
+  }
+
+  return null;
+};
+
+const buildScopeConfig = ({ scope, repoRoot, packageRoot }) => {
   if (scope !== SUPPORTED_SCOPE) {
     throw new Error(`Unsupported scope: ${scope ?? '(missing)'}`);
+  }
+
+  const layout = resolveScopeRootLayout({ repoRoot, packageRoot });
+  if (!layout) {
+    throw new Error(
+      `validator-development-root-unavailable: --scope=validator requires either a ` +
+        `'${EMBEDDED_SCOPE_ROOT}/' directory beneath the repository root or the repository ` +
+        `root itself being the actual standalone development checkout this code is running ` +
+        `from (an installed/packaged copy is not sufficient).`,
+    );
   }
 
   return {
     scope: SUPPORTED_SCOPE,
     sourceNamespace: SOURCE_NAMESPACE,
-    defaultRoots: [DEFAULT_SCOPE_ROOT],
-    allowedRootAbsolute: path.resolve(repoRoot, DEFAULT_SCOPE_ROOT),
+    defaultRoots: [layout.relativeRoot],
+    allowedRootAbsolute: layout.allowedRootAbsolute,
   };
 };
 
@@ -179,15 +233,15 @@ const assertNoSymlinkPathSegments = async ({ absolutePath, allowedRootAbsolute, 
   }
 };
 
-const toOccurrenceNode = async ({ absolutePath, repoRoot }) => {
+const toOccurrenceNode = async ({ absolutePath, allowedRootAbsolute, sourceNamespace }) => {
   const stat = await fs.lstat(absolutePath);
 
   if (stat.isSymbolicLink()) {
     return null;
   }
 
-  const relativePath = normalizeRelativePath({ absolutePath, repoRoot });
-  const name = path.basename(absolutePath);
+  const relativePath = namespacedRelativePath({ absolutePath, allowedRootAbsolute, sourceNamespace });
+  const name = absolutePath === allowedRootAbsolute ? sourceNamespace : path.basename(absolutePath);
 
   if (stat.isDirectory()) {
     const children = await fs.readdir(absolutePath);
@@ -197,7 +251,11 @@ const toOccurrenceNode = async ({ absolutePath, repoRoot }) => {
     const childNodes = [];
 
     for (const childName of includedChildren) {
-      const childNode = await toOccurrenceNode({ absolutePath: path.join(absolutePath, childName), repoRoot });
+      const childNode = await toOccurrenceNode({
+        absolutePath: path.join(absolutePath, childName),
+        allowedRootAbsolute,
+        sourceNamespace,
+      });
       if (childNode) {
         childNodes.push(childNode);
       }
@@ -218,9 +276,9 @@ const toOccurrenceNode = async ({ absolutePath, repoRoot }) => {
   };
 };
 
-export const buildTreeCodebaseInputFromFileSystem = async ({ scope, targets, cwd }) => {
+export const buildTreeCodebaseInputFromFileSystem = async ({ scope, targets, cwd, packageRoot }) => {
   const repoRoot = await findRepositoryRoot({ cwd });
-  const scopeConfig = buildScopeConfig({ scope, repoRoot });
+  const scopeConfig = buildScopeConfig({ scope, repoRoot, packageRoot });
 
   const selectedTargets = targets.length > 0 ? [...targets] : scopeConfig.defaultRoots;
   const scopeRoots = [];
@@ -238,7 +296,11 @@ export const buildTreeCodebaseInputFromFileSystem = async ({ scope, targets, cwd
       target,
     });
 
-    const rootNode = await toOccurrenceNode({ absolutePath: resolvedTarget, repoRoot });
+    const rootNode = await toOccurrenceNode({
+      absolutePath: resolvedTarget,
+      allowedRootAbsolute: scopeConfig.allowedRootAbsolute,
+      sourceNamespace: scopeConfig.sourceNamespace,
+    });
 
     if (!rootNode) {
       throw new Error(`Target path is a symbolic link and cannot be walked safely: ${target}`);
@@ -257,7 +319,7 @@ export const buildTreeCodebaseInputFromFileSystem = async ({ scope, targets, cwd
   };
 };
 
-export const runAddressingGetTreeHost = async ({ argv, cwd, stdout, stderr }) => {
+export const runAddressingGetTreeHost = async ({ argv, cwd, stdout, stderr, packageRoot }) => {
   try {
     const parsed = parseAddressingGetTreeArgs(argv);
 
@@ -270,6 +332,7 @@ export const runAddressingGetTreeHost = async ({ argv, cwd, stdout, stderr }) =>
       scope: parsed.scope,
       targets: parsed.targets,
       cwd,
+      packageRoot,
     });
     const addressedTreeSnapshot = prepareTreeCodebaseAddressedSnapshot(input);
     const { renderedTree } = renderTreeCodebaseAddressedSnapshot(addressedTreeSnapshot);
