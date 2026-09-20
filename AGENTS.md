@@ -111,9 +111,6 @@ Authority boundaries:
 - Naming owns filename interpretation and bounded semantic evidence. Other slices
   consume explicit Naming projections rather than duplicating Naming taxonomy or
   reading Naming internals as their own policy.
-- Do not make Surface equivalent to Structural Home.
-- Do not make Agnostic-Core Meaning replace Category, Role, Surface, or Structural
-  Home identity.
 - Keep Naming registry policy in Naming-owned registry surfaces. Preserve the
   documented builtin/custom precedence, canonicalization, digest/state, and runtime
   conversion boundaries rather than embedding registry payloads or policy into
@@ -211,6 +208,10 @@ implemented. Structural addressing owns address grammar; it does not take over
 Naming interpretation or Tree placement policy.
 
 ## Registries and deterministic reasoning
+
+- Do not make Surface equivalent to Structural Home.
+- Do not make Agnostic-Core Meaning replace Category, Role, Surface, or Structural
+  Home identity.
 
 For registry-model work, read these sources in this order:
 
