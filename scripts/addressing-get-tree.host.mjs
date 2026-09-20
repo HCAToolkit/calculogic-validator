@@ -18,6 +18,13 @@ const SOURCE_NAMESPACE = 'calculogic-validator';
 const EMBEDDED_SCOPE_ROOT = 'calculogic-validator';
 const STANDALONE_SCOPE_ROOT = '.';
 const STANDALONE_PACKAGE_NAME = '@calculogic/validator';
+// `AGENTS.md` is excluded from the package `files` allowlist (src/**, naming/src/**, tree/src/**,
+// structural-addressing/src/**, bin/**, scripts/**, README.md, LICENSE), so it is present in
+// every genuine development checkout but absent from every packaged/installed copy (npm pack
+// tarball or git-dependency install alike). Its presence is the signal that distinguishes a
+// complete, editable development checkout from an installed package that merely shares the
+// package name - see the "Standalone checkout layout" boundary note below.
+const STANDALONE_DEVELOPMENT_MARKER = 'AGENTS.md';
 const EXCLUDED_WALK_NAMES = new Set(['.git', 'node_modules', '.reports', 'dist', 'build', 'coverage']);
 
 const USAGE_TEXT =
@@ -67,6 +74,14 @@ const isDirectory = async (candidatePath) => {
   }
 };
 
+const isFile = async (candidatePath) => {
+  try {
+    return (await fs.stat(candidatePath)).isFile();
+  } catch {
+    return false;
+  }
+};
+
 const readPackageName = async (packageJsonPath) => {
   try {
     const raw = await fs.readFile(packageJsonPath, 'utf8');
@@ -80,14 +95,19 @@ const readPackageName = async (packageJsonPath) => {
 // 1. Embedded consumer layout: a `calculogic-validator/` child directory exists
 //    beneath the found repository root (the historical React-app-embedded shape).
 // 2. Standalone checkout layout: no such child exists, but the repository root
-//    itself is the standalone `@calculogic/validator` package (its own
-//    `package.json` `name` field confirms it) - covers running this host
-//    directly inside `HCAToolkit/calculogic-validator`, including via a
-//    consumer's `npm --prefix node_modules/@calculogic/validator run ...`
-//    invocation, where `repoRoot` resolves to the real linked/installed
-//    checkout rather than a nested named subdirectory.
+//    itself is the standalone `@calculogic/validator` package AND carries
+//    `STANDALONE_DEVELOPMENT_MARKER` - covers running this host directly inside
+//    `HCAToolkit/calculogic-validator`, including via a consumer's
+//    `npm --prefix node_modules/@calculogic/validator run ...` invocation, where
+//    `repoRoot` resolves to the real linked/installed checkout rather than a
+//    nested named subdirectory.
+//    The package-name check alone is NOT sufficient: an ordinary installed copy
+//    (npm pack tarball or git-dependency install) has the identical package name
+//    but is a stripped subset per the package `files` allowlist, not a complete,
+//    editable development checkout - the marker-file check keeps that case a
+//    validator-development-root-unavailable error rather than a silent partial scan.
 // Neither matching is a clear, explicit error rather than silently treating
-// an unrelated repository as the validator development root.
+// an unrelated repository, or an installed package, as the validator development root.
 const resolveScopeRootLayout = async ({ repoRoot }) => {
   const embeddedRootAbsolute = path.resolve(repoRoot, EMBEDDED_SCOPE_ROOT);
   if (await isDirectory(embeddedRootAbsolute)) {
@@ -95,7 +115,8 @@ const resolveScopeRootLayout = async ({ repoRoot }) => {
   }
 
   const standalonePackageName = await readPackageName(path.join(repoRoot, 'package.json'));
-  if (standalonePackageName === STANDALONE_PACKAGE_NAME) {
+  const hasDevelopmentMarker = await isFile(path.join(repoRoot, STANDALONE_DEVELOPMENT_MARKER));
+  if (standalonePackageName === STANDALONE_PACKAGE_NAME && hasDevelopmentMarker) {
     return { relativeRoot: STANDALONE_SCOPE_ROOT, allowedRootAbsolute: repoRoot };
   }
 
@@ -112,7 +133,8 @@ const buildScopeConfig = async ({ scope, repoRoot }) => {
     throw new Error(
       `validator-development-root-unavailable: --scope=validator requires either a ` +
         `'${EMBEDDED_SCOPE_ROOT}/' directory beneath the repository root or the repository ` +
-        `root itself being the standalone '${STANDALONE_PACKAGE_NAME}' package.`,
+        `root itself being a complete standalone '${STANDALONE_PACKAGE_NAME}' development ` +
+        `checkout (an installed/packaged copy is not sufficient).`,
     );
   }
 

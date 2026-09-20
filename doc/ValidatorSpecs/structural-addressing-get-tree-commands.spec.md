@@ -53,15 +53,27 @@ two supported layouts, checked in this order:
 1. **Embedded layout** - a `calculogic-validator/` directory exists beneath the repository root
    (the historical form shown above, when this package is vendored inside a consumer repository).
 2. **Standalone layout** - no such nested directory exists, but the repository root itself is
-   this package (its own `package.json` `name` is `@calculogic/validator`) - covers running the
-   command directly inside this repository, including via a consumer's
+   this package (its own `package.json` `name` is `@calculogic/validator`) *and* carries an
+   `AGENTS.md` file at its root - covers running the command directly inside this repository,
+   including via a consumer's
    `npm --prefix node_modules/@calculogic/validator run addressing:get-tree -- ...` invocation
    against an `npm link`-ed development checkout.
+
+The `AGENTS.md` check exists because the package name alone is not a reliable signal: an
+ordinary installed copy (an `npm pack` tarball or a git-dependency install) declares the same
+`package.json` `name` but is a stripped subset per the package `files` allowlist (it excludes
+`doc/`, `test/`, `tools/`, and `AGENTS.md`). Without this check, an installed/packaged copy that
+happened to sit at its own repository root would be silently accepted as a development checkout
+and scanned as if complete, when only the packaged subset is actually present. `--scope=validator`
+is described as "validator development-root scan (available only in validator owner/development
+contexts)" - an installed consumer copy is not such a context, matching the restriction other
+consumer contexts already receive.
 
 In both layouts, `sourceNamespace` and all reported occurrence paths remain prefixed with the
 stable `calculogic-validator/` namespace label - this label is a naming convention, not a literal
 on-disk directory, and does not change based on physical nesting. A repository matching neither
-layout fails with a `validator-development-root-unavailable` error rather than silently scanning
+layout - including an installed/packaged copy lacking `AGENTS.md` - fails with a
+`validator-development-root-unavailable` error rather than silently scanning
 an unrelated tree.
 
 ### Report-capture wrapper command

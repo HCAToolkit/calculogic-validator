@@ -48,7 +48,10 @@ const tryCreateSymlink = async ({ target, linkPath, type }) => {
 // package (no nested `calculogic-validator/` subdirectory). `withSiblingDecoy` places an
 // unrelated directory literally named `calculogic-validator` NEXT TO (not beneath) the
 // fixture root, to prove resolution is not fooled by an accidentally matching sibling.
-const createStandaloneFixtureRepo = async ({ withSiblingDecoy = false } = {}) => {
+// `omitDevelopmentMarker` skips writing AGENTS.md, mirroring an installed/packaged copy
+// (npm pack tarball or git-dependency install) that shares the package name but is not a
+// complete, editable development checkout.
+const createStandaloneFixtureRepo = async ({ withSiblingDecoy = false, omitDevelopmentMarker = false } = {}) => {
   const parentDir = await fs.mkdtemp(path.join(os.tmpdir(), 'addressing-get-tree-standalone-'));
   const fixtureRoot = path.join(parentDir, 'standalone-checkout');
 
@@ -57,6 +60,9 @@ const createStandaloneFixtureRepo = async ({ withSiblingDecoy = false } = {}) =>
     path.join(fixtureRoot, 'package.json'),
     `${JSON.stringify({ name: '@calculogic/validator' }, null, 2)}\n`,
   );
+  if (!omitDevelopmentMarker) {
+    await fs.writeFile(path.join(fixtureRoot, 'AGENTS.md'), 'development checkout guidance\n');
+  }
   await fs.mkdir(path.join(fixtureRoot, 'structural-addressing', 'src'), { recursive: true });
   await fs.mkdir(path.join(fixtureRoot, 'node_modules', 'x'), { recursive: true });
 
@@ -341,6 +347,25 @@ test('standalone checkout layout resolves the repository root as the validator s
   );
   assert.equal(readmeChild.path, 'calculogic-validator/README.md');
   assert.equal(jsonStderr.read(), '');
+
+  await fs.rm(parentDir, { recursive: true, force: true });
+});
+
+test('a directory that shares the standalone package name but lacks the development marker is rejected as an installed/packaged copy, not accepted as a development checkout', async () => {
+  const { parentDir, fixtureRoot } = await createStandaloneFixtureRepo({ omitDevelopmentMarker: true });
+
+  const stdout = makeWritableBuffer();
+  const stderr = makeWritableBuffer();
+  const exitCode = await runAddressingGetTreeHost({
+    argv: ['--scope=validator', '--format=text'],
+    cwd: fixtureRoot,
+    stdout,
+    stderr,
+  });
+
+  assert.equal(exitCode, 1);
+  assert.match(stderr.read(), /validator-development-root-unavailable/u);
+  assert.equal(stdout.read(), '');
 
   await fs.rm(parentDir, { recursive: true, force: true });
 });
