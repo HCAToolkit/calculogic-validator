@@ -48,10 +48,12 @@ const tryCreateSymlink = async ({ target, linkPath, type }) => {
 // package (no nested `calculogic-validator/` subdirectory). `withSiblingDecoy` places an
 // unrelated directory literally named `calculogic-validator` NEXT TO (not beneath) the
 // fixture root, to prove resolution is not fooled by an accidentally matching sibling.
-// `omitDevelopmentMarker` skips writing AGENTS.md, mirroring an installed/packaged copy
-// (npm pack tarball or git-dependency install) that shares the package name but is not a
-// complete, editable development checkout.
-const createStandaloneFixtureRepo = async ({ withSiblingDecoy = false, omitDevelopmentMarker = false } = {}) => {
+// The fixture always carries a matching `package.json` name AND an `AGENTS.md` file - this
+// content is deliberately NOT what production code checks (see `resolveScopeRootLayout` in
+// scripts/addressing-get-tree.host.mjs): acceptance depends on the caller injecting a
+// `packageRoot` whose real, resolved identity actually matches `fixtureRoot`, proving the
+// content alone (which a consumer fully controls) is not sufficient.
+const createStandaloneFixtureRepo = async ({ withSiblingDecoy = false } = {}) => {
   const parentDir = await fs.mkdtemp(path.join(os.tmpdir(), 'addressing-get-tree-standalone-'));
   const fixtureRoot = path.join(parentDir, 'standalone-checkout');
 
@@ -60,9 +62,7 @@ const createStandaloneFixtureRepo = async ({ withSiblingDecoy = false, omitDevel
     path.join(fixtureRoot, 'package.json'),
     `${JSON.stringify({ name: '@calculogic/validator' }, null, 2)}\n`,
   );
-  if (!omitDevelopmentMarker) {
-    await fs.writeFile(path.join(fixtureRoot, 'AGENTS.md'), 'development checkout guidance\n');
-  }
+  await fs.writeFile(path.join(fixtureRoot, 'AGENTS.md'), 'development checkout guidance\n');
   await fs.mkdir(path.join(fixtureRoot, 'structural-addressing', 'src'), { recursive: true });
   await fs.mkdir(path.join(fixtureRoot, 'node_modules', 'x'), { recursive: true });
 
@@ -136,17 +136,21 @@ test('parse errors are deterministic for missing scope, unsupported scope/format
 
 test('default validator root resolves correctly from repo root and calculogic-validator subdirectory', async () => {
   const repoRoot = await createFixtureRepo();
+  // Injected packageRoot simulates "this executing code physically lives at the nested
+  // calculogic-validator/ directory" - the identity a real embedded-consumer invocation has,
+  // since the running script's own real location IS that nested directory there.
+  const packageRoot = path.join(repoRoot, 'calculogic-validator');
 
   const rootStdout = makeWritableBuffer();
   const rootStderr = makeWritableBuffer();
-  const rootExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd: repoRoot, stdout: rootStdout, stderr: rootStderr });
+  const rootExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd: repoRoot, packageRoot, stdout: rootStdout, stderr: rootStderr });
   assert.equal(rootExitCode, 0);
   assert.match(rootStdout.read(), /^A: calculogic-validator\//mu);
   assert.equal(rootStderr.read(), '');
 
   const subdirStdout = makeWritableBuffer();
   const subdirStderr = makeWritableBuffer();
-  const subdirExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd: path.join(repoRoot, 'calculogic-validator'), stdout: subdirStdout, stderr: subdirStderr });
+  const subdirExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd: path.join(repoRoot, 'calculogic-validator'), packageRoot, stdout: subdirStdout, stderr: subdirStderr });
   assert.equal(subdirExitCode, 0);
   assert.match(subdirStdout.read(), /^A: calculogic-validator\//mu);
   assert.equal(subdirStderr.read(), '');
@@ -156,12 +160,14 @@ test('default validator root resolves correctly from repo root and calculogic-va
 
 test('repo-relative targets resolve from repository root and output paths stay repo-relative', async () => {
   const repoRoot = await createFixtureRepo();
+  const packageRoot = path.join(repoRoot, 'calculogic-validator');
 
   const stdout = makeWritableBuffer();
   const stderr = makeWritableBuffer();
   const exitCode = await runAddressingGetTreeHost({
     argv: ['--scope=validator', '--target', 'calculogic-validator/README.md', '--format=json'],
     cwd: path.join(repoRoot, 'calculogic-validator'),
+    packageRoot,
     stdout,
     stderr,
   });
@@ -176,10 +182,11 @@ test('repo-relative targets resolve from repository root and output paths stay r
 
 test('--scope=validator --format=json emits valid JSON; both emits deterministic combined JSON; repeatable targets accepted', async () => {
   const cwd = await createFixtureRepo();
+  const packageRoot = path.join(cwd, 'calculogic-validator');
 
   const jsonOut = makeWritableBuffer();
   const jsonErr = makeWritableBuffer();
-  const jsonExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=json'], cwd, stdout: jsonOut, stderr: jsonErr });
+  const jsonExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=json'], cwd, packageRoot, stdout: jsonOut, stderr: jsonErr });
   assert.equal(jsonExitCode, 0);
   const parsedJson = JSON.parse(jsonOut.read());
   assert.equal(parsedJson.addressedTreeSnapshot.scope, 'validator');
@@ -192,6 +199,7 @@ test('--scope=validator --format=json emits valid JSON; both emits deterministic
   const bothExitCode = await runAddressingGetTreeHost({
     argv: ['--scope=validator', '--target', 'calculogic-validator/structural-addressing', '--target=calculogic-validator/README.md', '--format', 'both'],
     cwd,
+    packageRoot,
     stdout: bothOut,
     stderr: bothErr,
   });
@@ -210,12 +218,14 @@ test('--scope=validator --format=json emits valid JSON; both emits deterministic
 
 test('outside target and nonexistent target fail deterministically', async () => {
   const cwd = await createFixtureRepo();
+  const packageRoot = path.join(cwd, 'calculogic-validator');
   const outsideStdout = makeWritableBuffer();
   const outsideStderr = makeWritableBuffer();
 
   const outsideExitCode = await runAddressingGetTreeHost({
     argv: ['--scope=validator', '--target', 'README.md'],
     cwd,
+    packageRoot,
     stdout: outsideStdout,
     stderr: outsideStderr,
   });
@@ -227,6 +237,7 @@ test('outside target and nonexistent target fail deterministically', async () =>
   const missingExitCode = await runAddressingGetTreeHost({
     argv: ['--scope=validator', '--target', 'calculogic-validator/missing-path'],
     cwd,
+    packageRoot,
     stdout: missingStdout,
     stderr: missingStderr,
   });
@@ -239,6 +250,7 @@ test('outside target and nonexistent target fail deterministically', async () =>
 
 test('symlink targets are handled safely and never recursively traversed', async (t) => {
   const cwd = await createFixtureRepo();
+  const packageRoot = path.join(cwd, 'calculogic-validator');
   const validatorRoot = path.join(cwd, 'calculogic-validator');
   const cycleLink = path.join(validatorRoot, 'cycle-link');
   const rootLink = path.join(validatorRoot, 'linked-root');
@@ -260,7 +272,7 @@ test('symlink targets are handled safely and never recursively traversed', async
 
   const textOut = makeWritableBuffer();
   const textErr = makeWritableBuffer();
-  const textExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd, stdout: textOut, stderr: textErr });
+  const textExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=text'], cwd, packageRoot, stdout: textOut, stderr: textErr });
   assert.equal(textExitCode, 0);
   assert.doesNotMatch(textOut.read(), /cycle-link/u);
   assert.equal(textErr.read(), '');
@@ -270,6 +282,7 @@ test('symlink targets are handled safely and never recursively traversed', async
   const linkExitCode = await runAddressingGetTreeHost({
     argv: ['--scope=validator', '--target', 'calculogic-validator/linked-root', '--format=text'],
     cwd,
+    packageRoot,
     stdout: linkStdout,
     stderr: linkStderr,
   });
@@ -283,6 +296,7 @@ test('symlink targets are handled safely and never recursively traversed', async
   const traversedExitCode = await runAddressingGetTreeHost({
     argv: ['--scope=validator', '--target', 'calculogic-validator/link-out/inner', '--format=text'],
     cwd,
+    packageRoot,
     stdout: traversedStdout,
     stderr: traversedStderr,
   });
@@ -296,10 +310,11 @@ test('symlink targets are handled safely and never recursively traversed', async
 
 test('host output does not include validator findings/severity/report-shaped output', async () => {
   const cwd = await createFixtureRepo();
+  const packageRoot = path.join(cwd, 'calculogic-validator');
 
   const okStdout = makeWritableBuffer();
   const okStderr = makeWritableBuffer();
-  const okExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=both'], cwd, stdout: okStdout, stderr: okStderr });
+  const okExitCode = await runAddressingGetTreeHost({ argv: ['--scope=validator', '--format=both'], cwd, packageRoot, stdout: okStdout, stderr: okStderr });
   assert.equal(okExitCode, 0);
   assert.doesNotMatch(okStdout.read(), /findings|severity|report/u);
   assert.equal(okStderr.read(), '');
@@ -307,14 +322,19 @@ test('host output does not include validator findings/severity/report-shaped out
   await fs.rm(cwd, { recursive: true, force: true });
 });
 
-test('standalone checkout layout resolves the repository root as the validator scope, independent of an accidentally matching sibling directory', async () => {
+test('standalone checkout layout resolves the repository root as the validator scope when the executing implementation identity matches, independent of an accidentally matching sibling directory', async () => {
   const { parentDir, fixtureRoot } = await createStandaloneFixtureRepo({ withSiblingDecoy: true });
+  // Injected packageRoot simulates "this executing code physically lives at fixtureRoot itself" -
+  // the identity a real standalone-checkout invocation has, since the running script's own real
+  // location IS the repository root there.
+  const packageRoot = fixtureRoot;
 
   const textStdout = makeWritableBuffer();
   const textStderr = makeWritableBuffer();
   const textExitCode = await runAddressingGetTreeHost({
     argv: ['--scope=validator', '--format=text'],
     cwd: fixtureRoot,
+    packageRoot,
     stdout: textStdout,
     stderr: textStderr,
   });
@@ -333,6 +353,7 @@ test('standalone checkout layout resolves the repository root as the validator s
   const jsonExitCode = await runAddressingGetTreeHost({
     argv: ['--scope=validator', '--format=json'],
     cwd: fixtureRoot,
+    packageRoot,
     stdout: jsonStdout,
     stderr: jsonStderr,
   });
@@ -351,8 +372,15 @@ test('standalone checkout layout resolves the repository root as the validator s
   await fs.rm(parentDir, { recursive: true, force: true });
 });
 
-test('a directory that shares the standalone package name but lacks the development marker is rejected as an installed/packaged copy, not accepted as a development checkout', async () => {
-  const { parentDir, fixtureRoot } = await createStandaloneFixtureRepo({ omitDevelopmentMarker: true });
+test('an unrelated installed-package consumer whose repository shares both the package.json name and AGENTS.md is rejected, because consumer-controlled content is not implementation identity', async () => {
+  // This fixture's package.json name and AGENTS.md are indistinguishable, content-wise, from a
+  // genuine standalone checkout (see createStandaloneFixtureRepo above) - it exists specifically
+  // to prove that matching content alone is not accepted. No packageRoot is injected here: the
+  // real, unrelated default (this test file's own real location) is used, exactly as production
+  // code does when a caller does not override it, so this fixture's repoRoot can never coincide
+  // with it - simulating an installed/packaged consumer whose metadata happens to resemble the
+  // Validator repository but whose executing implementation code does not actually come from it.
+  const { parentDir, fixtureRoot } = await createStandaloneFixtureRepo();
 
   const stdout = makeWritableBuffer();
   const stderr = makeWritableBuffer();

@@ -47,33 +47,41 @@ The direct host command is useful for local inspection and mirrors the npm comma
 
 ### Validator development root layouts
 
-`--scope=validator` resolves its development root from the found repository root in either of
-two supported layouts, checked in this order:
+`--scope=validator` resolves its development root by delegating identity to the canonical
+`resolveValidatorDevelopmentContext` contract
+(`src/core/validator-development-context.logic.mjs`) - the same mechanism `--scope=validator`'s
+other entrypoints already use (see `src/core/validator-scopes.logic.mjs`). That contract compares
+two things, both filesystem locations, never file content:
 
-1. **Embedded layout** - a `calculogic-validator/` directory exists beneath the repository root
-   (the historical form shown above, when this package is vendored inside a consumer repository).
-2. **Standalone layout** - no such nested directory exists, but the repository root itself is
-   this package (its own `package.json` `name` is `@calculogic/validator`) *and* carries an
-   `AGENTS.md` file at its root - covers running the command directly inside this repository,
-   including via a consumer's
+- `packageRoot` - where this executing implementation module actually, physically lives on disk
+  (its own real, symlink-resolved location, anchored in `import.meta.url`).
+- `targetRepositoryRoot` - the repository root the command is invoked against (the found
+  repository root beneath `cwd`).
+
+This yields two supported layouts:
+
+1. **Embedded layout** - `packageRoot` is `targetRepositoryRoot/calculogic-validator` (the
+   historical form shown above, when this package is vendored inside a consumer repository).
+2. **Standalone layout** - `packageRoot` and `targetRepositoryRoot` are the same directory -
+   covers running the command directly inside this repository, including via a consumer's
    `npm --prefix node_modules/@calculogic/validator run addressing:get-tree -- ...` invocation
-   against an `npm link`-ed development checkout.
+   against an `npm link`-ed development checkout, where the linked target's own real (symlink-
+   resolved) location is both the executing code's home and the found repository root.
 
-The `AGENTS.md` check exists because the package name alone is not a reliable signal: an
-ordinary installed copy (an `npm pack` tarball or a git-dependency install) declares the same
-`package.json` `name` but is a stripped subset per the package `files` allowlist (it excludes
-`doc/`, `test/`, `tools/`, and `AGENTS.md`). Without this check, an installed/packaged copy that
-happened to sit at its own repository root would be silently accepted as a development checkout
-and scanned as if complete, when only the packaged subset is actually present. `--scope=validator`
-is described as "validator development-root scan (available only in validator owner/development
-contexts)" - an installed consumer copy is not such a context, matching the restriction other
-consumer contexts already receive.
+Deliberately **not** used: `package.json` `name`, an `AGENTS.md` file, or any other content the
+target repository controls. A consumer repository can declare any package name or ship any marker
+file it likes; it cannot make itself *be* the directory this implementation's own code is actually
+running from. `--scope=validator` is described as "validator development-root scan (available
+only in validator owner/development contexts)" - an ordinary installed/packaged copy invoked from
+inside an unrelated consumer's repository is not such a context (its `targetRepositoryRoot`
+resolves to the consumer's own root, not to `packageRoot` or `packageRoot`'s parent), matching the
+restriction other consumer contexts already receive, regardless of what that consumer's own
+`package.json` or `AGENTS.md` happen to say.
 
 In both layouts, `sourceNamespace` and all reported occurrence paths remain prefixed with the
 stable `calculogic-validator/` namespace label - this label is a naming convention, not a literal
 on-disk directory, and does not change based on physical nesting. A repository matching neither
-layout - including an installed/packaged copy lacking `AGENTS.md` - fails with a
-`validator-development-root-unavailable` error rather than silently scanning
+layout fails with a `validator-development-root-unavailable` error rather than silently scanning
 an unrelated tree.
 
 ### Report-capture wrapper command

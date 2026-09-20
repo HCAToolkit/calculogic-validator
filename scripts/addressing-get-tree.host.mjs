@@ -12,19 +12,12 @@ import {
   STRUCTURAL_ADDRESSING_RENDER_FORMATS,
   STRUCTURAL_ADDRESSING_OCCURRENCE_TYPES,
 } from '../structural-addressing/src/structural-addressing-profile.knowledge.mjs';
+import { resolveValidatorDevelopmentContext } from '../src/core/validator-development-context.logic.mjs';
 
 const SUPPORTED_SCOPE = 'validator';
 const SOURCE_NAMESPACE = 'calculogic-validator';
 const EMBEDDED_SCOPE_ROOT = 'calculogic-validator';
 const STANDALONE_SCOPE_ROOT = '.';
-const STANDALONE_PACKAGE_NAME = '@calculogic/validator';
-// `AGENTS.md` is excluded from the package `files` allowlist (src/**, naming/src/**, tree/src/**,
-// structural-addressing/src/**, bin/**, scripts/**, README.md, LICENSE), so it is present in
-// every genuine development checkout but absent from every packaged/installed copy (npm pack
-// tarball or git-dependency install alike). Its presence is the signal that distinguishes a
-// complete, editable development checkout from an installed package that merely shares the
-// package name - see the "Standalone checkout layout" boundary note below.
-const STANDALONE_DEVELOPMENT_MARKER = 'AGENTS.md';
 const EXCLUDED_WALK_NAMES = new Set(['.git', 'node_modules', '.reports', 'dist', 'build', 'coverage']);
 
 const USAGE_TEXT =
@@ -66,75 +59,52 @@ export const findRepositoryRoot = async ({ cwd }) => {
   }
 };
 
-const isDirectory = async (candidatePath) => {
-  try {
-    return (await fs.stat(candidatePath)).isDirectory();
-  } catch {
-    return false;
-  }
-};
+// Resolves the validator development root by delegating identity to the canonical
+// `resolveValidatorDevelopmentContext` contract (src/core/validator-development-context.logic.mjs),
+// the same mechanism `--scope=validator`'s other entrypoints (validator-scopes.logic.mjs) already
+// use. That contract compares `packageRoot` - where THIS EXECUTING implementation module actually,
+// physically lives on disk (its own real, symlink-resolved location, anchored in `import.meta.url`
+// when the caller does not override it for testing) - against `targetRepositoryRoot` - the
+// repository the command is invoked against. This is deliberately NOT based on any content the
+// target repository controls (package.json `name`, an AGENTS.md file, or any other file the
+// target could plausibly contain): a consumer repository can declare any package name or ship any
+// marker file it likes, but it cannot make itself BE the directory the Validator's own code is
+// actually running from. `kind` is one of:
+//   - 'standalone-development': packageRoot === targetRepositoryRoot (running this package's own
+//     code from inside its own repository root).
+//   - 'embedded-development': packageRoot === targetRepositoryRoot/calculogic-validator (the
+//     historical React-app-embedded, vendored-nested shape).
+//   - 'installed-consumer': neither - includes the ordinary `npm --prefix
+//     node_modules/@calculogic/validator run ...` case against an installed (non-linked) copy,
+//     where `targetRepositoryRoot` resolves to the outer consumer's own unrelated repository root.
+// Neither matching is a clear, explicit error rather than silently treating an unrelated
+// repository, or an installed package, as the validator development root.
+const resolveScopeRootLayout = ({ repoRoot, packageRoot }) => {
+  const context = resolveValidatorDevelopmentContext({ targetRepositoryRoot: repoRoot, packageRoot });
 
-const isFile = async (candidatePath) => {
-  try {
-    return (await fs.stat(candidatePath)).isFile();
-  } catch {
-    return false;
-  }
-};
-
-const readPackageName = async (packageJsonPath) => {
-  try {
-    const raw = await fs.readFile(packageJsonPath, 'utf8');
-    return JSON.parse(raw)?.name;
-  } catch {
-    return undefined;
-  }
-};
-
-// Resolves the validator development root two ways, checked in this order:
-// 1. Embedded consumer layout: a `calculogic-validator/` child directory exists
-//    beneath the found repository root (the historical React-app-embedded shape).
-// 2. Standalone checkout layout: no such child exists, but the repository root
-//    itself is the standalone `@calculogic/validator` package AND carries
-//    `STANDALONE_DEVELOPMENT_MARKER` - covers running this host directly inside
-//    `HCAToolkit/calculogic-validator`, including via a consumer's
-//    `npm --prefix node_modules/@calculogic/validator run ...` invocation, where
-//    `repoRoot` resolves to the real linked/installed checkout rather than a
-//    nested named subdirectory.
-//    The package-name check alone is NOT sufficient: an ordinary installed copy
-//    (npm pack tarball or git-dependency install) has the identical package name
-//    but is a stripped subset per the package `files` allowlist, not a complete,
-//    editable development checkout - the marker-file check keeps that case a
-//    validator-development-root-unavailable error rather than a silent partial scan.
-// Neither matching is a clear, explicit error rather than silently treating
-// an unrelated repository, or an installed package, as the validator development root.
-const resolveScopeRootLayout = async ({ repoRoot }) => {
-  const embeddedRootAbsolute = path.resolve(repoRoot, EMBEDDED_SCOPE_ROOT);
-  if (await isDirectory(embeddedRootAbsolute)) {
-    return { relativeRoot: EMBEDDED_SCOPE_ROOT, allowedRootAbsolute: embeddedRootAbsolute };
+  if (context.kind === 'embedded-development') {
+    return { relativeRoot: EMBEDDED_SCOPE_ROOT, allowedRootAbsolute: context.validatorDevelopmentRoot };
   }
 
-  const standalonePackageName = await readPackageName(path.join(repoRoot, 'package.json'));
-  const hasDevelopmentMarker = await isFile(path.join(repoRoot, STANDALONE_DEVELOPMENT_MARKER));
-  if (standalonePackageName === STANDALONE_PACKAGE_NAME && hasDevelopmentMarker) {
-    return { relativeRoot: STANDALONE_SCOPE_ROOT, allowedRootAbsolute: repoRoot };
+  if (context.kind === 'standalone-development') {
+    return { relativeRoot: STANDALONE_SCOPE_ROOT, allowedRootAbsolute: context.validatorDevelopmentRoot };
   }
 
   return null;
 };
 
-const buildScopeConfig = async ({ scope, repoRoot }) => {
+const buildScopeConfig = ({ scope, repoRoot, packageRoot }) => {
   if (scope !== SUPPORTED_SCOPE) {
     throw new Error(`Unsupported scope: ${scope ?? '(missing)'}`);
   }
 
-  const layout = await resolveScopeRootLayout({ repoRoot });
+  const layout = resolveScopeRootLayout({ repoRoot, packageRoot });
   if (!layout) {
     throw new Error(
       `validator-development-root-unavailable: --scope=validator requires either a ` +
         `'${EMBEDDED_SCOPE_ROOT}/' directory beneath the repository root or the repository ` +
-        `root itself being a complete standalone '${STANDALONE_PACKAGE_NAME}' development ` +
-        `checkout (an installed/packaged copy is not sufficient).`,
+        `root itself being the actual standalone development checkout this code is running ` +
+        `from (an installed/packaged copy is not sufficient).`,
     );
   }
 
@@ -306,9 +276,9 @@ const toOccurrenceNode = async ({ absolutePath, allowedRootAbsolute, sourceNames
   };
 };
 
-export const buildTreeCodebaseInputFromFileSystem = async ({ scope, targets, cwd }) => {
+export const buildTreeCodebaseInputFromFileSystem = async ({ scope, targets, cwd, packageRoot }) => {
   const repoRoot = await findRepositoryRoot({ cwd });
-  const scopeConfig = await buildScopeConfig({ scope, repoRoot });
+  const scopeConfig = buildScopeConfig({ scope, repoRoot, packageRoot });
 
   const selectedTargets = targets.length > 0 ? [...targets] : scopeConfig.defaultRoots;
   const scopeRoots = [];
@@ -349,7 +319,7 @@ export const buildTreeCodebaseInputFromFileSystem = async ({ scope, targets, cwd
   };
 };
 
-export const runAddressingGetTreeHost = async ({ argv, cwd, stdout, stderr }) => {
+export const runAddressingGetTreeHost = async ({ argv, cwd, stdout, stderr, packageRoot }) => {
   try {
     const parsed = parseAddressingGetTreeArgs(argv);
 
@@ -362,6 +332,7 @@ export const runAddressingGetTreeHost = async ({ argv, cwd, stdout, stderr }) =>
       scope: parsed.scope,
       targets: parsed.targets,
       cwd,
+      packageRoot,
     });
     const addressedTreeSnapshot = prepareTreeCodebaseAddressedSnapshot(input);
     const { renderedTree } = renderTreeCodebaseAddressedSnapshot(addressedTreeSnapshot);
