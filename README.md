@@ -1,5 +1,7 @@
 # calculogic-validator
 
+_Curious how AI-assisted development works across HCAToolkit projects? See the [organization overview](https://github.com/HCAToolkit/.github/blob/main/profile/README.md#ai-assisted-development)._
+
 ## Origin and purpose
 
 The Validator first developed inside the [Calculogic React app](https://github.com/HCAToolkit/Calculogic_React_App) as its naming, structure, and project conventions became increasingly explicit. Those conventions needed deterministic, inspectable checks rather than relying on memory or one-off manual review. Naming validation was an early deterministic implementation; Tree and structure reasoning followed as the Validator expanded into a reusable, modular validation suite beyond host-specific tooling.
