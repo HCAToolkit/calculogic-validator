@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const runBin = (args) =>
   spawnSync(process.execPath, args, {
@@ -72,4 +75,46 @@ test('calculogic-validate-naming bin fails deterministically on invalid config',
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Failed to read validator config file:/u);
   assert.match(result.stderr, /Usage: calculogic-validate-naming/u);
+});
+
+test('calculogic-validator-report-summarize is declared as a package bin', () => {
+  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+
+  assert.equal(
+    packageJson.bin['calculogic-validator-report-summarize'],
+    './bin/calculogic-validator-report-summarize.host.mjs',
+  );
+});
+
+test('calculogic-validator-report-summarize bin prints help', () => {
+  const result = runBin(['bin/calculogic-validator-report-summarize.host.mjs', '--help']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Usage: calculogic-validator-report-summarize/u);
+});
+
+test('calculogic-validator-report-summarize bin summarizes a captured report', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'validator-report-summarize-bin-'));
+
+  try {
+    fs.writeFileSync(
+      path.join(tempDir, 'validate-all-docs-2026-02-27_00-00-00.txt'),
+      JSON.stringify({
+        scope: 'docs',
+        validators: [{ id: 'naming', totalFilesScanned: 3, counts: { canonical: 3 }, findings: [] }],
+      }),
+    );
+
+    const result = runBin([
+      'bin/calculogic-validator-report-summarize.host.mjs',
+      `--dir=${tempDir}`,
+      '--prefixes=validate-all-docs',
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /=== validate-all-docs \(latest\) ===/u);
+    assert.match(result.stdout, /validator: naming \| totalFilesScanned: 3/u);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });

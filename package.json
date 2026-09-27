@@ -29,7 +29,8 @@
     "calculogic-validate": "./bin/calculogic-validate.host.mjs",
     "calculogic-validate-naming": "./bin/calculogic-validate-naming.host.mjs",
     "calculogic-validator-health": "./bin/calculogic-validator-health.host.mjs",
-    "calculogic-validate-tree": "./bin/calculogic-validate-tree.host.mjs"
+    "calculogic-validate-tree": "./bin/calculogic-validate-tree.host.mjs",
+    "calculogic-validator-report-summarize": "./bin/calculogic-validator-report-summarize.host.mjs"
   },
   "scripts": {
     "test": "node --test --experimental-strip-types test/**/*.test.mjs naming/test/**/*.test.mjs tree/test/**/*.test.mjs structural-addressing/test/**/*.test.mjs",
@@ -58,6 +59,7 @@
     "report:tree:validator": "node tools/report-capture/src/report-capture.host.mjs --json --dir ./.reports --keep 20 --prefix validate-tree-validator -- node --experimental-strip-types scripts/validate-tree.host.mjs --scope=validator",
     "report:tree:system": "node tools/report-capture/src/report-capture.host.mjs --json --dir ./.reports --keep 20 --prefix validate-tree-system -- node --experimental-strip-types scripts/validate-tree.host.mjs --scope=system",
     "report:addressing:get-tree:validator": "node tools/report-capture/src/report-capture.host.mjs --json --dir ./.reports --keep 20 --prefix addressing-get-tree-validator -- npm run addressing:get-tree -- --scope=validator --format=both",
-    "report:verify": "node --experimental-strip-types scripts/report-capture-verify.host.mjs"
+    "report:verify": "node --experimental-strip-types scripts/report-capture-verify.host.mjs",
+    "report:summarize": "node scripts/report-capture-summarize.host.mjs"
   }
 }
