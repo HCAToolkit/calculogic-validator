@@ -161,14 +161,16 @@ Classification: **Illustrative**
 
 Current-runtime report examples are generated from live validator entrypoints and checked in at:
 
-- `calculogic-validator/test/fixtures/report-examples/validate-naming.system.report.example.json`
-- `calculogic-validator/test/fixtures/report-examples/validate-all.system.naming.report.example.json`
+- `test/fixtures/report-examples/validate-naming.system.report.example.json`
+- `test/fixtures/report-examples/validate-all.system.naming.report.example.json`
 
-Refresh workflow:
+Refresh workflow (from this repository's root):
 
 ```bash
-node --experimental-strip-types calculogic-validator/scripts/generate-validator-report-examples.host.mjs
+npm run report:examples:validator
 ```
+
+`--out-dir=<path>` writes the examples somewhere else instead, for example `npm run report:examples:validator -- --out-dir=/tmp/examples`. The command prints `Wrote 2 report examples to <directory>` on success.
 
 Normalization policy for these examples is intentionally bounded for deterministic repo artifacts:
 
