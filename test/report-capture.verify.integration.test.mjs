@@ -6,7 +6,9 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const verifierScriptPath = path.resolve('scripts/report-capture-verify.host.mjs');
-const realReportCaptureSrcDir = path.resolve('tools/report-capture/src');
+const realReportCapturePackageDir = path.dirname(
+  fs.realpathSync(path.resolve('node_modules/@calculogic/report-capture/package.json')),
+);
 
 const runVerifier = ({ verifierPath = verifierScriptPath, reportsDir, scopes }) =>
   new Promise((resolve, reject) => {
@@ -52,21 +54,29 @@ const namingValidatorStandIn =
 // script's own copy* can exercise the old off-by-one arithmetic. `workspaceRoot/scripts/` holds
 // the verifier copy (`verifierSource`, either the real fixed script or, for control
 // verification, the pre-fix source) and a minimal naming-validator stand-in;
-// `workspaceRoot/tools/report-capture/src/` holds a byte-for-byte copy of the real, generic
-// report-capture tool (copied, not reimplemented, so the fixture exercises the genuine
-// contract). When `withDecoySibling` is set, a sibling `calculogic-validator/` directory - at the
+// `workspaceRoot/node_modules/@calculogic/report-capture/` holds a byte-for-byte copy of the real,
+// installed report-capture dev dependency (copied, not reimplemented, so the fixture exercises the
+// genuine contract and the verifier's real module resolution). `withReportCapturePackage: false`
+// omits it, to prove the verifier fails clearly instead of falling back to anything else. When `withDecoySibling` is set, a sibling `calculogic-validator/` directory - at the
 // exact position the old two-levels-up arithmetic would look, one level above `workspaceRoot` - is
 // also created, containing non-functional stand-ins that write a `decoySentinelPath` marker file
 // if ever invoked, so an accidental fall-through to the decoy is unambiguous, independent of
 // whatever error message shape results downstream.
-const createVerifierFixture = ({ verifierSource, withDecoySibling }) => {
+const createVerifierFixture = ({ verifierSource, withDecoySibling, withReportCapturePackage = true }) => {
   const fixtureParent = fs.mkdtempSync(path.join(os.tmpdir(), 'report-capture-verify-fixture-'));
   const workspaceRoot = path.join(fixtureParent, 'workspace');
   const workspaceScriptsDir = path.join(workspaceRoot, 'scripts');
-  const workspaceReportCaptureSrcDir = path.join(workspaceRoot, 'tools', 'report-capture', 'src');
+  const workspaceReportCapturePackageDir = path.join(
+    workspaceRoot,
+    'node_modules',
+    '@calculogic',
+    'report-capture',
+  );
 
   fs.mkdirSync(workspaceScriptsDir, { recursive: true });
-  fs.cpSync(realReportCaptureSrcDir, workspaceReportCaptureSrcDir, { recursive: true });
+  if (withReportCapturePackage) {
+    fs.cpSync(realReportCapturePackageDir, workspaceReportCapturePackageDir, { recursive: true });
+  }
   fs.writeFileSync(path.join(workspaceScriptsDir, 'validate-naming.host.mjs'), namingValidatorStandIn);
   fs.writeFileSync(path.join(workspaceScriptsDir, 'report-capture-verify.host.mjs'), verifierSource);
 
@@ -166,6 +176,30 @@ test('report-capture verifier (real, current script) resolves its own real locat
     const parsedReport = JSON.parse(fs.readFileSync(path.join(fixture.workspaceReportsDir, files[0]), 'utf8'));
     assert.equal(parsedReport.scope, 'docs');
     assert.equal(parsedReport.mode, 'report');
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('report-capture verifier fails clearly when the report-capture dev dependency is not installed', async () => {
+  const fixture = createVerifierFixture({
+    verifierSource: fs.readFileSync(verifierScriptPath, 'utf8'),
+    withDecoySibling: true,
+    withReportCapturePackage: false,
+  });
+
+  try {
+    const result = await runVerifier({
+      verifierPath: fixture.verifierPath,
+      reportsDir: './.reports',
+      scopes: ['docs'],
+    });
+
+    assert.equal(fs.existsSync(fixture.decoySentinelPath), false, 'decoy stand-ins must never be invoked');
+    assert.equal(result.exitCode, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /@calculogic\/report-capture dev dependency is not installed/u);
+    assert.match(result.stderr, /npm ci/u);
+    assert.equal(fs.existsSync(fixture.workspaceReportsDir), false);
   } finally {
     fixture.cleanup();
   }

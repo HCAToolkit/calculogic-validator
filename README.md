@@ -236,15 +236,9 @@ calculogic-validator/
 │     ├─ naming-validator-scope-contract.test.mjs
 │     ├─ naming-missing-role.test.mjs
 │     └─ fixtures/                    # naming-only fixtures (if any)
-└─ tools/
-   └─ report-capture/
-      ├─ package.json
-      └─ src/
-         ├─ report-capture.host.mjs
-         ├─ report-capture.logic.mjs
-         ├─ report-capture.contracts.mjs
-         └─ report-capture.knowledge.mjs
 ```
+
+The generic report-capture tool is not part of this layout. It lives in [`HCAToolkit/calculogic-report-capture`](https://github.com/HCAToolkit/calculogic-report-capture) and is used here as a pinned dev dependency (see section 8).
 
 ### Ownership boundaries (semantic areas)
 
@@ -476,6 +470,7 @@ Example:
 
 ## 8) Report capture notes
 
+- Report scripts use the `calculogic-report-capture` command from the `@calculogic/report-capture` dev dependency, pinned to a commit of [`HCAToolkit/calculogic-report-capture`](https://github.com/HCAToolkit/calculogic-report-capture). Run `npm ci` before using the report scripts or `report:verify`. Without it, `report:verify` exits 1 and says the dependency is not installed. The tool is not included in the installed `@calculogic/validator` package.
 - Report scripts write JSON capture metadata to `./.reports` in this repository.
 - Keep count/retention is handled by script-level `--keep` values.
 - Use `npm run report:verify` after setup changes.
