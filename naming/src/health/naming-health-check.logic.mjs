@@ -5,9 +5,22 @@ import {
   runNamingValidator,
   summarizeFindings,
 } from '../naming-validator.host.mjs';
-import { listAvailableValidatorScopes } from '../../../src/core/validator-scopes.logic.mjs';
+import { resolveValidatorDevelopmentContext } from '../../../src/core/validator-development-context.logic.mjs';
+import {
+  getValidatorScopeProfile,
+  resolveContextualValidatorScopeProfile,
+} from '../../../src/core/validator-scopes.logic.mjs';
 
 export const NAMING_HEALTH_SCOPES = ['repo', 'app', 'docs', 'validator', 'system'];
+
+// Validator-owned documents checked by the bounded docs sanity check, relative to the
+// validator development root. They are never resolved against a consumer checkout.
+export const NAMING_HEALTH_DOC_PATHS = [
+  'doc/ConventionRoutines/NamingValidatorSpec.md',
+  'doc/ValidatorSpecs/nl-config/cfg-namingValidator.md',
+];
+
+export const NAMING_HEALTH_DOC_PHRASE = 'validator development root';
 
 const COMPARABLE_SUMMARY_KEYS = [
   'counts',
@@ -23,8 +36,8 @@ const assert = (condition, message) => {
   }
 };
 
-const runScopeSummary = (repositoryRoot, scope) => {
-  const { findings, totalFilesScanned } = runNamingValidator(repositoryRoot, { scope });
+const runScopeSummary = (repositoryRoot, scope, packageRoot) => {
+  const { findings, totalFilesScanned } = runNamingValidator(repositoryRoot, { scope, packageRoot });
   const summary = summarizeFindings(findings);
 
   return {
@@ -37,12 +50,12 @@ const runScopeSummary = (repositoryRoot, scope) => {
   };
 };
 
-export const assertDeterministicNamingScope = (repositoryRoot, scope) => {
+export const assertDeterministicNamingScope = (repositoryRoot, scope, { packageRoot } = {}) => {
   const profile = getScopeProfile(scope);
   assert(profile, `Missing naming validator scope profile: ${scope}`);
 
-  const firstRun = runScopeSummary(repositoryRoot, scope);
-  const secondRun = runScopeSummary(repositoryRoot, scope);
+  const firstRun = runScopeSummary(repositoryRoot, scope, packageRoot);
+  const secondRun = runScopeSummary(repositoryRoot, scope, packageRoot);
 
   assert(
     firstRun.totalFilesScanned === secondRun.totalFilesScanned,
@@ -60,43 +73,74 @@ export const assertDeterministicNamingScope = (repositoryRoot, scope) => {
   }
 };
 
-export const getNamingHealthDocPaths = (repositoryRoot) => [
-    path.resolve(
-      repositoryRoot,
-      'calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md',
-    ),
-    path.resolve(repositoryRoot, 'doc/nl-config/cfg-namingValidator.md'),
-  ];
+// Mentions every health doc must contain: each app-scope include root from the scope
+// registry, plus the development-root concept that the validator scope depends on.
+export const getNamingHealthRequiredDocMentions = () => [
+  ...getValidatorScopeProfile('app').includeRoots.map((includeRoot) => `${includeRoot}/`),
+  NAMING_HEALTH_DOC_PHRASE,
+];
 
-export const assertNamingHealthDocs = (repositoryRoot) => {
-  const docsToValidate = getNamingHealthDocPaths(repositoryRoot);
-  const requiredMentions = ['src/', 'test/', 'calculogic-validator/'];
+// Absolute doc paths for a resolved development context. An installed consumer has no
+// validator development root, so it gets no doc paths and no document is ever read.
+export const getNamingHealthDocPaths = (context) =>
+  context.validatorDevelopmentRoot
+    ? NAMING_HEALTH_DOC_PATHS.map((docPath) => path.join(context.validatorDevelopmentRoot, docPath))
+    : [];
 
-  for (const absoluteDocPath of docsToValidate) {
+export const assertNamingHealthDocs = (context) => {
+  const requiredMentions = getNamingHealthRequiredDocMentions();
+
+  for (const absoluteDocPath of getNamingHealthDocPaths(context)) {
+    const displayPath = path.relative(context.validatorDevelopmentRoot, absoluteDocPath).split(path.sep).join('/');
+    assert(fs.existsSync(absoluteDocPath), `Missing required health doc: ${displayPath}`);
+
     const content = fs.readFileSync(absoluteDocPath, 'utf8');
-
     for (const requiredMention of requiredMentions) {
       assert(
         content.includes(requiredMention),
-        `Docs drift detected in ${path.relative(repositoryRoot, absoluteDocPath)}: missing "${requiredMention}" mention for app scope`,
+        `Docs drift detected in ${displayPath}: missing "${requiredMention}" mention`,
       );
     }
   }
 };
 
-export const runNamingHealthCheck = (repositoryRoot, { requireDocs = true } = {}) => {
-  const availableScopes = listAvailableValidatorScopes({ targetRepositoryRoot: repositoryRoot });
-  for (const scope of NAMING_HEALTH_SCOPES.filter((candidateScope) => availableScopes.includes(candidateScope))) {
-    assertDeterministicNamingScope(repositoryRoot, scope);
+const getUnavailableReason = (resolution) =>
+  resolution.message ? resolution.message.split(':')[0] : resolution.status;
+
+// `assertScope` defaults to the determinism check; it is injectable so tests can prove a
+// failing scope aborts the health check before it is ever reported as checked.
+export const runNamingHealthCheck = (
+  targetRepositoryRoot,
+  { packageRoot, assertScope = assertDeterministicNamingScope } = {},
+) => {
+  const context = resolveValidatorDevelopmentContext({ targetRepositoryRoot, packageRoot });
+  const checkedScopes = [];
+  const unavailableScopes = [];
+
+  for (const scope of NAMING_HEALTH_SCOPES) {
+    const resolution = resolveContextualValidatorScopeProfile(scope, { targetRepositoryRoot, packageRoot });
+
+    if (resolution.status !== 'available') {
+      unavailableScopes.push({ scope, reason: getUnavailableReason(resolution) });
+      continue;
+    }
+
+    assertScope(targetRepositoryRoot, scope, { packageRoot });
+    checkedScopes.push(scope);
   }
 
-  const docsAvailable = getNamingHealthDocPaths(repositoryRoot).every((docPath) =>
-    fs.existsSync(docPath),
-  );
-
-  if (requireDocs || docsAvailable) {
-    assertNamingHealthDocs(repositoryRoot);
+  const docPaths = getNamingHealthDocPaths(context);
+  if (docPaths.length > 0) {
+    assertNamingHealthDocs(context);
   }
 
-  return { docsChecked: docsAvailable };
+  return {
+    contextKind: context.kind,
+    checkedScopes,
+    unavailableScopes,
+    docs: {
+      status: docPaths.length > 0 ? 'checked' : 'not-applicable',
+      paths: docPaths.length > 0 ? [...NAMING_HEALTH_DOC_PATHS] : [],
+    },
+  };
 };

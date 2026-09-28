@@ -126,11 +126,29 @@ Health-check entrypoint lives at `scripts/validator-health-check.host.mjs` and i
 Stable installable health bin entrypoint lives at `bin/calculogic-validator-health.host.mjs`.
 Canonical naming-owned health implementation is split by concern: pure assertions live at `naming/src/health/naming-health-check.logic.mjs`, while process entrypoint behavior lives at `naming/src/health/naming-health-check.host.mjs`; repo-local script/bin entrypoints remain thin wrappers that delegate to the naming-owned host wrapper.
 
-The health-check performs deterministic, CI-friendly assertions for scope profiles `repo`, `app`, `docs`, `validator`, and `system`:
+The health check resolves its context with `resolveValidatorDevelopmentContext` (`src/core/validator-development-context.logic.mjs`, per `doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md` §6.7) and uses one package root for context, scope availability, and scope runs.
 
-- required scope profiles must resolve via host API
-- repeated in-process runs per scope must keep stable summary-level outputs (`totalFilesScanned`, `counts`, `codeCounts`, `specialCaseTypeCounts`, `warningRoleStatusCounts`, `warningRoleCategoryCounts`)
-- docs contract checks (current behavior, pre-extraction layout): the check resolves `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md` and `doc/nl-config/cfg-namingValidator.md` relative to the target repository root and asserts each mentions `src/`, `test/`, and `calculogic-validator/`. It is required only in embedded development; otherwise it runs only when both files exist. In this standalone checkout neither path exists, so the check is skipped.
+Scope determinism:
+
+- for each of `repo`, `app`, `docs`, `validator`, and `system` (in that order), a scope whose contextual status is available must resolve a profile via host API, and repeated in-process runs must keep stable summary-level outputs (`totalFilesScanned`, `counts`, `codeCounts`, `specialCaseTypeCounts`, `warningRoleStatusCounts`, `warningRoleCategoryCounts`)
+- a scope that is unavailable in the context is not run; it is recorded with its reason code (in an installed consumer, `validator` is recorded with `validator-development-root-unavailable`)
+- only scopes whose determinism check completed are reported as checked; a failing scope fails the health check and is never reported as checked
+
+Documentation sanity check (bounded):
+
+- runs only when the context has a validator development root (standalone or embedded development), and reads exactly two Validator-owned documents relative to that root:
+  - `doc/ConventionRoutines/NamingValidatorSpec.md`
+  - `doc/ValidatorSpecs/nl-config/cfg-namingValidator.md`
+- both documents are required in a development context; a missing document fails the health check and names the path
+- each document must mention every `app` scope include root from `src/registries/_builtin/scope-profiles.registry.json` (currently `src/` and `test/`) and the phrase `validator development root`
+- in an installed consumer there is no validator development root, so the health check discovers and reads no documents at all; files in the consumer checkout (including a retained embedded `calculogic-validator/` tree or a consumer `doc/nl-config/` note) never affect the result
+- this is a bounded consistency check, not documentation validation: it proves that the two documents still name the app scope roots and the development-root concept, not that their other content matches the implementation
+
+Output (stdout, exit `0`):
+
+- `OK: naming validator deterministic for <checked scopes joined by |>`
+- one `SKIP: scope <scope> not checked (<reason code>)` line per unavailable scope
+- `OK: docs sanity check passed (<document paths>)` in a development context, or `OK: docs sanity check not applicable (installed-consumer: no validator development root)`
 
 Health-check behavior is fail-fast semantics: any contract violation returns non-zero exit status.
 

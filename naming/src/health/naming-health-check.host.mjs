@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runNamingHealthCheck } from './naming-health-check.logic.mjs';
@@ -7,32 +6,30 @@ import { resolveRepositoryRoot } from '../../../src/core/repository-root.logic.m
 export const resolveNamingHealthPackageRoot = ({ moduleUrl = import.meta.url } = {}) =>
   path.resolve(path.dirname(fileURLToPath(moduleUrl)), '..', '..', '..');
 
-const safeRealPath = (candidatePath) => {
-  try {
-    return fs.realpathSync(candidatePath);
-  } catch {
-    return path.resolve(candidatePath);
+export const formatNamingHealthResult = (healthResult) => {
+  const lines = [`OK: naming validator deterministic for ${healthResult.checkedScopes.join('|')}`];
+
+  for (const { scope, reason } of healthResult.unavailableScopes) {
+    lines.push(`SKIP: scope ${scope} not checked (${reason})`);
   }
-};
 
-export const shouldRequireEmbeddedDocsForNamingHealth = ({ repositoryRoot, packageRoot }) => {
-  const embeddedPackageRoot = path.resolve(repositoryRoot, 'calculogic-validator');
+  lines.push(
+    healthResult.docs.status === 'checked'
+      ? `OK: docs sanity check passed (${healthResult.docs.paths.join(', ')})`
+      : `OK: docs sanity check not applicable (${healthResult.contextKind}: no validator development root)`,
+  );
 
-  return safeRealPath(packageRoot) === safeRealPath(embeddedPackageRoot);
+  return lines;
 };
 
 export const runNamingHealthCheckEntrypoint = () => {
   try {
     const repositoryRoot = resolveRepositoryRoot();
     const packageRoot = resolveNamingHealthPackageRoot();
-    const requireDocs = shouldRequireEmbeddedDocsForNamingHealth({ repositoryRoot, packageRoot });
-    const healthResult = runNamingHealthCheck(repositoryRoot, { requireDocs });
+    const healthResult = runNamingHealthCheck(repositoryRoot, { packageRoot });
 
-    console.log('OK: naming validator deterministic for repo|app|docs|validator|system');
-    if (healthResult.docsChecked) {
-      console.log('OK: docs match app scope roots');
-    } else {
-      console.log('OK: docs check skipped outside embedded repository docs host');
+    for (const line of formatNamingHealthResult(healthResult)) {
+      console.log(line);
     }
     process.exit(0);
   } catch (error) {
