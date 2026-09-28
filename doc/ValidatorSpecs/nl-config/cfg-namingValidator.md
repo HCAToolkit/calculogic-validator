@@ -81,7 +81,9 @@ The role and category vocabulary is defined by the builtin registries, not by th
 
 - `naming/src/registries/_builtin/roles.registry.json`: the canonical flat role list with each role's `status` (for example the active roles `host`, `logic`, `adapter`, and the deprecated historical role `view`)
 - `naming/src/registries/_builtin/category-role-perspective.registry.json`: which roles belong to which category
-- `naming/src/registries/_builtin/categories.registry.json`: the allowed categories, including those accepted for `naming.roles.add[].category` (for example `concern-core`, `documentation`, `surface-system`, `integration-adapter`)
+- `naming/src/registries/_builtin/categories.registry.json`: the categories allowed when builtin and custom registry roles are composed (for example `concern-core`, `documentation`, `surface-system`, `integration-adapter`)
+
+Config-added roles (`naming.roles.add`) are narrower: their `category` must be one of the four values accepted by the config contract (§2.6), not any registry category.
 
 How these files are composed at runtime is described in §2.6.
 
@@ -148,7 +150,7 @@ Naming validator supports optional runtime config input with deterministic JSON 
 - each extension entry must be a string starting with `.`
 - optional `naming.roles.add` array of role metadata objects:
   - required `role` string
-  - required `category` string, validated against `naming/src/registries/_builtin/categories.registry.json` `categories[].category`
+  - required `category`, one of `concern-core`, `architecture-support`, `documentation`, `deprecated`. This is the config contract's own allowlist (`VALID_ROLE_CATEGORIES` in `src/core/config/validator-config.logic.mjs`, the matching enum in `src/validator-config.schema.json`, and `doc/ValidatorSpecs/validator-config.spec.md`). It is narrower than `categories.registry.json`, so a registry category such as `surface-system` is rejected in config before registry composition.
   - required `status` from `active | deprecated`
   - optional `notes` string
 - optional `naming.caseRules.semanticName.style` string
