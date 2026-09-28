@@ -159,6 +159,61 @@ test('generator writes both report examples when invoked through a symlinked che
   }
 });
 
+// The case a symlinked path alone does not cover: a consumer repository's working directory. The
+// generator must take its development root from where its own code lives, not from the caller's
+// package.json, and resolve a relative --out-dir from the caller's directory.
+test('generator run through a linked path from a consumer directory uses the Validator checkout, not the consumer', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'validator-report-examples-consumer-'));
+
+  try {
+    const consumerRoot = path.join(tempRoot, 'consumer');
+    const linkedValidator = path.join(consumerRoot, 'node_modules', '@calculogic', 'validator');
+    fs.mkdirSync(path.dirname(linkedValidator), { recursive: true });
+    fs.writeFileSync(path.join(consumerRoot, 'package.json'), '{"name":"consumer","private":true}\n');
+    fs.symlinkSync(process.cwd(), linkedValidator, 'dir');
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--experimental-strip-types',
+        path.join('node_modules', '@calculogic', 'validator', hostRelativePath),
+        '--out-dir=examples-out',
+      ],
+      { cwd: consumerRoot, encoding: 'utf8' },
+    );
+
+    assertBothExamplesGenerated(path.join(consumerRoot, 'examples-out'), result);
+    assert.deepEqual(fs.readdirSync(consumerRoot).sort(), ['examples-out', 'node_modules', 'package.json']);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('generator refuses to refresh default fixtures outside a development checkout', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'validator-report-examples-installed-'));
+
+  try {
+    // Shaped like an installed package: runtime directories only, no test/.
+    const installedCopy = path.join(tempRoot, 'installed-validator');
+    for (const entry of ['package.json', 'scripts', 'src', 'naming', 'tree', 'structural-addressing']) {
+      fs.cpSync(entry, path.join(installedCopy, entry), { recursive: true });
+    }
+
+    const result = spawnSync(
+      process.execPath,
+      ['--experimental-strip-types', path.join(installedCopy, hostRelativePath)],
+      { cwd: tempRoot, encoding: 'utf8' },
+    );
+
+    assert.equal(result.status, 1, result.stdout);
+    assert.match(result.stderr, /is not a Validator development checkout/u);
+    assert.equal(result.stdout, '');
+    assert.equal(fs.existsSync(path.join(installedCopy, 'test')), false);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test('generator writes both report examples from a checkout path containing a space', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'validator-report-examples-space-'));
 

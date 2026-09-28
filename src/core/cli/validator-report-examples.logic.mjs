@@ -1,9 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { resolveRepositoryRoot } from '../repository-root.logic.mjs';
+import { fileURLToPath } from 'node:url';
 
 const EXAMPLES_DIRECTORY = 'test/fixtures/report-examples';
+
+// The examples document the Validator that is running, so its development root is where this
+// module physically lives (symlinks resolved), never the caller's working directory. From a
+// consumer repository, the current directory is the consumer, not the Validator.
+const resolveExecutingValidatorRoot = () =>
+  fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..'));
+
+// Present in a development checkout and absent from an installed package (not in `files`), the
+// same marker Calculogic_React_App's live-link guard uses.
+const DEVELOPMENT_CHECKOUT_MARKER = 'test';
 
 export const VALIDATOR_REPORT_EXAMPLE_FILES = Object.freeze({
   naming: 'validate-naming.system.report.example.json',
@@ -100,9 +110,22 @@ export const generateValidatorReportExamples = ({ repositoryRoot, outputDirector
 
 export const runValidatorReportExamplesCli = ({ argv, cwd = process.cwd() }) => {
   try {
-    const repositoryRoot = resolveRepositoryRoot({ cwd });
+    const repositoryRoot = resolveExecutingValidatorRoot();
     const parsed = parseValidatorReportExamplesArgs(argv);
-    const outputDirectory = path.resolve(repositoryRoot, parsed.outDir ?? EXAMPLES_DIRECTORY);
+
+    // An explicit --out-dir is resolved from the caller's working directory, like any CLI path.
+    // The default target is this checkout's checked-in fixtures, which only a development
+    // checkout has; an installed package must never write fixtures into node_modules.
+    if (!parsed.outDir && !fs.existsSync(path.join(repositoryRoot, DEVELOPMENT_CHECKOUT_MARKER))) {
+      throw new Error(
+        `${repositoryRoot} is not a Validator development checkout (no ${DEVELOPMENT_CHECKOUT_MARKER}/ ` +
+          'directory), so it has no checked-in report examples to refresh. Run this from an editable ' +
+          'calculogic-validator checkout, or pass --out-dir=<path>.',
+      );
+    }
+    const outputDirectory = parsed.outDir
+      ? path.resolve(cwd, parsed.outDir)
+      : path.join(repositoryRoot, EXAMPLES_DIRECTORY);
 
     generateValidatorReportExamples({ repositoryRoot, outputDirectory });
 
