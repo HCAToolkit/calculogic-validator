@@ -60,7 +60,8 @@
     "report:tree:system": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix validate-tree-system -- node --experimental-strip-types scripts/validate-tree.host.mjs --scope=system",
     "report:addressing:get-tree:validator": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix addressing-get-tree-validator -- npm run addressing:get-tree -- --scope=validator --format=both",
     "report:verify": "node --experimental-strip-types scripts/report-capture-verify.host.mjs",
-    "report:summarize": "node scripts/report-capture-summarize.host.mjs"
+    "report:summarize": "node scripts/report-capture-summarize.host.mjs",
+    "report:examples:validator": "node --experimental-strip-types scripts/generate-validator-report-examples.host.mjs"
   },
   "devDependencies": {
     "@calculogic/report-capture": "git+https://github.com/HCAToolkit/calculogic-report-capture.git#624f1a3c325ae7d3f6c576829ee9ee672194c0e1"

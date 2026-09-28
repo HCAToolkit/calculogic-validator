@@ -342,12 +342,14 @@ Report utilities:
 ```bash
 npm run report:verify
 npm run report:summarize
+npm run report:examples:validator
 ```
 
 - `report:naming:*`: capture naming validator output for a specific scope.
 - `report:all:*`: capture full-suite output for a specific scope.
 - `report:tree:*`: capture tree validator output for a specific scope.
 - `report:verify`: checks report-capture wiring/outputs.
+- `report:examples:validator`: regenerates the checked-in normalized report examples in `test/fixtures/report-examples/` (`--out-dir=<path>` writes them elsewhere). See `doc/ConventionRoutines/ValidatorReportSchema-V0_1.md`.
 - `report:summarize`: summarizes the latest captured Validator report for each prefix while working inside this repository (`npm run report:summarize -- --help` lists its options). Repositories that install `@calculogic/validator` run the same summarizer through the public `calculogic-validator-report-summarize` command.
 
 ### Validator-internal naming/report presets (bounded convenience wrappers)
