@@ -46,8 +46,8 @@ Field relationship contract:
 
 Recommended format:
 
-- `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md#finding--error-codes`
-- `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#role-registry-master-list-v1`
+- `doc/ConventionRoutines/NamingValidatorSpec.md#finding--error-codes`
+- `doc/ConventionRoutines/FileNamingMasterList-V1_1.md#role-registry-master-list-v1`
 
 Contract rules:
 

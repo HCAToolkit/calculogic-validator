@@ -64,17 +64,22 @@ const REVIEWED_UNPACKAGED_REFERENCES = Object.freeze({
     'development-only',
 });
 
+// Matches doc paths written in prose (`doc/...md`, including any legacy
+// `calculogic-validator/doc/...md` prefix, captured literally) and relative Markdown link targets.
+// Paths are resolved exactly as written against the installed package root, with no prefix
+// rewriting: a stale embedded-tree path such as `calculogic-validator/doc/...` does not exist in an
+// installed package, so it surfaces as an unresolved reference instead of being silently accepted.
 const DOC_REFERENCE_PATTERN =
-  /(?:calculogic-validator\/)?(doc\/[A-Za-z0-9_./-]+\.md)|\]\(([^)#\s]+\.md)(?:#[^)]*)?\)/gu;
+  /((?:calculogic-validator\/)?doc\/[A-Za-z0-9_./-]+\.md)|\]\(([^)#\s]+\.md)(?:#[^)]*)?\)/gu;
 
-// Returns every doc path a document refers to, as package-root-relative paths.
+// Returns every doc path a document refers to, relative to the package root, as written.
 const listDocReferences = (docPath, content) => {
   const references = [];
   for (const match of content.matchAll(DOC_REFERENCE_PATTERN)) {
     const target = match[1]
       ? match[1]
       : path.posix.normalize(path.posix.join(path.posix.dirname(docPath), match[2]));
-    if (target.startsWith('doc/')) {
+    if (target.startsWith('doc/') || target.startsWith('calculogic-validator/')) {
       references.push(target);
     }
   }

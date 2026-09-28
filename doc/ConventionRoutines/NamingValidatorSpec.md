@@ -34,14 +34,14 @@ Subsection version tags (for example `(V0.1.2)`) reflect the last material chang
 
 Primary naming authority:
 
-- `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
-- Role categories, role status values, role semantics, provisional-role policy, and category↔surface governance policy are authoritative in the `Role Registry Master List V1` section of `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`.
+- `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
+- Role categories, role status values, role semantics, provisional-role policy, and category↔surface governance policy are authoritative in the `Role Registry Master List V1` section of `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`.
 
 Supporting workflow alignment:
 
 - `doc/ConventionRoutines/NL-First-Workflow.md`
-- `calculogic-validator/doc/ConventionRoutines/CCS.md`
-- `calculogic-validator/doc/ConventionRoutines/CCPP.md`
+- `doc/ConventionRoutines/CCS.md`
+- `doc/ConventionRoutines/CCPP.md`
 
 ## Canonical Filename Contract (V0.1.2)
 

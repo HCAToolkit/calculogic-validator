@@ -142,6 +142,8 @@ Which documents are shipped is a **distribution policy**, set by the `files` lis
 - **Explicit exception:** `doc/ValidatorSpecs/validator-config.spec.md`, the canonical contract for the public `--config` option (its schema ships as `src/validator-config.schema.json`). `NamingValidatorSpec.md` refers to it.
 - **Not shipped:** other Validator specs, audits, indexes and development documentation. Read them in this repository.
 
+Paths written as `doc/…` inside the shipped documents are relative to the Validator package root: this repository's root, or `node_modules/@calculogic/validator/` in a consumer. They are not relative to the consumer's own root, which may have its own `doc/` folder.
+
 Some shipped documents refer to files that are not in the package. Each such reference is reviewed and classified as illustrative (example paths), external (a document in a consumer repository), or development-only (provenance or related Validator-internal reading), and `test/package-documentation.test.mjs` fails if an unreviewed one appears.
 
 ### Consumer validator-scope note
