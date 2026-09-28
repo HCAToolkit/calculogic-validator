@@ -148,8 +148,10 @@ This section documents naming consumption of shared suite scope profiles; it doe
 
 ### `validator` scope
 
-- includes validator implementation root:
-  - `calculogic-validator/`
+- includes the validator development root, resolved per `ValidatorSuite-Contracts-And-Modes.md` §6.7:
+  - standalone Validator checkout: `.` (the checkout itself)
+  - embedded development in a consuming repository: `calculogic-validator/`
+  - ordinary installed consumer: no development root, so the scope is unavailable and the command fails with `validator-development-root-unavailable` (use `repo`, `app`, `docs` or `system`)
 
 ### `system` scope
 
@@ -189,7 +191,7 @@ Inclusion/exclusion summary:
 - `repo`: all reportable files under repository root (minus explicit walker exclusions).
 - `app`: includes `src/**` and `test/**`; excludes docs, validator, and system-only roots by profile definition.
 - `docs`: includes `doc/**`, `docs/**`, and selected root conventional docs currently limited to `README.md`.
-- `validator`: includes `calculogic-validator/**`.
+- `validator`: includes the validator development root (`.` in a standalone checkout, `calculogic-validator/**` in embedded development); unavailable in an ordinary installed consumer (see `ValidatorSuite-Contracts-And-Modes.md` §6.7).
 - `system`: includes root tooling files (`package.json`, `package-lock.json`, `tsconfig*.json`, `eslint.config.*`, `vite.config.*`).
 
 Invalid scope behavior:
