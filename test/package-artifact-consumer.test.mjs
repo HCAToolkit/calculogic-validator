@@ -153,10 +153,44 @@ test('packed validator artifact installs into a clean consumer host and runs pub
     assert.equal(validatorScopeResult.stderr.includes(installedPackageRoot), false);
 
     const healthBinPath = path.join(hostRoot, 'node_modules', '.bin', 'calculogic-validator-health');
-    const healthResult = runCommand(healthBinPath, [], { cwd: hostRoot });
-    assertSuccessfulCommand({ command: healthBinPath, args: [], cwd: hostRoot, result: healthResult });
-    assert.match(healthResult.stdout, /OK: naming validator deterministic/u);
-    assert.match(healthResult.stdout, /OK: docs check skipped outside embedded repository docs host/u);
+    const runConsumerHealth = () => {
+      const result = runCommand(healthBinPath, [], { cwd: hostRoot });
+      assertSuccessfulCommand({ command: healthBinPath, args: [], cwd: hostRoot, result });
+      return result;
+    };
+    const healthResult = runConsumerHealth();
+    assert.equal(
+      healthResult.stdout,
+      [
+        'OK: naming validator deterministic for repo|app|docs|system',
+        'SKIP: scope validator not checked (validator-development-root-unavailable)',
+        'OK: docs sanity check not applicable (installed-consumer: no validator development root)',
+        '',
+      ].join('\n'),
+    );
+
+    // The installed health check must not discover consumer documents: the pre-extraction
+    // doc locations a consumer may still carry change nothing, whatever they contain.
+    const legacyDocPaths = [
+      path.join(hostRoot, 'calculogic-validator', 'doc', 'ConventionRoutines', 'NamingValidatorSpec.md'),
+      path.join(hostRoot, 'doc', 'nl-config', 'cfg-namingValidator.md'),
+    ];
+    const writeLegacyDocs = async (content) => {
+      for (const legacyDocPath of legacyDocPaths) {
+        await fs.mkdir(path.dirname(legacyDocPath), { recursive: true });
+        await fs.writeFile(legacyDocPath, content, 'utf8');
+      }
+    };
+
+    await writeLegacyDocs('# Legacy doc\n\nScopes: src/ test/ calculogic-validator/ validator development root\n');
+    assert.equal(runConsumerHealth().stdout, healthResult.stdout, 'legacy docs present with the old required mentions');
+
+    await writeLegacyDocs('# Legacy doc\n\nNo required mentions.\n');
+    assert.equal(runConsumerHealth().stdout, healthResult.stdout, 'legacy docs present without any required mention');
+
+    await fs.rm(path.join(hostRoot, 'calculogic-validator'), { recursive: true, force: true });
+    await fs.rm(path.join(hostRoot, 'doc', 'nl-config'), { recursive: true, force: true });
+    assert.equal(runConsumerHealth().stdout, healthResult.stdout, 'legacy docs removed again');
 
     const summarizeBinPath = path.join(hostRoot, 'node_modules', '.bin', 'calculogic-validator-report-summarize');
     assert.equal(fsSync.existsSync(summarizeBinPath), true, 'calculogic-validator-report-summarize bin should be installed in the consumer host.');

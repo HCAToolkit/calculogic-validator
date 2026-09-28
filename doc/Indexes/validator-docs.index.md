@@ -89,8 +89,11 @@ Authority labels used in this index:
 - `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
   **Authority:** supporting implementation guidance. **Intended use:** tree NL/config implementation context and sequencing notes; defer runtime authority to suite contract + tree slice spec.
 
-- `doc/nl-config/cfg-namingValidator.md`
-  **Authority:** supporting implementation guidance (repo-local/external to validator-owned canonical set). **Intended use:** local implementation context only; defer normative behavior to validator-owned canonical docs.
+- `doc/ValidatorSpecs/nl-config/cfg-namingValidator.md`
+  **Authority:** supporting implementation guidance. **Intended use:** naming NL/config implementation context (scope modes, layout, health-check, config, and registry-source notes); defer normative behavior to the suite contract and naming slice spec.
+
+- `doc/ValidatorSpecs/nl-config/cfg-validatorRunner.md`
+  **Authority:** supporting implementation guidance. **Intended use:** runner and `validate-all` CLI implementation context; defer normative behavior to the suite contract.
 
 ## 5) Transitional inventories / migration routing
 
