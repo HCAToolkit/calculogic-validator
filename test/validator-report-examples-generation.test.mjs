@@ -181,13 +181,30 @@ test('generator writes both report examples from a checkout path containing a sp
   }
 });
 
-test('importing the report examples module does not run the generator', () => {
-  const result = spawnSync(
-    process.execPath,
-    ['--input-type=module', '-e', "await import('./src/core/cli/validator-report-examples.logic.mjs');"],
-    { cwd: process.cwd(), encoding: 'utf8' },
-  );
+// Imported from an otherwise empty project: if importing ran the generator, it would resolve that
+// project as the repository root and write its default test/fixtures/report-examples/ there. (Run
+// inside this repository, an accidental run would rewrite the checked-in fixtures with identical
+// content and go unnoticed.)
+test('importing the report examples module does not run the generator or write files', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'validator-report-examples-import-'));
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout, '');
+  try {
+    fs.writeFileSync(path.join(tempRoot, 'package.json'), '{"name":"import-probe","private":true}\n');
+    const moduleUrl = new URL('../src/core/cli/validator-report-examples.logic.mjs', import.meta.url).href;
+
+    const result = spawnSync(
+      process.execPath,
+      ['--input-type=module', '-e', `await import(${JSON.stringify(moduleUrl)});`],
+      { cwd: tempRoot, encoding: 'utf8' },
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    // A generator run would either write files and print a "Wrote" line, or fail to find the
+    // Validator scripts in this empty project and report that on stderr. Import must do neither.
+    assert.equal(result.stdout, '');
+    assert.equal(result.stderr, '');
+    assert.deepEqual(fs.readdirSync(tempRoot), ['package.json']);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
 });
