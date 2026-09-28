@@ -14,7 +14,7 @@
 
 ## 0.0 Version
 
-Current implementation target: **V0.1.24** (summary bucket policy is registry-backed and wiring-provided; runtime no longer hardcodes summary bucket vocabulary).
+Current implementation target: **V0.1.24** (summary classification buckets and the four registry-listed secondary families are registry-backed and wiring-provided; the three semantic-family summary buckets are still code-owned, see §2.11).
 
 ## 1.0 Purpose
 
@@ -272,8 +272,12 @@ Naming summary bucket vocabulary is sourced from builtin registry JSON at:
 
 Runtime summary policy fields:
 
-- `classificationBuckets`: default classification bucket keys seeded in summary `counts`.
-- `secondaryBucketFamilies`: enabled secondary summary families (`codeCounts`, `specialCaseTypeCounts`, `warningRoleStatusCounts`, `warningRoleCategoryCounts`).
+- `classificationBuckets`: classification keys seeded with `0` in summary `counts`. A classification that is not listed is still counted when a finding has it.
+- `secondaryBucketFamilies`: which registry-backed secondary families are counted (currently `codeCounts`, `specialCaseTypeCounts`, `warningRoleStatusCounts`, `warningRoleCategoryCounts`). The summary output always includes all four keys; a family that is not listed is returned as an empty object.
+
+Code-owned summary buckets (not registry-backed):
+
+- `familyRootCounts`, `familySubgroupCounts`, and `semanticFamilyCounts` are always created, counted, and returned by `summarizeFindings` in `naming/src/naming-validator.logic.mjs`, whatever `secondaryBucketFamilies` lists. Removing or adding them in the registry has no effect.
 
 Ownership boundary:
 
@@ -285,7 +289,7 @@ Ownership boundary:
 
 ### 3.1 Canonical
 
-Classify as canonical when filename parses as `<semantic-name>.<role>.<ext>` (including `.module.css`) with kebab-case semantic name and known role.
+Classify as canonical when filename parses as `<semantic-name>.<role>.<ext>` (including `.module.css`) with kebab-case semantic name and a known role whose registry status is `active`. A known but deprecated role (for example `view`) is not canonical; it is classified invalid or ambiguous with `NAMING_DEPRECATED_ROLE` (§3.4).
 
 ### 3.2 Allowed special case
 
