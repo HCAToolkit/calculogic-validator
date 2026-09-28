@@ -126,7 +126,10 @@ npx --no-install calculogic-validate --help
 npx --no-install calculogic-validate-naming --help
 npx --no-install calculogic-validate-tree --help
 npx --no-install calculogic-validator-health --help
+npx --no-install calculogic-validator-report-summarize --help
 ```
+
+`calculogic-validator-report-summarize` is the Validator-owned summarizer for captured Validator reports. It reads `./.reports` relative to the directory it is run from, so running it from the consumer repository root summarizes that repository's reports, not anything inside `node_modules`. It is part of `@calculogic/validator`, not `@calculogic/report-capture`.
 
 ### Consumer validator-scope note
 
@@ -351,7 +354,7 @@ npm run report:summarize
 - `report:all:*`: capture full-suite output for a specific scope.
 - `report:tree:*`: capture tree validator output for a specific scope.
 - `report:verify`: checks report-capture wiring/outputs.
-- `report:summarize`: summarizes captured reports.
+- `report:summarize`: summarizes the latest captured Validator report for each prefix while working inside this repository (`npm run report:summarize -- --help` lists its options). Repositories that install `@calculogic/validator` run the same summarizer through the public `calculogic-validator-report-summarize` command.
 
 ### Validator-internal naming/report presets (bounded convenience wrappers)
 
@@ -382,6 +385,7 @@ This section includes package-defined validator entrypoints plus direct script i
 node bin/calculogic-validate.host.mjs
 node bin/calculogic-validate-naming.host.mjs
 node bin/calculogic-validator-health.host.mjs
+node bin/calculogic-validator-report-summarize.host.mjs --help
 node scripts/validate-tree.host.mjs --scope=repo
 ```
 
@@ -390,6 +394,7 @@ What each entrypoint does:
 - `calculogic-validate.host.mjs`: full validator entrypoint.
 - `calculogic-validate-naming.host.mjs`: naming-only validator entrypoint.
 - `calculogic-validator-health.host.mjs`: validator health/diagnostic entrypoint.
+- `calculogic-validator-report-summarize.host.mjs`: captured-report summary entrypoint (`--dir`, `--prefixes`, `--top`, `--warn-samples`, `--strict`, `--help`); shares its implementation with `npm run report:summarize`.
 - `scripts/validate-tree.host.mjs`: tree validator script (`--scope`, repeatable `--target`, `--config`, `--help`).
 
 ## 6) Scopes and targets

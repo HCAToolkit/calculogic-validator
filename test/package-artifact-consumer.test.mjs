@@ -157,6 +157,32 @@ test('packed validator artifact installs into a clean consumer host and runs pub
     assertSuccessfulCommand({ command: healthBinPath, args: [], cwd: hostRoot, result: healthResult });
     assert.match(healthResult.stdout, /OK: naming validator deterministic/u);
     assert.match(healthResult.stdout, /OK: docs check skipped outside embedded repository docs host/u);
+
+    const summarizeBinPath = path.join(hostRoot, 'node_modules', '.bin', 'calculogic-validator-report-summarize');
+    assert.equal(fsSync.existsSync(summarizeBinPath), true, 'calculogic-validator-report-summarize bin should be installed in the consumer host.');
+
+    const summarizeHelpResult = runCommand(summarizeBinPath, ['--help'], { cwd: hostRoot });
+    assertSuccessfulCommand({ command: summarizeBinPath, args: ['--help'], cwd: hostRoot, result: summarizeHelpResult });
+    assert.match(summarizeHelpResult.stdout, /Usage: calculogic-validator-report-summarize/u);
+    assert.equal(fsSync.existsSync(path.join(hostRoot, '.reports')), false);
+
+    const hostReportsDir = path.join(hostRoot, '.reports');
+    await fs.mkdir(hostReportsDir, { recursive: true });
+    await fs.writeFile(
+      path.join(hostReportsDir, 'validate-all-repo-2026-02-27_00-00-00.txt'),
+      `${JSON.stringify(allReport)}\n`,
+      'utf8',
+    );
+    const installedReportsDir = path.join(installedPackageRoot, '.reports');
+    assert.equal(fsSync.existsSync(installedReportsDir), false);
+
+    const summarizeArgs = ['--prefixes=validate-all-repo', '--strict'];
+    const summarizeResult = runCommand(summarizeBinPath, summarizeArgs, { cwd: hostRoot });
+    assertSuccessfulCommand({ command: summarizeBinPath, args: summarizeArgs, cwd: hostRoot, result: summarizeResult });
+    assert.match(summarizeResult.stdout, /=== validate-all-repo \(latest\) ===/u);
+    assert.match(summarizeResult.stdout, /file: validate-all-repo-2026-02-27_00-00-00\.txt/u);
+    assert.match(summarizeResult.stdout, /validator: naming/u);
+    assert.equal(summarizeResult.stderr.includes('node_modules'), false, summarizeResult.stderr);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

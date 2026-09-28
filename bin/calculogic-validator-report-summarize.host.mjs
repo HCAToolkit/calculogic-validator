@@ -6,7 +6,9 @@ import {
 
 const exitCode = await runValidatorReportSummaryCli({
   argv: process.argv.slice(2),
-  usageLines: buildValidatorReportSummaryUsageLines({ commandName: 'npm run report:summarize --' }),
+  usageLines: buildValidatorReportSummaryUsageLines({
+    commandName: 'calculogic-validator-report-summarize',
+  }),
 });
 
 process.exit(exitCode);

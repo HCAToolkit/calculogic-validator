@@ -133,3 +133,36 @@ test('validate-all runner report summarizes validators without top-level finding
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test('--help prints usage and exits 0 without requiring a reports directory', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'report-capture-summarize-behavior-'));
+
+  try {
+    const missingDir = path.join(tempDir, 'missing');
+    const result = runSummarizer([`--dir=${missingDir}`, '--strict', '--help']);
+
+    assert.equal(result.exitCode, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /Usage: npm run report:summarize --/u);
+    for (const option of ['--dir=', '--prefixes=', '--top=', '--warn-samples=', '--strict']) {
+      assert.ok(result.stdout.includes(option), `help should document ${option}`);
+    }
+    assert.equal(result.stderr, '');
+    assert.doesNotMatch(result.stdout, /No reports directory found/u);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('-h is accepted as a help alias', () => {
+  const result = runSummarizer(['-h']);
+
+  assert.equal(result.exitCode, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /Usage: npm run report:summarize --/u);
+});
+
+test('unknown options still fail with exit 1', () => {
+  const result = runSummarizer(['--not-an-option']);
+
+  assert.equal(result.exitCode, 1);
+  assert.match(result.stderr, /Unknown option: --not-an-option/u);
+});
