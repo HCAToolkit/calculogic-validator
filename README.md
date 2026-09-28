@@ -144,7 +144,7 @@ Which documents are shipped is a **distribution policy**, set by the `files` lis
 
 Paths written as `doc/…` inside the shipped documents are relative to the Validator package root: this repository's root, or `node_modules/@calculogic/validator/` in a consumer. They are not relative to the consumer's own root, which may have its own `doc/` folder.
 
-Some shipped documents refer to files that are not in the package. Each such reference is reviewed and classified as illustrative (example paths), external (a document in a consumer repository), or development-only (provenance or related Validator-internal reading), and `test/package-documentation.test.mjs` fails if an unreviewed one appears.
+Some shipped documents refer to files that are not in the package. Each such reference is reviewed and classified as illustrative (example paths), external (a document in a consumer repository), development-only (provenance or related Validator-internal reading), or runtime-value (a value the runtime emits verbatim, such as the current `ruleRef` format), and `test/package-documentation.test.mjs` fails if an unreviewed one appears.
 
 ### Consumer validator-scope note
 

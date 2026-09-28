@@ -31,7 +31,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 ### 3.1 Entry: suite-core CLI helper area
 
 - **Owner:** suite-core
-- **Path/area:** `calculogic-validator/src/core/cli/`
+- **Path/area:** `src/core/cli/`
 - **Concern:** shared validator CLI scaffolding for usage/error output flow and repeatable CLI argument parsing.
 - **Reusable capability:**
   - structured report emission helpers via `validator-cli-output.logic.mjs`
@@ -51,7 +51,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 ### 3.2 Entry: shared scoped snapshot/input helper boundary
 
 - **Owner:** suite-core
-- **Path/area:** `calculogic-validator/src/core/suite-scoped-snapshot-input.logic.mjs`
+- **Path/area:** `src/core/suite-scoped-snapshot-input.logic.mjs`
 - **Concern:** suite-owned scope profile selection and deterministic in-scope path/input collection.
 - **Reusable capability:**
   - scope-profile read
@@ -73,9 +73,9 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 
 - **Owner:** suite-core
 - **Path/area:**
-  - `calculogic-validator/src/core/validator-candidate-policy.contracts.mjs`
-  - `calculogic-validator/src/core/validator-candidate-policy.logic.mjs`
-  - `calculogic-validator/src/core/validator-candidate-collection.logic.mjs`
+  - `src/core/validator-candidate-policy.contracts.mjs`
+  - `src/core/validator-candidate-policy.logic.mjs`
+  - `src/core/validator-candidate-collection.logic.mjs`
 - **Concern:** broad validator candidate policy contract and deterministic candidate collection mechanics before slice-owned interpretation.
 - **Reusable capability:**
   - normalized candidate extension and candidate root-file policy inputs
@@ -93,7 +93,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 ### 3.4 Entry: suite-core exit policy derivation helper
 
 - **Owner:** suite-core
-- **Path/area:** `calculogic-validator/src/core/validator-exit-code.logic.mjs`
+- **Path/area:** `src/core/validator-exit-code.logic.mjs`
 - **Concern:** deterministic suite exit-code derivation from findings and strict-mode semantics.
 - **Reusable capability:**
   - derive exit code from findings (`deriveExitCodeFromFindings`)
@@ -111,10 +111,10 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 
 - **Owner:** suite-core
 - **Path/area:**
-  - `calculogic-validator/src/core/validator-report-meta.logic.mjs`
-  - `calculogic-validator/src/core/source-snapshot.logic.mjs`
-  - `calculogic-validator/src/core/validator-direct-report.logic.mjs`
-  - `calculogic-validator/src/core/validator-report-identity.logic.mjs`
+  - `src/core/validator-report-meta.logic.mjs`
+  - `src/core/source-snapshot.logic.mjs`
+  - `src/core/validator-direct-report.logic.mjs`
+  - `src/core/validator-report-identity.logic.mjs`
 - **Concern:** deterministic shared metadata helpers used in validator report envelopes.
 - **Reusable capability:**
   - tool version lookup and stable hashing/digest helpers for config/report metadata
@@ -134,8 +134,8 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 
 - **Owner:** suite-core
 - **Path/area:**
-  - `calculogic-validator/src/core/validator-registry.knowledge.mjs`
-  - `calculogic-validator/src/core/validator-report-capture-metadata.logic.mjs`
+  - `src/core/validator-registry.knowledge.mjs`
+  - `src/core/validator-report-capture-metadata.logic.mjs`
 - **Concern:** data-only slice registration metadata for current validator-suite registration surfaces.
 - **Current runtime truth:** registry entries keep `id`, `description`, and `run` as the runner behavior-driving fields. Registry report metadata may drive behavior-preserving runner/direct report identity fields where parity tests prove the emitted report stays stable. Registry command metadata may drive bounded direct usage text where parity tests prove the command surface stays stable. Report-capture preset metadata records current package-script capture mechanics and may be read by tests or inspection helpers, but package scripts remain literal current runtime truth until a separately scoped behavior migration changes that. Other metadata remains inspectable registration data and does not drive runner dispatch, package scripts, package bins, exit-code behavior, Naming behavior, Tree behavior, or candidate behavior.
 - **Reusable capability:**

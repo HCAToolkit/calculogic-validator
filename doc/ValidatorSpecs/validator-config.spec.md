@@ -22,7 +22,7 @@ Any other version value is invalid.
 
 Canonical JSON Schema file:
 
-- `calculogic-validator/src/validator-config.schema.json`
+- `src/validator-config.schema.json`, relative to the Validator package root. In a consuming repository it is installed at `node_modules/@calculogic/validator/src/validator-config.schema.json`.
 
 Schema and runtime validation are aligned:
 
@@ -150,6 +150,8 @@ Strict-exit resolution for naming CLI uses existing exit-policy semantics:
 
 ## 9) Valid examples
 
+The examples show a config file at the root of a consuming repository that has installed `@calculogic/validator`, so `$schema` points into `node_modules`. In a config file inside this Validator repository, use `"$schema": "./src/validator-config.schema.json"` instead. `$schema` is an editor hint only; the runtime ignores it.
+
 ### 9.1 Minimal
 
 ```json
@@ -162,7 +164,7 @@ Strict-exit resolution for naming CLI uses existing exit-policy semantics:
 
 ```json
 {
-  "$schema": "./calculogic-validator/src/validator-config.schema.json",
+  "$schema": "./node_modules/@calculogic/validator/src/validator-config.schema.json",
   "version": "0.1",
   "naming": {
     "roles": {
@@ -183,7 +185,7 @@ Strict-exit resolution for naming CLI uses existing exit-policy semantics:
 
 ```json
 {
-  "$schema": "./calculogic-validator/src/validator-config.schema.json",
+  "$schema": "./node_modules/@calculogic/validator/src/validator-config.schema.json",
   "version": "0.1",
   "naming": {
     "reportableExtensions": {
@@ -197,7 +199,7 @@ Strict-exit resolution for naming CLI uses existing exit-policy semantics:
 
 ```json
 {
-  "$schema": "./calculogic-validator/src/validator-config.schema.json",
+  "$schema": "./node_modules/@calculogic/validator/src/validator-config.schema.json",
   "version": "0.1",
   "naming": {
     "reportableExtensions": {

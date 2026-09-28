@@ -44,10 +44,12 @@ Field relationship contract:
 
 `ruleRef` should use a stable repo-local reference string format. Absolute URLs are not required.
 
-Recommended format:
+Current emitted format (as produced by the Naming finding-policy registry and Tree findings):
 
-- `doc/ConventionRoutines/NamingValidatorSpec.md#finding--error-codes`
-- `doc/ConventionRoutines/FileNamingMasterList-V1_1.md#role-registry-master-list-v1`
+- `calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md#finding--error-codes`
+- `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md#role-registry-master-list-v1`
+
+The leading `calculogic-validator/` segment is historical, from the pre-extraction embedded layout. The rest of the string is a path relative to the Validator package root, plus an anchor. To resolve a `ruleRef` to a file, drop that leading segment and resolve the rest from this repository's root. An installed package contains the target only if that document is shipped (README, "Packaged documentation"). For example, `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md` is shipped and installed at `node_modules/@calculogic/validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`, while Tree's `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md` is available only in this repository. Changing the emitted format is a separate report-contract change, because it changes report output.
 
 Contract rules:
 

@@ -221,6 +221,15 @@ Config does not change detection mode/scope semantics and does not introduce enf
 
 ## CLI Usage (V0.1.8)
 
+From a consuming repository that has installed `@calculogic/validator`, use the public command:
+
+- `npx --no-install calculogic-validate-naming` (defaults to `--scope=repo`)
+- `npx --no-install calculogic-validate-naming --scope=app`
+- `npx --no-install calculogic-validate-naming --scope=app --target src/buildsurface --target src/shared`
+- `npx --no-install calculogic-validate-naming --scope=app --config=./path/to/validator-config.json`
+
+From this Validator repository's root (Validator development), use the npm scripts:
+
 - `npm run validate:naming` (defaults to `--scope=repo`)
 - `npm run validate:naming -- --scope=repo`
 - `npm run validate:naming -- --scope=app`
@@ -230,11 +239,10 @@ Config does not change detection mode/scope semantics and does not introduce enf
 - `npm run validate:naming -- --scope=app --target src/buildsurface`
 - `npm run validate:naming -- --scope=app --target src/buildsurface --target src/shared`
 - `npm run validate:naming -- --scope=app --config=./path/to/validator-config.json`
-- `npm run validate:naming:validator:entry`
-- `npm run validate:naming:validator:naming`
-- `npm run validate:naming:validator:tree`
-- `npm run validate:naming:validator:doc`
-- `node calculogic-validator/bin/calculogic-validate-naming.host.mjs --scope=app --config=./path/to/validator-config.json`
+- `npm run validate:naming -- --scope=validator --target bin --target scripts` (likewise `--target naming`, `--target tree` or `--target doc`)
+- `node bin/calculogic-validate-naming.host.mjs --scope=app --config=./path/to/validator-config.json` (direct host invocation)
+
+`validate:naming:validator:entry`, `:naming`, `:tree` and `:doc` are convenience scripts defined in Calculogic_React_App, where they dispatch these `--scope=validator --target …` runs to a linked Validator checkout. They are not scripts of this repository.
 
 npm argument forwarding note:
 
