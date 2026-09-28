@@ -177,9 +177,12 @@ Runtime behavior in this slice resolves naming registries via registry-state log
 
 - wiring resolves inputs through `resolveNamingRegistryInputs({ config })`
 - resolver computes one effective built-in registry root per call (defaulting to `naming/src/registries/_builtin`)
-- built-in roles are loaded from that effective root `roles.registry.json` (`rolesByCategory` flattened into `{ role, category, status, notes? }`)
+- built-in roles are composed from two files in that effective root (`loadBuiltinRolesPayload` in `naming/src/registries/registry-state.logic.mjs`):
+  - category membership (`rolesByCategory`) comes from `category-role-perspective.registry.json` when present; only when it is absent is `rolesByCategory` read from `roles.registry.json` (legacy grouped shape)
+  - each role's status comes from the flat canonical role list in `roles.registry.json` (`roles[]`: `{ role, status, definition }`), falling back to the membership entry's own `status`, then to a legacy grouped `rolesByCategory` status
+  - the composed entries are flattened into `{ role, category, status, notes? }` and validated against the allowed categories
 - built-in reportable extensions are loaded from that effective root `reportable-extensions.registry.json` (`reportableExtensions`)
-- built-in summary buckets are loaded from that effective root `summary-buckets.registry.json` (`summaryBuckets`)
+- built-in summary-bucket policy is loaded from that effective root `summary-buckets.registry.json` (`classificationBuckets`, `secondaryBucketFamilies`) and returned by the resolver as `summaryBuckets`
 - built-in allowed categories for role validation are loaded from that same effective root `categories.registry.json`
 - when `activeRegistry` is `custom`, custom payload uses `_custom` roles/extensions plus builtin-backed `reportableRootFiles` and `summaryBuckets`
 - resolver returns normalized arrays for `reportableExtensions` and `roles`, plus `reportableRootFiles` and `summaryBuckets`
