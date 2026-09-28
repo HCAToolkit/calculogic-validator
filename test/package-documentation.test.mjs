@@ -53,6 +53,8 @@ const REQUIRED_CONSUMER_DOCS = Object.freeze([
 //   illustrative - example paths inside a code sample, not a reference to follow
 //   external - a document in a consuming repository (Calculogic_React_App), not a Validator doc
 //   development-only - provenance or related Validator-internal reading, not needed to apply the doc
+//   runtime-value - a documented value the runtime emits verbatim (the current ruleRef format),
+//                   not a path to follow as written
 const REVIEWED_UNPACKAGED_REFERENCES = Object.freeze({
   'doc/ConventionRoutines/CCPP.md -> doc/nl-shell/shell-globalHeader.md': 'illustrative',
   'doc/ConventionRoutines/CCPP.md -> doc/nl-config/cfg-tabNavigation.md': 'illustrative',
@@ -62,7 +64,18 @@ const REVIEWED_UNPACKAGED_REFERENCES = Object.freeze({
     'development-only',
   'doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md -> doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md':
     'development-only',
+  'doc/ConventionRoutines/ValidatorRuleIds-Contract.md -> doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md':
+    'development-only',
+  'doc/ConventionRoutines/ValidatorRuleIds-Contract.md -> calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md':
+    'runtime-value',
+  'doc/ConventionRoutines/ValidatorRuleIds-Contract.md -> calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md':
+    'runtime-value',
 });
+
+// Any path with the embedded-tree prefix, whatever its file type (.md, .mjs, .json, directories).
+// The prefix does not exist in this repository or in an installed package, so every such mention
+// must be a reviewed runtime-value reference.
+const EMBEDDED_PREFIX_PATTERN = /calculogic-validator\/[A-Za-z0-9_./<>-]+/gu;
 
 // Matches doc paths written in prose (`doc/...md`, including any legacy
 // `calculogic-validator/doc/...md` prefix, captured literally) and relative Markdown link targets.
@@ -157,13 +170,29 @@ test('packed validator ships exactly the documented documentation set, byte-iden
       Object.keys(REVIEWED_UNPACKAGED_REFERENCES).sort(),
       'references from packaged docs to unpackaged docs must each be reviewed and classified',
     );
+
+    const unreviewedEmbeddedPrefixPaths = new Set();
+    for (const docPath of EXPECTED_PACKAGED_DOCS) {
+      const content = fs.readFileSync(path.join(installedRoot, docPath), 'utf8');
+      for (const [literal] of content.matchAll(EMBEDDED_PREFIX_PATTERN)) {
+        const reference = `${docPath} -> ${literal.replace(/[.]$/u, '')}`;
+        if (REVIEWED_UNPACKAGED_REFERENCES[reference] !== 'runtime-value') {
+          unreviewedEmbeddedPrefixPaths.add(reference);
+        }
+      }
+    }
+    assert.deepEqual(
+      [...unreviewedEmbeddedPrefixPaths].sort(),
+      [],
+      'packaged docs must not use embedded-tree calculogic-validator/ paths except reviewed runtime values',
+    );
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 });
 
 test('reviewed unpackaged references use only the documented classifications', () => {
-  const allowed = new Set(['illustrative', 'external', 'development-only']);
+  const allowed = new Set(['illustrative', 'external', 'development-only', 'runtime-value']);
   for (const [reference, classification] of Object.entries(REVIEWED_UNPACKAGED_REFERENCES)) {
     assert.ok(allowed.has(classification), `${reference} has unknown classification ${classification}`);
   }
