@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const supportedScopes = ['repo', 'app', 'docs', 'validator', 'system'];
 
@@ -167,18 +169,41 @@ const runScopeVerification = async ({
   );
 };
 
+// The generic report-capture tool is the @calculogic/report-capture dev dependency (pinned from
+// HCAToolkit/calculogic-report-capture), installed by `npm ci` in this repository. It is resolved
+// with Node module resolution starting at repositoryRoot, and its host path is read from that
+// package's own `bin` declaration rather than assumed.
+const resolveReportCaptureHostPath = (repositoryRoot) => {
+  const requireFromRepositoryRoot = createRequire(
+    pathToFileURL(path.join(repositoryRoot, 'package.json')),
+  );
+
+  let packageJsonPath;
+  try {
+    packageJsonPath = requireFromRepositoryRoot.resolve('@calculogic/report-capture/package.json');
+  } catch {
+    throw new Error(
+      `The @calculogic/report-capture dev dependency is not installed for ${repositoryRoot}. ` +
+        'Run `npm ci` in the Validator repository and try again.',
+    );
+  }
+
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+  return path.resolve(path.dirname(packageJsonPath), packageJson.bin['calculogic-report-capture']);
+};
+
 // This script lives at <repositoryRoot>/scripts/report-capture-verify.host.mjs, so its own real
 // (symlink-resolved) location, one level up from its own file, IS repositoryRoot - not two levels
-// up, and not nested beneath a further 'calculogic-validator/' segment. Both the generic
-// report-capture tool (tools/report-capture/**, not shipped in an installed/pinned package - see
-// the package `files` allowlist) and the naming validator host script live directly under that
-// same repositoryRoot. Deliberately derived from this script's own file location rather than
-// `process.cwd()`: the consumer invocation cwd and the report output directory (below) are
-// separate concepts that must not drive where the generic report-capture tool itself is found.
+// up, and not nested beneath a further 'calculogic-validator/' segment. The naming validator host
+// script lives directly under that repositoryRoot, and the report-capture dev dependency is
+// resolved from it (see resolveReportCaptureHostPath above). Deliberately derived from this
+// script's own file location rather than `process.cwd()`: the consumer invocation cwd and the
+// report output directory (below) are separate concepts that must not drive where the
+// report-capture tool itself is found.
 const run = async () => {
   const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const reportsDir = process.env.REPORTS_DIR || './.reports';
-  const hostPath = path.resolve(repositoryRoot, 'tools/report-capture/src/report-capture.host.mjs');
+  const hostPath = resolveReportCaptureHostPath(repositoryRoot);
   const namingValidatorPath = path.resolve(repositoryRoot, 'scripts/validate-naming.host.mjs');
   const scopes = parseScopes(process.argv.slice(2));
 

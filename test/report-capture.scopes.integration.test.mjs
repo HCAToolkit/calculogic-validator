@@ -6,9 +6,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const scopes = ['repo', 'app', 'docs', 'validator', 'system'];
-const hostPath = path.resolve(
-  'tools/report-capture/src/report-capture.host.mjs',
-);
+const hostPath = fs.realpathSync(path.resolve('node_modules/.bin/calculogic-report-capture'));
 
 const runReportCapture = (prefix, scriptPath, scope, outputDir) =>
   new Promise((resolve, reject) => {

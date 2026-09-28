@@ -21,7 +21,7 @@ const packageCommandByPreset = {
 };
 
 const reportCapturePackageScripts = Object.entries(rootPackageJson.scripts)
-  .filter(([, command]) => command.includes('report-capture.host.mjs'))
+  .filter(([, command]) => command.startsWith('calculogic-report-capture '))
   .map(([scriptName]) => scriptName)
   .sort((left, right) => left.localeCompare(right));
 
@@ -48,9 +48,7 @@ const runPackageCommandReport = ({ commandExecutable, scope }) => {
 };
 
 const runCapturedReport = ({ preset, outputDir }) => {
-  const hostPath = path.resolve(
-    'tools/report-capture/src/report-capture.host.mjs',
-  );
+  const hostPath = fs.realpathSync(path.resolve('node_modules/.bin/calculogic-report-capture'));
   const binPath = path.resolve('node_modules/.bin');
   const result = spawnSync(
     process.execPath,
@@ -102,7 +100,7 @@ test('report-capture preset metadata matches current package script surfaces exa
     );
     assert.deepEqual(getValidatorReportCapturePresetByScriptName(preset.scriptName), preset);
     assert.equal(preset.commandSurface, 'validator-report-capture');
-    assert.equal(preset.capture.captureCommand, 'node tools/report-capture/src/report-capture.host.mjs');
+    assert.equal(preset.capture.captureCommand, 'calculogic-report-capture');
     assert.equal(preset.capture.json, true);
     assert.equal(preset.capture.dir, './.reports');
     assert.equal(preset.capture.keep, 20);
