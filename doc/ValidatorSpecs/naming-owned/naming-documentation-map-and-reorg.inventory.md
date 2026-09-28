@@ -47,7 +47,7 @@ Use this sequence for naming implementation tasks (runtime behavior, wiring/cont
 8. `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-address-attached-bridge-observation-rules.spec.md`
 9. `calculogic-validator/doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
 10. `calculogic-validator/doc/ValidatorSpecs/validator-config.spec.md`
-11. `doc/nl-config/cfg-namingValidator.md` (supporting implementation context only)
+11. `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-namingValidator.md` (supporting implementation context only)
 12. `calculogic-validator/doc/naming-compatibility.inventory.md` (transitional migration context)
 13. `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md` (this doc; routing/ownership metadata only)
 
@@ -72,7 +72,7 @@ Interpretation notes:
 | `calculogic-validator/doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` | Cross-cutting occurrence identity contract for Naming bridge envelopes | **Bounded normative supporting spec** (cross-slice bridge contract; not current runtime truth) | Bridge contract implementation planning where readers need the envelope, identity tuple, ownership boundaries, and migration/fallback rules before Naming-owned observation rules | **Added under `cross-cutting/`** because occurrence identity is shared bridge contract context, not Naming-only behavior | **Read before the Naming-owned bridge observation rules; keep in `cross-cutting/`** |
 | `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-address-attached-bridge-observation-rules.spec.md` | Naming-owned bridge observation rules for future address-attached observations | **Bounded normative supporting spec** (contract/specification slice; not current runtime truth) | Bridge contract implementation planning where Naming semantic observations attach to occurrence identity without emitting Tree conclusions | **Added under `naming-owned/`** because the rules are Naming-owned observation constraints that reference cross-slice occurrence identity | **Keep in `naming-owned/`; update alongside future Naming bridge contract slices** |
 | `calculogic-validator/doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md` | Naming registry model and slice interaction reference | **Bounded normative supporting spec** (suite-level model constraints) | Wiring/modeling decisions and slice-boundary context | **Moved to `cross-cutting/`** because forcing it under naming would blur suite-level ownership | **Keep in `cross-cutting/`; consider later split by concern only if document growth harms scanability** |
-| `doc/nl-config/cfg-namingValidator.md` | Repo-local naming NL/config note | **Supporting implementation guidance** (repo-local/external to validator-owned canonical set) | Implementation sequencing/context for local repo tasks | **Stay put** | **Reference only** |
+| `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-namingValidator.md` | Naming NL/config note | **Supporting implementation guidance** | Implementation sequencing/context for naming tasks | **Adopted into `ValidatorSpecs/nl-config/`** from the React app's `doc/nl-config/` (React-app issue #713), where it was kept before extraction | **Reference only** |
 | `calculogic-validator/doc/naming-compatibility.inventory.md` | Naming migration/compatibility snapshot | **Transitional inventory** | Migration context, retirements, follow-up hardening routing | **Stay put** | **Keep as transitional inventory** |
 | `calculogic-validator/doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md` | Naming routing and bounded reorg map | **Transitional inventory** | First-stop navigation for naming documentation and ownership decisions | **Moved to `naming-owned/`** to colocate the navigation map with the docs it routes | **Keep and maintain** |
 | `calculogic-validator/doc/ConventionRoutines/CCPP.md` | Comment/provenance protocol used during naming implementation changes | **Supporting implementation guidance** | Implementation discipline, provenance/comment consistency | **Stay put** | **Reference only** |
@@ -99,7 +99,7 @@ Interpretation notes:
 
 ### Reference-only posture
 
-- `doc/nl-config/cfg-namingValidator.md` remains supporting implementation guidance and should not be treated as canonical runtime/spec authority.
+- `calculogic-validator/doc/ValidatorSpecs/nl-config/cfg-namingValidator.md` remains supporting implementation guidance and should not be treated as canonical runtime/spec authority.
 - General convention routines (`CCPP`, `CCS`, NL skeleton/workflow docs) remain reference-only framing for implementation discipline.
 
 ### Potential later split/reshape (only if needed)
