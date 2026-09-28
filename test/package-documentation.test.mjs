@@ -55,6 +55,8 @@ const REQUIRED_CONSUMER_DOCS = Object.freeze([
 //   development-only - provenance or related Validator-internal reading, not needed to apply the doc
 //   runtime-value - a documented value the runtime emits verbatim (the current ruleRef format),
 //                   not a path to follow as written
+// "external" also covers paths in the repository that applies a convention or is validated (for
+// example NL-First-Workflow's doc/nl-config/, or the docs/ and test/ scope roots).
 const REVIEWED_UNPACKAGED_REFERENCES = Object.freeze({
   'doc/ConventionRoutines/CCPP.md -> doc/nl-shell/shell-globalHeader.md': 'illustrative',
   'doc/ConventionRoutines/CCPP.md -> doc/nl-config/cfg-tabNavigation.md': 'illustrative',
@@ -66,6 +68,14 @@ const REVIEWED_UNPACKAGED_REFERENCES = Object.freeze({
     'development-only',
   'doc/ConventionRoutines/ValidatorRuleIds-Contract.md -> doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md':
     'development-only',
+  'doc/ConventionRoutines/ValidatorReportSchema-V0_1.md -> test/fixtures/report-examples/validate-naming.system.report.example.json':
+    'development-only',
+  'doc/ConventionRoutines/ValidatorReportSchema-V0_1.md -> test/fixtures/report-examples/validate-all.system.naming.report.example.json':
+    'development-only',
+  'doc/ConventionRoutines/NamingValidatorSpec.md -> docs': 'external',
+  'doc/ConventionRoutines/NamingValidatorSpec.md -> test': 'external',
+  'doc/ConventionRoutines/NL-First-Workflow.md -> doc/nl-config': 'external',
+  'doc/ConventionRoutines/NL-First-Workflow.md -> doc/nl-shell': 'external',
   'doc/ConventionRoutines/ValidatorRuleIds-Contract.md -> calculogic-validator/doc/ConventionRoutines/NamingValidatorSpec.md':
     'runtime-value',
   'doc/ConventionRoutines/ValidatorRuleIds-Contract.md -> calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md':
@@ -85,18 +95,37 @@ const EMBEDDED_PREFIX_PATTERN = /calculogic-validator\/[A-Za-z0-9_./<>-]+/gu;
 const DOC_REFERENCE_PATTERN =
   /((?:calculogic-validator\/)?doc\/[A-Za-z0-9_./-]+\.md)|\]\(([^)#\s]+\.md)(?:#[^)]*)?\)/gu;
 
-// Returns every doc path a document refers to, relative to the package root, as written.
+// Also matches backticked repository paths of any file type or directory (for example
+// `test/fixtures/...json`, `src/core/`, `docs/`), so non-Markdown assets are checked too. A path
+// must contain a `/`: a bare word such as `docs` or `test` is naming vocabulary, not a path.
+const REPOSITORY_ROOTS = ['src', 'naming', 'tree', 'structural-addressing', 'bin', 'scripts', 'test', 'tools', 'doc', 'docs'];
+const BACKTICKED_PATH_PATTERN = new RegExp(
+  `\`((?:calculogic-validator/)?(?:${REPOSITORY_ROOTS.join('|')})/[^\`\\s]*)\``,
+  'gu',
+);
+
+// A path template or glob describes a pattern (where files go, what a scope matches), not a
+// specific file to open, so it is not checked as a reference.
+const isPathTemplate = (target) => /[*<>[\]]|\.\.\./u.test(target);
+
+// Returns every repository path a document refers to, relative to the package root, as written.
 const listDocReferences = (docPath, content) => {
-  const references = [];
+  const references = new Set();
   for (const match of content.matchAll(DOC_REFERENCE_PATTERN)) {
     const target = match[1]
       ? match[1]
       : path.posix.normalize(path.posix.join(path.posix.dirname(docPath), match[2]));
     if (target.startsWith('doc/') || target.startsWith('calculogic-validator/')) {
-      references.push(target);
+      references.add(target);
     }
   }
-  return references;
+  for (const [, rawTarget] of content.matchAll(BACKTICKED_PATH_PATTERN)) {
+    const target = rawTarget.replace(/#.*$/u, '').replace(/\/+$/u, '');
+    if (!isPathTemplate(target)) {
+      references.add(target);
+    }
+  }
+  return [...references];
 };
 
 const runCommand = (command, args, cwd) => {
@@ -188,6 +217,15 @@ test('packed validator ships exactly the documented documentation set, byte-iden
     );
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('path templates and globs are recognized as patterns, not references', () => {
+  for (const template of ['src/**', 'doc/nl-config/cfg-*.md', 'src/configs/<configId>/<ConfigName>.build.tsx', 'doc/nl-config/cfg-[name].md', 'doc/HealthChecks/...']) {
+    assert.equal(isPathTemplate(template), true, template);
+  }
+  for (const concrete of ['docs', 'test/fixtures/report-examples/validate-naming.system.report.example.json', 'src/core/cli']) {
+    assert.equal(isPathTemplate(concrete), false, concrete);
   }
 });
 
