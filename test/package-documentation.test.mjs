@@ -235,3 +235,77 @@ test('reviewed unpackaged references use only the documented classifications', (
     assert.ok(allowed.has(classification), `${reference} has unknown classification ${classification}`);
   }
 });
+
+// The documented ruleRef resolution (ValidatorRuleIds-Contract.md section 4): drop the historical
+// `calculogic-validator/` segment and resolve the rest from the repository root. Every ruleRef the
+// runtime emits must reach an existing document and, when it has a fragment, an existing anchor: a
+// GitHub-style heading anchor or an explicit `<a id="...">`.
+const toHeadingAnchor = (headingText) =>
+  headingText
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}_\- ]/gu, '')
+    .replace(/ /gu, '-');
+
+const listDocumentAnchors = (content) => {
+  const anchors = new Set();
+  const seen = new Map();
+  for (const line of content.split('\n')) {
+    const heading = /^#{1,6}\s+(.*?)\s*#*\s*$/u.exec(line);
+    if (heading) {
+      const base = toHeadingAnchor(heading[1]);
+      const count = seen.get(base) ?? 0;
+      seen.set(base, count + 1);
+      anchors.add(count === 0 ? base : `${base}-${count}`);
+    }
+  }
+  for (const [, id] of content.matchAll(/<a\s+(?:id|name)="([^"]+)"/gu)) {
+    anchors.add(id);
+  }
+  return anchors;
+};
+
+const listEmittedRuleRefs = () => {
+  const ruleRefs = [];
+  const collect = (value, source) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => collect(item, source));
+    } else if (value && typeof value === 'object') {
+      if (typeof value.ruleRef === 'string') {
+        ruleRefs.push({ source, ruleRef: value.ruleRef });
+      }
+      Object.values(value).forEach((item) => collect(item, source));
+    }
+  };
+  const namingRegistry = 'naming/src/registries/_builtin/finding-policy.registry.json';
+  collect(JSON.parse(fs.readFileSync(path.join(validatorPackageRoot, namingRegistry), 'utf8')), namingRegistry);
+
+  for (const relativePath of listFilesRecursively(validatorPackageRoot, 'tree/src')) {
+    if (!relativePath.endsWith('.mjs')) {
+      continue;
+    }
+    const content = fs.readFileSync(path.join(validatorPackageRoot, relativePath), 'utf8');
+    for (const [, ruleRef] of content.matchAll(/ruleRef:\s*'([^']+)'/gu)) {
+      ruleRefs.push({ source: relativePath, ruleRef });
+    }
+  }
+  return ruleRefs;
+};
+
+test('every ruleRef the runtime emits resolves to an existing document and anchor', () => {
+  const ruleRefs = listEmittedRuleRefs();
+  assert.ok(ruleRefs.length > 0, 'expected to find emitted ruleRefs');
+
+  for (const { source, ruleRef } of ruleRefs) {
+    const [targetPath, fragment] = ruleRef.split('#');
+    const documentPath = targetPath.replace(/^calculogic-validator\//u, '');
+    const absolutePath = path.join(validatorPackageRoot, documentPath);
+    assert.ok(fs.existsSync(absolutePath), `${source}: ruleRef ${ruleRef} does not resolve to a document`);
+    if (fragment) {
+      assert.ok(
+        listDocumentAnchors(fs.readFileSync(absolutePath, 'utf8')).has(fragment),
+        `${source}: ruleRef ${ruleRef} has no matching anchor #${fragment} in ${documentPath}`,
+      );
+    }
+  }
+});
