@@ -4,9 +4,19 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 
 const scopes = ['repo', 'app', 'docs', 'validator', 'system'];
-const hostPath = fs.realpathSync(path.resolve('node_modules/.bin/calculogic-report-capture'));
+// Resolve the report-capture host from the installed package's declared `bin` target, the same
+// way scripts/report-capture-verify.host.mjs does. node_modules/.bin/calculogic-report-capture is
+// a symlink on POSIX but a command shim on Windows, so it must not be passed to Node directly.
+const requireFromTest = createRequire(import.meta.url);
+const reportCapturePackageJsonPath = requireFromTest.resolve('@calculogic/report-capture/package.json');
+const reportCaptureHostPath = path.resolve(
+  path.dirname(reportCapturePackageJsonPath),
+  JSON.parse(fs.readFileSync(reportCapturePackageJsonPath, 'utf8')).bin['calculogic-report-capture'],
+);
+const hostPath = reportCaptureHostPath;
 
 const runReportCapture = (prefix, scriptPath, scope, outputDir) =>
   new Promise((resolve, reject) => {
