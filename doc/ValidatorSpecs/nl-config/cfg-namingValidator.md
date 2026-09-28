@@ -70,34 +70,20 @@ Scope predicates are evaluated on normalized repository-relative paths before re
 
 ### 2.3 Role registry metadata (V0.1.1)
 
-The validator uses a structured role registry with metadata fields:
+The validator uses a structured role registry. Each composed role entry has the metadata fields:
 
 - `role`
-- `category` (`concern-core`, `architecture-support`, `documentation`, `deprecated`)
+- `category`
 - `status` (`active`, `deprecated`)
 - optional `notes`
 
-Active roles:
+The role and category vocabulary is defined by the builtin registries, not by this note, and has grown well beyond the original V0.1.1 subset. Read the current values from:
 
-- host
-- wiring
-- contracts
-- build
-- build-style
-- logic
-- knowledge
-- results
-- results-style
-- spec
-- policy
-- workflow
-- plan
-- audit
-- healthcheck
+- `naming/src/registries/_builtin/roles.registry.json`: the canonical flat role list with each role's `status` (for example the active roles `host`, `logic`, `adapter`, and the deprecated historical role `view`)
+- `naming/src/registries/_builtin/category-role-perspective.registry.json`: which roles belong to which category
+- `naming/src/registries/_builtin/categories.registry.json`: the allowed categories, including those accepted for `naming.roles.add[].category` (for example `concern-core`, `documentation`, `surface-system`, `integration-adapter`)
 
-Deprecated historical roles:
-
-- view
+How these files are composed at runtime is described in §2.6.
 
 ### 2.4 Repository layout contract (V0.1.8)
 
@@ -111,7 +97,7 @@ Validator implementation assets live at the root of this standalone repository:
 - package export barrel: `src/index.mjs`
 - stable repository-root resolver shared by CLIs: `src/core/repository-root.logic.mjs`
 - repo-local script entrypoints remain supported: `scripts/{validate-naming.host.mjs,validate-tree.host.mjs,validate-all.host.mjs,validator-health-check.host.mjs}`
-- stable installable bin entrypoints: `bin/{calculogic-validate.host.mjs,calculogic-validate-naming.host.mjs,calculogic-validator-health.host.mjs}`
+- stable installable bin entrypoints: `bin/{calculogic-validate.host.mjs,calculogic-validate-naming.host.mjs,calculogic-validate-tree.host.mjs,calculogic-validator-health.host.mjs,calculogic-validator-report-summarize.host.mjs}` (the `bin` map in `package.json` is authoritative)
 - validator tests: `test/*.test.mjs`
 
 This repository's `package.json` scripts are the development invocation interface (`npm run validate:naming`, `npm run validate:all`, `npm run validate:tree`, `npm run health:validator`, `npm test`, and the `report:*` presets). Consumers invoke the installed package bins (`calculogic-validate`, `calculogic-validate-naming`, `calculogic-validate-tree`, `calculogic-validator-health`, `calculogic-validator-report-summarize`), for example with `npx --no-install`.
@@ -157,6 +143,7 @@ Health-check behavior is fail-fast semantics: any contract violation returns non
 Naming validator supports optional runtime config input with deterministic JSON contract:
 
 - `version` must equal `"0.1"`
+- optional `strictExit` boolean (enables strict exit semantics; see `doc/ValidatorSpecs/validator-config.spec.md`)
 - optional `naming.reportableExtensions.add` array
 - each extension entry must be a string starting with `.`
 - optional `naming.roles.add` array of role metadata objects:
