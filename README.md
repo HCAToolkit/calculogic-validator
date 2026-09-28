@@ -131,6 +131,21 @@ npx --no-install calculogic-validator-report-summarize --help
 
 `calculogic-validator-report-summarize` is the Validator-owned summarizer for captured Validator reports. It reads `./.reports` relative to the directory it is run from, so running it from the consumer repository root summarizes that repository's reports, not anything inside `node_modules`. It is part of `@calculogic/validator`, not `@calculogic/report-capture`.
 
+### Packaged documentation
+
+The installed package includes the Validator's consumer-facing convention and contract documents, so a consuming repository (and agents working in it) can read the version matching its installed Validator at `node_modules/@calculogic/validator/doc/…`, offline and pinned with the dependency.
+
+Which documents are shipped is a **distribution policy**, set by the `files` list in `package.json`. It does not decide which documents are authoritative; that is determined by each document's own content and status, not by whether or how it is packaged.
+
+- **Included:** `doc/ConventionRoutines/*.md`.
+- **Excluded by filename suffix:** `*.audit.md`, `*.inventory.md` and `*.note.md` in that folder. By this repository's naming, these are working records, not conventions or contracts. The suffix is a packaging filter, not a guarantee about any individual document, so exceptions are reviewed explicitly.
+- **Explicit exception:** `doc/ValidatorSpecs/validator-config.spec.md`, the canonical contract for the public `--config` option (its schema ships as `src/validator-config.schema.json`). `NamingValidatorSpec.md` refers to it.
+- **Not shipped:** other Validator specs, audits, indexes and development documentation. Read them in this repository.
+
+Paths inside the shipped documents that name **Validator files** (for example `doc/ConventionRoutines/…`, `doc/ValidatorSpecs/…`, `src/…`, `naming/src/…`) are relative to the Validator package root: this repository's root, or `node_modules/@calculogic/validator/` in a consumer. Some shared conventions also describe where files belong **in the repository applying them** (for example `NL-First-Workflow.md`'s `doc/nl-config/` and `doc/nl-shell/`, or the scope roots in `NamingValidatorSpec.md`). Those paths are relative to that repository, not to the package. Path templates and globs (containing `*`, `<…>`, `[…]` or `...`) describe patterns, not specific files.
+
+Some shipped documents refer to files that are not in the package. Each such reference is reviewed and classified as illustrative (example paths), external (a document in a consumer repository), development-only (provenance or related Validator-internal reading), or runtime-value (a value the runtime emits verbatim, such as the current `ruleRef` format), and `test/package-documentation.test.mjs` fails if an unreviewed one appears.
+
 ### Consumer validator-scope note
 
 In an ordinary installed or linked consumer repository, this command may report `validator-development-root-unavailable`:

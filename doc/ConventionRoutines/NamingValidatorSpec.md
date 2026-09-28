@@ -34,14 +34,14 @@ Subsection version tags (for example `(V0.1.2)`) reflect the last material chang
 
 Primary naming authority:
 
-- `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
-- Role categories, role status values, role semantics, provisional-role policy, and category↔surface governance policy are authoritative in the `Role Registry Master List V1` section of `calculogic-validator/doc/ConventionRoutines/FileNamingMasterList-V1_1.md`.
+- `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`
+- Role categories, role status values, role semantics, provisional-role policy, and category↔surface governance policy are authoritative in the `Role Registry Master List V1` section of `doc/ConventionRoutines/FileNamingMasterList-V1_1.md`.
 
 Supporting workflow alignment:
 
 - `doc/ConventionRoutines/NL-First-Workflow.md`
-- `calculogic-validator/doc/ConventionRoutines/CCS.md`
-- `calculogic-validator/doc/ConventionRoutines/CCPP.md`
+- `doc/ConventionRoutines/CCS.md`
+- `doc/ConventionRoutines/CCPP.md`
 
 ## Canonical Filename Contract (V0.1.2)
 
@@ -148,8 +148,10 @@ This section documents naming consumption of shared suite scope profiles; it doe
 
 ### `validator` scope
 
-- includes validator implementation root:
-  - `calculogic-validator/`
+- includes the validator development root, resolved per `ValidatorSuite-Contracts-And-Modes.md` §6.7:
+  - standalone Validator checkout: `.` (the checkout itself)
+  - embedded development in a consuming repository: `calculogic-validator/`
+  - ordinary installed consumer: no development root, so the scope is unavailable and the command fails with `validator-development-root-unavailable` (use `repo`, `app`, `docs` or `system`)
 
 ### `system` scope
 
@@ -189,7 +191,7 @@ Inclusion/exclusion summary:
 - `repo`: all reportable files under repository root (minus explicit walker exclusions).
 - `app`: includes `src/**` and `test/**`; excludes docs, validator, and system-only roots by profile definition.
 - `docs`: includes `doc/**`, `docs/**`, and selected root conventional docs currently limited to `README.md`.
-- `validator`: includes `calculogic-validator/**`.
+- `validator`: includes the validator development root (`.` in a standalone checkout, `calculogic-validator/**` in embedded development); unavailable in an ordinary installed consumer (see `ValidatorSuite-Contracts-And-Modes.md` §6.7).
 - `system`: includes root tooling files (`package.json`, `package-lock.json`, `tsconfig*.json`, `eslint.config.*`, `vite.config.*`).
 
 Invalid scope behavior:
@@ -221,6 +223,15 @@ Config does not change detection mode/scope semantics and does not introduce enf
 
 ## CLI Usage (V0.1.8)
 
+From a consuming repository that has installed `@calculogic/validator`, use the public command:
+
+- `npx --no-install calculogic-validate-naming` (defaults to `--scope=repo`)
+- `npx --no-install calculogic-validate-naming --scope=app`
+- `npx --no-install calculogic-validate-naming --scope=app --target src/buildsurface --target src/shared`
+- `npx --no-install calculogic-validate-naming --scope=app --config=./path/to/validator-config.json`
+
+From this Validator repository's root (Validator development), use the npm scripts:
+
 - `npm run validate:naming` (defaults to `--scope=repo`)
 - `npm run validate:naming -- --scope=repo`
 - `npm run validate:naming -- --scope=app`
@@ -230,11 +241,10 @@ Config does not change detection mode/scope semantics and does not introduce enf
 - `npm run validate:naming -- --scope=app --target src/buildsurface`
 - `npm run validate:naming -- --scope=app --target src/buildsurface --target src/shared`
 - `npm run validate:naming -- --scope=app --config=./path/to/validator-config.json`
-- `npm run validate:naming:validator:entry`
-- `npm run validate:naming:validator:naming`
-- `npm run validate:naming:validator:tree`
-- `npm run validate:naming:validator:doc`
-- `node calculogic-validator/bin/calculogic-validate-naming.host.mjs --scope=app --config=./path/to/validator-config.json`
+- `npm run validate:naming -- --scope=validator --target bin --target scripts` (likewise `--target naming`, `--target tree` or `--target doc`)
+- `node bin/calculogic-validate-naming.host.mjs --scope=app --config=./path/to/validator-config.json` (direct host invocation)
+
+`validate:naming:validator:entry`, `:naming`, `:tree` and `:doc` are convenience scripts defined in Calculogic_React_App, where they dispatch these `--scope=validator --target …` runs to a linked Validator checkout. They are not scripts of this repository.
 
 npm argument forwarding note:
 

@@ -159,7 +159,7 @@ Optional fields currently emitted by slices:
 
 Classification: **Illustrative**
 
-Current-runtime report examples are generated from live validator entrypoints and checked in at:
+Current-runtime report examples are generated from live validator entrypoints and checked in to the Validator repository (they are not included in the installed package) at:
 
 - `test/fixtures/report-examples/validate-naming.system.report.example.json`
 - `test/fixtures/report-examples/validate-all.system.naming.report.example.json`

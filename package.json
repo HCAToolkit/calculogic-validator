@@ -15,7 +15,12 @@
     "bin/**",
     "scripts/**",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "doc/ConventionRoutines/*.md",
+    "!doc/ConventionRoutines/*.audit.md",
+    "!doc/ConventionRoutines/*.inventory.md",
+    "!doc/ConventionRoutines/*.note.md",
+    "doc/ValidatorSpecs/validator-config.spec.md"
   ],
   "exports": {
     ".": "./src/index.mjs",
