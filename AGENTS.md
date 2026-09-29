@@ -14,17 +14,13 @@ do not govern this checkout.
   edited and its own tests run) distinct from a **validation target root** (an
   external consumer repository whose files are being inspected).
 - `HCAToolkit/Calculogic_React_App` is an originating consumer and integration
-  environment. Its former embedded `calculogic-validator/` tree held historical,
-  pre-extraction implementation and was retired in Calculogic_React_App#734; it is
-  not an authority for new Validator work. Make new
+  environment. Its retained embedded `calculogic-validator/` tree is historical,
+  pre-extraction implementation, not an authority for new Validator work. Make new
   Validator implementation and package/development-documentation changes here;
   handle consumer wiring or integration changes in a separately scoped consumer
   task.
-- The React app's standalone-package migration is complete
-  (Calculogic_React_App#713, closed as completed). Preserve the package-consumption
-  status and qualifications recorded in `README.md`, and verify any further claim
-  about a consumer's state against that consumer repository rather than inferring
-  it.
+- Do not infer that the React app's staged standalone-package migration is complete.
+  Preserve the package-consumption status and qualifications recorded in `README.md`.
 - Do not describe deferred validator modes, draft behavior, projected package
   layout, or future enforcement as implemented. Verify current behavior in code,
   tests, canonical specs, and registries before making a current-state claim.
