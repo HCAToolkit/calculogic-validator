@@ -6,7 +6,7 @@ _Curious how AI-assisted development works across HCAToolkit projects? See the [
 
 The Validator first developed inside the [Calculogic React app](https://github.com/HCAToolkit/Calculogic_React_App) as its naming, structure, and project conventions became increasingly explicit. Those conventions needed deterministic, inspectable checks rather than relying on memory or one-off manual review. Naming validation was an early deterministic implementation; Tree and structure reasoning followed as the Validator expanded into a reusable, modular validation suite beyond host-specific tooling.
 
-The suite was extracted so it could have independent ownership and be consumed by Calculogic without remaining coupled to the host application. This standalone `HCAToolkit/calculogic-validator` repository is now the **authoritative source for Validator implementation**. `HCAToolkit/Calculogic_React_App` remains the originating Calculogic application and is a current consumer and integration environment for the standalone package. Its historical `Calculogic_React_App/calculogic-validator/` directory is the pre-extraction embedded implementation, not a second independently maintained authoritative source.
+The suite was extracted so it could have independent ownership and be consumed by Calculogic without remaining coupled to the host application. This standalone `HCAToolkit/calculogic-validator` repository is now the **authoritative source for Validator implementation**. `HCAToolkit/Calculogic_React_App` remains the originating Calculogic application and is a current consumer and integration environment for the standalone package. Its historical `Calculogic_React_App/calculogic-validator/` directory held the pre-extraction embedded implementation; it was never a second independently maintained authoritative source, and it was retired in [Calculogic_React_App#734](https://github.com/HCAToolkit/Calculogic_React_App/pull/734) after the React app's remaining consumers moved to this package.
 
 ## 1) Overview
 
@@ -115,7 +115,9 @@ The intended deterministic Git form is:
 npm install github:HCAToolkit/calculogic-validator#<commit-sha>
 ```
 
-This is a **candidate workflow, not a workflow verified by the package-consumption audit**. The audit environment could not reach GitHub, so the test could not proceed far enough to evaluate Git installation behavior; that result does not show that Git installs are broken. Once separately verified, a stable Git dependency should remain pinned to a deterministic commit, tag, or ref rather than `main`.
+The original package-consumption audit could not evaluate this form: its environment could not reach GitHub, so the test did not proceed far enough to assess Git installation behavior. That result did not show Git installs to be broken.
+
+The pinned Git form has since been exercised in a real consumer. [`HCAToolkit/Calculogic_React_App`](https://github.com/HCAToolkit/Calculogic_React_App) depends on this package through a `git+https://…#<commit-sha>` devDependency (introduced in [Calculogic_React_App#710](https://github.com/HCAToolkit/Calculogic_React_App/pull/710)). A clean `npm ci` installs it, and the app's `npm run check:validator-pin` ([Calculogic_React_App#730](https://github.com/HCAToolkit/Calculogic_React_App/pull/730)) checks npm's installation record against the declared commit. Keep a stable Git dependency pinned to a deterministic commit, tag, or ref rather than `main`.
 
 ### Public consumer commands
 
