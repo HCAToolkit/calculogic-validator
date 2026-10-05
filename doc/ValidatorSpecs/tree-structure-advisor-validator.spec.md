@@ -16,7 +16,7 @@ This slice exists to reduce “tree drift” as additional validators beyond nam
 
 Tree advisor structural reasoning also includes an ownership-boundary principle aligned with current repo architecture:
 
-- `calculogic-validator/src/**` is suite-core/shared infrastructure and compat-boundary surface
+- `src/**` under the validator development root is suite-core/shared infrastructure and compat-boundary surface (`src/**` in a standalone checkout; `calculogic-validator/src/**` in embedded development)
 - validator-owned slices with their own internal growth path belong in slice roots outside suite-core `src/` (for example `calculogic-validator/naming/src/**`, `calculogic-validator/tree/src/**`)
 - continued owned-slice growth inside suite-core `src/` is structural drift because it predicts avoidable future extraction/shim/refactor debt
 
@@ -588,7 +588,7 @@ Detect when subpackages (e.g., `tools/report-capture`) contain mixed surfaces th
 
 ### 5) Owned-slice boundary drift
 
-Detect when validator-owned subsystem growth is accumulating under suite-core `calculogic-validator/src/**` instead of an owned slice root.
+Detect when validator-owned subsystem growth is accumulating under suite-core `<validator development root>/src/**` instead of an owned slice root. The suite-core root follows the prepared validator development root described under "Current Runtime Boundary and Shipped Findings"; the advisory does not apply without one.
 
 Signals may include subsystem-local host/wiring/logic files, registries, tests, docs, scripts, and scaffolds that indicate package-like internal growth.
 
@@ -819,6 +819,8 @@ Deferred candidates above are a documentation menu only. They are not current ru
 - Tree core consumes **prepared tree-core inputs only** and fails closed when that contract is bypassed.
 - Tree wiring consumes suite core's resolved development context and prepares an optional repository-relative `validatorDevelopmentRoot` for Tree core. Standalone development resolves this root to `.`, embedded development resolves it to `calculogic-validator`, and installed consumer context leaves it absent (`null`).
 - `TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE` compares validator-owned basename signals with that prepared contextual root; it does not infer the root from repository-name literals, package-name substrings, `node_modules`, or current working directory. Without a validator development root, this finding is not emitted.
+- `TREE_OWNED_SLICE_BOUNDARY_DRIFT` derives its suite-core root from the same prepared root: `.` resolves to `src/` and `calculogic-validator` to `calculogic-validator/src/`. The suite-core carveouts (`core/`, `compat/`, `registries/`, `index.mjs`, `validator-config.schema.json`) are interpreted relative to that suite-core root. Without a validator development root (installed consumer), this finding is not emitted, so a consumer's own `src/**` is never treated as Validator suite core. The finding's `path`, `message` and `details.suiteCoreRoot` report the resolved suite-core root; its code, severity, classification and threshold are unchanged.
+- Tree wiring prepares an effective repo-shape policy for each run: the builtin Tree-owned repo-shape policy plus, in embedded development only, the top-level folder of the explicit validator development root. It is a new prepared value (`preparedDependencies.treeRepoShapePolicy`); the cached builtin registry state is never modified, so context from one run cannot leak into another. Tree core, semantic-naming folder-type relationship evidence and the occurrence-classification replacement runtime consume that prepared policy; direct runtime callers that omit it fall back to the builtin policy. `calculogic-validator` is not a generic builtin entry. `calculogic-doc-engine` remains temporarily in the builtin allowance as a compatibility exception that preserves current React-app behavior; its presence is not affirmed as a universal generic repository root, and replacing it requires a separately scoped mechanism for consumer-specific or evidence-derived repository shape.
 - Tree core consumes occurrence-derived file records from `occurrenceSnapshot.occurrenceRecords` when available for bounded structural helpers (`TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE`, `TREE_OWNED_SLICE_BOUNDARY_DRIFT`) while keeping findings path output on resolved paths.
 - Occurrence-derived records are enriched with a bounded structural class interpretation layer (`structuralClass`, `structuralKind`, `isRepoShapeAllowedTopLevelDirectory`, `isSemanticRoot`, `isStructuralRoot`, `isSubtreePartitionCandidate`, `isRepoTopOccurrence`, `isScopedRootOccurrence`) for tree-local reasoning substrate use; findings envelopes remain unchanged.
 - Tree known-roots registry/runtime dependencies are retired in current runtime truth: `topRoots[].kind` does not back occurrence classification and `knownTopLevelDirectories` does not back unexpected top-level folder policy.
@@ -827,7 +829,7 @@ Deferred candidates above are a documentation menu only. They are not current ru
 - When the prepared replacement route is ready, a repo-top folder suppresses `TREE_UNEXPECTED_TOP_LEVEL_FOLDER` only when the folder is allowed by the Tree-owned repo-shape top-level policy and the replacement classification does not mark it unexpected; structural-home registration alone does not make a repo-top folder allowed for this advisory.
 - Repo-top folders outside the Tree-owned repo-shape top-level policy still emit the existing finding with unchanged code, severity, classification, ruleRef, path style, and details shape, even when replacement occurrence classification identifies the folder as a structural home.
 - Direct runtime callers that provide the required prepared tree-core inputs but omit, mis-shape, or gate-block occurrence-classification replacement evidence still use the explicit Tree-owned repo-shape policy fallback for `TREE_UNEXPECTED_TOP_LEVEL_FOLDER`; missing replacement composition must not silently suppress unexpected top-level folder findings.
-- `TREE_UNEXPECTED_TOP_LEVEL_FOLDER` finding details report the full Tree-owned allowed repo-shape policy in `details.allowedTopLevelDirectories`, not only the observed allowed top-level folder subset, so the payload explains the bounded policy used to classify a folder as unexpected.
+- `TREE_UNEXPECTED_TOP_LEVEL_FOLDER` finding details report the full effective repo-shape policy used for the run in `details.allowedTopLevelDirectories`, not only the observed allowed top-level folder subset, so the payload explains the bounded policy used to classify a folder as unexpected.
 - If occurrence snapshot is missing or malformed, tree core deterministically falls back to prepared `selectedPaths` for file-path reasoning.
 - Required prepared tree-core fields:
   - `selectedPaths` (array)
