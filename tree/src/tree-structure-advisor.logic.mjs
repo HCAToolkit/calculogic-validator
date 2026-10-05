@@ -96,6 +96,21 @@ const isClassifiedRepoTopFolderRecord = (record) => (
   typeof record.isRepoShapeAllowedTopLevelDirectory === 'boolean'
 );
 
+// The ready route trusts classification flags only when the runtime classified against the same
+// effective policy this run reports; a runtime prepared from a different policy falls back.
+const isReplacementRuntimePolicyConsistent = (replacementRuntime, allowedTopLevelDirectoryNameSet) => {
+  const declared = replacementRuntime.allowedTopLevelDirectories;
+  if (!Array.isArray(declared)) {
+    return false;
+  }
+
+  const declaredSet = new Set(declared);
+  return (
+    declaredSet.size === allowedTopLevelDirectoryNameSet.size &&
+    [...declaredSet].every((directoryName) => allowedTopLevelDirectoryNameSet.has(directoryName))
+  );
+};
+
 const collectUnexpectedTopLevelDirectoryNamesFromClassification = ({
   topLevelDirectoryNames,
   preparedInputs,
@@ -106,7 +121,8 @@ const collectUnexpectedTopLevelDirectoryNamesFromClassification = ({
   if (
     !Array.isArray(topLevelDirectoryNames) ||
     !isReplacementRuntime(replacementRuntime) ||
-    !isRuntimeExecutionReadyForReplacementRoute(preparedDependencies)
+    !isRuntimeExecutionReadyForReplacementRoute(preparedDependencies) ||
+    !isReplacementRuntimePolicyConsistent(replacementRuntime, allowedTopLevelDirectoryNameSet)
   ) {
     return null;
   }

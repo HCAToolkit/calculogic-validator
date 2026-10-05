@@ -99,6 +99,7 @@ const createReadyClassificationPreparedInputs = ({ topLevelDirectoryNames, class
       treeOccurrenceClassificationReplacementReadiness: READY_OCCURRENCE_CLASSIFICATION_REPLACEMENT_READINESS,
       treeOccurrenceClassificationReplacementRuntime: {
         source: 'test-ready-tree-occurrence-classification-replacement-runtime',
+        allowedTopLevelDirectories: EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES,
         classifyOccurrenceRecords: (records = []) => records.map((record) => ({
           ...record,
           isRepoTopOccurrence: record.occurrenceType === 'folder' && !record.resolvedPath.includes('/'),
@@ -785,6 +786,52 @@ test('tree-structure-advisor fallback honors the prepared effective policy over 
   assert.equal(unexpected[0].details.allowedTopLevelDirectories.includes('calculogic-validator'), true);
 });
 
+test('tree-structure-advisor ready route falls back when the runtime classified against a different repo-shape policy', () => {
+  // A direct runtime caller supplies a contextual effective policy, but a gate-ready runtime classified
+  // against the builtin policy, so its `isRepoShapeAllowedTopLevelDirectory` flags disagree with it.
+  const builtinPolicy = getBuiltinTreeRepoShapePolicy();
+  const builtinAllowedSet = new Set(builtinPolicy.allowedTopLevelDirectories);
+  const effectivePolicy = prepareContextualTreeRepoShapePolicy({
+    builtinPolicy,
+    validatorDevelopmentRoot: 'calculogic-validator',
+  });
+  const readyInputs = createReadyClassificationPreparedInputs({
+    topLevelDirectoryNames: ['calculogic-validator', 'experiments', 'src'],
+    classificationsByName: new Map([
+      ['calculogic-validator', builtinAllowedSet.has('calculogic-validator')],
+      ['experiments', false],
+      ['src', true],
+    ]),
+  });
+  const runWith = (runtimeOverrides) => runTreeStructureAdvisorRuntime({
+    ...readyInputs,
+    preparedDependencies: {
+      ...readyInputs.preparedDependencies,
+      treeRepoShapePolicy: effectivePolicy,
+      treeOccurrenceClassificationReplacementRuntime: {
+        ...readyInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime,
+        ...runtimeOverrides,
+      },
+    },
+  });
+  const unexpectedOf = (result) => result.findings
+    .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER');
+
+  for (const [label, runtimeOverrides] of [
+    ['declared builtin allowlist', { allowedTopLevelDirectories: builtinPolicy.allowedTopLevelDirectories }],
+    ['undeclared allowlist', { allowedTopLevelDirectories: undefined }],
+  ]) {
+    const unexpected = unexpectedOf(runWith(runtimeOverrides));
+    assert.deepEqual(unexpected.map((finding) => finding.path), ['experiments'], label);
+    assert.deepEqual(unexpected[0].details.allowedTopLevelDirectories, effectivePolicy.allowedTopLevelDirectories, label);
+  }
+
+  // Positive anchor: a runtime that declares the effective policy keeps the ready route active, so its
+  // (here deliberately stale) classification flag still applies.
+  const consistent = unexpectedOf(runWith({ allowedTopLevelDirectories: effectivePolicy.allowedTopLevelDirectories }));
+  assert.deepEqual(consistent.map((finding) => finding.path), ['calculogic-validator', 'experiments']);
+});
+
 test('tree-structure-advisor top-level advisory uses ready replacement classification for delta cases', () => {
   const result = runTreeStructureAdvisorRuntime(createReadyClassificationPreparedInputs({
     topLevelDirectoryNames: ['doc', 'src'],
@@ -1102,6 +1149,12 @@ test('tree-structure-advisor ready route keeps semantic package roots non-unexpe
     const fallbackUnexpected = preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime
       .collectUnexpectedTopLevelDirectoryNames(preparedInputs.topLevelDirectoryNames);
     assert.deepEqual(fallbackUnexpected, ['unmatched-package']);
+    // Wiring prepares the runtime from the same effective policy, so the ready route's policy
+    // consistency gate passes and classification stays active.
+    assert.deepEqual(
+      preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime.allowedTopLevelDirectories,
+      preparedInputs.preparedDependencies.treeRepoShapePolicy.allowedTopLevelDirectories,
+    );
 
     const readyInputs = {
       ...preparedInputs,
