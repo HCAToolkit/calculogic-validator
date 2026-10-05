@@ -756,6 +756,35 @@ test('tree-structure-advisor runtime fallback preserves unexpected top-level fol
   assert.equal(Object.hasOwn(advisory.details, 'knownRoots'), false);
 });
 
+test('tree-structure-advisor fallback honors the prepared effective policy over a runtime closed over the builtin policy', () => {
+  // A direct runtime caller supplies a contextual effective policy, but its replacement runtime closed
+  // over the builtin allowlist and the replacement route is not ready (no execution contract).
+  const builtinAllowedSet = new Set(getBuiltinTreeRepoShapePolicy().allowedTopLevelDirectories);
+  const effectivePolicy = prepareContextualTreeRepoShapePolicy({
+    builtinPolicy: getBuiltinTreeRepoShapePolicy(),
+    validatorDevelopmentRoot: 'calculogic-validator',
+  });
+  const result = runTreeStructureAdvisorRuntime({
+    selectedPaths: [],
+    topLevelDirectoryNames: ['calculogic-validator', 'experiments', 'src'],
+    targets: [],
+    preparedDependencies: {
+      treeRepoShapePolicy: effectivePolicy,
+      treeOccurrenceClassificationReplacementRuntime: {
+        source: 'test-builtin-closed-over-replacement-runtime',
+        classifyOccurrenceRecords: (records = []) => records,
+        collectUnexpectedTopLevelDirectoryNames: (directoryNames = []) =>
+          directoryNames.filter((directoryName) => !builtinAllowedSet.has(directoryName)),
+      },
+    },
+  });
+
+  const unexpected = result.findings.filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER');
+  assert.deepEqual(unexpected.map((finding) => finding.path), ['experiments']);
+  assert.deepEqual(unexpected[0].details.allowedTopLevelDirectories, effectivePolicy.allowedTopLevelDirectories);
+  assert.equal(unexpected[0].details.allowedTopLevelDirectories.includes('calculogic-validator'), true);
+});
+
 test('tree-structure-advisor top-level advisory uses ready replacement classification for delta cases', () => {
   const result = runTreeStructureAdvisorRuntime(createReadyClassificationPreparedInputs({
     topLevelDirectoryNames: ['doc', 'src'],

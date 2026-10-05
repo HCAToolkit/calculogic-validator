@@ -161,22 +161,13 @@ const collectUnexpectedTopLevelDirectoryNamesFromClassification = ({
     .sort((left, right) => left.localeCompare(right));
 };
 
-const collectFallbackUnexpectedTopLevelDirectoryNames = (
-  topLevelDirectoryNames,
-  replacementRuntime,
-  allowedTopLevelDirectoryNameSet,
-) => {
-  const runtime = isReplacementRuntime(replacementRuntime)
-    ? replacementRuntime
-    : createNeutralReplacementRuntime(allowedTopLevelDirectoryNameSet);
-  const unexpectedDirectoryNames = runtime.collectUnexpectedTopLevelDirectoryNames(topLevelDirectoryNames);
-
-  if (!Array.isArray(unexpectedDirectoryNames)) {
-    throw new Error('Tree replacement runtime collectUnexpectedTopLevelDirectoryNames() must return an array.');
-  }
-
-  return unexpectedDirectoryNames;
-};
+// Fallback membership always comes from the effective policy, so a finding never disagrees with the
+// `details.allowedTopLevelDirectories` it reports, even when a supplied replacement runtime closed
+// over a different allowlist.
+const collectFallbackUnexpectedTopLevelDirectoryNames = (topLevelDirectoryNames, allowedTopLevelDirectoryNameSet) =>
+  createNeutralReplacementRuntime(allowedTopLevelDirectoryNameSet).collectUnexpectedTopLevelDirectoryNames(
+    topLevelDirectoryNames,
+  );
 
 const collectTopLevelUnexpectedFolderFindings = (preparedInputs, replacementRuntime) => {
   if ((preparedInputs.scope ?? 'repo') !== 'repo') {
@@ -191,11 +182,7 @@ const collectTopLevelUnexpectedFolderFindings = (preparedInputs, replacementRunt
     replacementRuntime,
     preparedDependencies: preparedInputs.preparedDependencies,
     allowedTopLevelDirectoryNameSet,
-  }) ?? collectFallbackUnexpectedTopLevelDirectoryNames(
-    preparedInputs.topLevelDirectoryNames,
-    replacementRuntime,
-    allowedTopLevelDirectoryNameSet,
-  );
+  }) ?? collectFallbackUnexpectedTopLevelDirectoryNames(preparedInputs.topLevelDirectoryNames, allowedTopLevelDirectoryNameSet);
 
   const allowedTopLevelDirectories = [...allowedTopLevelDirectoryNames];
 
