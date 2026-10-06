@@ -310,6 +310,9 @@ export const prepareTreeOccurrenceClassificationReplacementRuntime = (input) => 
 
   return {
     source: SOURCE_ID,
+    // The repo-shape allowlist this runtime classifies against, so Tree core can confirm it matches the
+    // run's effective policy before trusting `isRepoShapeAllowedTopLevelDirectory` (Refs #14).
+    allowedTopLevelDirectories: Object.freeze([...allowedTopLevelDirectorySet].sort((left, right) => left.localeCompare(right))),
     classifyOccurrenceRecords: (occurrenceRecords = []) => {
       if (!Array.isArray(occurrenceRecords)) {
         throw new Error('Tree occurrence classification replacement runtime requires occurrenceRecords array.');

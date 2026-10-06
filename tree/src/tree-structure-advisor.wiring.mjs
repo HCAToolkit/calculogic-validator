@@ -36,6 +36,7 @@ import { prepareTreeNamingOccurrenceBridgeIntake } from './tree-naming-occurrenc
 import { getBuiltinStructuralHomesRegistry } from './registries/tree-structural-homes-registry.logic.mjs';
 import { getBuiltinFolderKindsRegistry } from './registries/tree-folder-kinds-registry.logic.mjs';
 import { getBuiltinTreeRepoShapePolicy } from './registries/tree-repo-shape-policy-registry.logic.mjs';
+import { prepareContextualTreeRepoShapePolicy } from './tree-contextual-repo-shape-policy.logic.mjs';
 import { getBuiltinSemanticNamingFolderTypeRelationshipsRegistry } from './registries/tree-semantic-naming-folder-type-relationships-registry.logic.mjs';
 import { getBuiltinStructuralRoleTokensRegistry } from './registries/tree-structural-role-tokens-registry.logic.mjs';
 import { getBuiltinStructuralContextAssessmentPoliciesRegistry } from './registries/tree-structural-context-assessment-policies-registry.logic.mjs';
@@ -102,7 +103,10 @@ export const prepareTreeStructureAdvisorInputs = (
   });
   const structuralHomesRegistry = getBuiltinStructuralHomesRegistry();
   const folderKindsRegistry = getBuiltinFolderKindsRegistry();
-  const treeRepoShapePolicy = getBuiltinTreeRepoShapePolicy();
+  const treeRepoShapePolicy = prepareContextualTreeRepoShapePolicy({
+    builtinPolicy: getBuiltinTreeRepoShapePolicy(),
+    validatorDevelopmentRoot,
+  });
   const semanticNamingFolderTypeRelationshipsRegistry = getBuiltinSemanticNamingFolderTypeRelationshipsRegistry();
   const structuralRoleTokensRegistry = getBuiltinStructuralRoleTokensRegistry();
   const structuralContextAssessmentPoliciesRegistry = getBuiltinStructuralContextAssessmentPoliciesRegistry();

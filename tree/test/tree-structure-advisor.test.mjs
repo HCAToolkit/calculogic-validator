@@ -28,6 +28,7 @@ import { planTreeOccurrenceClassificationRuntimeExecutionContract } from '../src
 import { getBuiltinStructuralHomesRegistry } from '../src/registries/tree-structural-homes-registry.logic.mjs';
 import { getBuiltinFolderKindsRegistry } from '../src/registries/tree-folder-kinds-registry.logic.mjs';
 import { getBuiltinTreeRepoShapePolicy } from '../src/registries/tree-repo-shape-policy-registry.logic.mjs';
+import { prepareContextualTreeRepoShapePolicy } from '../src/tree-contextual-repo-shape-policy.logic.mjs';
 import { getBuiltinSemanticNamingFolderTypeRelationshipsRegistry } from '../src/registries/tree-semantic-naming-folder-type-relationships-registry.logic.mjs';
 import { getBuiltinStructuralContextAssessmentPoliciesRegistry } from '../src/registries/tree-structural-context-assessment-policies-registry.logic.mjs';
 import { prepareNamingSemanticEvidenceBridge } from '../../naming/src/naming-semantic-evidence-bridge.logic.mjs';
@@ -40,10 +41,11 @@ const writeJson = async (filePath, value) => {
   await fs.writeFile(filePath, JSON.stringify(value, null, 2), 'utf8');
 };
 
+// Builtin generic policy. `calculogic-doc-engine` is a temporary compatibility exception (see the
+// Tree spec); `calculogic-validator` is allowed only through explicit embedded development context.
 const EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES = [
   'bin',
   'calculogic-doc-engine',
-  'calculogic-validator',
   'doc',
   'docs',
   'public',
@@ -52,6 +54,10 @@ const EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES = [
   'test',
   'tools',
 ];
+
+// The host fixture below models a repository with an embedded validator; passing this package root
+// makes that embedded development context explicit.
+const embeddedPackageRootFor = (fixtureDir) => path.join(fixtureDir, 'calculogic-validator');
 
 const READY_OCCURRENCE_CLASSIFICATION_EXECUTION_CONTRACT = {
   source: 'tree-occurrence-classification-runtime-execution-contract',
@@ -93,6 +99,7 @@ const createReadyClassificationPreparedInputs = ({ topLevelDirectoryNames, class
       treeOccurrenceClassificationReplacementReadiness: READY_OCCURRENCE_CLASSIFICATION_REPLACEMENT_READINESS,
       treeOccurrenceClassificationReplacementRuntime: {
         source: 'test-ready-tree-occurrence-classification-replacement-runtime',
+        allowedTopLevelDirectories: EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES,
         classifyOccurrenceRecords: (records = []) => records.map((record) => ({
           ...record,
           isRepoTopOccurrence: record.occurrenceType === 'folder' && !record.resolvedPath.includes('/'),
@@ -206,7 +213,7 @@ test('tree-structure-advisor is conservative for normal known repository shape',
   try {
     await writeBaseFixtureRepo(fixtureDir);
 
-    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot: embeddedPackageRootFor(fixtureDir) });
 
     assert.equal(result.scope, 'repo');
     assert.equal(result.findings.length, 0);
@@ -517,6 +524,12 @@ test('tree semantic naming folder-type relationship classifies only repository-t
     { path: 'calculogic-validator/tree/src', occurrenceType: 'folder', semanticName: 'src', semanticFamily: 'src', familyRoot: 'src' },
     { path: 'calculogic-doc-engine', occurrenceType: 'folder', semanticName: 'calculogic-doc-engine', semanticFamily: 'calculogic-doc-engine', familyRoot: 'calculogic', semanticEvidenceKind: 'semantic-family-root-folder', familyRootQualification: 'package-root-folder' },
   ];
+  // This fixture models a host repository with an embedded validator, so the effective repo-shape
+  // policy carries that explicit embedded development root.
+  const embeddedRepoShapePolicy = prepareContextualTreeRepoShapePolicy({
+    builtinPolicy: getBuiltinTreeRepoShapePolicy(),
+    validatorDevelopmentRoot: 'calculogic-validator',
+  });
   const structuralHomeEvidence = prepareTreeStructuralHomeEvidence({
     addressedOccurrenceRecords,
     structuralHomesRegistry: getBuiltinStructuralHomesRegistry(),
@@ -526,7 +539,7 @@ test('tree semantic naming folder-type relationship classifies only repository-t
     addressedOccurrenceRecords,
     namingSemanticEvidenceRecords,
     treeStructuralHomeEvidence: structuralHomeEvidence,
-    treeRepoShapePolicy: getBuiltinTreeRepoShapePolicy(),
+    treeRepoShapePolicy: embeddedRepoShapePolicy,
     relationshipsRegistry: getBuiltinSemanticNamingFolderTypeRelationshipsRegistry(),
   });
   const semanticHomeEvidence = prepareTreeSemanticHomeEvidence({
@@ -544,7 +557,7 @@ test('tree semantic naming folder-type relationship classifies only repository-t
     treeStructuralHomeEvidence: structuralHomeEvidence,
     treeSemanticHomeEvidence: semanticHomeEvidence,
     treeFolderKindEvidence: folderKindEvidence,
-    treeRepoShapePolicy: getBuiltinTreeRepoShapePolicy(),
+    treeRepoShapePolicy: embeddedRepoShapePolicy,
   });
   const recordsByPath = Object.fromEntries(replacementRuntime.classifyOccurrenceRecords(addressedOccurrenceRecords).map((record) => [record.path, record]));
 
@@ -582,7 +595,7 @@ test('tree semantic naming folder-type relationship classifies only repository-t
     addressedOccurrenceRecords,
     namingSemanticEvidenceRecords: [],
     treeStructuralHomeEvidence: structuralHomeEvidence,
-    treeRepoShapePolicy: getBuiltinTreeRepoShapePolicy(),
+    treeRepoShapePolicy: embeddedRepoShapePolicy,
     relationshipsRegistry: getBuiltinSemanticNamingFolderTypeRelationshipsRegistry(),
   });
   const missingReasonsByPath = Object.fromEntries(
@@ -606,7 +619,7 @@ test('tree semantic naming folder-type relationship classifies only repository-t
       },
     ],
     treeStructuralHomeEvidence: structuralHomeEvidence,
-    treeRepoShapePolicy: getBuiltinTreeRepoShapePolicy(),
+    treeRepoShapePolicy: embeddedRepoShapePolicy,
     relationshipsRegistry: getBuiltinSemanticNamingFolderTypeRelationshipsRegistry(),
   });
   const unqualifiedCalculogicValidatorRecord = unqualifiedRelationshipEvidence.unclassifiedRelationshipRecords.find(
@@ -736,10 +749,87 @@ test('tree-structure-advisor runtime fallback preserves unexpected top-level fol
   assert.ok(advisory);
   assert.deepEqual(advisory.details.allowedTopLevelDirectories, EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES);
   assert.equal(advisory.details.allowedTopLevelDirectories.includes('doc'), true);
-  assert.equal(advisory.details.allowedTopLevelDirectories.includes('calculogic-validator'), true);
+  // Direct runtime callers without a prepared policy use the builtin generic policy, which does not
+  // bless the embedded validator folder name.
+  assert.equal(advisory.details.allowedTopLevelDirectories.includes('calculogic-validator'), false);
   assert.equal(advisory.details.allowedTopLevelDirectories.includes('src'), true);
   assert.notDeepEqual(advisory.details.allowedTopLevelDirectories, ['src']);
   assert.equal(Object.hasOwn(advisory.details, 'knownRoots'), false);
+});
+
+test('tree-structure-advisor fallback honors the prepared effective policy over a runtime closed over the builtin policy', () => {
+  // A direct runtime caller supplies a contextual effective policy, but its replacement runtime closed
+  // over the builtin allowlist and the replacement route is not ready (no execution contract).
+  const builtinAllowedSet = new Set(getBuiltinTreeRepoShapePolicy().allowedTopLevelDirectories);
+  const effectivePolicy = prepareContextualTreeRepoShapePolicy({
+    builtinPolicy: getBuiltinTreeRepoShapePolicy(),
+    validatorDevelopmentRoot: 'calculogic-validator',
+  });
+  const result = runTreeStructureAdvisorRuntime({
+    selectedPaths: [],
+    topLevelDirectoryNames: ['calculogic-validator', 'experiments', 'src'],
+    targets: [],
+    preparedDependencies: {
+      treeRepoShapePolicy: effectivePolicy,
+      treeOccurrenceClassificationReplacementRuntime: {
+        source: 'test-builtin-closed-over-replacement-runtime',
+        classifyOccurrenceRecords: (records = []) => records,
+        collectUnexpectedTopLevelDirectoryNames: (directoryNames = []) =>
+          directoryNames.filter((directoryName) => !builtinAllowedSet.has(directoryName)),
+      },
+    },
+  });
+
+  const unexpected = result.findings.filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER');
+  assert.deepEqual(unexpected.map((finding) => finding.path), ['experiments']);
+  assert.deepEqual(unexpected[0].details.allowedTopLevelDirectories, effectivePolicy.allowedTopLevelDirectories);
+  assert.equal(unexpected[0].details.allowedTopLevelDirectories.includes('calculogic-validator'), true);
+});
+
+test('tree-structure-advisor ready route falls back when the runtime classified against a different repo-shape policy', () => {
+  // A direct runtime caller supplies a contextual effective policy, but a gate-ready runtime classified
+  // against the builtin policy, so its `isRepoShapeAllowedTopLevelDirectory` flags disagree with it.
+  const builtinPolicy = getBuiltinTreeRepoShapePolicy();
+  const builtinAllowedSet = new Set(builtinPolicy.allowedTopLevelDirectories);
+  const effectivePolicy = prepareContextualTreeRepoShapePolicy({
+    builtinPolicy,
+    validatorDevelopmentRoot: 'calculogic-validator',
+  });
+  const readyInputs = createReadyClassificationPreparedInputs({
+    topLevelDirectoryNames: ['calculogic-validator', 'experiments', 'src'],
+    classificationsByName: new Map([
+      ['calculogic-validator', builtinAllowedSet.has('calculogic-validator')],
+      ['experiments', false],
+      ['src', true],
+    ]),
+  });
+  const runWith = (runtimeOverrides) => runTreeStructureAdvisorRuntime({
+    ...readyInputs,
+    preparedDependencies: {
+      ...readyInputs.preparedDependencies,
+      treeRepoShapePolicy: effectivePolicy,
+      treeOccurrenceClassificationReplacementRuntime: {
+        ...readyInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime,
+        ...runtimeOverrides,
+      },
+    },
+  });
+  const unexpectedOf = (result) => result.findings
+    .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER');
+
+  for (const [label, runtimeOverrides] of [
+    ['declared builtin allowlist', { allowedTopLevelDirectories: builtinPolicy.allowedTopLevelDirectories }],
+    ['undeclared allowlist', { allowedTopLevelDirectories: undefined }],
+  ]) {
+    const unexpected = unexpectedOf(runWith(runtimeOverrides));
+    assert.deepEqual(unexpected.map((finding) => finding.path), ['experiments'], label);
+    assert.deepEqual(unexpected[0].details.allowedTopLevelDirectories, effectivePolicy.allowedTopLevelDirectories, label);
+  }
+
+  // Positive anchor: a runtime that declares the effective policy keeps the ready route active, so its
+  // (here deliberately stale) classification flag still applies.
+  const consistent = unexpectedOf(runWith({ allowedTopLevelDirectories: effectivePolicy.allowedTopLevelDirectories }));
+  assert.deepEqual(consistent.map((finding) => finding.path), ['calculogic-validator', 'experiments']);
 });
 
 test('tree-structure-advisor top-level advisory uses ready replacement classification for delta cases', () => {
@@ -890,7 +980,9 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
       .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER')
       .map((finding) => finding.path);
 
-    assert.deepEqual(unexpectedTopLevelPaths, ['unmatched-package']);
+    // The runner resolves this fixture as an installed consumer (no explicit embedded development
+    // root), so a host folder named `calculogic-validator` is not a generic repo-shape entry.
+    assert.deepEqual(unexpectedTopLevelPaths, ['calculogic-validator', 'unmatched-package']);
 
     const namingResult = runNamingValidator(fixtureDir, { scope: 'repo' });
     const namingSemanticFamilyBridge = projectNamingSemanticFamilyBridge(namingResult);
@@ -904,7 +996,11 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
       ],
     );
 
-    const preparedInputs = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', namingSemanticFamilyBridge });
+    const preparedInputs = prepareTreeStructureAdvisorInputs(fixtureDir, {
+      scope: 'repo',
+      namingSemanticFamilyBridge,
+      packageRoot: embeddedPackageRootFor(fixtureDir),
+    });
     const addressedFolderObservations = preparedInputs.preparedDependencies.addressedNamingSemanticEvidenceBridge.observations
       .filter((observation) => observation.semanticEvidenceKind === 'semantic-family-root-folder');
     const addressedCompositionObservation = preparedInputs.preparedDependencies.addressedNamingSemanticEvidenceBridge.observations
@@ -1004,7 +1100,11 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
     assert.equal(Object.hasOwn(assessmentRecordsByPath, 'src'), false);
     assert.equal(Object.hasOwn(assessmentRecordsByPath, 'calculogic-validator'), false);
     assert.equal(Object.hasOwn(assessmentRecordsByPath, 'calculogic-doc-engine'), false);
-    assert.deepEqual(treeReport.findings.map((finding) => finding.code), ['TREE_UNEXPECTED_TOP_LEVEL_FOLDER']);
+    // Installed-consumer runner context: both `calculogic-validator` and `unmatched-package` (asserted above).
+    assert.deepEqual(treeReport.findings.map((finding) => finding.code), [
+      'TREE_UNEXPECTED_TOP_LEVEL_FOLDER',
+      'TREE_UNEXPECTED_TOP_LEVEL_FOLDER',
+    ]);
     assert.equal(Object.hasOwn(treeReport, 'treeStructuralContextAssessment'), false);
 
   } finally {
@@ -1027,7 +1127,11 @@ test('tree-structure-advisor ready route keeps semantic package roots non-unexpe
       ],
     };
 
-    const preparedInputs = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', namingSemanticFamilyBridge });
+    const preparedInputs = prepareTreeStructureAdvisorInputs(fixtureDir, {
+      scope: 'repo',
+      namingSemanticFamilyBridge,
+      packageRoot: embeddedPackageRootFor(fixtureDir),
+    });
     const classificationsByPath = Object.fromEntries(
       preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime
         .classifyOccurrenceRecords(preparedInputs.structuralAddressSnapshot.occurrenceRecords)
@@ -1045,6 +1149,12 @@ test('tree-structure-advisor ready route keeps semantic package roots non-unexpe
     const fallbackUnexpected = preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime
       .collectUnexpectedTopLevelDirectoryNames(preparedInputs.topLevelDirectoryNames);
     assert.deepEqual(fallbackUnexpected, ['unmatched-package']);
+    // Wiring prepares the runtime from the same effective policy, so the ready route's policy
+    // consistency gate passes and classification stays active.
+    assert.deepEqual(
+      preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime.allowedTopLevelDirectories,
+      preparedInputs.preparedDependencies.treeRepoShapePolicy.allowedTopLevelDirectories,
+    );
 
     const readyInputs = {
       ...preparedInputs,
@@ -1122,7 +1232,7 @@ test('tree-structure-advisor keeps general structural-home top-level folders une
     await fs.mkdir(path.join(fixtureDir, 'assets'), { recursive: true });
     await fs.mkdir(path.join(fixtureDir, 'ops'), { recursive: true });
 
-    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot: embeddedPackageRootFor(fixtureDir) });
     const unexpectedPaths = result.findings
       .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER')
       .map((finding) => finding.path)
@@ -1611,37 +1721,163 @@ test('tree installed-consumer context does not invent a validator development ro
 });
 
 
-test('tree-structure-advisor boundary drift keeps suite-core shared infra carveouts quiet', async () => {
-  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-boundary-shared-infra-'));
+
+const writeOwnedSignalFiles = async (directory, basename) => {
+  await fs.mkdir(directory, { recursive: true });
+  await fs.writeFile(path.join(directory, `${basename}.logic.mjs`), 'export const logic = true\n', 'utf8');
+  await fs.writeFile(path.join(directory, `${basename}.wiring.mjs`), 'export const wiring = true\n', 'utf8');
+};
+
+const driftFindingsOf = (result) => result.findings.filter((finding) => finding.code === 'TREE_OWNED_SLICE_BOUNDARY_DRIFT');
+
+// The two validator development contexts that have a Validator suite core.
+const BOUNDARY_DRIFT_CONTEXTS = [
+  {
+    name: 'standalone',
+    suiteCoreRoot: 'src/',
+    prepareFixture: async (fixtureDir) => {
+      await writeJson(path.join(fixtureDir, 'package.json'), { name: '@calculogic/validator' });
+      await fs.mkdir(path.join(fixtureDir, 'doc'), { recursive: true });
+      return { suiteCoreDir: path.join(fixtureDir, 'src'), packageRoot: fixtureDir };
+    },
+  },
+  {
+    name: 'embedded',
+    suiteCoreRoot: 'calculogic-validator/src/',
+    prepareFixture: async (fixtureDir) => {
+      await writeBaseFixtureRepo(fixtureDir);
+      return {
+        suiteCoreDir: path.join(fixtureDir, 'calculogic-validator', 'src'),
+        packageRoot: embeddedPackageRootFor(fixtureDir),
+      };
+    },
+  },
+];
+
+for (const context of BOUNDARY_DRIFT_CONTEXTS) {
+  test(`tree-structure-advisor boundary drift keeps suite-core carveouts quiet relative to the ${context.name} suite core`, async () => {
+    const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), `tree-structure-boundary-carveouts-${context.name}-`));
+
+    try {
+      const { suiteCoreDir, packageRoot } = await context.prepareFixture(fixtureDir);
+      await writeOwnedSignalFiles(path.join(suiteCoreDir, 'core', 'naming'), 'naming-validator');
+      await writeOwnedSignalFiles(path.join(suiteCoreDir, 'compat'), 'legacy-validator');
+      await writeOwnedSignalFiles(path.join(suiteCoreDir, 'registries', 'builtin'), 'validator-registry');
+      await fs.writeFile(path.join(suiteCoreDir, 'index.mjs'), "export * from './core/naming/naming-validator.logic.mjs';\n", 'utf8');
+      await fs.writeFile(path.join(suiteCoreDir, 'validator-config.schema.json'), '{}\n', 'utf8');
+      // A non-carveout subsystem in the same suite core proves the rule is active here.
+      await writeOwnedSignalFiles(path.join(suiteCoreDir, 'reporting'), 'reporting');
+
+      const driftFindings = driftFindingsOf(runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot }));
+
+      assert.deepEqual(driftFindings.map((finding) => finding.path), [`${context.suiteCoreRoot}reporting/`]);
+    } finally {
+      await fs.rm(fixtureDir, { recursive: true, force: true });
+    }
+  });
+}
+
+test('tree-structure-advisor emits owned-slice boundary drift under the standalone suite core src/', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-boundary-drift-standalone-'));
 
   try {
-    await writeBaseFixtureRepo(fixtureDir);
-    await fs.mkdir(path.join(fixtureDir, 'calculogic-validator', 'src', 'core', 'naming'), {
-      recursive: true,
-    });
-    await fs.writeFile(
-      path.join(fixtureDir, 'calculogic-validator', 'src', 'core', 'naming', 'naming-validator.logic.mjs'),
-      'export const namingCore = true\n',
-      'utf8',
-    );
-    await fs.writeFile(
-      path.join(fixtureDir, 'calculogic-validator', 'src', 'core', 'naming', 'naming-validator.wiring.mjs'),
-      'export const namingWiring = true\n',
-      'utf8',
-    );
+    const { suiteCoreDir, packageRoot } = await BOUNDARY_DRIFT_CONTEXTS[0].prepareFixture(fixtureDir);
+    await writeOwnedSignalFiles(path.join(suiteCoreDir, 'tree-structure-advisor'), 'tree-structure-advisor');
 
-    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    const prepared = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', packageRoot });
+    assert.equal(prepared.validatorDevelopmentRoot, '.');
 
-    assert.equal(
-      result.findings.some((finding) => finding.code === 'TREE_OWNED_SLICE_BOUNDARY_DRIFT'),
-      false,
-    );
+    const driftFindings = driftFindingsOf(runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot }));
+
+    assert.equal(driftFindings.length, 1);
+    assert.equal(driftFindings[0].path, 'src/tree-structure-advisor/');
+    assert.equal(driftFindings[0].details.suiteCoreRoot, 'src/');
+    assert.match(driftFindings[0].message, /suite-core src\/\*\*/u);
+    assert.deepEqual(driftFindings[0].details.matchedOwnedSignalPaths, [
+      'src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
+      'src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
+    ]);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }
 });
 
-test('tree-structure-advisor emits owned-slice boundary drift for clear subsystem growth under suite-core', async () => {
+test('tree-structure-advisor boundary drift behaves the same in standalone and embedded suite cores', async () => {
+  const findingsRelativeToSuiteCore = [];
+
+  for (const context of BOUNDARY_DRIFT_CONTEXTS) {
+    const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), `tree-structure-boundary-parity-${context.name}-`));
+    try {
+      const { suiteCoreDir, packageRoot } = await context.prepareFixture(fixtureDir);
+      await writeOwnedSignalFiles(path.join(suiteCoreDir, 'tree-structure-advisor'), 'tree-structure-advisor');
+      await writeOwnedSignalFiles(path.join(suiteCoreDir, 'core'), 'validator-runner');
+
+      const relativize = (value) => value.slice(context.suiteCoreRoot.length);
+      findingsRelativeToSuiteCore.push(
+        driftFindingsOf(runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot })).map((finding) => ({
+          code: finding.code,
+          severity: finding.severity,
+          classification: finding.classification,
+          path: relativize(finding.path),
+          matchedOwnedSignalPaths: finding.details.matchedOwnedSignalPaths.map(relativize),
+          threshold: finding.details.threshold,
+        })),
+      );
+    } finally {
+      await fs.rm(fixtureDir, { recursive: true, force: true });
+    }
+  }
+
+  const [standaloneFindings, embeddedFindings] = findingsRelativeToSuiteCore;
+  assert.equal(standaloneFindings.length, 1);
+  assert.deepEqual(standaloneFindings, embeddedFindings);
+});
+
+test('tree-structure-advisor never treats an installed consumer src/ as Validator suite core', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-boundary-drift-consumer-'));
+
+  try {
+    await writeJson(path.join(fixtureDir, 'package.json'), { name: 'consumer-app' });
+    await writeOwnedSignalFiles(path.join(fixtureDir, 'src', 'feature-engine'), 'feature-engine');
+    await writeOwnedSignalFiles(path.join(fixtureDir, 'src', 'tree-structure-advisor'), 'tree-structure-advisor');
+
+    // No packageRoot: the validator package is not this repository, so this is installed-consumer context.
+    const prepared = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo' });
+    assert.equal(prepared.validatorDevelopmentRoot, null);
+
+    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    assert.deepEqual(driftFindingsOf(result), []);
+  } finally {
+    await fs.rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test('tree-structure-advisor allows the calculogic-validator top-level folder only through explicit embedded context', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-repo-shape-embedded-context-'));
+
+  try {
+    await writeBaseFixtureRepo(fixtureDir);
+    const unexpectedPathsFor = (options) => runTreeStructureAdvisor(fixtureDir, { scope: 'repo', ...options }).findings
+      .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER')
+      .map((finding) => finding.path);
+
+    const embedded = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot: embeddedPackageRootFor(fixtureDir) });
+    assert.deepEqual(unexpectedPathsFor({ packageRoot: embeddedPackageRootFor(fixtureDir) }), []);
+    assert.equal(
+      embedded.findings.every((finding) => finding.code !== 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER'),
+      true,
+    );
+
+    // Installed consumer (no explicit embedded root) and standalone (the repository itself is the
+    // validator) do not bless a folder merely because it is named calculogic-validator.
+    assert.deepEqual(unexpectedPathsFor({}), ['calculogic-validator']);
+    assert.deepEqual(unexpectedPathsFor({ packageRoot: fixtureDir }), ['calculogic-validator']);
+  } finally {
+    await fs.rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test('tree-structure-advisor emits owned-slice boundary drift under embedded suite core (explicit embedded context)', async () => {
   const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-boundary-drift-owned-growth-'));
 
   try {
@@ -1672,8 +1908,9 @@ test('tree-structure-advisor emits owned-slice boundary drift for clear subsyste
       'utf8',
     );
 
-    const first = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
-    const second = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    const packageRoot = embeddedPackageRootFor(fixtureDir);
+    const first = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot });
+    const second = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot });
     const firstDriftFindings = first.findings.filter(
       (finding) => finding.code === 'TREE_OWNED_SLICE_BOUNDARY_DRIFT',
     );
@@ -1688,43 +1925,13 @@ test('tree-structure-advisor emits owned-slice boundary drift for clear subsyste
       'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
       'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
     ]);
+    assert.equal(firstDriftFindings[0].details.suiteCoreRoot, 'calculogic-validator/src/');
+    assert.match(firstDriftFindings[0].message, /suite-core calculogic-validator\/src\/\*\*/u);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }
 });
 
-test('tree-structure-advisor boundary drift preserves compat and public-entry carveouts', async () => {
-  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-boundary-drift-carveouts-'));
-
-  try {
-    await writeBaseFixtureRepo(fixtureDir);
-    await fs.mkdir(path.join(fixtureDir, 'calculogic-validator', 'src', 'compat'), { recursive: true });
-    await fs.writeFile(
-      path.join(fixtureDir, 'calculogic-validator', 'src', 'compat', 'legacy-validator.logic.mjs'),
-      'export const compatLogic = true\n',
-      'utf8',
-    );
-    await fs.writeFile(
-      path.join(fixtureDir, 'calculogic-validator', 'src', 'compat', 'legacy-validator.wiring.mjs'),
-      'export const compatWiring = true\n',
-      'utf8',
-    );
-    await fs.writeFile(
-      path.join(fixtureDir, 'calculogic-validator', 'src', 'index.mjs'),
-      "export * from './core/validator-runner.logic.mjs';\n",
-      'utf8',
-    );
-
-    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
-
-    assert.equal(
-      result.findings.some((finding) => finding.code === 'TREE_OWNED_SLICE_BOUNDARY_DRIFT'),
-      false,
-    );
-  } finally {
-    await fs.rm(fixtureDir, { recursive: true, force: true });
-  }
-});
 
 test('tree-structure-advisor directory target narrows analyzed paths/findings', async () => {
   const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-target-dir-'));
@@ -2020,17 +2227,18 @@ test('tree-structure-advisor consumes occurrence snapshot file records for valid
 
 test('tree-structure-advisor consumes occurrence-derived file paths for owned-slice boundary drift reasoning', () => {
   const fromOccurrenceSnapshot = runTreeStructureAdvisorRuntime({
+    validatorDevelopmentRoot: '.',
     scope: 'repo',
     selectedPaths: ['doc/README.md'],
     occurrenceSnapshot: {
-      scopeRoots: ['calculogic-validator'],
+      scopeRoots: ['.'],
       occurrenceRecords: [
         {
-          resolvedPath: 'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
+          resolvedPath: 'src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
           occurrenceType: 'file',
         },
         {
-          resolvedPath: 'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
+          resolvedPath: 'src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
           occurrenceType: 'file',
         },
       ],
@@ -2040,10 +2248,11 @@ test('tree-structure-advisor consumes occurrence-derived file paths for owned-sl
   });
 
   const withoutOccurrenceSnapshot = runTreeStructureAdvisorRuntime({
+    validatorDevelopmentRoot: '.',
     scope: 'repo',
     selectedPaths: [
-      'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
-      'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
+      'src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
+      'src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
     ],
     topLevelDirectoryNames: [],
     targets: [],
@@ -2062,17 +2271,18 @@ test('tree-structure-advisor consumes occurrence-derived file paths for owned-sl
 
 test('tree-structure-advisor occurrence-derived boundary drift reasoning remains stable for repeated-name subtree paths', () => {
   const result = runTreeStructureAdvisorRuntime({
+    validatorDevelopmentRoot: '.',
     scope: 'repo',
     selectedPaths: ['doc/README.md'],
     occurrenceSnapshot: {
-      scopeRoots: ['calculogic-validator'],
+      scopeRoots: ['.'],
       occurrenceRecords: [
         {
-          resolvedPath: 'calculogic-validator/src/src-helper/src-helper.logic.mjs',
+          resolvedPath: 'src/src-helper/src-helper.logic.mjs',
           occurrenceType: 'file',
         },
         {
-          resolvedPath: 'calculogic-validator/src/src-helper/src-helper.wiring.mjs',
+          resolvedPath: 'src/src-helper/src-helper.wiring.mjs',
           occurrenceType: 'file',
         },
       ],
@@ -2084,50 +2294,52 @@ test('tree-structure-advisor occurrence-derived boundary drift reasoning remains
   const driftFinding = result.findings.find((finding) => finding.code === 'TREE_OWNED_SLICE_BOUNDARY_DRIFT');
 
   assert.ok(driftFinding);
-  assert.equal(driftFinding.path, 'calculogic-validator/src/src-helper/');
+  assert.equal(driftFinding.path, 'src/src-helper/');
   assert.deepEqual(driftFinding.details.matchedOwnedSignalPaths, [
-    'calculogic-validator/src/src-helper/src-helper.logic.mjs',
-    'calculogic-validator/src/src-helper/src-helper.wiring.mjs',
+    'src/src-helper/src-helper.logic.mjs',
+    'src/src-helper/src-helper.wiring.mjs',
   ]);
 });
 
 test('tree-structure-advisor occurrence-derived boundary drift reasoning remains stable for rebased scope roots', () => {
   const result = runTreeStructureAdvisorRuntime({
+    validatorDevelopmentRoot: '.',
     scope: 'validator',
     selectedPaths: ['doc/README.md'],
     occurrenceSnapshot: {
-      scopeRoots: ['calculogic-validator/tree'],
+      scopeRoots: ['tree'],
       occurrenceRecords: [
         {
-          resolvedPath: 'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
+          resolvedPath: 'src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
           occurrenceType: 'file',
-          scopeRootPath: 'calculogic-validator/tree',
+          scopeRootPath: 'tree',
           isScopeTopOccurrence: false,
         },
         {
-          resolvedPath: 'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
+          resolvedPath: 'src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
           occurrenceType: 'file',
-          scopeRootPath: 'calculogic-validator/tree',
+          scopeRootPath: 'tree',
           isScopeTopOccurrence: false,
         },
       ],
     },
     topLevelDirectoryNames: [],
-    targets: ['calculogic-validator/tree'],
+    targets: ['tree'],
   });
 
   const driftFinding = result.findings.find((finding) => finding.code === 'TREE_OWNED_SLICE_BOUNDARY_DRIFT');
 
   assert.ok(driftFinding);
-  assert.equal(driftFinding.path, 'calculogic-validator/src/tree-structure-advisor/');
+  assert.equal(driftFinding.path, 'src/tree-structure-advisor/');
 });
 
 test('tree-structure-advisor falls back to selectedPaths when occurrence snapshot is malformed', () => {
   const result = runTreeStructureAdvisorRuntime({
+    validatorDevelopmentRoot: '.',
     scope: 'repo',
     selectedPaths: [
-      'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
-      'calculogic-validator/src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
+      'src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
+      'src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
     ],
     occurrenceSnapshot: {
       occurrenceRecords: 'malformed',

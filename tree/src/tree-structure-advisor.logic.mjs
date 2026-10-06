@@ -7,16 +7,10 @@ const TREE_REPO_SHAPE_POLICY = getBuiltinTreeRepoShapePolicy();
 const ALLOWED_TOP_LEVEL_DIRECTORY_NAMES = TREE_REPO_SHAPE_POLICY.allowedTopLevelDirectories;
 const ALLOWED_TOP_LEVEL_DIRECTORY_NAME_SET = new Set(ALLOWED_TOP_LEVEL_DIRECTORY_NAMES);
 
-const VALIDATOR_SUITE_CORE_ROOT = 'calculogic-validator/src/';
-const SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_PREFIXES = [
-  'calculogic-validator/src/core/',
-  'calculogic-validator/src/compat/',
-  'calculogic-validator/src/registries/',
-];
-const SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_EXACT_PATHS = new Set([
-  'calculogic-validator/src/index.mjs',
-  'calculogic-validator/src/validator-config.schema.json',
-]);
+// Suite-core carveouts are relative to the suite-core root, which is derived per run from the prepared
+// validator development root (`src/` standalone, `<embedded-root>/src/` embedded).
+const SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_PREFIXES = ['core/', 'compat/', 'registries/'];
+const SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_EXACT_PATHS = new Set(['index.mjs', 'validator-config.schema.json']);
 const SUITE_CORE_BOUNDARY_DRIFT_OWNED_SUBSYSTEM_MIN_FILES = 2;
 
 const BOUNDARY_DRIFT_BASENAME_SIGNAL_MATCHER =
@@ -34,7 +28,7 @@ const sortByPathThenCode = (left, right) => {
 const isValidatorOwnedBasenameSignal = (basename) =>
   TREE_SIGNAL_POLICY.validatorOwnedBasenameSignalMatchers.some(({ matcher }) => matcher.test(basename));
 
-const createNeutralReplacementRuntime = () => ({
+const createNeutralReplacementRuntime = (allowedTopLevelDirectoryNameSet = ALLOWED_TOP_LEVEL_DIRECTORY_NAME_SET) => ({
   classifyOccurrenceRecords: (occurrenceRecords = []) => occurrenceRecords,
   collectUnexpectedTopLevelDirectoryNames: (topLevelDirectoryNames = []) => {
     if (!Array.isArray(topLevelDirectoryNames)) {
@@ -43,10 +37,19 @@ const createNeutralReplacementRuntime = () => ({
 
     return topLevelDirectoryNames
       .filter((directoryName) => typeof directoryName === 'string' && directoryName.length > 0)
-      .filter((directoryName) => !ALLOWED_TOP_LEVEL_DIRECTORY_NAME_SET.has(directoryName))
+      .filter((directoryName) => !allowedTopLevelDirectoryNameSet.has(directoryName))
       .sort((left, right) => left.localeCompare(right));
   },
 });
+
+// The effective repo-shape policy is prepared by Tree wiring for each run; direct runtime callers that
+// omit it fall back to the builtin policy.
+const resolveAllowedTopLevelDirectoryNames = (preparedDependencies) => {
+  const preparedPolicy = preparedDependencies?.treeRepoShapePolicy;
+  return Array.isArray(preparedPolicy?.allowedTopLevelDirectories)
+    ? preparedPolicy.allowedTopLevelDirectories
+    : ALLOWED_TOP_LEVEL_DIRECTORY_NAMES;
+};
 
 const isReplacementRuntime = (replacementRuntime) => (
   replacementRuntime &&
@@ -93,16 +96,33 @@ const isClassifiedRepoTopFolderRecord = (record) => (
   typeof record.isRepoShapeAllowedTopLevelDirectory === 'boolean'
 );
 
+// The ready route trusts classification flags only when the runtime classified against the same
+// effective policy this run reports; a runtime prepared from a different policy falls back.
+const isReplacementRuntimePolicyConsistent = (replacementRuntime, allowedTopLevelDirectoryNameSet) => {
+  const declared = replacementRuntime.allowedTopLevelDirectories;
+  if (!Array.isArray(declared)) {
+    return false;
+  }
+
+  const declaredSet = new Set(declared);
+  return (
+    declaredSet.size === allowedTopLevelDirectoryNameSet.size &&
+    [...declaredSet].every((directoryName) => allowedTopLevelDirectoryNameSet.has(directoryName))
+  );
+};
+
 const collectUnexpectedTopLevelDirectoryNamesFromClassification = ({
   topLevelDirectoryNames,
   preparedInputs,
   replacementRuntime,
   preparedDependencies,
+  allowedTopLevelDirectoryNameSet,
 }) => {
   if (
     !Array.isArray(topLevelDirectoryNames) ||
     !isReplacementRuntime(replacementRuntime) ||
-    !isRuntimeExecutionReadyForReplacementRoute(preparedDependencies)
+    !isRuntimeExecutionReadyForReplacementRoute(preparedDependencies) ||
+    !isReplacementRuntimePolicyConsistent(replacementRuntime, allowedTopLevelDirectoryNameSet)
   ) {
     return null;
   }
@@ -150,37 +170,37 @@ const collectUnexpectedTopLevelDirectoryNamesFromClassification = ({
     .filter((directoryName) => {
       const classification = repoTopFolderRecordsByName.get(directoryName);
       return (
-        !ALLOWED_TOP_LEVEL_DIRECTORY_NAME_SET.has(directoryName) ||
+        !allowedTopLevelDirectoryNameSet.has(directoryName) ||
         classification.isRepoShapeAllowedTopLevelDirectory === false
       );
     })
     .sort((left, right) => left.localeCompare(right));
 };
 
-const collectFallbackUnexpectedTopLevelDirectoryNames = (topLevelDirectoryNames, replacementRuntime) => {
-  const runtime = resolveReplacementRuntime(replacementRuntime);
-  const unexpectedDirectoryNames = runtime.collectUnexpectedTopLevelDirectoryNames(topLevelDirectoryNames);
-
-  if (!Array.isArray(unexpectedDirectoryNames)) {
-    throw new Error('Tree replacement runtime collectUnexpectedTopLevelDirectoryNames() must return an array.');
-  }
-
-  return unexpectedDirectoryNames;
-};
+// Fallback membership always comes from the effective policy, so a finding never disagrees with the
+// `details.allowedTopLevelDirectories` it reports, even when a supplied replacement runtime closed
+// over a different allowlist.
+const collectFallbackUnexpectedTopLevelDirectoryNames = (topLevelDirectoryNames, allowedTopLevelDirectoryNameSet) =>
+  createNeutralReplacementRuntime(allowedTopLevelDirectoryNameSet).collectUnexpectedTopLevelDirectoryNames(
+    topLevelDirectoryNames,
+  );
 
 const collectTopLevelUnexpectedFolderFindings = (preparedInputs, replacementRuntime) => {
   if ((preparedInputs.scope ?? 'repo') !== 'repo') {
     return [];
   }
 
+  const allowedTopLevelDirectoryNames = resolveAllowedTopLevelDirectoryNames(preparedInputs.preparedDependencies);
+  const allowedTopLevelDirectoryNameSet = new Set(allowedTopLevelDirectoryNames);
   const unexpectedDirectoryNames = collectUnexpectedTopLevelDirectoryNamesFromClassification({
     topLevelDirectoryNames: preparedInputs.topLevelDirectoryNames,
     preparedInputs,
     replacementRuntime,
     preparedDependencies: preparedInputs.preparedDependencies,
-  }) ?? collectFallbackUnexpectedTopLevelDirectoryNames(preparedInputs.topLevelDirectoryNames, replacementRuntime);
+    allowedTopLevelDirectoryNameSet,
+  }) ?? collectFallbackUnexpectedTopLevelDirectoryNames(preparedInputs.topLevelDirectoryNames, allowedTopLevelDirectoryNameSet);
 
-  const allowedTopLevelDirectories = [...ALLOWED_TOP_LEVEL_DIRECTORY_NAMES];
+  const allowedTopLevelDirectories = [...allowedTopLevelDirectoryNames];
 
   return unexpectedDirectoryNames
     .sort((left, right) => left.localeCompare(right))
@@ -228,23 +248,38 @@ const collectValidatorOwnedOutsideTreeFindings = (paths, validatorDevelopmentRoo
     }));
 };
 
-const isBoundaryDriftCarveoutPath = (relativePath) =>
-  SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_EXACT_PATHS.has(relativePath) ||
-  SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_PREFIXES.some((prefix) => relativePath.startsWith(prefix));
+// Without a validator development root (installed consumer) there is no Validator suite core: a
+// consumer's own `src/**` is never treated as one.
+const resolveSuiteCoreRoot = (validatorDevelopmentRoot) => {
+  if (typeof validatorDevelopmentRoot !== 'string' || validatorDevelopmentRoot.length === 0) {
+    return null;
+  }
 
-const collectOwnedSliceBoundaryDriftFindings = (paths) => {
+  return validatorDevelopmentRoot === '.' ? 'src/' : `${validatorDevelopmentRoot}/src/`;
+};
+
+const isBoundaryDriftCarveoutSuffix = (suiteCoreRelativePath) =>
+  SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_EXACT_PATHS.has(suiteCoreRelativePath) ||
+  SUITE_CORE_BOUNDARY_DRIFT_CARVEOUT_PREFIXES.some((prefix) => suiteCoreRelativePath.startsWith(prefix));
+
+const collectOwnedSliceBoundaryDriftFindings = (paths, validatorDevelopmentRoot) => {
+  const suiteCoreRoot = resolveSuiteCoreRoot(validatorDevelopmentRoot);
+  if (suiteCoreRoot === null) {
+    return [];
+  }
+
   const filesBySuiteCoreSubtree = new Map();
 
   for (const relativePath of paths) {
-    if (!relativePath.startsWith(VALIDATOR_SUITE_CORE_ROOT)) {
+    if (!relativePath.startsWith(suiteCoreRoot)) {
       continue;
     }
 
-    if (isBoundaryDriftCarveoutPath(relativePath)) {
+    const suffix = relativePath.slice(suiteCoreRoot.length);
+    if (isBoundaryDriftCarveoutSuffix(suffix)) {
       continue;
     }
 
-    const suffix = relativePath.slice(VALIDATOR_SUITE_CORE_ROOT.length);
     const [topLevelSegment] = suffix.split('/');
     if (!topLevelSegment || topLevelSegment.includes('.')) {
       continue;
@@ -272,13 +307,13 @@ const collectOwnedSliceBoundaryDriftFindings = (paths) => {
         {
           code: 'TREE_OWNED_SLICE_BOUNDARY_DRIFT',
           severity: 'info',
-          path: `${VALIDATOR_SUITE_CORE_ROOT}${topLevelSegment}/`,
+          path: `${suiteCoreRoot}${topLevelSegment}/`,
           classification: 'advisory-structure',
           message:
-            'Likely validator-owned subsystem growth is accumulating under suite-core calculogic-validator/src/** rather than an owned slice root.',
+            `Likely validator-owned subsystem growth is accumulating under suite-core ${suiteCoreRoot}** rather than an owned slice root.`,
           ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
           details: {
-            suiteCoreRoot: VALIDATOR_SUITE_CORE_ROOT,
+            suiteCoreRoot,
             observedSubtree: topLevelSegment,
             matchedOwnedSignalPaths: matchedOwnedSignals,
             threshold: {
@@ -413,7 +448,7 @@ export const runTreeStructureAdvisor = (preparedInputs = {}) => {
       selectedPathsForReasoning,
       prepared.validatorDevelopmentRoot,
     ),
-    ...collectOwnedSliceBoundaryDriftFindings(selectedPathsForReasoning),
+    ...collectOwnedSliceBoundaryDriftFindings(selectedPathsForReasoning, prepared.validatorDevelopmentRoot),
     ...collectContributorFindings(prepared),
   ].sort(sortByPathThenCode);
 

@@ -66,12 +66,18 @@ Current boundary note: shipped tree heuristics may ingest naming-derived semanti
 
 1. **Top-level unexpected-folder advisory**
    - Emit info advisory for clearly unusual non-hidden top-level folders outside known repo shape.
-   - Builtin Tree-owned repo-shape policy remains bounded/deterministic and includes stable current peers: `bin`, `calculogic-doc-engine`, `calculogic-validator`, `doc`, `docs`, `public`, `scripts`, `src`, `test`, `tools`.
+   - Builtin Tree-owned repo-shape policy remains bounded/deterministic and lists generic structural peers: `bin`, `doc`, `docs`, `public`, `scripts`, `src`, `test`, `tools`.
+   - `calculogic-validator` is not a generic builtin entry. Tree wiring prepares an effective repo-shape policy for each run: the builtin policy plus, in embedded development only, the top-level folder of the explicit validator development root. Standalone development and installed consumers add nothing. The effective policy is a new prepared value; the cached builtin registry state is never modified.
+   - **Compatibility exception:** `calculogic-doc-engine` remains temporarily in the builtin repo-shape allowance to preserve current React-app behavior. Its presence is not being affirmed as a universal generic repository root. Replacing this compatibility allowance requires a separately scoped mechanism for consumer-specific or evidence-derived repository shape.
 2. **Validator-owned-looking file outside validator tree**
    - Consume the optional validator development root resolved by suite core and emit an info advisory when a filename/path signal strongly indicates validator ownership but the file is outside that contextual root.
    - Standalone development uses the repository root, embedded development uses `calculogic-validator/`, and installed consumer context does not invent a validator development root.
+3. **Owned-slice boundary drift**
+   - Derive the Validator suite-core root from the same prepared validator development root: `src/` in standalone development, `calculogic-validator/src/` in embedded development.
+   - Interpret the suite-core carveouts (`core/`, `compat/`, `registries/`, `index.mjs`, `validator-config.schema.json`) relative to that suite-core root, through one relative policy rather than separate standalone and embedded tables.
+   - Without a validator development root (installed consumer), do not emit the advisory: a consumer's own `src/**` is never treated as Validator suite core, and an installed package location is never treated as Validator development source.
 
-3. **Shim/compat surface advisory (hardened evidence precedence, V0.1.5)**
+4. **Shim/compat surface advisory (hardened evidence precedence, V0.1.5)**
    - Collects deterministic shim evidence with staged evaluation (path/surface/token-first; content reads only for deterministic shim candidates) and bounded fields:
      - `artifactSurface` (`quality|docs|examples|fixtures|runtimeish`)
      - folder token signals, basename token signals
