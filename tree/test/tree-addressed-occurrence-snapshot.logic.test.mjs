@@ -111,3 +111,75 @@ test('records keep Tree path order and carry the traversal order as orderIndex',
     ['src', 'src/a', 'src/a/b.mjs', 'src/m.mjs', 'src/z.mjs'],
   );
 });
+
+// Contract coverage carried over from the retired private producers' unit tests (Refs #49), now
+// asserted against the production chain.
+
+test('repeated names are disambiguated by lineage and address', () => {
+  const records = byPath(project({
+    selectedPaths: ['calculogic-validator/src/core/runtime.mjs', 'calculogic-validator/naming/src/naming.logic.mjs', 'tree/src/tree.logic.mjs'],
+    includeRoots: ['calculogic-validator'],
+  }));
+  const srcRecords = ['calculogic-validator/src', 'calculogic-validator/naming/src', 'tree/src'].map((recordPath) => records.get(recordPath));
+  assert.equal(srcRecords.every((record) => record.actualName === 'src'), true);
+  assert.equal(new Set(srcRecords.map((record) => record.occurrenceMarker)).size, 3);
+  assert.equal(new Set(srcRecords.map((record) => record.lineageSegments.join('/'))).size, 3);
+});
+
+test('lineage, depth and parent paths are deterministic below an include root', () => {
+  const records = byPath(project({ selectedPaths: ['tree/src/registries/tree-structural-homes-registry.logic.mjs'], includeRoots: ['tree'] }));
+  assert.deepEqual(records.get('tree/src').lineageSegments, ['tree', 'src']);
+  assert.equal(records.get('tree/src').depth, 1);
+  assert.equal(records.get('tree/src/registries/tree-structural-homes-registry.logic.mjs').parentResolvedPath, 'tree/src/registries');
+});
+
+test('folder and file markers follow the address grammar: letters for folders, numbers for files', () => {
+  const records = byPath(project({
+    selectedPaths: ['root/folder-a/file-a-1.txt', 'root/folder-a/file-a-2.txt', 'root/folder-b/sub-a/file-b-1.txt', 'root/folder-b/sub-b/file-b-2.txt', 'root/folder-b/sub-b/file-b-3.txt'],
+    includeRoots: ['root'],
+  }));
+  assert.deepEqual(
+    [...records.values()].map((record) => [record.resolvedPath, record.occurrenceType, record.occurrenceMarker]),
+    [
+      ['root', 'folder', 'A'],
+      ['root/folder-a', 'folder', 'A.A'],
+      ['root/folder-a/file-a-1.txt', 'file', 'A.A.1'],
+      ['root/folder-a/file-a-2.txt', 'file', 'A.A.2'],
+      ['root/folder-b', 'folder', 'A.B'],
+      ['root/folder-b/sub-a', 'folder', 'A.B.A'],
+      ['root/folder-b/sub-a/file-b-1.txt', 'file', 'A.B.A.1'],
+      ['root/folder-b/sub-b', 'folder', 'A.B.B'],
+      ['root/folder-b/sub-b/file-b-2.txt', 'file', 'A.B.B.1'],
+      ['root/folder-b/sub-b/file-b-3.txt', 'file', 'A.B.B.2'],
+    ],
+  );
+  assert.deepEqual(records.get('root/folder-b/sub-b/file-b-3.txt').markerSegments, ['A', 'B', 'B', '2']);
+});
+
+test('a directory target is the scoped root, and lineage rebases from it', () => {
+  const records = byPath(project({ selectedPaths: ['tree/src/tree-structure-advisor.logic.mjs'], includeRoots: ['tree'], targets: [{ relPath: 'tree', kind: 'dir' }] }));
+  const scopedRoot = records.get('tree');
+  assert.deepEqual(
+    [scopedRoot.isScopedRoot, scopedRoot.isScopeTopOccurrence, scopedRoot.depth, scopedRoot.lineageSegments],
+    [true, true, 0, ['tree']],
+  );
+  assert.deepEqual([records.get('tree/src').scopeRootPath, records.get('tree/src').lineageSegments, records.get('tree/src').depth], ['tree', ['tree', 'src'], 1]);
+});
+
+test('a nested file target rebases from its containing folder and avoids file-root lineage', () => {
+  const snapshot = project({
+    selectedPaths: ['tree/src/tree-structure-advisor.logic.mjs'],
+    includeRoots: ['calculogic-validator'],
+    targets: [{ relPath: 'tree/src/tree-structure-advisor.logic.mjs', kind: 'file' }],
+  });
+  const fileRecord = byPath(snapshot).get('tree/src/tree-structure-advisor.logic.mjs');
+  assert.deepEqual(snapshot.scopeRoots, ['tree/src']);
+  assert.deepEqual([fileRecord.scopeRootPath, fileRecord.isScopedRoot, fileRecord.lineageSegments], ['tree/src', false, ['tree/src', 'tree-structure-advisor.logic.mjs']]);
+});
+
+test('records carry no Tree policy or report fields', () => {
+  const [record] = project({ selectedPaths: ['src/a.mjs'], includeRoots: ['src'] }).occurrenceRecords;
+  for (const policyField of ['code', 'severity', 'placementConfidence', 'folderKind', 'structuralHome', 'semanticHome']) {
+    assert.equal(Object.hasOwn(record, policyField), false, policyField);
+  }
+});

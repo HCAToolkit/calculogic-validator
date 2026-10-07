@@ -1,6 +1,6 @@
 # Tree Structural Address Usage Inventory
 
-> Superseded for producer ownership by #45: Tree wiring now prepares `structuralAddressSnapshot` through Structural Addressing (`structural-addressing-tree-codebase-validation-input.spec.md` and the probe contract's "Addressing-backed projection"). The rows below that name `prepareTreeStructuralAddressSnapshot` or `tree-occurrence-snapshot.logic.mjs` as the wiring's producer are historical. Those modules remain only as test references until their retirement.
+> Superseded for producer ownership by #45: Tree wiring now prepares `structuralAddressSnapshot` through Structural Addressing (`structural-addressing-tree-codebase-validation-input.spec.md` and the probe contract's "Addressing-backed projection"). The rows below that name `prepareTreeStructuralAddressSnapshot` or `tree-occurrence-snapshot.logic.mjs` as the wiring's producer are historical. Those modules, and the `occurrenceSnapshot` prepared input this inventory names, were retired in #49.
 
 ## Status and scope
 

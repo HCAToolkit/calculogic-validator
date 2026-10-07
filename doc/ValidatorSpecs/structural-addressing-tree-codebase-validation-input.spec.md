@@ -4,7 +4,7 @@
 
 - **Ownership:** Addressing-owned (`structural-addressing`). The adapter is a domain adapter for the `tree-codebase` profile, as `ValidatorBridgeContracts.md` §3.2 assigns to Addressing.
 - **Authority:** bounded normative supporting spec for the validation input adapter of the `tree-codebase` profile. It does not change the profile, the marker strategies or `prepareTreeCodebaseAddressedSnapshot`.
-- **current runtime truth (#45):** the adapter (`structural-addressing/src/structural-addressing-tree-codebase-validation-input.logic.mjs`, `prepareTreeCodebaseValidationInput`) is implemented. Tree wiring consumes it: adapter → `prepareTreeCodebaseAddressedSnapshot` → the Tree-owned projection (`tree-owned/tree-structural-address-probe-contract.spec.md`, "Addressing-backed projection"). Tree's private producers (`prepareTreeOccurrenceSnapshot`, `prepareTreeStructuralAddressSnapshot`) are no longer used by wiring. They remain only as the comparison and parity tests' reference until their retirement, a separate #39 follow-on.
+- **current runtime truth (#45):** the adapter (`structural-addressing/src/structural-addressing-tree-codebase-validation-input.logic.mjs`, `prepareTreeCodebaseValidationInput`) is implemented. Tree wiring consumes it: adapter → `prepareTreeCodebaseAddressedSnapshot` → the Tree-owned projection (`tree-owned/tree-structural-address-probe-contract.spec.md`, "Addressing-backed projection"). Tree's former private producers (`prepareTreeOccurrenceSnapshot`, `prepareTreeStructuralAddressSnapshot`) were retired in #49.
 - **History:** this spec landed first (#46), the adapter and projection with parity tests second (#47), and the wiring switch third.
 
 Evidence: `doc/Audits/tree-structural-addressing-comparison.audit.md` (#40, #44), §5.
@@ -126,16 +126,16 @@ The roots Structural Addressing addresses, derived from `declaredScopeRoots`:
 
 ---
 
-## Expected differences from Tree's private producer
+## Corrections relative to Tree's former private producer
 
-These differences are corrections, gated in #45:
+These differences were deliberate corrections, gated in #45:
 
 - **D1:** root files outside every scope root are addressed at depth 0 with a `.` binding.
 - **D2:** no phantom ancestors, so a folder scope root that a phantom sorted before keeps marker `A`.
 - **D4:** collapsed overlapping roots get one nested identity per path. An empty collapsed root is kept, and nesting it can add intermediate folders below the outer root (`tree/x` for `tree/x/empty`).
 - **O2:** `orderIndex` is non-null.
 
-Every other address, parent, depth and type is identical. The comparison suite (`test/tree-structural-addressing.comparison.test.mjs`) and the #45 production parity test hold that line.
+Every other address, parent, depth and type was identical (#45 parity evidence; the old-vs-new parity test was retired with the private producers in #49). The comparison suite (`test/tree-structural-addressing.comparison.test.mjs`) and the adapter and projection tests now pin the production outcomes directly.
 
 ---
 
@@ -155,4 +155,3 @@ Every other address, parent, depth and type is identical. The comparison suite (
 - Changing the `tree-codebase` profile, marker strategies or `prepareTreeCodebaseAddressedSnapshot`.
 - Making Addressing runner-visible or registering it as a validator slice.
 - Deciding I1–I3 for get-tree output, or fixing D3.
-- Retiring Tree's private snapshot modules (a separate #39 follow-on).

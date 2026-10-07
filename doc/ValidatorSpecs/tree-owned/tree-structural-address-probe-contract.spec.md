@@ -109,7 +109,7 @@ This section defines neutral structural-address evidence semantics only; it does
 
 ### Addressing-backed projection (#45)
 
-Status: current runtime truth. These rules bind the Tree projection module (`tree/src/tree-addressed-occurrence-snapshot.logic.mjs`, `prepareTreeAddressedOccurrenceSnapshot`), which Tree wiring uses to prepare `structuralAddressSnapshot`. Evidence: `doc/Audits/tree-structural-addressing-comparison.audit.md` §5, and the parity tests `test/tree-addressed-occurrence-snapshot.parity.test.mjs` and `test/tree-structural-addressing.comparison.test.mjs`.
+Status: current runtime truth. These rules bind the Tree projection module (`tree/src/tree-addressed-occurrence-snapshot.logic.mjs`, `prepareTreeAddressedOccurrenceSnapshot`), which Tree wiring uses to prepare `structuralAddressSnapshot`. Evidence: `doc/Audits/tree-structural-addressing-comparison.audit.md` §5, `test/tree-structural-addressing.comparison.test.mjs` and `tree/test/tree-addressed-occurrence-snapshot.logic.test.mjs`.
 
 **Producer chain.** Tree wiring passes suite-core's prepared values to the Addressing-owned adapter (`structural-addressing-tree-codebase-validation-input.spec.md`). The adapter's `treeCodebaseInput` goes to `prepareTreeCodebaseAddressedSnapshot`. This projection then maps the addressed records onto the evidence shape above. Only Tree wiring imports Addressing modules; Tree core keeps consuming prepared inputs.
 
@@ -145,17 +145,16 @@ Structural Addressing's own envelope (string `scope`, node-object `scopeRoots`, 
 Deepest-root binding keeps an inner root's own binding after the adapter collapses overlapping roots: `tree/src` under `tree` still binds to `tree/src`. Under the top-level-entry fallback (`system` profile), each top-level entry is its own declared root, so it keeps `isScopedRoot: true`, as today.
 
 **Prepared inputs.**
-- `structuralAddressSnapshot` is the projected snapshot.
-- `occurrenceSnapshot` references **the same object**. It is a transitional, deprecated alias kept for one transition, and is removed with the retirement of the private snapshot modules (a separate #39 follow-on).
-- New consumers read `structuralAddressSnapshot`.
+- `structuralAddressSnapshot` is the projected snapshot and the only snapshot input of Tree core.
+- The transitional `occurrenceSnapshot` alias was retired in #49, together with Tree's former private producers.
 
-**Corrections relative to the private producer** (gated in #45, see the audit §5.7):
+**Corrections relative to the former private producer** (gated in #45, see the audit §5.7):
 - **D1:** a root file outside every declared root binds to `.`, which corrects `scopeRootPath`, `lineageSegments`, `isScopeTopOccurrence` and `depth`.
 - **D2:** no phantom ancestors.
 - **D4:** collapsed overlapping roots change address, marker segments, parent and depth, while binding, lineage and both scope flags are preserved. An empty collapsed root stays as an occurrence, and nesting it can add intermediate folder occurrences below the outer root.
 - **O2:** `orderIndex` is non-null.
 
-Everything else matches the private producer field for field.
+Everything else matched the former private producer field for field when it was retired.
 
 ### Relationship to known-root compatibility interpretation
 

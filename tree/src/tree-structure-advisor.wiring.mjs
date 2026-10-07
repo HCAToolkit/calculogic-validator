@@ -103,8 +103,6 @@ export const prepareTreeStructureAdvisorInputs = (
     selectedPaths,
     source: 'tree-structure-advisor.wiring',
   });
-  // Transitional, deprecated alias of the same object; removed with the private snapshot modules.
-  const occurrenceSnapshot = structuralAddressSnapshot;
   const structuralHomesRegistry = getBuiltinStructuralHomesRegistry();
   const folderKindsRegistry = getBuiltinFolderKindsRegistry();
   const treeRepoShapePolicy = prepareContextualTreeRepoShapePolicy({
@@ -223,7 +221,6 @@ export const prepareTreeStructureAdvisorInputs = (
     scope: scopedSnapshotInputs.scope,
     selectedPaths,
     validatorDevelopmentRoot,
-    occurrenceSnapshot,
     topLevelDirectoryNames: collectTopLevelDirectoryNames(repositoryRoot),
     targets: scopedSnapshotInputs.targets,
     structuralAddressSnapshot,

@@ -3,8 +3,21 @@ import { test } from 'node:test';
 import {
   prepareTreeOccurrenceClassificationReplacementRuntime,
 } from '../src/tree-occurrence-classification.logic.mjs';
-import { prepareTreeOccurrenceSnapshot } from '../src/tree-occurrence-snapshot.logic.mjs';
-import { prepareTreeStructuralAddressSnapshot } from '../src/tree-structural-address-snapshot.logic.mjs';
+import { prepareTreeAddressedOccurrenceSnapshot } from '../src/tree-addressed-occurrence-snapshot.logic.mjs';
+import { prepareTreeCodebaseValidationInput } from '../../structural-addressing/src/structural-addressing-tree-codebase-validation-input.logic.mjs';
+import { prepareTreeCodebaseAddressedSnapshot } from '../../structural-addressing/src/structural-addressing-tree-codebase.logic.mjs';
+
+// Builds the addressed snapshot exactly as Tree wiring does (Refs #45, #49).
+const prepareProductionSnapshot = ({ selectedPaths = [], includeRoots = [], targets = [] }) => {
+  const adapted = prepareTreeCodebaseValidationInput({ selectedPaths, includeRoots, targets });
+  return prepareTreeAddressedOccurrenceSnapshot({
+    occurrenceRecords: prepareTreeCodebaseAddressedSnapshot(adapted.treeCodebaseInput).occurrenceRecords,
+    declaredScopeRoots: adapted.declaredScopeRoots,
+    targets,
+    selectedPaths,
+    source: 'test',
+  });
+};
 
 const TEST_REPO_SHAPE_POLICY = {
   allowedTopLevelDirectories: [
@@ -48,7 +61,7 @@ const byResolvedPath = (occurrenceRecords) =>
   Object.fromEntries(occurrenceRecords.map((record) => [record.resolvedPath, record]));
 
 test('tree occurrence classification marks replacement repo-top structural roots deterministically', () => {
-  const snapshot = prepareTreeOccurrenceSnapshot({
+  const snapshot = prepareProductionSnapshot({
     selectedPaths: ['src/index.js'],
     includeRoots: [],
     targets: [],
@@ -64,7 +77,7 @@ test('tree occurrence classification marks replacement repo-top structural roots
 });
 
 test('tree occurrence classification marks replacement repo-top semantic roots deterministically', () => {
-  const snapshot = prepareTreeOccurrenceSnapshot({
+  const snapshot = prepareProductionSnapshot({
     selectedPaths: ['calculogic-validator/src/index.mjs'],
     includeRoots: [],
     targets: [],
@@ -80,7 +93,7 @@ test('tree occurrence classification marks replacement repo-top semantic roots d
 });
 
 test('tree occurrence classification keeps repo-top class semantics stable across scoped rebasing', () => {
-  const snapshot = prepareTreeOccurrenceSnapshot({
+  const snapshot = prepareProductionSnapshot({
     selectedPaths: ['calculogic-validator/tree/src/tree-structure-advisor.logic.mjs'],
     includeRoots: ['calculogic-validator'],
     targets: [{ relPath: 'calculogic-validator/tree', kind: 'dir' }],
@@ -95,7 +108,7 @@ test('tree occurrence classification keeps repo-top class semantics stable acros
 });
 
 test('tree occurrence classification keeps repeated names distinct across depth and context', () => {
-  const snapshot = prepareTreeOccurrenceSnapshot({
+  const snapshot = prepareProductionSnapshot({
     selectedPaths: ['src/components/button.js', 'calculogic-validator/src/tree/components/rule.mjs'],
     includeRoots: [],
     targets: [],
@@ -115,7 +128,7 @@ test('tree occurrence classification keeps repeated names distinct across depth 
 });
 
 test('tree occurrence classification keeps unknown cases deterministic and bounded', () => {
-  const snapshot = prepareTreeOccurrenceSnapshot({
+  const snapshot = prepareProductionSnapshot({
     selectedPaths: ['experiments/notes.txt'],
     includeRoots: [],
     targets: [],
@@ -131,18 +144,12 @@ test('tree occurrence classification keeps unknown cases deterministic and bound
 
 
 test('tree occurrence classification replacement runtime classifies from prepared Tree evidence', () => {
-  const snapshot = prepareTreeOccurrenceSnapshot({
+  const snapshot = prepareProductionSnapshot({
     selectedPaths: ['src/components/button.js', 'calculogic-validator/tree/index.mjs'],
     includeRoots: [],
     targets: [],
   });
-  const addressedSnapshot = prepareTreeStructuralAddressSnapshot({
-    occurrenceSnapshot: snapshot,
-    selectedPaths: ['src/components/button.js', 'calculogic-validator/tree/index.mjs'],
-    targets: [],
-    includeRoots: [],
-    scope: { source: 'test' },
-  });
+  const addressedSnapshot = snapshot;
   const replacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence: {
       source: 'test',
