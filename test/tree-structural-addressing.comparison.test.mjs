@@ -319,6 +319,47 @@ test('comparison A: the probe contract\'s occurrence concepts are deterministica
   }
 });
 
+test('comparison A: the probe contract\'s snapshot envelope is input-derived and not the Structural Addressing envelope', () => {
+  // The probe contract also preserves the envelope: `scope: { scopeRootPath, targetKind, source }` and
+  // a string `scopeRoots` list. Every envelope value comes from the inputs (scope roots, targets,
+  // selected paths, source), never from the occurrence records, so an adapter can emit it verbatim.
+  const cases = [
+    { label: 'include roots', input: { selectedPaths: ['src/a.mjs', 'test/b.mjs'], includeRoots: ['src', 'test'] }, scopeRoots: ['src', 'test'], scopeRootPath: 'src', targetKind: 'mixed' },
+    { label: 'standalone whole scope', input: { selectedPaths: ['README.md', 'src/a.mjs'], includeRoots: ['.'] }, scopeRoots: ['.'], scopeRootPath: '.', targetKind: 'mixed' },
+    { label: 'nested directory target', input: { selectedPaths: ['tree/src/a.mjs'], targets: ['tree/src'] }, scopeRoots: ['tree/src'], scopeRootPath: 'tree/src', targetKind: 'dir' },
+    { label: 'nested file target', input: { selectedPaths: ['tree/src/index.mjs'], targets: ['tree/src/index.mjs'] }, scopeRoots: ['tree/src'], scopeRootPath: 'tree/src', targetKind: 'file' },
+    { label: 'repository-root file target', input: { selectedPaths: ['README.md'], targets: ['README.md'] }, scopeRoots: ['.'], scopeRootPath: '.', targetKind: 'file' },
+    { label: 'overlapping targets', input: { selectedPaths: ['tree/src/x.mjs'], targets: ['tree', 'tree/src'] }, scopeRoots: ['tree', 'tree/src'], scopeRootPath: 'tree', targetKind: 'mixed' },
+  ];
+  for (const { label, input, scopeRoots, scopeRootPath, targetKind } of cases) {
+    const envelopeOf = ({ occurrenceRecords, ...envelope }) => envelope;
+    const snapshot = prepareTreeStructuralAddressSnapshot({ ...input, scope: { source: 'tree-structure-advisor.wiring' } });
+    assert.deepEqual(
+      envelopeOf(snapshot),
+      { scope: { scopeRootPath, targetKind, source: 'tree-structure-advisor.wiring' }, scopeRoots },
+      label,
+    );
+    // Same envelope with no occurrence records at all: it does not depend on them.
+    const recordless = prepareTreeStructuralAddressSnapshot({
+      ...input,
+      occurrenceSnapshot: { scopeRoots: snapshot.scopeRoots, occurrenceRecords: [] },
+      scope: { source: 'tree-structure-advisor.wiring' },
+    });
+    assert.deepEqual(envelopeOf(recordless), envelopeOf(snapshot), label);
+  }
+
+  // Structural Addressing's envelope is a different shape: a string-or-null `scope`, node-object
+  // `scopeRoots`, and profile metadata. Its roots are collapsed (D4) and omit the `.` root (§5.3),
+  // so mapping them back would lose `tree/src` from overlapping targets and the `.` binding.
+  const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(['tree/src/x.mjs'], ['tree']) });
+  assert.equal(addressing.scope, null);
+  assert.deepEqual(Object.keys(addressing).sort(), [
+    'domainPrefix', 'occurrenceRecords', 'profileId', 'scope', 'scopeRoots', 'snapshotOutputId', 'sourceNamespace', 'target',
+  ]);
+  assert.deepEqual(addressing.scopeRoots.map((node) => node.path), ['tree']);
+  assert.equal(typeof addressing.scopeRoots[0], 'object');
+});
+
 test('comparison A: record order differs (Tree sorts full paths; Addressing is pre-order with explicit orderIndex)', () => {
   const filePaths = ['doc/a/x.md', 'doc/a-b/x.md', 'doc/A/y.md'];
   const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, includeRoots: ['doc'] });
