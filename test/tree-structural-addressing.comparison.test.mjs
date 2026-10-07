@@ -426,6 +426,9 @@ test('comparison B: membership rules differ between Tree input collection and th
       '.hidden-file': 'x\n',
       'build/out.js': 'x\n',
       'src/build/nested.js': 'x\n',
+      // A `.git` file, as in a submodule or a Git worktree checkout.
+      'vendored/.git': 'gitdir: ../.git/modules/vendored\n',
+      'vendored/lib.js': 'x\n',
       'dist/out.js': 'x\n',
       'coverage/lcov.info': 'x\n',
       'node_modules/pkg/index.js': 'x\n',
@@ -447,10 +450,11 @@ test('comparison B: membership rules differ between Tree input collection and th
   );
   assert.deepEqual(
     [...treeByPath.keys()].filter((occurrencePath) => !addressingPaths.has(occurrencePath)).sort(),
-    // get-tree excludes `build` folders at any depth, Tree excludes none; a directory symlink is
-    // skipped by get-tree but collected by the suite walk as a non-directory entry, so Tree records it
-    // as a file occurrence.
-    ['build', 'build/out.js', 'src-link', 'src/build', 'src/build/nested.js'],
+    // get-tree excludes `build` folders at any depth, Tree excludes none; get-tree excludes any entry
+    // named `.git` while the suite walk excludes only a `.git` directory, so a `.git` file is a Tree
+    // file occurrence; a directory symlink is skipped by get-tree but collected by the suite walk as a
+    // non-directory entry, so Tree records it as a file occurrence.
+    ['build', 'build/out.js', 'src-link', 'src/build', 'src/build/nested.js', 'vendored/.git'],
   );
   assert.equal(treeByPath.get('src-link').occurrenceType, 'file');
   for (const excluded of ['dist', 'coverage', 'node_modules']) {
@@ -495,7 +499,8 @@ test('comparison B: every difference on this repository is a classified one', as
       continue;
     }
     assert.ok(
-      record.resolvedPath.split('/').includes('build') || fs.lstatSync(path.join(VALIDATOR_ROOT, record.resolvedPath)).isSymbolicLink(),
+      record.resolvedPath.split('/').some((segment) => segment === 'build' || segment === '.git') ||
+        fs.lstatSync(path.join(VALIDATOR_ROOT, record.resolvedPath)).isSymbolicLink(),
       `unclassified Tree-only occurrence: ${record.resolvedPath}`,
     );
   }
