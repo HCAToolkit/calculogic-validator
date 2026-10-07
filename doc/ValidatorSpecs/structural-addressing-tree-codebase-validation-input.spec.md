@@ -117,7 +117,7 @@ The roots Structural Addressing addresses, derived from `declaredScopeRoots`:
 - **Membership:** the set of file nodes equals the set of normalized selected paths.
 - **One identity per path:** no path appears twice, even with overlapping declared roots.
 - **Nesting:** every effective folder root is a root node, including one with no selected files, and no root node contains another root node's path.
-- **Every declared folder root emitted:** every declared root other than `.` appears as a folder node, either as an effective root or nested beneath one.
+- **Every declared root emitted, with its actual type:** every declared root other than `.` appears as a node. A folder root appears as a folder node, either as an effective root or nested beneath one. A top-level-entry fallback root keeps the type of the entry it names: under `--scope=system`, `package.json` is a declared root and a root-level **file** node, as Tree emits it today (`occurrenceType: 'file'`).
 - **Declared roots preserved:** every declared root survives in `declaredScopeRoots` whatever the collapse does.
 - **No `.` occurrence:** `.` is never a node.
 
