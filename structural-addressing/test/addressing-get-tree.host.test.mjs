@@ -87,7 +87,7 @@ test('--help exits 0 and prints usage', async () => {
   const exitCode = await runAddressingGetTreeHost({ argv: ['--help'], cwd: process.cwd(), stdout, stderr });
 
   assert.equal(exitCode, 0);
-  assert.match(stdout.read(), /Usage: node --experimental-strip-types .*--scope=validator/u);
+  assert.match(stdout.read(), /Usage: npm run addressing:get-tree -- --scope=validator/u);
   assert.equal(stderr.read(), '');
 });
 
