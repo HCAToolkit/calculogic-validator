@@ -24,10 +24,15 @@ The differences that remain fall into four groups:
 
 - **Equivalent representation (E1–E3):** a namespace root occurrence in whole-scope get-tree runs, record order, and field names. A deterministic mapping covers each.
 - **Intentional membership differences (I1–I3):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly. They also shift sibling markers, so occurrences present on both sides can get different addresses. Re-addressed over the shared membership, those occurrences map exactly.
-- **Defects in Tree's private snapshot (D1, D2):** a corrupt lineage and depth for root files outside every scope root, and phantom root occurrences for ancestors above a nested target. The second one shifts target addresses whenever a phantom ancestor takes a root marker before the target: always with several targets, and with a single target when the ancestor's name sorts first.
+- **Defects in Tree's private snapshot (D1, D2):** a corrupt lineage and depth for root files outside every scope root, and phantom root occurrences for ancestors above a nested target. The second one shifts a target's address exactly when a phantom ancestor sorts before that target among the root occurrences. That depends on names, not on how many targets there are.
 - **A defect candidate in suite-core input collection (D3):** directory symlinks are collected as file paths. This affects Naming too.
+- **Overlapping targets (D4), defective on both sides:**
+  - Tree lists each path once but detaches an inner target from the outer one.
+  - get-tree lists every inner path twice, under two identities.
 
-**Recommendation:** make Structural Addressing the canonical producer of occurrence identity and nesting for Tree. Keep suite-core's scoped collection as the membership authority for validation runs. In other words, build Structural Addressing's input from the same `selectedPaths` that Naming and Tree already share, rather than from get-tree's filesystem walk. The migration then fixes D1 and D2, makes `orderIndex` real for the consumers that already read it, and keeps validation membership unchanged. I1–I3 stay a get-tree rendering concern unless decided otherwise.
+  The migration needs an explicit deduplication decision.
+
+**Recommendation:** make Structural Addressing the canonical producer of occurrence identity and nesting for Tree. Keep suite-core's scoped collection as the membership authority for validation runs. In other words, build Structural Addressing's input from the same `selectedPaths` that Naming and Tree already share, rather than from get-tree's filesystem walk. The migration then fixes D1 and D2 (and D4, once nested targets are collapsed into the outermost one), makes `orderIndex` real for the consumers that already read it, and keeps validation membership unchanged. I1–I3 stay a get-tree rendering concern unless decided otherwise.
 
 ## 2. What was compared
 
@@ -95,17 +100,33 @@ Test for I1–I3: "comparison B: membership rules differ between Tree input coll
 
 **D2 (Tree). Ancestors above a nested target become orphan root occurrences.**
 - `collectAllOccurrencePaths` adds every ancestor folder of each selected file, including folders above a target scope root. With `--target tree/src`, Tree emits `tree` as an extra root occurrence. It is not the parent of `tree/src`, it takes a root marker, and it carries the lineage of a scope root it is not inside (`['naming/src']` in the two-target case).
-- Effect on addresses: with `--target tree/src --target naming/src`, Tree assigns `naming` = `A`, `naming/src` = `B`, `tree/src` = `C`, `tree` = `D`. Structural Addressing roots each target directly: `naming/src` = `A`, `tree/src` = `B`. Every address under the targets therefore differs (103 of 103 shared occurrences on this repository).
-- Single targets are affected too. Root siblings sort by basename, so the shift depends on names:
-  - `--target tree/src`: the ancestor `tree` sorts after `src`, so the target keeps `A` and addresses agree.
-  - `--target tree/zz`: `tree` sorts first and takes `A`, so the target becomes `B` in Tree but stays `A` in Structural Addressing, and every address under it shifts.
-- Tests: "known Tree defect D2" (layer A), "a single target is addressed identically when its phantom ancestor sorts after it", and "known Tree defect D2: a single target shifts when its phantom ancestor sorts first".
+- **Rule.** Root occurrences sort by basename, then type, then path. A target's address, and every address under it, shifts exactly when at least one phantom ancestor sorts before that target among the root occurrences. Phantoms that sort after every target only add markers of their own. The number of targets does not decide it.
+
+| Targets | Tree roots | Structural Addressing roots | Target identity |
+|---|---|---|---|
+| `tree/src` | `tree/src` = `A`, `tree` = `B` | `tree/src` = `A` | unchanged |
+| `tree/zz` | `tree` = `A`, `tree/zz` = `B` | `tree/zz` = `A` | shifted |
+| `tree/a`, `tree/b` | `tree/a` = `A`, `tree/b` = `B`, `tree` = `C` | `tree/a` = `A`, `tree/b` = `B` | unchanged |
+| `tree/src`, `naming/src` | `naming` = `A`, `naming/src` = `B`, `tree/src` = `C`, `tree` = `D` | `naming/src` = `A`, `tree/src` = `B` | both shifted (103 of 103 shared occurrences on this repository) |
+
+- Tests:
+  - "known Tree defect D2" (layer A);
+  - "D2 rule: sibling targets keep their addresses when the phantom ancestor sorts after them";
+  - "a single target is addressed identically when its phantom ancestor sorts after it";
+  - "known Tree defect D2: a single target shifts when its phantom ancestor sorts first".
 
 **D3 (suite-core input collection, defect candidate). A directory symlink is collected as a file path.**
 - The suite walk treats every non-directory `Dirent` as a file, so a symlink to a directory enters `selectedPaths` and becomes a Tree file occurrence. Naming receives the same path.
 - get-tree skips symlinks and rejects targets that traverse them.
 - This is outside Tree and Structural Addressing, so it needs a separate suite-core decision.
 - Test: the membership test (`src-link`).
+
+**D4 (Tree and get-tree). Overlapping targets.** Repeatable targets can overlap, for example `--target tree --target tree/src`.
+- Tree applies union semantics and emits each path once, but treats every target as a scope root. The inner target becomes its own root (`tree/src` = `A`, parent `null`) instead of a child of `tree` (`B`), so nesting is lost.
+- get-tree walks each target as a separate root and does not deduplicate, so every inner path appears twice with two identities: `tree/src` as `A` and `B.A`. On this checkout that is 49 duplicated paths.
+- Neither is a correct addressed snapshot, because each path must have exactly one identity and keep its real nesting.
+- Recommended decision: before addressing, collapse targets nested inside another target into the outermost one. The inner target adds no files, and its paths are addressed once under the outer root.
+- Test: "known defect D4: overlapping targets get one detached identity in Tree and two in get-tree".
 
 ### Observations
 
@@ -128,7 +149,7 @@ Test for I1–I3: "comparison B: membership rules differ between Tree input coll
 ## 5. Recommended canonical shape and migration requirements
 
 1. **Canonical producer:** Structural Addressing's `tree-codebase` profile. The algorithm is identical, it already provides `orderIndex`, and it roots targets directly, so D2 does not exist. A root file under a docs-style profile becomes a root-level node at depth 0, so D1 does not exist either.
-2. **Membership authority:** keep suite-core's scoped collection (`collectSuiteScopedSnapshotInputs`) for validation runs. An Addressing-owned adapter builds the node tree from those `selectedPaths` and the scope roots (include roots or targets). Naming and Tree then keep validating the same file set. I1–I3 become a get-tree rendering choice and not a validation change. Changing validation membership would be a separate, explicit decision.
+2. **Membership authority:** keep suite-core's scoped collection (`collectSuiteScopedSnapshotInputs`) for validation runs. An Addressing-owned adapter builds the node tree from those `selectedPaths` and the scope roots (include roots or targets), collapsing any target nested inside another target first (D4). Naming and Tree then keep validating the same file set. I1–I3 become a get-tree rendering choice and not a validation change. Changing validation membership would be a separate, explicit decision.
 3. **Scope-root representation:** decide whether validation snapshots emit a scope-root occurrence (E1). Recommended: they do not. That matches today's Tree addresses, so classification and findings stay stable, and get-tree keeps its namespace root for display.
 4. **Field contract for Tree consumers:**
    - Provide `path`, `name`, `addressPath`, `parentAddressPath`, `depth`, `orderIndex`, plus the two scope flags (`isScopedRoot`, `isScopeTopOccurrence`) that classification reads.
@@ -138,11 +159,13 @@ Test for I1–I3: "comparison B: membership rules differ between Tree input coll
 6. **Identity parity requirements for the migration:**
    - Default scopes with identical membership must keep every existing occurrence identity.
    - Any membership difference must be accounted for explicitly, including the sibling-marker shifts it causes on **shared** paths, not only the entries one side alone includes.
-   - Nested targets may change identity deliberately, as D2 corrections, even with a single target. Each such change must be listed.
+   - Nested targets may change identity deliberately, as D2 corrections, but only where the D2 rule applies, possibly with a single target. Each such change must be listed.
+   - Overlapping targets must resolve to exactly one identity per path with nesting preserved (D4). The recommendation is to collapse nested targets into the outermost one.
    - Every changed occurrence identity must be assessed for its effect on the Naming → Tree occurrence joins, not only on Tree findings. Those joins (`addressProfileId + addressedSnapshotId + occurrenceAddress`) key on these addresses.
 7. **Expected behavior changes, to be gated like #14 and #34 (React-app report comparison):**
    - D1: depth of root files under docs-style scopes.
-   - D2: target addresses with several targets, and with a single target whose phantom ancestor sorts before it.
+   - D2: the addresses of any target that a phantom ancestor sorts before, and everything under it. Targets sorting before every phantom keep their identity, whatever the number of targets.
+   - D4: overlapping targets, once the deduplication decision is applied.
    - O2: `orderIndex` becomes non-null.
 
    For the default scopes without targets, the addresses should not change. Building the input from suite-core's `selectedPaths` keeps membership the same, so I1–I3 cause no sibling-marker shifts.

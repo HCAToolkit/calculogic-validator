@@ -231,6 +231,26 @@ test('comparison A, known Tree defect D2: ancestors above a nested target become
   );
 });
 
+test('comparison A, D2 rule: sibling targets keep their addresses when the phantom ancestor sorts after them', () => {
+  // D2 shifts a target only when a phantom ancestor sorts before it among the root siblings. Here
+  // `tree` sorts after `a` and `b`, so only the phantom itself takes an extra marker.
+  const filePaths = ['tree/a/x.logic.mjs', 'tree/b/y.logic.mjs'];
+  const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, targets: ['tree/a', 'tree/b'] });
+  const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(filePaths, ['tree/a', 'tree/b']) });
+  const rootsOf = (records, pathKey, addressKey, parentKey) =>
+    records.filter((record) => record[parentKey] === null).map((record) => [record[pathKey], record[addressKey]]);
+
+  assert.deepEqual(rootsOf(tree.occurrenceRecords, 'resolvedPath', 'occurrenceMarker', 'parentResolvedPath'), [
+    ['tree', 'C'],
+    ['tree/a', 'A'],
+    ['tree/b', 'B'],
+  ]);
+  assert.deepEqual(rootsOf(addressing.occurrenceRecords, 'path', 'addressPath', 'parentAddressPath'), [
+    ['tree/a', 'A'],
+    ['tree/b', 'B'],
+  ]);
+});
+
 // --- Layer B: production inputs (Tree wiring vs get-tree host) --------------------------------
 
 test('comparison B: a whole-scope get-tree run adds a namespace root occurrence; other addresses map by prefix', async (t) => {
@@ -296,6 +316,36 @@ test('comparison B, known Tree defect D2: a single target shifts when its phanto
   assert.equal(addressingByPath.get('tree/zz').addressPath, 'A');
   assert.equal(treeByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'B.A.1');
   assert.equal(addressingByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'A.A.1');
+});
+
+test('comparison B, known defect D4: overlapping targets get one detached identity in Tree and two in get-tree', async (t) => {
+  const root = createStandaloneFixture(t, {
+    'tree/top.logic.mjs': 'x\n',
+    'tree/src/a.logic.mjs': 'x\n',
+    'tree/src/sub/b.logic.mjs': 'x\n',
+  });
+  const targets = ['tree', 'tree/src'];
+  const tree = treeSnapshotFor(root, { targets });
+  const treeByPath = byPath(tree.occurrenceRecords, 'resolvedPath');
+  const addressing = await getTreeSnapshotFor(root, targets);
+
+  // Tree: union semantics, each path once, but the inner target is detached from the outer one and
+  // becomes its own root instead of a child of `tree`.
+  assert.equal(treeByPath.size, tree.occurrenceRecords.length);
+  assert.deepEqual(
+    [treeByPath.get('tree/src').addressPath, treeByPath.get('tree/src').parentAddressPath, treeByPath.get('tree').addressPath],
+    ['A', null, 'B'],
+  );
+
+  // get-tree: walks both roots, so every inner path appears twice with two identities.
+  const addressesByPath = new Map();
+  for (const record of addressing.occurrenceRecords) {
+    const occurrencePath = stripNamespace(record.path);
+    addressesByPath.set(occurrencePath, [...(addressesByPath.get(occurrencePath) ?? []), record.addressPath]);
+  }
+  assert.deepEqual(addressesByPath.get('tree/src'), ['A', 'B.A']);
+  assert.deepEqual(addressesByPath.get('tree/src/sub/b.logic.mjs'), ['A.A.1', 'B.A.A.1']);
+  assert.equal(addressesByPath.get('tree/top.logic.mjs').length, 1);
 });
 
 test('comparison B: membership rules differ between Tree input collection and the get-tree walk', async (t) => {
