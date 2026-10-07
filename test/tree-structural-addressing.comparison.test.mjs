@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import util from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -405,6 +406,26 @@ test('comparison A, known Tree defect D1: a root file outside every scope root g
   assert.equal(readme.scopeRootPath, 'doc');
   assert.deepEqual(readme.lineageSegments, ['doc', 'ME.md']);
   assert.equal(readme.depth, 1);
+
+  // The probe-contract mapping binds the root file to `.`. Every contract-visible field that changes
+  // is enumerated here, so a migration gates all of them, not depth alone.
+  const addressing = prepareTreeCodebaseAddressedSnapshot({
+    scopeRoots: [...toAddressingScopeRoots(['doc/guide.md'], ['doc']), { name: 'README.md', path: 'README.md', occurrenceType: 'file' }],
+  });
+  const addressingByAddress = new Map(addressing.occurrenceRecords.map((record) => [record.addressPath, record]));
+  const mapped = toProbeContractConcepts(
+    addressing.occurrenceRecords.find((record) => record.path === 'README.md'),
+    addressingByAddress,
+    new Set(['doc', 'docs']),
+  );
+  const changedFields = Object.keys(mapped).filter((field) => !util.isDeepStrictEqual(mapped[field], readme[field]));
+  assert.deepEqual(changedFields, ['scopeRootPath', 'lineageSegments', 'isScopeTopOccurrence', 'depth']);
+  assert.deepEqual(
+    { scopeRootPath: mapped.scopeRootPath, lineageSegments: mapped.lineageSegments, isScopeTopOccurrence: mapped.isScopeTopOccurrence, depth: mapped.depth },
+    { scopeRootPath: '.', lineageSegments: ['README.md'], isScopeTopOccurrence: true, depth: 0 },
+  );
+  // Today's values for the same fields: `doc`, ['doc', 'ME.md'], false, 1.
+  assert.equal(readme.isScopeTopOccurrence, false);
 });
 
 test('comparison A, known Tree defect D2: ancestors above a nested target become orphan root occurrences', () => {
@@ -459,6 +480,31 @@ test('comparison A, D2 rule: sibling targets keep their addresses when the phant
     ['tree/a', 'A'],
     ['tree/b', 'B'],
   ]);
+});
+
+test('comparison A, D2 rule: a phantom folder never shifts a root file target, which uses the file marker lane', () => {
+  // Folders take letter markers and files take number markers, counted separately. A phantom
+  // ancestor is always a folder, so it can shift only folder targets, never a root file target.
+  const rootsOf = (records, pathKey, addressKey, parentKey) =>
+    records.filter((record) => record[parentKey] === null).map((record) => [record[pathKey], record[addressKey]]).sort();
+  const cases = [
+    // `tree` sorts before `zzz.md`, yet the file keeps `1`; the folder target is unchanged too.
+    { targets: ['tree/src', 'zzz.md'], filePaths: ['tree/src/a.logic.mjs', 'zzz.md'], tree: [['tree', 'B'], ['tree/src', 'A'], ['zzz.md', '1']], addressing: [['tree/src', 'A'], ['zzz.md', '1']] },
+    // `tree` sorts before `zz`, so the folder target shifts while `aaa.md` keeps `1`.
+    { targets: ['tree/zz', 'aaa.md'], filePaths: ['tree/zz/a.logic.mjs', 'aaa.md'], tree: [['aaa.md', '1'], ['tree', 'A'], ['tree/zz', 'B']], addressing: [['aaa.md', '1'], ['tree/zz', 'A']] },
+  ];
+  for (const { targets, filePaths, tree, addressing } of cases) {
+    const [folderTarget, fileTarget] = targets;
+    const treeSnapshot = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, targets });
+    const addressingSnapshot = prepareTreeCodebaseAddressedSnapshot({
+      scopeRoots: [
+        ...toAddressingScopeRoots(filePaths.filter((filePath) => filePath !== fileTarget), [folderTarget]),
+        { name: fileTarget, path: fileTarget, occurrenceType: 'file' },
+      ],
+    });
+    assert.deepEqual(rootsOf(treeSnapshot.occurrenceRecords, 'resolvedPath', 'occurrenceMarker', 'parentResolvedPath'), tree, targets.join(' + '));
+    assert.deepEqual(rootsOf(addressingSnapshot.occurrenceRecords, 'path', 'addressPath', 'parentAddressPath'), addressing, targets.join(' + '));
+  }
 });
 
 // --- Layer B: production inputs (Tree wiring vs get-tree host) --------------------------------

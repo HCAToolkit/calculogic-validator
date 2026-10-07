@@ -128,14 +128,15 @@ Tests for I1–I3: "comparison B: membership rules differ between Tree input col
 ### Defects
 
 **D1 (Tree). A root file outside every scope root gets a corrupt lineage and depth.**
-- When a scope profile includes root files beside its include roots (`--scope=docs`: `README.md` beside `doc` and `docs`), the record is attributed to the first scope root. Its lineage is then sliced from an unrelated path: `scopeRootPath: 'doc'`, `lineageSegments: ['doc', 'ME.md']`, `depth: 1`.
+- When a scope profile includes root files beside its include roots (`--scope=docs`: `README.md` beside `doc` and `docs`), the record is attributed to the first scope root. Its lineage is then sliced from an unrelated path: `scopeRootPath: 'doc'`, `lineageSegments: ['doc', 'ME.md']`, `isScopeTopOccurrence: false`, `depth: 1`.
+- The probe-contract mapping (§5.4) corrects four contract-visible fields together: `scopeRootPath` becomes `.`, `lineageSegments` becomes `['README.md']`, `isScopeTopOccurrence` becomes `true`, and `depth` becomes `0`. `isScopedRoot` (`false`), the address and the parent stay the same.
 - Its address (`1`) and parent (`null`) are correct. Structural Addressing gives depth 0.
 - Observed on both repositories under `--scope=docs`.
 - Test: "known Tree defect D1".
 
 **D2 (Tree). Ancestors above a nested target become orphan root occurrences.**
 - `collectAllOccurrencePaths` adds every ancestor folder of each selected file, including folders above a target scope root. With `--target tree/src`, Tree emits `tree` as an extra root occurrence. It is not the parent of `tree/src`, it takes a root marker, and it carries the lineage of a scope root it is not inside (`['naming/src']` in the two-target case).
-- **Rule.** Root occurrences sort by basename, then type, then path. A target's address, and every address under it, shifts exactly when at least one phantom ancestor sorts before that target among the root occurrences. Phantoms that sort after every target only add markers of their own. The number of targets does not decide it.
+- **Rule.** Root occurrences sort by basename, then type, then path. Folders take letter markers and files take number markers, counted separately. A phantom ancestor is always a folder, so it competes only with **folder** targets. A folder target's address, and every address under it, shifts exactly when at least one phantom ancestor sorts before that target among the root folders. A root file target never shifts: a phantom cannot take a number marker, even when it sorts before the file (`tree/src` + `zzz.md` keeps `zzz.md` = `1`). Phantoms that sort after every folder target only add markers of their own. The number of targets does not decide it.
 
 | Targets | Tree roots | Structural Addressing roots | Target identity |
 |---|---|---|---|
@@ -148,7 +149,8 @@ Tests for I1–I3: "comparison B: membership rules differ between Tree input col
   - "known Tree defect D2" (layer A);
   - "D2 rule: sibling targets keep their addresses when the phantom ancestor sorts after them";
   - "a single target is addressed identically when its phantom ancestor sorts after it";
-  - "known Tree defect D2: a single target shifts when its phantom ancestor sorts first".
+  - "known Tree defect D2: a single target shifts when its phantom ancestor sorts first";
+  - "D2 rule: a phantom folder never shifts a root file target, which uses the file marker lane" (`tree/src` + `zzz.md`, and `tree/zz` + `aaa.md`, where only the folder target shifts).
 
 **D3 (suite-core input collection, defect candidate). A symlink is collected as a file path.**
 - The suite walk treats every non-directory `Dirent` as a file, so any symlink enters `selectedPaths` and becomes a Tree file occurrence. That covers both a symlink to a directory (collected as a file, without its contents) and a symlink to a regular file. Naming receives the same paths.
@@ -222,20 +224,20 @@ Review of this audit found D2's single-target and sibling cases, the membership 
 
      Test: "comparison A: the probe contract's occurrence concepts are deterministically mappable from Structural Addressing records" derives every row from the Structural Addressing records and compares the result with Tree's fields. It covers include roots, a nested directory target, a nested file target (its containing folder binds as the scope root, `isScopedRoot: true`), a standalone whole scope, and a repository-root file target. In the last two, top-level records bind to `.` with `isScopedRoot: false`.
 
-     For root files outside every scope root (D1), the mapping gives the corrected lineage and depth, not today's defective values. That change is expected and must be listed with the other identity changes.
+     For root files outside every scope root (D1), the mapping gives corrected values, not today's defective ones, for `scopeRootPath`, `lineageSegments`, `isScopeTopOccurrence` and `depth`. Those changes are expected and must be listed with the other identity changes. The D1 test enumerates exactly which mapped fields differ from Tree's.
 5. **Ordering:** consumers must not depend on array order. Use `orderIndex` when order matters (E2).
 6. **Identity parity requirements for the migration:**
    - Default scopes with identical membership must keep every existing occurrence identity.
    - Any membership difference must be accounted for explicitly, including the sibling-marker shifts it causes on **shared** paths, not only the entries one side alone includes.
-   - Nested targets may change identity deliberately, as D2 corrections, but only where the D2 rule applies, possibly with a single target. Each such change must be listed.
+   - Nested folder targets may change identity deliberately, as D2 corrections, but only where the D2 rule applies, possibly with a single target. Root file targets are never D2 changes. Each such change must be listed.
    - Overlapping targets must resolve to exactly one identity per path with nesting preserved (D4). The recommendation is to collapse nested targets into the outermost one.
    - File targets keep their current identities: nested ones rooted at the containing folder (I4), and root-level ones as a root file occurrence, as both producers do today. This applies only to file targets suite-core selects; a file target beneath an excluded directory keeps contributing no file (I3 before I4).
    - The adapter's parity tests cover every input class listed under Coverage and limits (§3), and any input class outside that list is treated as unverified until a test classifies it.
    - Every changed occurrence identity must be assessed for its effect on the Naming → Tree occurrence joins, not only on Tree findings. Those joins (`addressProfileId + addressedSnapshotId + occurrenceAddress`) key on these addresses.
    - The join namespace IDs must be preserved (I5). The adapter keeps `tree-structure-advisor-address-profile` / `tree-structure-advisor-current-snapshot` as compatibility values. Any change to them is a separate, coordinated producer/consumer transition with join-parity tests.
 7. **Expected behavior changes, to be gated like #14 and #34 (React-app report comparison):**
-   - D1: depth of root files under docs-style scopes.
-   - D2: the addresses of any target that a phantom ancestor sorts before, and everything under it. Targets sorting before every phantom keep their identity, whatever the number of targets.
+   - D1: for root files under docs-style scopes, `scopeRootPath` (`doc` → `.`), `lineageSegments` (`['doc', 'ME.md']` → `['README.md']`), `isScopeTopOccurrence` (`false` → `true`) and `depth` (`1` → `0`). Each field is gated, not depth alone.
+   - D2: the addresses of any folder target that a phantom ancestor sorts before among the root folders, and everything under it. Folder targets sorting before every phantom keep their identity, whatever the number of targets, and root file targets never change.
    - D4: overlapping targets, once the deduplication decision is applied.
    - O2: `orderIndex` becomes non-null.
 
