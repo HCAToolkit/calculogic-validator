@@ -23,8 +23,8 @@ Given the same occurrence set with the same roots, they assign identical address
 The differences that remain fall into four groups:
 
 - **Equivalent representation (E1–E3):** a namespace root occurrence in whole-scope get-tree runs, record order, and field names. A deterministic mapping covers each.
-- **Intentional membership differences (I1–I3):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly.
-- **Defects in Tree's private snapshot (D1, D2):** a corrupt lineage and depth for root files outside every scope root, and phantom root occurrences for ancestors above a nested target. The second one shifts target addresses.
+- **Intentional membership differences (I1–I3):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly. They also shift sibling markers, so occurrences present on both sides can get different addresses. Re-addressed over the shared membership, those occurrences map exactly.
+- **Defects in Tree's private snapshot (D1, D2):** a corrupt lineage and depth for root files outside every scope root, and phantom root occurrences for ancestors above a nested target. The second one shifts target addresses whenever a phantom ancestor takes a root marker before the target: always with several targets, and with a single target when the ancestor's name sorts first.
 - **A defect candidate in suite-core input collection (D3):** directory symlinks are collected as file paths. This affects Naming too.
 
 **Recommendation:** make Structural Addressing the canonical producer of occurrence identity and nesting for Tree. Keep suite-core's scoped collection as the membership authority for validation runs. In other words, build Structural Addressing's input from the same `selectedPaths` that Naming and Tree already share, rather than from get-tree's filesystem walk. The migration then fixes D1 and D2, makes `orderIndex` real for the consumers that already read it, and keeps validation membership unchanged. I1–I3 stay a get-tree rendering concern unless decided otherwise.
@@ -46,7 +46,7 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 
 ### Reproducing
 
-- `node --test --experimental-strip-types test/tree-structural-addressing.comparison.test.mjs`, also part of `npm test`. Each finding below names its test. The last test compares the live repository and fails on any unclassified difference.
+- `node --test --experimental-strip-types test/tree-structural-addressing.comparison.test.mjs`, also part of `npm test`. Each finding below names its test. The last test compares the live repository. It does **not** require repository membership to stay fixed. New files and folders pass as long as every difference falls into a documented category: shared occurrences map by E1 after re-addressing over the shared membership, and unshared ones are dot paths, empty folders, `build/` or symlinks. It fails only on a new, unclassified *kind* of difference, which then needs a classification decision before the test is updated.
 - The real-repository counts in §4 came from the same two layers, run from the Validator checkout against `/home/user/calculogic-validator` and `/home/user/Calculogic_React_App` with `prepareTreeStructureAdvisorInputs` and `prepareTreeCodebaseAddressedSnapshot` / `buildTreeCodebaseInputFromFileSystem`.
 
 ## 3. Classified differences
@@ -81,6 +81,8 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 - get-tree (`EXCLUDED_WALK_NAMES`): `.git`, `node_modules`, `.reports`, `dist`, `build`, `coverage`.
 - `build/` is excluded only by get-tree. `.next`, `.turbo` and `.yarn` are dot directories, so I1 skips them on Tree's side anyway.
 
+**Effect on shared occurrences.** A membership difference is not confined to the entries one side alone includes. An extra or missing sibling folder takes a marker, so the addresses of shared occurrences shift too. In the membership fixture, `.github` and `empty` (get-tree only) and `build` (Tree only) make `src` `B` in Tree but `A.C`, not `A.B`, in get-tree. The comparison test therefore re-addresses both producers over the shared membership (`compareOverSharedMembership`). After that, every shared occurrence maps by E1 again, so the shift is fully explained by I1–I3 and D3.
+
 Test for I1–I3: "comparison B: membership rules differ between Tree input collection and the get-tree walk".
 
 ### Defects
@@ -94,8 +96,10 @@ Test for I1–I3: "comparison B: membership rules differ between Tree input coll
 **D2 (Tree). Ancestors above a nested target become orphan root occurrences.**
 - `collectAllOccurrencePaths` adds every ancestor folder of each selected file, including folders above a target scope root. With `--target tree/src`, Tree emits `tree` as an extra root occurrence. It is not the parent of `tree/src`, it takes a root marker, and it carries the lineage of a scope root it is not inside (`['naming/src']` in the two-target case).
 - Effect on addresses: with `--target tree/src --target naming/src`, Tree assigns `naming` = `A`, `naming/src` = `B`, `tree/src` = `C`, `tree` = `D`. Structural Addressing roots each target directly: `naming/src` = `A`, `tree/src` = `B`. Every address under the targets therefore differs (103 of 103 shared occurrences on this repository).
-- With a single target the phantom ancestor happens to sort after the target, so addresses agree.
-- Test: "known Tree defect D2", plus "a single target is addressed identically by both".
+- Single targets are affected too. Root siblings sort by basename, so the shift depends on names:
+  - `--target tree/src`: the ancestor `tree` sorts after `src`, so the target keeps `A` and addresses agree.
+  - `--target tree/zz`: `tree` sorts first and takes `A`, so the target becomes `B` in Tree but stays `A` in Structural Addressing, and every address under it shifts.
+- Tests: "known Tree defect D2" (layer A), "a single target is addressed identically when its phantom ancestor sorts after it", and "known Tree defect D2: a single target shifts when its phantom ancestor sorts first".
 
 **D3 (suite-core input collection, defect candidate). A directory symlink is collected as a file path.**
 - The suite walk treats every non-directory `Dirent` as a file, so a symlink to a directory enters `selectedPaths` and becomes a Tree file occurrence. Naming receives the same path.
@@ -114,7 +118,7 @@ Test for I1–I3: "comparison B: membership rules differ between Tree input coll
 **Validator repository (`main` at `9796573`):**
 - Layer A, every scope (`repo`, `validator`, `app`, `docs`) and the targets `tree/src`, `tree/src` + `naming/src`, `src/index.mjs`: identical address, parent and type for all records. The only exceptions are D1 under `docs` (1 record) and D2 for nested targets.
 - Layer B, `--scope=validator` with no target: 369 shared occurrences. All map by E1. get-tree adds only its namespace root. The checkout has no dot directories, empty folders, `build/` or symlinks, so I1–I3 and D3 do not appear here.
-- Layer B, `--target tree/src`: 49 shared and identical. The only Tree extra is the D2 ancestor `tree`.
+- Layer B, `--target tree/src`: 49 shared and identical. The only Tree extra is the D2 ancestor `tree`, which sorts after `src` and so shifts nothing here.
 - Layer B, `--target tree/src --target naming/src`: 103 shared. All addresses differ because of D2.
 
 **`Calculogic_React_App`:**
@@ -131,14 +135,19 @@ Test for I1–I3: "comparison B: membership rules differ between Tree input coll
    - Either migrate the `resolvedPath`/`actualName` readers to `path`/`name`, or provide them as aliases for one transition.
    - `lineageSegments`, `markerSegments`, `scopeRootPath`, `occurrenceMarker` and `parentResolvedPath` can be retired, since nothing outside the snapshot modules reads them.
 5. **Ordering:** consumers must not depend on array order. Use `orderIndex` when order matters (E2).
-6. **Expected behavior changes, to be gated like #14 and #34 (React-app report comparison):**
+6. **Identity parity requirements for the migration:**
+   - Default scopes with identical membership must keep every existing occurrence identity.
+   - Any membership difference must be accounted for explicitly, including the sibling-marker shifts it causes on **shared** paths, not only the entries one side alone includes.
+   - Nested targets may change identity deliberately, as D2 corrections, even with a single target. Each such change must be listed.
+   - Every changed occurrence identity must be assessed for its effect on the Naming → Tree occurrence joins, not only on Tree findings. Those joins (`addressProfileId + addressedSnapshotId + occurrenceAddress`) key on these addresses.
+7. **Expected behavior changes, to be gated like #14 and #34 (React-app report comparison):**
    - D1: depth of root files under docs-style scopes.
-   - D2: target addresses with nested targets.
+   - D2: target addresses with several targets, and with a single target whose phantom ancestor sorts before it.
    - O2: `orderIndex` becomes non-null.
 
-   For the default scopes without targets, the addresses should not change.
-7. **Not part of the migration:** D3 (suite-core symlink collection, which affects Naming too) should be decided in its own issue.
-8. **Order of work:** Addressing-owned input adapter and parity tests, then Tree wiring switches producers behind the comparison test (flipping the D1/D2 expectations deliberately), then the private snapshot modules are retired. Shared helper extraction (parent/child/sibling lookup) follows the living document's extraction rule, once Naming is the second consumer.
+   For the default scopes without targets, the addresses should not change. Building the input from suite-core's `selectedPaths` keeps membership the same, so I1–I3 cause no sibling-marker shifts.
+8. **Not part of the migration:** D3 (suite-core symlink collection, which affects Naming too) should be decided in its own issue.
+9. **Order of work:** Addressing-owned input adapter and parity tests, then Tree wiring switches producers behind the comparison test (flipping the D1/D2 expectations deliberately), then the private snapshot modules are retired. Shared helper extraction (parent/child/sibling lookup) follows the living document's extraction rule, once Naming is the second consumer.
 
 ## 6. Out of scope
 

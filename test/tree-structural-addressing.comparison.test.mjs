@@ -83,13 +83,46 @@ const createStandaloneFixture = (t, files, { emptyDirectories = [], symlinks = [
   return root;
 };
 
-const treeSnapshotFor = (repositoryRoot, { scope = 'validator', targets } = {}) =>
-  prepareTreeStructureAdvisorInputs(repositoryRoot, { scope, targets, packageRoot: repositoryRoot }).structuralAddressSnapshot;
+const treeInputsFor = (repositoryRoot, { scope = 'validator', targets } = {}) =>
+  prepareTreeStructureAdvisorInputs(repositoryRoot, { scope, targets, packageRoot: repositoryRoot });
+
+const treeSnapshotFor = (repositoryRoot, options) => treeInputsFor(repositoryRoot, options).structuralAddressSnapshot;
+
+const getTreeInputFor = (repositoryRoot, targets = []) =>
+  buildTreeCodebaseInputFromFileSystem({ scope: 'validator', targets, cwd: repositoryRoot, packageRoot: repositoryRoot });
 
 const getTreeSnapshotFor = async (repositoryRoot, targets = []) =>
-  prepareTreeCodebaseAddressedSnapshot(
-    await buildTreeCodebaseInputFromFileSystem({ scope: 'validator', targets, cwd: repositoryRoot, packageRoot: repositoryRoot }),
+  prepareTreeCodebaseAddressedSnapshot(await getTreeInputFor(repositoryRoot, targets));
+
+const pruneAddressingNodes = (nodes, keepPath) =>
+  nodes
+    .filter((node) => keepPath(stripNamespace(node.path)))
+    .map((node) => (node.children ? { ...node, children: pruneAddressingNodes(node.children, keepPath) } : node));
+
+// Membership changes shift sibling markers, so occurrences present on both sides can differ only
+// because of entries one side alone includes. Re-address both producers over the shared membership
+// and return each shared path's normalized pair.
+const compareOverSharedMembership = (treeInputs, getTreeInput) => {
+  const rawTree = treeInputs.structuralAddressSnapshot;
+  const rawAddressing = prepareTreeCodebaseAddressedSnapshot(getTreeInput);
+  const treePaths = new Set(rawTree.occurrenceRecords.map((record) => record.resolvedPath));
+  const sharedPaths = new Set(
+    rawAddressing.occurrenceRecords.map((record) => stripNamespace(record.path)).filter((occurrencePath) => treePaths.has(occurrencePath)),
   );
+  const targets = treeInputs.targets ?? [];
+  const normalizedTree = prepareTreeOccurrenceSnapshot({
+    selectedPaths: treeInputs.selectedPaths.filter((selectedPath) => sharedPaths.has(selectedPath)),
+    targets,
+    includeRoots: targets.length > 0 ? [] : rawTree.scopeRoots,
+  });
+  const normalizedAddressing = prepareTreeCodebaseAddressedSnapshot({
+    ...getTreeInput,
+    scopeRoots: pruneAddressingNodes(getTreeInput.scopeRoots, (occurrencePath) => occurrencePath === '.' || sharedPaths.has(occurrencePath)),
+  });
+  const addressingByPath = new Map(normalizedAddressing.occurrenceRecords.map((record) => [stripNamespace(record.path), record]));
+
+  return normalizedTree.occurrenceRecords.map((record) => ({ path: record.resolvedPath, tree: record, addressing: addressingByPath.get(record.resolvedPath) }));
+};
 
 // --- Layer A: algorithm parity on the same occurrence set -------------------------------------
 
@@ -224,7 +257,7 @@ test('comparison B: a whole-scope get-tree run adds a namespace root occurrence;
   }
 });
 
-test('comparison B: a single target is addressed identically by both', async (t) => {
+test('comparison B: a single target is addressed identically when its phantom ancestor sorts after it', async (t) => {
   const root = createStandaloneFixture(t, {
     'tree/src/a.logic.mjs': 'x\n',
     'tree/src/sub/b.logic.mjs': 'x\n',
@@ -239,11 +272,30 @@ test('comparison B: a single target is addressed identically by both', async (t)
     assert.equal(addressingByPath.get(record.resolvedPath).addressPath, record.addressPath, record.resolvedPath);
     assert.equal(addressingByPath.get(record.resolvedPath).depth, record.depth, record.resolvedPath);
   }
-  // The only difference is defect D2's phantom ancestor.
+  // The only difference is defect D2's phantom ancestor (`tree`, which sorts after `src`).
   assert.deepEqual(
     tree.occurrenceRecords.filter((record) => !addressingByPath.has(record.resolvedPath)).map((record) => record.resolvedPath),
     ['tree'],
   );
+});
+
+test('comparison B, known Tree defect D2: a single target shifts when its phantom ancestor sorts first', async (t) => {
+  const root = createStandaloneFixture(t, {
+    'tree/zz/a.logic.mjs': 'x\n',
+    'tree/zz/sub/b.logic.mjs': 'x\n',
+  });
+  const treeByPath = byPath(treeSnapshotFor(root, { targets: ['tree/zz'] }).occurrenceRecords, 'resolvedPath');
+  const addressingByPath = new Map(
+    (await getTreeSnapshotFor(root, ['tree/zz'])).occurrenceRecords.map((record) => [stripNamespace(record.path), record]),
+  );
+
+  // Root siblings sort by basename: the phantom `tree` takes `A`, so the target becomes `B` in Tree
+  // while Structural Addressing roots the target at `A`. Every address under the target shifts.
+  assert.equal(treeByPath.get('tree').addressPath, 'A');
+  assert.equal(treeByPath.get('tree/zz').addressPath, 'B');
+  assert.equal(addressingByPath.get('tree/zz').addressPath, 'A');
+  assert.equal(treeByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'B.A.1');
+  assert.equal(addressingByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'A.A.1');
 });
 
 test('comparison B: membership rules differ between Tree input collection and the get-tree walk', async (t) => {
@@ -260,8 +312,13 @@ test('comparison B: membership rules differ between Tree input collection and th
     },
     { emptyDirectories: ['empty/nested'], symlinks: [['src-link', 'src']] },
   );
-  const treeByPath = byPath(treeSnapshotFor(root).occurrenceRecords, 'resolvedPath');
-  const addressingPaths = new Set((await getTreeSnapshotFor(root)).occurrenceRecords.map((record) => stripNamespace(record.path)));
+  const treeInputs = treeInputsFor(root);
+  const getTreeInput = await getTreeInputFor(root);
+  const treeByPath = byPath(treeInputs.structuralAddressSnapshot.occurrenceRecords, 'resolvedPath');
+  const addressingByPath = new Map(
+    prepareTreeCodebaseAddressedSnapshot(getTreeInput).occurrenceRecords.map((record) => [stripNamespace(record.path), record]),
+  );
+  const addressingPaths = new Set(addressingByPath.keys());
 
   assert.deepEqual(
     [...addressingPaths].filter((occurrencePath) => !treeByPath.has(occurrencePath)).sort(),
@@ -278,14 +335,29 @@ test('comparison B: membership rules differ between Tree input collection and th
   for (const excluded of ['dist', 'coverage', 'node_modules']) {
     assert.equal(treeByPath.has(excluded) || addressingPaths.has(excluded), false, excluded);
   }
+
+  // Membership differences also shift shared occurrences: `.github`, `empty` (get-tree only) and
+  // `build` (Tree only) take root folder markers, so `src` is `B` in Tree but `A.C`, not `A.B`, in get-tree.
+  assert.equal(treeByPath.get('src').addressPath, 'B');
+  assert.equal(addressingByPath.get('src').addressPath, 'A.C');
+
+  // Re-addressed over the shared membership, every shared occurrence maps by E1 again: the shift is
+  // fully explained by I1-I3 and D3.
+  for (const { path: occurrencePath, tree, addressing } of compareOverSharedMembership(treeInputs, getTreeInput)) {
+    assert.equal(addressing.addressPath, `A.${tree.occurrenceMarker}`, occurrencePath);
+    assert.equal(addressing.depth, tree.depth + 1, occurrencePath);
+    assert.equal(addressing.occurrenceType, tree.occurrenceType, occurrencePath);
+  }
 });
 
 test('comparison B: every difference on this repository is a classified one', async () => {
   // Real-repository check: Tree's validator-scope snapshot against get-tree on this checkout. Shared
-  // occurrences must map by the namespace-root prefix; any unshared occurrence must fall into a
-  // classified membership category.
-  const tree = treeSnapshotFor(VALIDATOR_ROOT);
-  const addressing = await getTreeSnapshotFor(VALIDATOR_ROOT);
+  // occurrences must map by the namespace-root prefix after membership normalization; any unshared
+  // occurrence must fall into a classified membership category.
+  const treeInputs = treeInputsFor(VALIDATOR_ROOT);
+  const getTreeInput = await getTreeInputFor(VALIDATOR_ROOT);
+  const tree = treeInputs.structuralAddressSnapshot;
+  const addressing = prepareTreeCodebaseAddressedSnapshot(getTreeInput);
   const addressingByPath = new Map(addressing.occurrenceRecords.map((record) => [stripNamespace(record.path), record]));
   const treeByPath = byPath(tree.occurrenceRecords, 'resolvedPath');
   const isDotPath = (occurrencePath) => occurrencePath.split('/').some((segment) => segment.startsWith('.') && segment.length > 1);
@@ -293,10 +365,12 @@ test('comparison B: every difference on this repository is a classified one', as
     record.occurrenceType === 'folder' &&
     !addressing.occurrenceRecords.some((candidate) => candidate.parentAddressPath === record.addressPath);
 
+  // Shared occurrences map by E1 once both sides are re-addressed over the shared membership.
+  for (const { path: occurrencePath, tree: treeRecord, addressing: counterpart } of compareOverSharedMembership(treeInputs, getTreeInput)) {
+    assert.equal(counterpart.addressPath, `A.${treeRecord.occurrenceMarker}`, occurrencePath);
+  }
   for (const record of tree.occurrenceRecords) {
-    const counterpart = addressingByPath.get(record.resolvedPath);
-    if (counterpart) {
-      assert.equal(counterpart.addressPath, `A.${record.addressPath}`, record.resolvedPath);
+    if (addressingByPath.has(record.resolvedPath)) {
       continue;
     }
     assert.ok(
