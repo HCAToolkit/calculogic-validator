@@ -533,6 +533,30 @@ test('comparison B: membership rules differ between Tree input collection and th
   }
 });
 
+test('comparison B, intentional difference I5: the join namespace IDs differ even where every address agrees', async () => {
+  // This repository produces Naming observations, so the joined payload is non-empty.
+  const treeBridge = treeInputsFor(VALIDATOR_ROOT).preparedDependencies.addressedNamingOccurrenceBridge;
+  const addressing = await getTreeSnapshotFor(VALIDATOR_ROOT);
+
+  // Naming -> Tree joins key on addressProfileId + addressedSnapshotId + occurrenceAddress. Tree wiring
+  // stamps its own namespace IDs on the payload and on every observation, while Structural Addressing
+  // exposes a different profile id and an output id that the identity contract does not yet treat
+  // as an addressedSnapshotId. Switching producers without a namespace decision would change every
+  // join identity even when every address is stable.
+  assert.deepEqual(
+    [treeBridge.addressProfileId, treeBridge.addressedSnapshotId],
+    ['tree-structure-advisor-address-profile', 'tree-structure-advisor-current-snapshot'],
+  );
+  assert.ok(treeBridge.observations.length > 0, 'expected Naming observations to join');
+  for (const observation of treeBridge.observations) {
+    assert.deepEqual(
+      [observation.addressProfileId, observation.addressedSnapshotId],
+      ['tree-structure-advisor-address-profile', 'tree-structure-advisor-current-snapshot'],
+    );
+  }
+  assert.deepEqual([addressing.profileId, addressing.snapshotOutputId], ['tree-codebase', 'addressedTreeSnapshot']);
+});
+
 test('comparison B: every difference on this repository is a classified one', async () => {
   // Real-repository check: Tree's validator-scope snapshot against get-tree on this checkout. Shared
   // occurrences must map by the namespace-root prefix after membership normalization; any unshared

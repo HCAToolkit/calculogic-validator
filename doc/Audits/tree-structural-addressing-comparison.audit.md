@@ -23,7 +23,7 @@ Given the same occurrence set with the same roots, they assign identical address
 The differences that remain fall into four groups:
 
 - **Equivalent representation (E1–E3):** a namespace root occurrence in standalone whole-scope get-tree runs (not in the embedded layout), record order, and field names. A deterministic mapping covers each.
-- **Intentional differences (I1–I4):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly. They also shift sibling markers, so occurrences present on both sides can get different addresses. Re-addressed over the shared membership, those occurrences map exactly. Nested file targets (I4) are rooted at their containing folder in Tree but at the file in get-tree. Root-level file targets agree.
+- **Intentional differences (I1–I5):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly. They also shift sibling markers, so occurrences present on both sides can get different addresses. Re-addressed over the shared membership, those occurrences map exactly. Nested file targets (I4) are rooted at their containing folder in Tree but at the file in get-tree. Root-level file targets agree. The join namespace IDs differ (I5), so producers cannot be swapped without a namespace decision.
 - **Defects in Tree's private snapshot (D1, D2):** a corrupt lineage and depth for root files outside every scope root, and phantom root occurrences for ancestors above a nested target. The second one shifts a target's address exactly when a phantom ancestor sorts before that target among the root occurrences. That depends on names, not on how many targets there are.
 - **A defect candidate in suite-core input collection (D3):** symlinks, to directories or to files, are collected as file paths. This affects Naming too.
 - **Overlapping targets (D4), defective on both sides:**
@@ -111,6 +111,14 @@ Tests for I1–I3: "comparison B: membership rules differ between Tree input col
 - Recommended decision: the validation adapter keeps Tree's containing-folder semantics. A file target becomes a node under its containing folder, and that folder is the root. File-target identities stay as they are today, and Tree keeps the folder context its classification reads for a target file. get-tree's file-rooted rendering stays a display choice.
 - Tests: "intentional difference I4: a nested file target is rooted at its containing folder in Tree but at the file in get-tree" and "a repository-root file target is addressed identically by both".
 
+**I5. Join namespace identity.** The Naming → Tree occurrence join keys on `addressProfileId + addressedSnapshotId + occurrenceAddress`.
+- Tree wiring stamps its own namespace IDs (`tree-structure-advisor-address-profile` / `tree-structure-advisor-current-snapshot`) on the Naming occurrence bridge payload and on every observation.
+- Structural Addressing exposes `profileId: 'tree-codebase'` and `snapshotOutputId: 'addressedTreeSnapshot'`.
+- `doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` states that `snapshotOutputId` is related to `addressedSnapshotId` but not identical by contract. It leaves open whether the durable snapshot namespace is an output id, an instance id, a digest or a source id.
+- Switching producers therefore changes every join identity, even when every address is stable, unless the namespace is decided explicitly.
+- Recommended decision: the migration keeps Tree's current `addressProfileId` and `addressedSnapshotId` as compatibility values, so joins are unchanged. Adopting Structural Addressing's IDs is a separate, coordinated producer/consumer change with join-parity tests, made together with the identity contract's open question.
+- Test: "intentional difference I5: the join namespace IDs differ even where every address agrees".
+
 ### Defects
 
 **D1 (Tree). A root file outside every scope root gets a corrupt lineage and depth.**
@@ -196,6 +204,7 @@ Review of this audit found D2's single-target and sibling cases, the membership 
    - File targets keep their current identities: nested ones rooted at the containing folder (I4), and root-level ones as a root file occurrence, as both producers do today.
    - The adapter's parity tests cover every input class listed under Coverage and limits (§3), and any input class outside that list is treated as unverified until a test classifies it.
    - Every changed occurrence identity must be assessed for its effect on the Naming → Tree occurrence joins, not only on Tree findings. Those joins (`addressProfileId + addressedSnapshotId + occurrenceAddress`) key on these addresses.
+   - The join namespace IDs must be preserved (I5). The adapter keeps `tree-structure-advisor-address-profile` / `tree-structure-advisor-current-snapshot` as compatibility values. Any change to them is a separate, coordinated producer/consumer transition with join-parity tests.
 7. **Expected behavior changes, to be gated like #14 and #34 (React-app report comparison):**
    - D1: depth of root files under docs-style scopes.
    - D2: the addresses of any target that a phantom ancestor sorts before, and everything under it. Targets sorting before every phantom keep their identity, whatever the number of targets.
