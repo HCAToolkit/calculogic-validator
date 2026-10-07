@@ -122,7 +122,7 @@ Status: staged. These rules bind the Tree projection module (`tree/src/tree-addr
 **Envelope.** Every envelope value is input-derived and does not depend on the records:
 - `scopeRoots`: `declaredScopeRoots`, as strings.
 - `scope.scopeRootPath`: the first entry of `scopeRoots`, or `.` when the list is empty.
-- `scope.targetKind`: `dir` or `file` for exactly one target, by the descriptor's kind or else inferred from the selected paths; otherwise `mixed`. A single `.` target is also `mixed`. This is today's rule, unchanged.
+- `scope.targetKind`, today's rule, unchanged: with zero or several targets, `mixed`. With exactly one target, the descriptor's `kind` when it is `dir` or `file`, checked first, so suite-core's `--target .` descriptor `{ relPath: '.', kind: 'dir' }` yields `dir`. Otherwise an untyped `.` (or empty) target yields `mixed`. Otherwise the kind is inferred from the selected paths: `dir` when a selected path lies below the target, `file` when the target is itself selected, else `dir`.
 - `scope.source`: the caller-supplied label.
 
 Structural Addressing's own envelope (string `scope`, node-object `scopeRoots`, profile metadata) is not this envelope and does not replace it.
