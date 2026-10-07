@@ -61,7 +61,9 @@ prepareTreeCodebaseAddressedSnapshot
 
 The normalized but **uncollapsed** scope-root list, as sorted unique strings. It reproduces Tree's current scope-root derivation exactly, so the Tree projection keeps the envelope's `scopeRoots` and deepest-root scope binding.
 
-1. **Targets present.** Normalize and deduplicate the targets by `relPath`, dropping `.`. Resolve each target's kind:
+First normalize the targets: normalize each `relPath`, drop empty and `.` targets, and deduplicate by `relPath`. The branch is chosen on the **normalized** targets. A run whose only target is the repository root (`--target .`, which suite-core passes as `{ relPath: '.', kind: 'dir' }`) has no normalized targets, so it falls through to the include-roots branch. For example, `--scope=docs --target .` keeps `['doc', 'docs']`, and `repo` keeps `['.']`.
+
+1. **Normalized targets present.** Resolve each normalized target's kind:
    - use the descriptor's `kind` when it is `dir` or `file`;
    - otherwise `dir` when a selected path lies below the target;
    - otherwise `file` when the target itself is a selected path;
@@ -73,7 +75,7 @@ The normalized but **uncollapsed** scope-root list, as sorted unique strings. It
    - a repository-root file target maps to `.`.
 
    Duplicates are removed.
-2. **No targets, include roots present.** The normalized include roots, for example `['.']` for `repo`, `['src', 'test']` for `app`, or the embedded root `['calculogic-validator']`.
+2. **No normalized targets, include roots present.** The normalized include roots, for example `['.']` for `repo`, `['src', 'test']` for `app`, or the embedded root `['calculogic-validator']`.
 3. **Neither.** The unique first path segments of the selected paths. This is the top-level-entry fallback, which the `system` profile reaches: its profile has `includeRootFiles` but no `includeRoots`. Each top-level entry, file or folder, is then its own declared root, as in Tree today.
 
 Overlapping roots stay in this list. `tree` and `tree/src` are both declared when both are targeted, or when file targets `tree/a.mjs` and `tree/sub/b.mjs` resolve to `tree` and `tree/sub`.
