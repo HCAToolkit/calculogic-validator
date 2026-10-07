@@ -8,8 +8,9 @@
 - **current runtime truth:** occurrence snapshot runtime substrate exists and is consumed inside Tree runtime preparation/reasoning flow.
 - **not current runtime truth:** this document does not introduce runtime behavior, loader/normalization implementation, report output exposure, final placement confidence semantics, or known-root replacement semantics.
 - **staged implementation path:** formalize contract boundary first, then evaluate bounded runtime exposure in a later issue.
+- **staged producer migration (#45):** the evidence shape below will be produced by a Tree-owned projection over Structural Addressing output instead of Tree's private snapshot producers. See "Addressing-backed projection" under Handoff boundaries. Until #45's wiring switch lands, the private producers remain current runtime truth.
 
-Issue lineage: Refs #480; parent roadmap context Refs #452; audit context Refs #478.
+Issue lineage: Refs #480; parent roadmap context Refs #452; audit context Refs #478; producer migration Refs #45.
 
 ---
 
@@ -105,6 +106,56 @@ This section defines neutral structural-address evidence semantics only; it does
 
 - The current occurrence snapshot is the current implementation reality substrate that supplies most of the required neutral probe evidence fields.
 - This contract formalizes boundary expectations without claiming a new runtime surface.
+
+### Addressing-backed projection (staged, #45)
+
+Status: staged. These rules bind the Tree projection module (`tree/src/tree-addressed-occurrence-snapshot.logic.mjs`) once it exists. They become current runtime truth only when #45's wiring switch lands. Evidence: `doc/Audits/tree-structural-addressing-comparison.audit.md` §5.
+
+**Producer chain.** Tree wiring passes suite-core's prepared values to the Addressing-owned adapter (`structural-addressing-tree-codebase-validation-input.spec.md`). The adapter's `treeCodebaseInput` goes to `prepareTreeCodebaseAddressedSnapshot`. This projection then maps the addressed records onto the evidence shape above. Only Tree wiring imports Addressing modules; Tree core keeps consuming prepared inputs.
+
+**Projection inputs:**
+- the addressed `occurrenceRecords`;
+- the adapter's `declaredScopeRoots`. These are the normalized, uncollapsed roots, taken from the adapter output and never reconstructed from the addressed records;
+- the raw `targets` and `selectedPaths`, for the envelope's `targetKind`;
+- the caller's `source` label.
+
+**Envelope.** Every envelope value is input-derived and does not depend on the records:
+- `scopeRoots`: `declaredScopeRoots`, as strings.
+- `scope.scopeRootPath`: the first entry of `scopeRoots`, or `.` when the list is empty.
+- `scope.targetKind`: `dir` or `file` for exactly one target, by the descriptor's kind or else inferred from the selected paths; otherwise `mixed`. A single `.` target is also `mixed`. This is today's rule, unchanged.
+- `scope.source`: the caller-supplied label.
+
+Structural Addressing's own envelope (string `scope`, node-object `scopeRoots`, profile metadata) is not this envelope and does not replace it.
+
+**Records.** Each record carries Structural Addressing's `path`, `name`, `occurrenceType`, `addressPath`, `parentAddressPath`, `depth` and `orderIndex`. It also carries the contract-preserved concepts, mapped deterministically:
+
+| Contract concept (field) | Mapping |
+|---|---|
+| resolved path (`resolvedPath`) | `path` (transition alias) |
+| actual name (`actualName`) | `name` (transition alias) |
+| flattened occurrence marker (`occurrenceMarker`) | `addressPath` |
+| marker segments (`markerSegments`) | `addressPath` split on `.` |
+| parent path (`parentResolvedPath`) | `path` of the record whose `addressPath` equals `parentAddressPath`, or `null` |
+| scope binding (`scopeRootPath`) | the deepest entry of `declaredScopeRoots`, other than `.`, that equals or contains `path`; otherwise `.` |
+| lineage segments (`lineageSegments`) | for a `.` binding, the path segments. Otherwise the binding followed by the segments below it |
+| scoped-root marker (`isScopedRoot`) | `path` equals the binding |
+| scope-top marker (`isScopeTopOccurrence`) | lineage segments have length 1 |
+| depth (`depth`) | `depth` |
+
+Deepest-root binding keeps an inner root's own binding after the adapter collapses overlapping roots: `tree/src` under `tree` still binds to `tree/src`. Under the top-level-entry fallback (`system` profile), each top-level entry is its own declared root, so it keeps `isScopedRoot: true`, as today.
+
+**Prepared inputs.**
+- `structuralAddressSnapshot` is the projected snapshot.
+- `occurrenceSnapshot` references **the same object**. It is a transitional, deprecated alias kept for one transition, and is removed with the retirement of the private snapshot modules (a separate #39 follow-on).
+- New consumers read `structuralAddressSnapshot`.
+
+**Expected corrections** (gated in #45, see the audit §5.7):
+- **D1:** a root file outside every declared root binds to `.`, which corrects `scopeRootPath`, `lineageSegments`, `isScopeTopOccurrence` and `depth`.
+- **D2:** no phantom ancestors.
+- **D4:** collapsed overlapping roots change address, marker segments, parent and depth, while binding, lineage and both scope flags are preserved.
+- **O2:** `orderIndex` is non-null.
+
+Everything else matches the private producer field for field.
 
 ### Relationship to known-root compatibility interpretation
 
