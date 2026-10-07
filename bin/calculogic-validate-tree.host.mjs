@@ -16,7 +16,7 @@ const usageLines = buildDirectValidatorRunnerUsageLines({
   examples: [
     '  ✅ calculogic-validate-tree --scope=repo',
     '  ✅ calculogic-validate-tree --scope=app --target src/tree',
-    '  ✅ calculogic-validate-tree --target calculogic-validator/tree/src',
+    '  ✅ calculogic-validate-tree --target tree/src',
     '  ✅ calculogic-validate --validators=tree-structure-advisor --scope=repo',
   ],
 });

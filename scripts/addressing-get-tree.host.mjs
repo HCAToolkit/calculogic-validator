@@ -21,7 +21,7 @@ const STANDALONE_SCOPE_ROOT = '.';
 const EXCLUDED_WALK_NAMES = new Set(['.git', 'node_modules', '.reports', 'dist', 'build', 'coverage']);
 
 const USAGE_TEXT =
-  'Usage: node --experimental-strip-types calculogic-validator/scripts/addressing-get-tree.host.mjs --scope=validator [--target <path>] [--format text|json|both]';
+  'Usage: npm run addressing:get-tree -- --scope=validator [--target <path>] [--format text|json|both]';
 
 const normalizeCliPath = (inputPath) => inputPath.trim().replaceAll('\\', '/');
 
