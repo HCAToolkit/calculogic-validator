@@ -92,7 +92,7 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 - `isScopedRoot`: classification;
 - `isScopeTopOccurrence`: classification parity evidence.
 
-`lineageSegments`, `markerSegments`, `scopeRootPath`, `occurrenceMarker` and `parentResolvedPath` have no consumers outside the snapshot modules.
+`lineageSegments`, `markerSegments`, `scopeRootPath`, `occurrenceMarker` and `parentResolvedPath` have no runtime consumers outside the snapshot modules. They are nonetheless contract-preserved concepts in `tree-structural-address-probe-contract.spec.md`, so the migration must keep them mappable (§5.4).
 
 ### Intentional membership differences (decision required)
 
@@ -199,7 +199,22 @@ Review of this audit found D2's single-target and sibling cases, the membership 
 4. **Field contract for Tree consumers:**
    - Provide `path`, `name`, `occurrenceType`, `addressPath`, `parentAddressPath`, `depth`, `orderIndex`, plus the two scope flags (`isScopedRoot`, `isScopeTopOccurrence`) that classification reads.
    - Either migrate the `resolvedPath`/`actualName` readers to `path`/`name`, or provide them as aliases for one transition.
-   - `lineageSegments`, `markerSegments`, `scopeRootPath`, `occurrenceMarker` and `parentResolvedPath` can be retired, since nothing outside the snapshot modules reads them.
+   - `lineageSegments`, `markerSegments`, `scopeRootPath`, `occurrenceMarker` and `parentResolvedPath` have no runtime readers outside the snapshot modules. They still **cannot simply be retired**, because `doc/ValidatorSpecs/tree-owned/tree-structural-address-probe-contract.spec.md` (contract-preserved concepts) preserves parent path, scope binding, lineage segments, marker segments and the flattened occurrence marker. It allows field renaming only while each concept stays deterministically and explicitly mappable. The migration must therefore either provide these mappings from the Structural Addressing records, or land a coordinated update to that contract before removing any field:
+
+     | Contract concept (current field) | Deterministic mapping from Structural Addressing records |
+     |---|---|
+     | flattened occurrence marker (`occurrenceMarker`) | `addressPath` |
+     | marker segments (`markerSegments`) | `addressPath` split on the lineage separator `.` |
+     | parent path (`parentResolvedPath`) | `path` of the record whose `addressPath` equals this record's `parentAddressPath`, or `null` |
+     | scope binding (`scopeRootPath`) | `path` of the record's root ancestor (the record reached by following `parentAddressPath` to `null`), or `.` when the standalone scope root emits no occurrence (§5.3) |
+     | lineage segments (`lineageSegments`) | the scope binding followed by the path segments below it (`.` binding: the path segments themselves), matching today's definition |
+     | scoped-root marker (`isScopedRoot`) | `path` equals the scope binding |
+     | scope-top marker (`isScopeTopOccurrence`) | lineage segments have length 1 |
+     | depth (`depth`) | `depth` |
+
+     Test: "comparison A: the probe contract's occurrence concepts are deterministically mappable from Structural Addressing records" derives every row from the Structural Addressing records and compares the result with Tree's fields.
+
+     For root files outside every scope root (D1), the mapping gives the corrected lineage and depth, not today's defective values. That change is expected and must be listed with the other identity changes.
 5. **Ordering:** consumers must not depend on array order. Use `orderIndex` when order matters (E2).
 6. **Identity parity requirements for the migration:**
    - Default scopes with identical membership must keep every existing occurrence identity.

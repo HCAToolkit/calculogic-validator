@@ -233,6 +233,60 @@ test('comparison A: both implementations assign identical address, parent, depth
   assert.equal(addressingByPath.get('src/many/f27').addressPath.endsWith('.AB'), true);
 });
 
+// Maps a Structural Addressing record onto the concepts tree-structural-address-probe-contract.spec.md
+// preserves, so the migration can keep them without the private snapshot fields.
+const toProbeContractConcepts = (record, addressingByAddress) => {
+  let root = record;
+  while (root.parentAddressPath !== null) {
+    root = addressingByAddress.get(root.parentAddressPath);
+  }
+  const scopeRootPath = root.path;
+  const lineageSegments =
+    record.path === scopeRootPath ? [scopeRootPath] : [scopeRootPath, ...record.path.slice(scopeRootPath.length + 1).split('/')];
+
+  return {
+    occurrenceMarker: record.addressPath,
+    markerSegments: record.addressPath.split('.'),
+    parentResolvedPath: record.parentAddressPath === null ? null : addressingByAddress.get(record.parentAddressPath).path,
+    scopeRootPath,
+    lineageSegments,
+    isScopedRoot: record.path === scopeRootPath,
+    isScopeTopOccurrence: lineageSegments.length === 1,
+    depth: record.depth,
+  };
+};
+
+test('comparison A: the probe contract\'s occurrence concepts are deterministically mappable from Structural Addressing records', () => {
+  const cases = [
+    { filePaths: ['src/a/x.logic.mjs', 'src/a/b/y.logic.mjs', 'src/z.logic.mjs', 'test/a/x.test.mjs'], roots: ['src', 'test'], options: { includeRoots: ['src', 'test'] } },
+    { filePaths: ['tree/src/a.logic.mjs', 'tree/src/sub/b.logic.mjs'], roots: ['tree/src'], options: { targets: ['tree/src'] } },
+  ];
+  for (const { filePaths, roots, options } of cases) {
+    const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, ...options });
+    const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(filePaths, roots) });
+    const addressingByPath = byPath(addressing.occurrenceRecords, 'path');
+    const addressingByAddress = new Map(addressing.occurrenceRecords.map((record) => [record.addressPath, record]));
+
+    // Phantom ancestors (D2) have no Structural Addressing counterpart and are excluded here.
+    for (const record of tree.occurrenceRecords.filter((candidate) => addressingByPath.has(candidate.resolvedPath))) {
+      assert.deepEqual(
+        toProbeContractConcepts(addressingByPath.get(record.resolvedPath), addressingByAddress),
+        {
+          occurrenceMarker: record.occurrenceMarker,
+          markerSegments: record.markerSegments,
+          parentResolvedPath: record.parentResolvedPath,
+          scopeRootPath: record.scopeRootPath,
+          lineageSegments: record.lineageSegments,
+          isScopedRoot: record.isScopedRoot,
+          isScopeTopOccurrence: record.isScopeTopOccurrence,
+          depth: record.depth,
+        },
+        record.resolvedPath,
+      );
+    }
+  }
+});
+
 test('comparison A: record order differs (Tree sorts full paths; Addressing is pre-order with explicit orderIndex)', () => {
   const filePaths = ['doc/a/x.md', 'doc/a-b/x.md', 'doc/A/y.md'];
   const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, includeRoots: ['doc'] });
