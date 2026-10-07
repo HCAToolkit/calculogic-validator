@@ -3,9 +3,17 @@ import { test } from 'node:test';
 import {
   classifyNamingBridgeFolderKinds,
   collectNamingSemanticFamilyBridgeFindings,
+  prepareNamingBridgeValidatorDevelopmentContext,
   toNamingBridgePlacementRecord,
 } from '../src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs';
 import { runTreeStructureAdvisor } from '../src/tree-structure-advisor.logic.mjs';
+import { getBuiltinTreeRepoShapePolicy } from '../src/registries/tree-repo-shape-policy-registry.logic.mjs';
+
+// Fixtures that use `calculogic-validator/...` paths model embedded Validator development. The
+// embedded root's structural surface and the docs/runtime pairing come from that explicit context
+// (Refs #34), not from a hard-coded folder name.
+const EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT = 'calculogic-validator';
+const EMBEDDED_BRIDGE_CONTEXT = prepareNamingBridgeValidatorDevelopmentContext(EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT);
 
 const createPreparedTreeCoreInputs = (findingContributors = []) => ({
   selectedPaths: [],
@@ -94,7 +102,7 @@ test('tree naming bridge placement model resolves structural home and semantic c
     semanticName: 'tree-occurrence',
     familyRoot: 'tree',
     semanticFamily: 'tree-occurrence',
-  });
+  }, EMBEDDED_BRIDGE_CONTEXT);
 
   assert.equal(placement.structuralHome, 'calculogic-validator/src');
   assert.deepEqual(placement.structuralSurfaceChain, ['calculogic-validator', 'src']);
@@ -228,8 +236,8 @@ test('tree naming bridge folder-kind interpretation classifies structural semant
     familySubgroup: 'registry',
   };
 
-  const first = classifyNamingBridgeFolderKinds(observation);
-  const second = classifyNamingBridgeFolderKinds(observation);
+  const first = classifyNamingBridgeFolderKinds(observation, EMBEDDED_BRIDGE_CONTEXT);
+  const second = classifyNamingBridgeFolderKinds(observation, EMBEDDED_BRIDGE_CONTEXT);
   assert.deepEqual(first, second);
   assert.deepEqual(
     first.folderKinds.map(({ segment, folderKind }) => ({ segment, folderKind })),
@@ -642,7 +650,7 @@ test('tree naming bridge contributor suppresses broad scatter for bounded allowe
         semanticFamily: 'tree-model',
       },
     ],
-  });
+  }, { validatorDevelopmentRoot: EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT });
 
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
 });
@@ -696,9 +704,95 @@ test('tree naming bridge contributor treats canonical docs/runtime pairings as b
         semanticFamily: 'tree-router',
       },
     ],
-  });
+  }, { validatorDevelopmentRoot: EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT });
 
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
+});
+
+// Refs #34: the docs/runtime pairing derives from the prepared validator development root.
+const DOCS_RUNTIME_PAIRING_RELATIVE_PATHS = [
+  'doc/ValidatorSpecs/tree-owned/tree-router.spec.md',
+  'doc/ValidatorSpecs/tree-owned/tree-router.audit.md',
+  'tree/src/tree-router.logic.mjs',
+];
+const toTreeRouterBridgePayload = (paths) => ({
+  observations: paths.map((observationPath) => ({
+    path: observationPath,
+    semanticName: 'tree-router',
+    familyRoot: 'tree',
+    semanticFamily: 'tree-router',
+  })),
+});
+const scatterFindingsOf = (findings) => findings.filter((finding) => finding.code === 'TREE_FAMILY_SCATTERED');
+
+test('tree naming bridge contributor applies the docs/runtime pairing under the standalone development root', () => {
+  const findings = collectNamingSemanticFamilyBridgeFindings(toTreeRouterBridgePayload(DOCS_RUNTIME_PAIRING_RELATIVE_PATHS), {
+    validatorDevelopmentRoot: '.',
+  });
+
+  assert.deepEqual(scatterFindingsOf(findings), []);
+});
+
+test('tree naming bridge contributor gives installed consumers no Validator docs/runtime pairing allowance', () => {
+  // Positive anchor: the same family scatters without a validator development root, in either layout,
+  // and the scatter finding reports that no pairing pattern applied.
+  for (const paths of [
+    DOCS_RUNTIME_PAIRING_RELATIVE_PATHS,
+    DOCS_RUNTIME_PAIRING_RELATIVE_PATHS.map((relativePath) => `${EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT}/${relativePath}`),
+  ]) {
+    const scatter = scatterFindingsOf(collectNamingSemanticFamilyBridgeFindings(toTreeRouterBridgePayload(paths)));
+
+    assert.equal(scatter.length, 1, paths[0]);
+    assert.equal(scatter[0].details.allowedCrossContainerPatterns.canonicalDocAuthorityRuntimePairing, null);
+  }
+});
+
+test('tree naming bridge contributor reports the resolved docs/runtime pairing pattern for the development root', () => {
+  assert.equal(prepareNamingBridgeValidatorDevelopmentContext('.').canonicalDocAuthorityRuntimePairingPattern, 'doc/** <-> <semantic-container>/**');
+  assert.equal(
+    EMBEDDED_BRIDGE_CONTEXT.canonicalDocAuthorityRuntimePairingPattern,
+    'calculogic-validator/doc/** <-> calculogic-validator/<semantic-container>/**',
+  );
+  assert.equal(prepareNamingBridgeValidatorDevelopmentContext(null).canonicalDocAuthorityRuntimePairingPattern, null);
+
+  // A layout that does not match the prepared root gets no allowance: embedded paths under a
+  // standalone root still scatter, and the finding reports the standalone pattern it checked.
+  const scatter = scatterFindingsOf(
+    collectNamingSemanticFamilyBridgeFindings(
+      toTreeRouterBridgePayload(
+        DOCS_RUNTIME_PAIRING_RELATIVE_PATHS.map((relativePath) => `${EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT}/${relativePath}`),
+      ),
+      { validatorDevelopmentRoot: '.' },
+    ),
+  );
+  assert.equal(scatter.length, 1);
+  assert.equal(scatter[0].details.allowedCrossContainerPatterns.canonicalDocAuthorityRuntimePairing, 'doc/** <-> <semantic-container>/**');
+});
+
+test('tree naming bridge structural root surfaces are Tree-owned and not derived from repo-shape allowance', () => {
+  // Negative control (Refs #34): `calculogic-doc-engine` is allowed at the repository top level by the
+  // builtin repo-shape policy, but that does not make it a bridge structural surface in any context.
+  assert.equal(getBuiltinTreeRepoShapePolicy().allowedTopLevelDirectories.includes('calculogic-doc-engine'), true);
+  const folderKindOf = (observationPath, bridgeContext, segment) =>
+    classifyNamingBridgeFolderKinds(
+      { path: observationPath, semanticName: 'doc-engine', familyRoot: 'doc', semanticFamily: 'doc-engine' },
+      bridgeContext,
+    ).folderKinds.find((entry) => entry.segment === segment)?.folderKind;
+
+  for (const bridgeContext of [
+    prepareNamingBridgeValidatorDevelopmentContext(null),
+    prepareNamingBridgeValidatorDevelopmentContext('.'),
+    EMBEDDED_BRIDGE_CONTEXT,
+  ]) {
+    assert.equal(folderKindOf('calculogic-doc-engine/lib/engine.logic.mjs', bridgeContext, 'calculogic-doc-engine'), 'unspecified-folder');
+    assert.equal(folderKindOf('src/feature/engine.logic.mjs', bridgeContext, 'src'), 'structural-folder');
+  }
+
+  // The embedded Validator root is a structural surface only through explicit embedded context.
+  const embeddedPath = 'calculogic-validator/lib/engine.logic.mjs';
+  assert.equal(folderKindOf(embeddedPath, EMBEDDED_BRIDGE_CONTEXT, 'calculogic-validator'), 'structural-folder');
+  assert.equal(folderKindOf(embeddedPath, prepareNamingBridgeValidatorDevelopmentContext('.'), 'calculogic-validator'), 'unspecified-folder');
+  assert.equal(folderKindOf(embeddedPath, prepareNamingBridgeValidatorDevelopmentContext(null), 'calculogic-validator'), 'unspecified-folder');
 });
 
 test('tree naming bridge contributor keeps cross-concern but explainable spread out of final scatter', () => {
