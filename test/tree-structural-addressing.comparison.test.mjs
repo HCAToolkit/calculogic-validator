@@ -318,6 +318,34 @@ test('comparison B, known Tree defect D2: a single target shifts when its phanto
   assert.equal(addressingByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'A.A.1');
 });
 
+test('comparison B, intentional difference I3: an explicitly targeted excluded directory is empty in Tree but walked by get-tree', async (t) => {
+  const root = createStandaloneFixture(t, {
+    'dist/out.js': 'x\n',
+    'dist/sub/b.js': 'x\n',
+    'src/a.logic.mjs': 'x\n',
+  });
+  const treeInputs = treeInputsFor(root, { targets: ['dist'] });
+  const addressing = await getTreeSnapshotFor(root, ['dist']);
+
+  // Tree's suite collection skips `dist` before target filtering, so no file is selected and only the
+  // target root occurrence remains. get-tree applies its exclusions only to children of a walked
+  // folder, so an explicitly targeted `dist` is walked in full.
+  assert.deepEqual(treeInputs.selectedPaths, []);
+  assert.deepEqual(
+    treeInputs.structuralAddressSnapshot.occurrenceRecords.map((record) => [record.resolvedPath, record.addressPath]),
+    [['dist', 'A']],
+  );
+  assert.deepEqual(
+    addressing.occurrenceRecords.map((record) => [stripNamespace(record.path), record.addressPath]),
+    [
+      ['dist', 'A'],
+      ['dist/out.js', 'A.1'],
+      ['dist/sub', 'A.A'],
+      ['dist/sub/b.js', 'A.A.1'],
+    ],
+  );
+});
+
 test('comparison B, intentional difference I4: a file target is rooted at its containing folder in Tree but at the file in get-tree', async (t) => {
   const root = createStandaloneFixture(t, {
     'src/index.mjs': 'x\n',
