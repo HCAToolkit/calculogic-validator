@@ -52,6 +52,20 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 ### Reproducing
 
 - `node --test --experimental-strip-types test/tree-structural-addressing.comparison.test.mjs`, also part of `npm test`. Each finding below names its test. The last test compares the live repository. It does **not** require repository membership to stay fixed. New files and folders pass as long as every difference falls into a documented category: shared occurrences map by E1 after re-addressing over the shared membership, and unshared ones are dot paths, empty folders, paths with a `build` or `.git` segment, or symlinks. The live test therefore also passes when run from a Git worktree. It fails only on a new, unclassified *kind* of difference, which then needs a classification decision before the test is updated.
+- **Detection check (mutation testing on `ce59f17`).** Each producer was broken on purpose, one change at a time, and the comparison test was run, then each file was restored:
+
+| Injected change | Result |
+|---|---|
+| Tree file markers start at 2 | detected (11 tests fail, including the live test) |
+| Addressing sibling sort reversed | detected (9) |
+| Addressing child depth off by one | detected (6) |
+| Tree depth off by one | detected (9) |
+| Tree wrapper `addressPath` wrong under `tree/` | detected (4) |
+| Tree wrapper drops `parentAddressPath` | detected (5) |
+| Addressing drops `parentAddressPath` | detected (8) |
+| Tree folder/file tie-break reversed | not detected, and harmless: a folder and a file cannot share a name in one directory, and their counters are separate |
+
+  Before this check, the wrapper-level changes went undetected or were caught only incidentally. Production-input comparisons did not check parent identity, and the shared-membership rebuild bypassed the wrapper Tree consumers read. The comparison now rebuilds through `prepareTreeStructuralAddressSnapshot`, first asserting that it reproduces the wiring's own snapshot from the wiring's inputs. It also checks address, parent, depth and type on every production-input comparison.
 - The real-repository counts in §4 came from the same two layers, run from the Validator checkout against `/home/user/calculogic-validator` and `/home/user/Calculogic_React_App` with `prepareTreeStructureAdvisorInputs` and `prepareTreeCodebaseAddressedSnapshot` / `buildTreeCodebaseInputFromFileSystem`.
 
 ## 3. Classified differences
