@@ -40,10 +40,10 @@ NPM forwarding separator is required:
 ### Direct host command (non-validation)
 
 ```bash
-node --experimental-strip-types calculogic-validator/scripts/addressing-get-tree.host.mjs --scope=validator --format=both
+node --experimental-strip-types scripts/addressing-get-tree.host.mjs --scope=validator --format=both
 ```
 
-The direct host command is useful for local inspection and mirrors the npm command target.
+The direct host command is useful for local inspection and mirrors the npm command target. Its path is relative to the Validator checkout root; the host's own usage text names the npm form (`npm run addressing:get-tree -- --scope=validator`), which works from that root without a repository-layout-specific path.
 
 ### Validator development root layouts
 

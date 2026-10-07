@@ -923,7 +923,7 @@ Current script usage:
 - `--config=<path>` is accepted through shared suite CLI plumbing for config validation + runner-envelope `configDigest`; current tree runtime does not apply tree-local config semantics yet.
 - The command remains report-only in the non-mutating/report-first sense. Exit status still follows the shared suite exit contract after report emission, so warning-level advisory findings can currently yield exit `2`.
 
-Npm forwarding requirement remains: pass flags after `--` (for example `npm run validate:tree -- --scope=validator --target calculogic-validator/tree/src`).
+Npm forwarding requirement remains: pass flags after `--` (for example `npm run validate:tree -- --scope=validator --target tree/src`; targets are repository-relative).
 
 ---
 
