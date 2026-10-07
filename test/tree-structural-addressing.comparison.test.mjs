@@ -528,6 +528,29 @@ test('comparison B, intentional difference I3: an explicitly targeted excluded d
   );
 });
 
+test('comparison B: an explicitly targeted build folder is walked in full and addressed identically by both', async (t) => {
+  const root = createStandaloneFixture(t, {
+    'build/out.js': 'x\n',
+    'build/sub/b.js': 'x\n',
+    'src/a.logic.mjs': 'x\n',
+  });
+  const toRows = (records, pathOf) => records.map((record) => [pathOf(record), record.addressPath, record.parentAddressPath, record.depth]);
+
+  // get-tree excludes `build` only as a child of a walked folder; a `build` target is the walked root.
+  // Tree does not exclude `build` at all. Both therefore emit the full subtree with the same identities.
+  const expected = [
+    ['build', 'A', null, 0],
+    ['build/out.js', 'A.1', 'A', 1],
+    ['build/sub', 'A.A', 'A', 1],
+    ['build/sub/b.js', 'A.A.1', 'A.A', 2],
+  ];
+  assert.deepEqual(toRows(treeSnapshotFor(root, { targets: ['build'] }).occurrenceRecords, (record) => record.resolvedPath).sort(), expected);
+  assert.deepEqual(
+    toRows((await getTreeSnapshotFor(root, ['build'])).occurrenceRecords, (record) => stripNamespace(record.path)).sort(),
+    expected,
+  );
+});
+
 test('comparison B, intentional difference I4: a nested file target is rooted at its containing folder in Tree but at the file in get-tree', async (t) => {
   const root = createStandaloneFixture(t, {
     'src/index.mjs': 'x\n',

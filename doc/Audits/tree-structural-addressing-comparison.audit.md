@@ -103,8 +103,8 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 **I3. Walk exclusions.**
 - Tree wiring (`WALK_EXCLUDED_DIRECTORIES`): `.git`, `.next`, `.reports`, `.turbo`, `.yarn`, `coverage`, `dist`, `node_modules`.
 - get-tree (`EXCLUDED_WALK_NAMES`): `.git`, `node_modules`, `.reports`, `dist`, `build`, `coverage`.
-- `build` folders are excluded only by get-tree, at any depth: the get-tree walk filters every child of that name, as both walks do for their own lists.
-- More generally, get-tree excludes **every entry** with an excluded name, of any type and at any depth, while the suite walk applies its list to directories only. So a regular file named `dist`, `coverage`, `.reports` or `node_modules` is collected by Tree and omitted by get-tree.
+- `build` folders are excluded only by get-tree, at any depth **below a walked folder**: the get-tree walk filters every *child* of that name, as both walks do for their own lists. A target that is itself named `build` (`--target=build`) is not a child, so get-tree walks it in full, and so does Tree, because `build` is not on its list. Both producers then emit identical records and addresses, and no membership difference applies.
+- More generally, get-tree excludes **every entry below a walked folder** with an excluded name, of any type and at any depth, while the suite walk applies its list to directories only. So a regular file named `dist`, `coverage`, `.reports` or `node_modules` is collected by Tree and omitted by get-tree.
 - get-tree excludes any entry named `.git`, while the suite walk excludes `.git` only as a directory. A `.git` **file**, as found in a Git worktree checkout root or a submodule, is therefore collected by the suite walk and becomes a Tree file occurrence. Naming receives that path too. get-tree omits it. `.next`, `.turbo` and `.yarn` are dot directories, so I1 skips them on Tree's side anyway.
 - The lists also apply at different points. The suite walk skips an excluded directory before target filtering, so an explicitly targeted excluded directory (`--target=dist`) selects no files and Tree emits only the bare target root (`dist` = `A`). get-tree applies its exclusions only to the contents of a folder it walks, so the same target is walked in full (`dist/out.js` = `A.1`, `dist/sub/b.js` = `A.A.1`). Under the recommended adapter (§5.2), suite-core decides: an excluded-directory target contributes no files. Whether suite-core should honor an explicit target of an excluded directory is a separate suite-core question.
 
@@ -173,7 +173,7 @@ Tests for I1–I3: "comparison B: membership rules differ between Tree input col
 The classification above covers the input classes this audit exercised. It is not a claim about every possible input:
 
 - **Scopes:** `repo`, `validator`, `app`, `docs`, `system` (layer A); `validator` in the standalone and embedded layouts (layer B, the only scope get-tree supports).
-- **Targets:** none; one directory (nested, with its phantom ancestor sorting after or before it); sibling directories; directories in different branches; overlapping directories; a nested file; a repository-root file; an explicitly targeted excluded directory.
+- **Targets:** none; one directory (nested, with its phantom ancestor sorting after or before it); sibling directories; directories in different branches; overlapping directories; a nested file; a repository-root file; an explicitly targeted excluded directory (`dist`: membership differs; `build`: identical).
 - **Membership:** dot directories and dotfiles, empty folders, each walk-exclusion list (including a nested `build` folder, a `.git` file and a regular file with an excluded name), nested empty folders, symlinks to directories and to files.
 - **Names:** repeated names in different branches, case and punctuation variants, more than 26 siblings.
 
