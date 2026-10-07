@@ -241,7 +241,7 @@ test('comparison A: both implementations assign identical address, parent, depth
 // Maps a Structural Addressing record onto the concepts tree-structural-address-probe-contract.spec.md
 // preserves, so the migration can keep them without the private snapshot fields.
 // `declaredScopeRootPaths` are the scope roots that are occurrences themselves (include roots,
-// directory targets, an embedded root). A root ancestor that is not one of them sits directly under
+// directory targets, the containing folder of a nested file target, an embedded root). A root ancestor that is not one of them sits directly under
 // the omitted standalone `.` scope root (§5.3), so it binds to `.`.
 const toProbeContractConcepts = (record, addressingByAddress, declaredScopeRootPaths) => {
   let root = record;
@@ -283,6 +283,9 @@ test('comparison A: the probe contract\'s occurrence concepts are deterministica
   const cases = [
     { label: 'include roots', filePaths: ['src/a/x.logic.mjs', 'src/a/b/y.logic.mjs', 'src/z.logic.mjs', 'test/a/x.test.mjs'], roots: ['src', 'test'], options: { includeRoots: ['src', 'test'] } },
     { label: 'nested directory target', filePaths: ['tree/src/a.logic.mjs', 'tree/src/sub/b.logic.mjs'], roots: ['tree/src'], options: { targets: ['tree/src'] } },
+    // The adapter roots a nested file target at its containing folder (I4); that folder is its
+    // effective scope root, so it must be declared like a directory target.
+    { label: 'nested file target', filePaths: ['tree/src/index.mjs'], roots: ['tree/src'], options: { targets: ['tree/src/index.mjs'] } },
     { label: 'standalone whole scope', filePaths: ['README.md', 'src/a.logic.mjs', 'src/sub/b.logic.mjs'], roots: [], options: { includeRoots: ['.'] } },
     { label: 'repository-root file target', filePaths: ['README.md'], roots: [], options: { targets: ['README.md'] } },
   ];

@@ -207,13 +207,13 @@ Review of this audit found D2's single-target and sibling cases, the membership 
      | flattened occurrence marker (`occurrenceMarker`) | `addressPath` |
      | marker segments (`markerSegments`) | `addressPath` split on the lineage separator `.` |
      | parent path (`parentResolvedPath`) | `path` of the record whose `addressPath` equals this record's `parentAddressPath`, or `null` |
-     | scope binding (`scopeRootPath`) | `path` of the record's root ancestor (the record reached by following `parentAddressPath` to `null`) **if that ancestor is a declared scope root** (include root, directory target, embedded root). Otherwise `.`, because the ancestor sits directly under the omitted standalone scope root (§5.3). The adapter must therefore carry the declared scope roots alongside the records. |
+     | scope binding (`scopeRootPath`) | `path` of the record's root ancestor (the record reached by following `parentAddressPath` to `null`) **if that ancestor is a declared scope root** (include root, directory target, the containing folder the adapter synthesizes as the root of a nested file target (I4), embedded root). Otherwise `.`, because the ancestor sits directly under the omitted standalone scope root (§5.3). The adapter must therefore carry the declared scope roots alongside the records, including each synthesized containing folder: without it, a nested file target's folder would bind to `.` and lose `isScopedRoot: true`, which classification reads. |
      | lineage segments (`lineageSegments`) | for a `.` binding, the path segments themselves. Otherwise the scope binding followed by the path segments below it. This matches today's definition. |
      | scoped-root marker (`isScopedRoot`) | `path` equals the scope binding |
      | scope-top marker (`isScopeTopOccurrence`) | lineage segments have length 1 |
      | depth (`depth`) | `depth` |
 
-     Test: "comparison A: the probe contract's occurrence concepts are deterministically mappable from Structural Addressing records" derives every row from the Structural Addressing records and compares the result with Tree's fields. It covers include roots, a nested directory target, a standalone whole scope, and a repository-root file target. In the last two, top-level records bind to `.` with `isScopedRoot: false`.
+     Test: "comparison A: the probe contract's occurrence concepts are deterministically mappable from Structural Addressing records" derives every row from the Structural Addressing records and compares the result with Tree's fields. It covers include roots, a nested directory target, a nested file target (its containing folder binds as the scope root, `isScopedRoot: true`), a standalone whole scope, and a repository-root file target. In the last two, top-level records bind to `.` with `isScopedRoot: false`.
 
      For root files outside every scope root (D1), the mapping gives the corrected lineage and depth, not today's defective values. That change is expected and must be listed with the other identity changes.
 5. **Ordering:** consumers must not depend on array order. Use `orderIndex` when order matters (E2).
