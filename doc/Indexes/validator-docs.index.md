@@ -149,6 +149,9 @@ Authority labels used in this index:
 - `doc/Audits/package-consumption-and-dev-link-readiness.audit.md`
   **Authority:** audit snapshot. **Intended use:** standalone package-consumption and dev-link readiness evidence covering packed artifacts, pinned Git, local-folder installs, npm link, update/unlink/relink workflows, root-context behavior, blocker classification, and the current-stage workflow recommendation.
 
+- `doc/Audits/tree-structural-addressing-comparison.audit.md`
+  **Authority:** audit snapshot. **Intended use:** comparison-only evidence (#40) of Tree's private addressed snapshot against the shared Structural Addressing `tree-codebase` output, with classified differences (equivalent, intentional membership, defects), real-repository results, and migration requirements for the Addressing → Tree convergence under #39.
+
 ## 8) Maintenance note
 
 - When adding a new validator doc, classify it in this index using one of the authority labels above.
