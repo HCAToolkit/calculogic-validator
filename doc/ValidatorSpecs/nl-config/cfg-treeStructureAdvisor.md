@@ -88,7 +88,8 @@ Current boundary note: shipped tree heuristics may ingest naming-derived semanti
    - Token/path-only shim signals on non-runtime surfaces (`quality/docs/examples/fixtures`) are suppressed from shim-debt findings.
    - Intentional pass-through surfaces are excluded from shim debt:
      - canonical `*.host.* -> sibling *.wiring.*` forwarding inside owned slices
-     - public package entrypoint barrel (`calculogic-validator/src/index.mjs`) including `export * from`, namespace re-export (`export * as <name> from`), and optional `export { ... } from` forms
+     - public package entrypoint barrel (`<validator development root>/src/index.mjs`, Validator development context only) including `export * from`, namespace re-export (`export * as <name> from`), and optional `export { ... } from` forms
+   - Token/path-only signals on the shim detector's own implementation modules (`<validator development root>/tree/src/**` with a detector-implementation token) are suppressed in Validator development context only. Installed consumers get no Validator self-exemption; their shim reasoning otherwise runs unchanged.
    - Runtimeish token/path-only matches remain info-level observability (`TREE_SHIM_SURFACE_PRESENT`) and do not emit debt-style `TREE_SHIM_OUTSIDE_COMPAT` unless thin re-export evidence exists.
 
 
@@ -100,6 +101,7 @@ V0.1.7 introduces a suite-core scoped snapshot/input helper boundary and migrate
 - tree wiring consumes the shared scoped snapshot input and still prepares tree-local top-level directory inventory
 - tree runtime remains slice-owned for tree-core findings using prepared tree-core inputs only (`selectedPaths`, `topLevelDirectoryNames`, `targets`) and consumes occurrence-derived file-path reasoning input when `occurrenceSnapshot.occurrenceRecords` is available (bounded fallback to `selectedPaths` when occurrence snapshot is absent/malformed)
 - tree contributor attachment now supports bounded naming-owned semantic-family bridge payloads (`namingSemanticFamilyBridge.observations[]`) for structural advisories while preserving naming ownership of semantic derivation and validity interpretation
+- the bridge contributor and the shim contributor receive the prepared validator development root from Tree wiring (Refs #34): the canonical docs-authority/runtime pairing (`<root>/doc/** <-> <root>/<semantic-container>/**`) and the shim self-exemptions apply only in Validator development context, and an embedded root's top-level folder is a bridge structural root surface for that run only. The bridge's generic structural root surfaces stay Tree-owned bridge policy and are not derived from the repo-shape allowance.
 - occurrence-driven file reasoning now carries bounded structural class metadata on occurrence records (`structuralClass`, `structuralKind`, repo-shape allowed top-level-directory flags, scoped-root flag, subtree-partition candidate flag) for near-term tree-local interpretation
 - tree-run default contributor selection is owned by a dedicated assembly/wiring module so tree wiring only prepares tree-core inputs
 - shim/content-backed diagnostics are attached from a shim-owned contributor helper that prepares lazy content access (cache + selected-path guard) so tree-core runtime does not require file-content access
