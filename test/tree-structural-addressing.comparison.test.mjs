@@ -64,7 +64,7 @@ const byPath = (records, pathKey) => new Map(records.map((record) => [record[pat
 const stripNamespace = (namespacedPath) =>
   namespacedPath === SOURCE_NAMESPACE ? '.' : namespacedPath.replace(new RegExp(`^${SOURCE_NAMESPACE}/`, 'u'), '');
 
-const createStandaloneFixture = (t, files, { emptyDirectories = [], symlinks = [] } = {}) => {
+const createStandaloneFixture = (t, files, { emptyDirectories = [] } = {}) => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'tree-addressing-comparison-')));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const [relativePath, content] of Object.entries({
@@ -77,12 +77,22 @@ const createStandaloneFixture = (t, files, { emptyDirectories = [], symlinks = [
   for (const directory of emptyDirectories) {
     fs.mkdirSync(path.join(root, directory), { recursive: true });
   }
-  for (const [linkPath, targetPath] of symlinks) {
-    const targetAbsolute = path.join(root, targetPath);
-    fs.symlinkSync(targetAbsolute, path.join(root, linkPath), fs.statSync(targetAbsolute).isDirectory() ? 'dir' : 'file');
-  }
   execFileSync('git', ['init', '-q'], { cwd: root });
   return root;
+};
+
+// Creates `[linkPath, targetPath]` symlinks inside a fixture; false where the platform refuses
+// symlink creation (for example Windows without the privilege), so only symlink coverage skips.
+const tryCreateFixtureSymlinks = (root, symlinks) => {
+  try {
+    for (const [linkPath, targetPath] of symlinks) {
+      const targetAbsolute = path.join(root, targetPath);
+      fs.symlinkSync(targetAbsolute, path.join(root, linkPath), fs.statSync(targetAbsolute).isDirectory() ? 'dir' : 'file');
+    }
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const treeInputsFor = (repositoryRoot, { scope = 'validator', targets } = {}) =>
@@ -713,7 +723,7 @@ test('comparison B: membership rules differ between Tree input collection and th
       'coverage/lcov.info': 'x\n',
       'node_modules/pkg/index.js': 'x\n',
     },
-    { emptyDirectories: ['empty/nested'], symlinks: [['src-link', 'src'], ['src/a-link.logic.mjs', 'src/a.logic.mjs']] },
+    { emptyDirectories: ['empty/nested'] },
   );
   const treeInputs = treeInputsFor(root);
   const getTreeInput = await getTreeInputFor(root);
@@ -743,12 +753,9 @@ test('comparison B: membership rules differ between Tree input collection and th
     [...treeByPath.keys()].filter((occurrencePath) => !addressingPaths.has(occurrencePath)).sort(),
     // get-tree excludes `build` folders at any depth, Tree excludes none; get-tree excludes any entry
     // named `.git` while the suite walk excludes only a `.git` directory, so a `.git` file is a Tree
-    // file occurrence; a directory symlink is skipped by get-tree but collected by the suite walk as a
-    // non-directory entry, so Tree records it as a file occurrence; a symlink to a regular file is
-    // likewise collected by the suite walk and skipped by get-tree.
-    ['build', 'build/out.js', 'src-link', 'src/a-link.logic.mjs', 'src/build', 'src/build/nested.js', 'src/dist', 'vendored/.git'],
+    // file occurrence. Symlinks (D3) are covered by their own test.
+    ['build', 'build/out.js', 'src/build', 'src/build/nested.js', 'src/dist', 'vendored/.git'],
   );
-  assert.equal(treeByPath.get('src-link').occurrenceType, 'file');
   for (const excluded of ['dist', 'coverage', 'node_modules']) {
     assert.equal(treeByPath.has(excluded) || addressingPaths.has(excluded), false, excluded);
   }
@@ -770,10 +777,34 @@ test('comparison B: membership rules differ between Tree input collection and th
   assert.equal(addressingByPath.get('src').addressPath, 'A.D');
 
   // Re-addressed over the shared membership, every shared occurrence maps by E1 again: the shift is
-  // fully explained by I1-I3 and D3.
+  // fully explained by I1-I3.
   for (const { path: occurrencePath, tree, addressing } of compareOverSharedMembership(treeInputs, getTreeInput)) {
     assertMapsByE1(tree, addressing, occurrencePath);
   }
+});
+
+test('comparison B, defect candidate D3: symlinks to directories and files are Tree file occurrences skipped by get-tree', async (t) => {
+  const root = createStandaloneFixture(t, { 'src/a.logic.mjs': 'x\n' });
+  if (!tryCreateFixtureSymlinks(root, [['src-link', 'src'], ['src/a-link.logic.mjs', 'src/a.logic.mjs']])) {
+    t.skip('Symlink creation not supported in this environment.');
+    return;
+  }
+  const treeInputs = treeInputsFor(root);
+  const addressing = prepareTreeCodebaseAddressedSnapshot(await getTreeInputFor(root));
+  const treeByPath = byPath(treeInputs.structuralAddressSnapshot.occurrenceRecords, 'resolvedPath');
+  const addressingPaths = new Set(addressing.occurrenceRecords.map((record) => stripNamespace(record.path)));
+
+  // The suite walk collects every non-directory entry, so a directory symlink becomes a file occurrence
+  // (without its contents) and a file symlink is collected too; get-tree skips both.
+  assert.deepEqual(
+    [...treeByPath.keys()].filter((occurrencePath) => !addressingPaths.has(occurrencePath)).sort(),
+    ['src-link', 'src/a-link.logic.mjs'],
+  );
+  assert.equal(treeByPath.get('src-link').occurrenceType, 'file');
+  assert.deepEqual(
+    listUnclassifiedMembershipDifferences(root, treeInputs.structuralAddressSnapshot, addressing),
+    { treeOnly: [], getTreeOnly: [] },
+  );
 });
 
 test('comparison B, intentional difference I5: the join namespace IDs differ even where every address agrees', async () => {
