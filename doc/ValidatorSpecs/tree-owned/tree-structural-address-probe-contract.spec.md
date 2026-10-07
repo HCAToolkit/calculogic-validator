@@ -152,7 +152,7 @@ Deepest-root binding keeps an inner root's own binding after the adapter collaps
 **Expected corrections** (gated in #45, see the audit §5.7):
 - **D1:** a root file outside every declared root binds to `.`, which corrects `scopeRootPath`, `lineageSegments`, `isScopeTopOccurrence` and `depth`.
 - **D2:** no phantom ancestors.
-- **D4:** collapsed overlapping roots change address, marker segments, parent and depth, while binding, lineage and both scope flags are preserved.
+- **D4:** collapsed overlapping roots change address, marker segments, parent and depth, while binding, lineage and both scope flags are preserved. An empty collapsed root stays as an occurrence, and nesting it can add intermediate folder occurrences below the outer root.
 - **O2:** `orderIndex` is non-null.
 
 Everything else matches the private producer field for field.
