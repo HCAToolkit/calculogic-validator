@@ -235,14 +235,23 @@ test('comparison A: both implementations assign identical address, parent, depth
 
 // Maps a Structural Addressing record onto the concepts tree-structural-address-probe-contract.spec.md
 // preserves, so the migration can keep them without the private snapshot fields.
-const toProbeContractConcepts = (record, addressingByAddress) => {
+// `declaredScopeRootPaths` are the scope roots that are occurrences themselves (include roots,
+// directory targets, an embedded root). A root ancestor that is not one of them sits directly under
+// the omitted standalone `.` scope root (§5.3), so it binds to `.`.
+const toProbeContractConcepts = (record, addressingByAddress, declaredScopeRootPaths) => {
   let root = record;
   while (root.parentAddressPath !== null) {
     root = addressingByAddress.get(root.parentAddressPath);
   }
-  const scopeRootPath = root.path;
-  const lineageSegments =
-    record.path === scopeRootPath ? [scopeRootPath] : [scopeRootPath, ...record.path.slice(scopeRootPath.length + 1).split('/')];
+  const scopeRootPath = declaredScopeRootPaths.has(root.path) ? root.path : '.';
+  let lineageSegments;
+  if (scopeRootPath === '.') {
+    lineageSegments = record.path.split('/');
+  } else if (record.path === scopeRootPath) {
+    lineageSegments = [scopeRootPath];
+  } else {
+    lineageSegments = [scopeRootPath, ...record.path.slice(scopeRootPath.length + 1).split('/')];
+  }
 
   return {
     occurrenceMarker: record.addressPath,
@@ -257,20 +266,35 @@ const toProbeContractConcepts = (record, addressingByAddress) => {
 };
 
 test('comparison A: the probe contract\'s occurrence concepts are deterministically mappable from Structural Addressing records', () => {
+  // Without a declared scope root, the adapter roots the top-level occurrences directly (no `.` node).
+  const withoutScopeRootOccurrence = (filePaths) =>
+    toAddressingScopeRoots(filePaths.map((filePath) => `__root__/${filePath}`), ['__root__'])[0].children.map(function strip(node) {
+      return {
+        ...node,
+        path: node.path.slice('__root__/'.length),
+        ...(node.children ? { children: node.children.map(strip) } : {}),
+      };
+    });
   const cases = [
-    { filePaths: ['src/a/x.logic.mjs', 'src/a/b/y.logic.mjs', 'src/z.logic.mjs', 'test/a/x.test.mjs'], roots: ['src', 'test'], options: { includeRoots: ['src', 'test'] } },
-    { filePaths: ['tree/src/a.logic.mjs', 'tree/src/sub/b.logic.mjs'], roots: ['tree/src'], options: { targets: ['tree/src'] } },
+    { label: 'include roots', filePaths: ['src/a/x.logic.mjs', 'src/a/b/y.logic.mjs', 'src/z.logic.mjs', 'test/a/x.test.mjs'], roots: ['src', 'test'], options: { includeRoots: ['src', 'test'] } },
+    { label: 'nested directory target', filePaths: ['tree/src/a.logic.mjs', 'tree/src/sub/b.logic.mjs'], roots: ['tree/src'], options: { targets: ['tree/src'] } },
+    { label: 'standalone whole scope', filePaths: ['README.md', 'src/a.logic.mjs', 'src/sub/b.logic.mjs'], roots: [], options: { includeRoots: ['.'] } },
+    { label: 'repository-root file target', filePaths: ['README.md'], roots: [], options: { targets: ['README.md'] } },
   ];
-  for (const { filePaths, roots, options } of cases) {
+  for (const { label, filePaths, roots, options } of cases) {
     const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, ...options });
-    const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(filePaths, roots) });
+    const addressing = prepareTreeCodebaseAddressedSnapshot({
+      scopeRoots: roots.length > 0 ? toAddressingScopeRoots(filePaths, roots) : withoutScopeRootOccurrence(filePaths),
+    });
+    const declaredScopeRootPaths = new Set(roots);
+    assert.equal(addressing.occurrenceRecords.length > 0, true, label);
     const addressingByPath = byPath(addressing.occurrenceRecords, 'path');
     const addressingByAddress = new Map(addressing.occurrenceRecords.map((record) => [record.addressPath, record]));
 
     // Phantom ancestors (D2) have no Structural Addressing counterpart and are excluded here.
     for (const record of tree.occurrenceRecords.filter((candidate) => addressingByPath.has(candidate.resolvedPath))) {
       assert.deepEqual(
-        toProbeContractConcepts(addressingByPath.get(record.resolvedPath), addressingByAddress),
+        toProbeContractConcepts(addressingByPath.get(record.resolvedPath), addressingByAddress, declaredScopeRootPaths),
         {
           occurrenceMarker: record.occurrenceMarker,
           markerSegments: record.markerSegments,
@@ -281,7 +305,7 @@ test('comparison A: the probe contract\'s occurrence concepts are deterministica
           isScopeTopOccurrence: record.isScopeTopOccurrence,
           depth: record.depth,
         },
-        record.resolvedPath,
+        `${label}: ${record.resolvedPath}`,
       );
     }
   }
