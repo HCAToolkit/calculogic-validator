@@ -9,7 +9,7 @@ import {
 } from '../src/tree-structure-advisor.host.mjs';
 import { prepareTreeStructureAdvisorInputs } from '../src/tree-structure-advisor.wiring.mjs';
 import { runTreeStructureAdvisor as runTreeStructureAdvisorRuntime } from '../src/tree-structure-advisor.logic.mjs';
-import { collectShimCompatFindings } from '../src/tree-shim-detection.logic.mjs';
+import { collectShimCompatFindings, prepareShimValidatorDevelopmentContext } from '../src/tree-shim-detection.logic.mjs';
 import { prepareTreeStructuralHomeEvidence } from '../src/tree-structural-home-evidence.logic.mjs';
 import { prepareTreeSemanticHomeEvidence } from '../src/tree-semantic-home-evidence.logic.mjs';
 import { prepareTreeSemanticNamingFolderTypeRelationshipEvidence } from '../src/tree-semantic-naming-folder-type-relationship.logic.mjs';
@@ -1410,7 +1410,8 @@ test('tree-structure-advisor suppresses weak token-only shim signal for tree shi
       'utf8',
     );
 
-    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    // Explicit embedded context: the detector self-exemption is Validator-development-only (Refs #34).
+    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot: embeddedPackageRootFor(fixtureDir) });
 
     assert.equal(
       result.findings.some(
@@ -1486,12 +1487,133 @@ test('tree-structure-advisor does not treat public index entrypoint barrel as sh
       'utf8',
     );
 
-    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    const result = runTreeStructureAdvisor(fixtureDir, { scope: 'repo', packageRoot: embeddedPackageRootFor(fixtureDir) });
 
     assert.equal(
       result.findings.some((finding) => finding.path === 'calculogic-validator/src/index.mjs'),
       false,
     );
+  } finally {
+    await fs.rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+// Refs #34: Validator-development shim self-exemptions derive from the prepared development root.
+const SHIM_DETECTOR_MODULE_CONTENT = 'export const collectShimEvidence = () => null\n';
+const THIN_PUBLIC_ENTRYPOINT_BARREL = [
+  "export * from './core/validator-runner.logic.mjs';",
+  "export * from './naming/naming-validator.host.mjs';",
+].join('\n');
+const shimCodesByPath = (findings) =>
+  Object.fromEntries(
+    [...new Set(findings.map((finding) => finding.path))].map((findingPath) => [
+      findingPath,
+      findings.filter((finding) => finding.path === findingPath).map((finding) => finding.code),
+    ]),
+  );
+
+test('tree shim validator-development context derives self-exemption paths from the development root', () => {
+  assert.deepEqual(
+    { ...prepareShimValidatorDevelopmentContext('.') },
+    { publicEntrypointPath: 'src/index.mjs', shimDetectorImplementationRoot: 'tree/src/' },
+  );
+  assert.deepEqual(
+    { ...prepareShimValidatorDevelopmentContext('calculogic-validator') },
+    {
+      publicEntrypointPath: 'calculogic-validator/src/index.mjs',
+      shimDetectorImplementationRoot: 'calculogic-validator/tree/src/',
+    },
+  );
+  for (const validatorDevelopmentRoot of [null, undefined, '']) {
+    assert.deepEqual(
+      { ...prepareShimValidatorDevelopmentContext(validatorDevelopmentRoot) },
+      { publicEntrypointPath: null, shimDetectorImplementationRoot: null },
+    );
+  }
+});
+
+test('tree shim detection applies Validator self-exemptions under the standalone development root', () => {
+  const contentByPath = new Map([
+    ['tree/src/tree-shim-detection.logic.mjs', SHIM_DETECTOR_MODULE_CONTENT],
+    ['src/index.mjs', THIN_PUBLIC_ENTRYPOINT_BARREL],
+  ]);
+  const readCalls = [];
+  const findings = collectShimCompatFindings(
+    [...contentByPath.keys()],
+    (relativePath) => {
+      readCalls.push(relativePath);
+      return contentByPath.get(relativePath);
+    },
+    { validatorDevelopmentRoot: '.' },
+  );
+
+  // The public entrypoint is inspected as the Validator's own barrel and recognized as a pass-through.
+  assert.equal(readCalls.includes('src/index.mjs'), true);
+  assert.deepEqual(findings, []);
+});
+
+test('tree shim detection gives installed consumers no Validator self-exemption but keeps normal shim reasoning', () => {
+  // The same standalone-shaped paths without a validator development root are ordinary consumer files.
+  // The detector-looking module's token-only signal stays observable, and a consumer's own
+  // `src/index.mjs` is not treated as the Validator's entrypoint: with no shim signal it is not a
+  // content candidate at all, exactly as before #34.
+  const contentByPath = new Map([
+    ['tree/src/tree-shim-detection.logic.mjs', SHIM_DETECTOR_MODULE_CONTENT],
+    ['src/index.mjs', THIN_PUBLIC_ENTRYPOINT_BARREL],
+  ]);
+  const readCalls = [];
+  const findings = collectShimCompatFindings([...contentByPath.keys()], (relativePath) => {
+    readCalls.push(relativePath);
+    return contentByPath.get(relativePath);
+  });
+
+  assert.deepEqual(shimCodesByPath(findings), {
+    'tree/src/tree-shim-detection.logic.mjs': ['TREE_SHIM_SURFACE_PRESENT'],
+  });
+  assert.equal(readCalls.includes('src/index.mjs'), false);
+});
+
+test('tree shim detection self-exemptions follow the prepared root, not the path layout', () => {
+  // Embedded-layout paths under a standalone root, and standalone paths under an embedded root, are
+  // not the Validator's own entrypoint or detector modules.
+  const embeddedPaths = new Map([
+    ['calculogic-validator/tree/src/tree-shim-detection.logic.mjs', SHIM_DETECTOR_MODULE_CONTENT],
+    ['calculogic-validator/src/index.mjs', THIN_PUBLIC_ENTRYPOINT_BARREL],
+  ]);
+  assert.deepEqual(
+    collectShimCompatFindings([...embeddedPaths.keys()], (relativePath) => embeddedPaths.get(relativePath), {
+      validatorDevelopmentRoot: 'calculogic-validator',
+    }),
+    [],
+  );
+  assert.deepEqual(
+    Object.keys(
+      shimCodesByPath(
+        collectShimCompatFindings([...embeddedPaths.keys()], (relativePath) => embeddedPaths.get(relativePath), {
+          validatorDevelopmentRoot: '.',
+        }),
+      ),
+    ),
+    ['calculogic-validator/tree/src/tree-shim-detection.logic.mjs'],
+  );
+});
+
+test('tree-structure-advisor exempts the standalone Validator shim detector through prepared standalone context', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-shim-detector-standalone-'));
+
+  try {
+    await fs.writeFile(path.join(fixtureDir, 'package.json'), `${JSON.stringify({ name: '@calculogic/validator' })}\n`, 'utf8');
+    await fs.mkdir(path.join(fixtureDir, 'tree', 'src'), { recursive: true });
+    await fs.writeFile(path.join(fixtureDir, 'tree', 'src', 'tree-shim-detection.logic.mjs'), SHIM_DETECTOR_MODULE_CONTENT, 'utf8');
+
+    const shimPathsFor = (options) =>
+      runTreeStructureAdvisor(fixtureDir, { scope: 'repo', ...options })
+        .findings.filter((finding) => finding.code.startsWith('TREE_SHIM_'))
+        .map((finding) => finding.path);
+
+    assert.deepEqual(shimPathsFor({ packageRoot: fixtureDir }), []);
+    // Installed-consumer context (no packageRoot match): normal shim reasoning reports the file.
+    assert.deepEqual(shimPathsFor({}), ['tree/src/tree-shim-detection.logic.mjs']);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }

@@ -1,4 +1,8 @@
 import path from 'node:path';
+import {
+  toValidatorDevelopmentPathPrefix,
+  toValidatorDevelopmentRootTopLevelFolder,
+} from '../tree-validator-development-root.logic.mjs';
 
 const FAMILY_SCATTER_MIN_STRUCTURAL_HOMES = 2;
 const FAMILY_SCATTER_MIN_FILES = 3;
@@ -6,7 +10,9 @@ const FAMILY_CLUSTER_INFO_MIN_FILES = 4;
 const FAMILY_SUBGROUP_OPPORTUNITY_MIN_FILES_IN_CONTAINER = 4;
 const FAMILY_SUBGROUP_OPPORTUNITY_MIN_DISTINCT_CONTAINER_LOCAL_HOMES = 2;
 const FAMILY_SUBGROUP_OPPORTUNITY_REQUIRES_LOWER_LEVEL_GROUPING_SIGNAL = true;
-const TREE_STRUCTURAL_ROOT_SURFACES = ['src', 'test', 'doc', 'docs', 'scripts', 'tools', 'bin', 'public', 'calculogic-validator'];
+// Tree-owned bridge policy, deliberately not derived from the repo-shape allowance: a folder allowed
+// at the repository top level is not thereby a structural surface for Naming evidence (Refs #34).
+const TREE_STRUCTURAL_ROOT_SURFACES = ['src', 'test', 'doc', 'docs', 'scripts', 'tools', 'bin', 'public'];
 const TREE_STRUCTURAL_ROOT_SURFACE_SET = new Set(TREE_STRUCTURAL_ROOT_SURFACES);
 const TREE_SEMANTIC_ROOT_FOLDERS = ['tree', 'naming'];
 const TREE_SEMANTIC_ROOT_FOLDER_SET = new Set(TREE_SEMANTIC_ROOT_FOLDERS);
@@ -17,8 +23,6 @@ const ALLOWED_STRUCTURAL_ROOT_PAIRINGS = [
 const ALLOWED_STRUCTURAL_ROOT_PAIRING_SET = new Set(
   ALLOWED_STRUCTURAL_ROOT_PAIRINGS.map((pair) => pair.slice().sort((left, right) => left.localeCompare(right)).join('::')),
 );
-const CANONICAL_DOC_AUTHORITY_ROOT_PREFIX = 'calculogic-validator/doc/';
-const CANONICAL_VALIDATOR_ROOT_PREFIX = 'calculogic-validator/';
 const SHARED_ROOT_SEMANTIC_GROUPING_SUPPORTED_ROOTS = ['src/shared'];
 const SHARED_ROOT_LANE_FIRST_PARTITIONS = ['build', 'build-style', 'logic', 'knowledge', 'results', 'results-style', 'tests', 'docs'];
 const SHARED_ROOT_LANE_FIRST_PARTITION_SET = new Set(SHARED_ROOT_LANE_FIRST_PARTITIONS);
@@ -43,6 +47,26 @@ const SHARED_ROOT_LANE_INTERPRETATION = Object.freeze({
   LOCAL_FIRST_SUPPRESSED: 'local-first-suppressed',
   BROADER_SPREAD_SUPPRESSED: 'broader-spread-suppressed',
 });
+
+// Validator-development context for one run (Refs #34). The canonical docs-authority/runtime pairing
+// and an embedded root's structural surface derive from the prepared validator development root;
+// without one (installed consumer, or a direct caller that omits it) neither applies.
+export const prepareNamingBridgeValidatorDevelopmentContext = (validatorDevelopmentRoot = null) => {
+  const validatorRootPrefix = toValidatorDevelopmentPathPrefix(validatorDevelopmentRoot);
+  const embeddedRootFolder = toValidatorDevelopmentRootTopLevelFolder(validatorDevelopmentRoot);
+
+  return Object.freeze({
+    structuralRootSurfaceSet: embeddedRootFolder
+      ? new Set([...TREE_STRUCTURAL_ROOT_SURFACES, embeddedRootFolder])
+      : TREE_STRUCTURAL_ROOT_SURFACE_SET,
+    validatorRootPrefix,
+    docAuthorityRootPrefix: validatorRootPrefix === null ? null : `${validatorRootPrefix}doc/`,
+    canonicalDocAuthorityRuntimePairingPattern:
+      validatorRootPrefix === null ? null : `${validatorRootPrefix}doc/** <-> ${validatorRootPrefix}<semantic-container>/**`,
+  });
+};
+
+const NO_VALIDATOR_DEVELOPMENT_BRIDGE_CONTEXT = prepareNamingBridgeValidatorDevelopmentContext(null);
 
 const toSortedUnique = (values) => Array.from(new Set(values)).sort((left, right) => left.localeCompare(right));
 
@@ -107,7 +131,7 @@ const toSignalAlignment = (pathSegments, semanticSignal) => {
   };
 };
 
-export const classifyNamingBridgeFolderKinds = (observation) => {
+export const classifyNamingBridgeFolderKinds = (observation, bridgeContext = NO_VALIDATOR_DEVELOPMENT_BRIDGE_CONTEXT) => {
   const directorySegments = path.posix.dirname(observation.path).split('/').filter(Boolean);
   const alignments = {
     familyRoot: toSignalAlignment(directorySegments, observation.familyRoot),
@@ -129,7 +153,7 @@ export const classifyNamingBridgeFolderKinds = (observation) => {
       return { segment, index, folderKind: 'semantic-folder', reason: 'naming-signal-aligned-folder' };
     }
 
-    if (TREE_STRUCTURAL_ROOT_SURFACE_SET.has(segment)) {
+    if (bridgeContext.structuralRootSurfaceSet.has(segment)) {
       return { segment, index, folderKind: 'structural-folder', reason: 'structural-surface-folder' };
     }
 
@@ -245,9 +269,9 @@ const classifyLocalPlacementCoherence = ({
   };
 };
 
-export const toNamingBridgePlacementRecord = (observation) => {
+export const toNamingBridgePlacementRecord = (observation, bridgeContext = NO_VALIDATOR_DEVELOPMENT_BRIDGE_CONTEXT) => {
   const pathSegments = observation.path.split('/').filter(Boolean);
-  const folderKindInterpretation = classifyNamingBridgeFolderKinds(observation);
+  const folderKindInterpretation = classifyNamingBridgeFolderKinds(observation, bridgeContext);
   const directorySegments = folderKindInterpretation.folderKinds.map((entry) => entry.segment);
   const structuralRoot = pathSegments[0] ?? '.';
   const nonSemanticFolderSegments = folderKindInterpretation.folderKinds.filter((entry) => entry.folderKind !== 'semantic-folder');
@@ -295,7 +319,7 @@ export const toNamingBridgePlacementRecord = (observation) => {
     structuralSurfaceChain,
     structuralSegmentChain,
     localStructuralHome,
-    structuralRootKind: TREE_STRUCTURAL_ROOT_SURFACE_SET.has(structuralRoot) ? 'structural-surface' : 'non-structural-surface',
+    structuralRootKind: bridgeContext.structuralRootSurfaceSet.has(structuralRoot) ? 'structural-surface' : 'non-structural-surface',
     folderKindBreakdown: folderKindInterpretation.folderKinds,
     unresolvedFolderContext: folderKindInterpretation.unspecifiedFolderSegments.map((entry) => entry.segment),
     semanticContainerRole: semanticContainerIdentity ? 'naming-aligned-semantic-container' : 'none',
@@ -328,7 +352,7 @@ export const toNamingBridgePlacementRecord = (observation) => {
   };
 };
 
-const classifyScatterPlacement = (observation) => toNamingBridgePlacementRecord(observation);
+const classifyScatterPlacement = (observation, bridgeContext) => toNamingBridgePlacementRecord(observation, bridgeContext);
 
 const isAllowedStructuralRootPairing = (leftPlacement, rightPlacement) => {
   const key = [leftPlacement.structuralRoot, rightPlacement.structuralRoot]
@@ -337,13 +361,16 @@ const isAllowedStructuralRootPairing = (leftPlacement, rightPlacement) => {
   return ALLOWED_STRUCTURAL_ROOT_PAIRING_SET.has(key);
 };
 
-const isAllowedCanonicalDocAuthorityRuntimePairing = (leftPlacement, rightPlacement) => {
+const isAllowedCanonicalDocAuthorityRuntimePairing = (leftPlacement, rightPlacement, bridgeContext) => {
+  const { docAuthorityRootPrefix, validatorRootPrefix } = bridgeContext;
+  if (docAuthorityRootPrefix === null) {
+    return false;
+  }
+
   const placementPair = [leftPlacement, rightPlacement];
-  const docPlacement = placementPair.find((placement) => placement.path.startsWith(CANONICAL_DOC_AUTHORITY_ROOT_PREFIX));
+  const docPlacement = placementPair.find((placement) => placement.path.startsWith(docAuthorityRootPrefix));
   const runtimePlacement = placementPair.find(
-    (placement) =>
-      placement.path.startsWith(CANONICAL_VALIDATOR_ROOT_PREFIX) &&
-      !placement.path.startsWith(CANONICAL_DOC_AUTHORITY_ROOT_PREFIX),
+    (placement) => placement.path.startsWith(validatorRootPrefix) && !placement.path.startsWith(docAuthorityRootPrefix),
   );
   if (!docPlacement || !runtimePlacement) {
     return false;
@@ -353,7 +380,11 @@ const isAllowedCanonicalDocAuthorityRuntimePairing = (leftPlacement, rightPlacem
     return false;
   }
 
-  const runtimeContainerSegment = runtimePlacement.semanticContainerIdentity?.split('/')[1];
+  const runtimeContainerIdentity = runtimePlacement.semanticContainerIdentity;
+  const runtimeContainerSegment =
+    typeof runtimeContainerIdentity === 'string' && runtimeContainerIdentity.startsWith(validatorRootPrefix)
+      ? runtimeContainerIdentity.slice(validatorRootPrefix.length).split('/')[0]
+      : undefined;
   if (!runtimeContainerSegment) {
     return false;
   }
@@ -363,7 +394,7 @@ const isAllowedCanonicalDocAuthorityRuntimePairing = (leftPlacement, rightPlacem
   );
 };
 
-const isAllowedCrossContainerPlacementPair = (leftPlacement, rightPlacement) => {
+const isAllowedCrossContainerPlacementPair = (leftPlacement, rightPlacement, bridgeContext) => {
   if (
     leftPlacement.semanticContainerRole === 'naming-aligned-semantic-container' &&
     rightPlacement.semanticContainerRole === 'naming-aligned-semantic-container' &&
@@ -376,10 +407,10 @@ const isAllowedCrossContainerPlacementPair = (leftPlacement, rightPlacement) => 
     return true;
   }
 
-  return isAllowedCanonicalDocAuthorityRuntimePairing(leftPlacement, rightPlacement);
+  return isAllowedCanonicalDocAuthorityRuntimePairing(leftPlacement, rightPlacement, bridgeContext);
 };
 
-const toBroaderSpreadPairInterpretation = (leftPlacement, rightPlacement) => {
+const toBroaderSpreadPairInterpretation = (leftPlacement, rightPlacement, bridgeContext) => {
   if (
     leftPlacement.semanticContainerRole === 'naming-aligned-semantic-container' &&
     rightPlacement.semanticContainerRole === 'naming-aligned-semantic-container' &&
@@ -392,7 +423,7 @@ const toBroaderSpreadPairInterpretation = (leftPlacement, rightPlacement) => {
     return 'allowed-structural-root-pairing';
   }
 
-  if (isAllowedCanonicalDocAuthorityRuntimePairing(leftPlacement, rightPlacement)) {
+  if (isAllowedCanonicalDocAuthorityRuntimePairing(leftPlacement, rightPlacement, bridgeContext)) {
     return 'canonical-docs-runtime-pairing';
   }
 
@@ -671,12 +702,12 @@ const interpretFamilyLocalFirst = (familyEntries) => {
   };
 };
 
-const toSingularFamilyEntriesBySemanticFamily = (observations) => {
+const toSingularFamilyEntriesBySemanticFamily = (observations, bridgeContext) => {
   const singularObservations = observations
     .filter((observation) => isSingularFamilyEvidence(observation))
     .map((observation) => ({
       observation,
-      placement: classifyScatterPlacement(observation),
+      placement: classifyScatterPlacement(observation, bridgeContext),
     }));
 
   const observationsBySemanticFamily = new Map();
@@ -723,14 +754,14 @@ const toFamilyLocalFirstAnalysis = (semanticFamily, familyEntries) => {
   };
 };
 
-const toFamilySharedSpineAnalysisEntries = (observations) => {
-  const observationsBySemanticFamily = toSingularFamilyEntriesBySemanticFamily(observations);
+const toFamilySharedSpineAnalysisEntries = (observations, bridgeContext) => {
+  const observationsBySemanticFamily = toSingularFamilyEntriesBySemanticFamily(observations, bridgeContext);
 
   return Array.from(observationsBySemanticFamily.entries())
     .sort(([leftFamily], [rightFamily]) => leftFamily.localeCompare(rightFamily))
     .map(([semanticFamily, familyEntries]) => {
       const familyAnalysis = toFamilyLocalFirstAnalysis(semanticFamily, familyEntries);
-      const broaderSpreadInterpretation = toFamilyBroaderSpreadInterpretation(familyAnalysis);
+      const broaderSpreadInterpretation = toFamilyBroaderSpreadInterpretation(familyAnalysis, bridgeContext);
 
       return {
         familyAnalysis,
@@ -739,7 +770,7 @@ const toFamilySharedSpineAnalysisEntries = (observations) => {
     });
 };
 
-const toFamilyBroaderSpreadInterpretation = (familyAnalysis) => {
+const toFamilyBroaderSpreadInterpretation = (familyAnalysis, bridgeContext) => {
   const requiresBroaderSpreadReview =
     familyAnalysis.localFirstInterpretation.classification ===
       LOCAL_FIRST_FAMILY_INTERPRETATION.LOCAL_DIVERGENCE_NEEDS_BROADER_REVIEW ||
@@ -752,7 +783,7 @@ const toFamilyBroaderSpreadInterpretation = (familyAnalysis) => {
   const pairInterpretations = familyAnalysis.placements.flatMap((leftPlacement, leftIndex) =>
     familyAnalysis.placements.slice(leftIndex + 1).map((rightPlacement) => ({
       pair: [leftPlacement.path, rightPlacement.path].sort((left, right) => left.localeCompare(right)),
-      interpretation: toBroaderSpreadPairInterpretation(leftPlacement, rightPlacement),
+      interpretation: toBroaderSpreadPairInterpretation(leftPlacement, rightPlacement, bridgeContext),
     })),
   );
   const pairInterpretationSummary = toSortedUnique(pairInterpretations.map(({ interpretation }) => interpretation));
@@ -891,7 +922,7 @@ const toSharedRootLaneInterpretation = ({
   };
 };
 
-const collectFamilyScatterFindings = (familySharedSpineAnalysisEntries) =>
+const collectFamilyScatterFindings = (familySharedSpineAnalysisEntries, bridgeContext) =>
   familySharedSpineAnalysisEntries.flatMap(({ familyAnalysis, broaderSpreadInterpretation }) => {
       const semanticFamily = familyAnalysis.semanticFamily;
       const broaderSpreadResolved =
@@ -900,7 +931,7 @@ const collectFamilyScatterFindings = (familySharedSpineAnalysisEntries) =>
       const allCrossContainerPlacementsCoveredByAllowedRules = familyAnalysis.placements.every((leftPlacement, leftIndex) =>
         familyAnalysis.placements
           .slice(leftIndex + 1)
-          .every((rightPlacement) => isAllowedCrossContainerPlacementPair(leftPlacement, rightPlacement)),
+          .every((rightPlacement) => isAllowedCrossContainerPlacementPair(leftPlacement, rightPlacement, bridgeContext)),
       );
 
       if (
@@ -937,7 +968,7 @@ const collectFamilyScatterFindings = (familySharedSpineAnalysisEntries) =>
             ...toSemanticHomeEvidenceDetails(familyAnalysis.familyEntries),
             allowedCrossContainerPatterns: {
               structuralRootPairings: ALLOWED_STRUCTURAL_ROOT_PAIRINGS,
-              canonicalDocAuthorityRuntimePairing: 'calculogic-validator/doc/** <-> calculogic-validator/<semantic-container>/**',
+              canonicalDocAuthorityRuntimePairing: bridgeContext.canonicalDocAuthorityRuntimePairingPattern,
             },
             thresholds: {
               minFamilyFiles: FAMILY_SCATTER_MIN_FILES,
@@ -1132,7 +1163,11 @@ const selectNamingSemanticFamilyBridgePayload = ({ bridgePayload, preparedAddres
   return bridgePayload;
 };
 
-export const collectNamingSemanticFamilyBridgeFindings = (bridgePayload, { preparedAddressKeyedJoinEvidence } = {}) => {
+export const collectNamingSemanticFamilyBridgeFindings = (
+  bridgePayload,
+  { preparedAddressKeyedJoinEvidence, validatorDevelopmentRoot = null } = {},
+) => {
+  const bridgeContext = prepareNamingBridgeValidatorDevelopmentContext(validatorDevelopmentRoot);
   const selectedBridgePayload = selectNamingSemanticFamilyBridgePayload({ bridgePayload, preparedAddressKeyedJoinEvidence });
   const namingSemanticFamilyBridge = prepareNamingSemanticFamilyBridge(selectedBridgePayload);
   const observations = namingSemanticFamilyBridge.observations;
@@ -1141,10 +1176,10 @@ export const collectNamingSemanticFamilyBridgeFindings = (bridgePayload, { prepa
     return [];
   }
 
-  const familySharedSpineAnalysisEntries = toFamilySharedSpineAnalysisEntries(observations);
+  const familySharedSpineAnalysisEntries = toFamilySharedSpineAnalysisEntries(observations, bridgeContext);
 
   return [
-    ...collectFamilyScatterFindings(familySharedSpineAnalysisEntries),
+    ...collectFamilyScatterFindings(familySharedSpineAnalysisEntries, bridgeContext),
     ...collectFamilySubgroupOpportunityFindings(familySharedSpineAnalysisEntries),
     ...collectFamilyClusterFindings(familySharedSpineAnalysisEntries),
     ...collectSharedRootFamilyScatterAcrossLanesFindings(familySharedSpineAnalysisEntries),

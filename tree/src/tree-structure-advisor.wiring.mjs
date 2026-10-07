@@ -247,6 +247,7 @@ export const prepareTreeStructureAdvisorInputs = (
       selectedPaths,
       namingSemanticFamilyBridge,
       preparedAddressKeyedJoinEvidence,
+      validatorDevelopmentRoot,
     }),
   };
 };

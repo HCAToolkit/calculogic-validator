@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { getBuiltinTreeSignalPolicy } from './registries/tree-signal-policy-registry.logic.mjs';
 import { getBuiltinTreeRepoShapePolicy } from './registries/tree-repo-shape-policy-registry.logic.mjs';
+import { toValidatorDevelopmentPathPrefix } from './tree-validator-development-root.logic.mjs';
 
 const TREE_SIGNAL_POLICY = getBuiltinTreeSignalPolicy();
 const TREE_REPO_SHAPE_POLICY = getBuiltinTreeRepoShapePolicy();
@@ -251,11 +252,8 @@ const collectValidatorOwnedOutsideTreeFindings = (paths, validatorDevelopmentRoo
 // Without a validator development root (installed consumer) there is no Validator suite core: a
 // consumer's own `src/**` is never treated as one.
 const resolveSuiteCoreRoot = (validatorDevelopmentRoot) => {
-  if (typeof validatorDevelopmentRoot !== 'string' || validatorDevelopmentRoot.length === 0) {
-    return null;
-  }
-
-  return validatorDevelopmentRoot === '.' ? 'src/' : `${validatorDevelopmentRoot}/src/`;
+  const pathPrefix = toValidatorDevelopmentPathPrefix(validatorDevelopmentRoot);
+  return pathPrefix === null ? null : `${pathPrefix}src/`;
 };
 
 const isBoundaryDriftCarveoutSuffix = (suiteCoreRelativePath) =>

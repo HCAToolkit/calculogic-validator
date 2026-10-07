@@ -1,7 +1,35 @@
 import path from 'node:path';
 import { getBuiltinTreeSignalPolicy } from './registries/tree-signal-policy-registry.logic.mjs';
+import { toValidatorDevelopmentPathPrefix } from './tree-validator-development-root.logic.mjs';
 
 const TREE_SIGNAL_POLICY = getBuiltinTreeSignalPolicy();
+
+// Validator-development self-exemptions (Refs #34): the public package entrypoint barrel and the shim
+// detector's own implementation modules exist only where the Validator is being developed. Their
+// paths derive from the prepared validator development root; installed consumers get neither, while
+// all other shim reasoning runs unchanged.
+const NO_VALIDATOR_DEVELOPMENT_SHIM_CONTEXT = Object.freeze({
+  publicEntrypointPath: null,
+  shimDetectorImplementationRoot: null,
+});
+
+export const prepareShimValidatorDevelopmentContext = (validatorDevelopmentRoot) => {
+  const pathPrefix = toValidatorDevelopmentPathPrefix(validatorDevelopmentRoot);
+  if (pathPrefix === null) {
+    return NO_VALIDATOR_DEVELOPMENT_SHIM_CONTEXT;
+  }
+
+  return Object.freeze({
+    publicEntrypointPath: `${pathPrefix}src/index.mjs`,
+    shimDetectorImplementationRoot: `${pathPrefix}tree/src/`,
+  });
+};
+
+const isShimDetectorImplementationModule = (relativePath, basenameTokens, shimContext) =>
+  shimContext.shimDetectorImplementationRoot !== null &&
+  relativePath.startsWith(shimContext.shimDetectorImplementationRoot) &&
+  basenameTokens.includes('shim') &&
+  basenameTokens.some((token) => TREE_SIGNAL_POLICY.shimDetectorImplementationTokens.has(token));
 
 const tokenizeBasename = (basename) =>
   basename
@@ -59,7 +87,7 @@ export const collectPathShimSignals = (relativePath) => {
   };
 };
 
-const isDeterministicShimContentCandidate = (relativePath, pathSignals) => {
+const isDeterministicShimContentCandidate = (relativePath, pathSignals, shimContext) => {
   if (pathSignals.insideCompatSurface) {
     return true;
   }
@@ -77,7 +105,7 @@ const isDeterministicShimContentCandidate = (relativePath, pathSignals) => {
     return true;
   }
 
-  return relativePath === 'calculogic-validator/src/index.mjs';
+  return shimContext.publicEntrypointPath !== null && relativePath === shimContext.publicEntrypointPath;
 };
 
 export const parseThinReexportShim = (rawContent) => {
@@ -117,8 +145,16 @@ export const parseThinReexportShim = (rawContent) => {
   };
 };
 
-export const parsePublicEntrypointBarrelPassThrough = (relativePath, rawContent) => {
-  if (relativePath !== 'calculogic-validator/src/index.mjs' || typeof rawContent !== 'string') {
+export const parsePublicEntrypointBarrelPassThrough = (
+  relativePath,
+  rawContent,
+  shimContext = NO_VALIDATOR_DEVELOPMENT_SHIM_CONTEXT,
+) => {
+  if (
+    shimContext.publicEntrypointPath === null ||
+    relativePath !== shimContext.publicEntrypointPath ||
+    typeof rawContent !== 'string'
+  ) {
     return null;
   }
 
@@ -170,20 +206,19 @@ export const detectCanonicalHostPassThrough = (relativePath, thinReexportSignal)
   return thinReexportSignal.canonicalTargetPath === expectedSiblingWiringTarget;
 };
 
-export const detectPublicEntrypointPassThrough = (relativePath, rawContent) =>
-  parsePublicEntrypointBarrelPassThrough(relativePath, rawContent) !== null;
+export const detectPublicEntrypointPassThrough = (
+  relativePath,
+  rawContent,
+  shimContext = NO_VALIDATOR_DEVELOPMENT_SHIM_CONTEXT,
+) => parsePublicEntrypointBarrelPassThrough(relativePath, rawContent, shimContext) !== null;
 
-export const collectShimEvidence = (relativePath, rawContent) => {
+export const collectShimEvidence = (relativePath, rawContent, shimContext = NO_VALIDATOR_DEVELOPMENT_SHIM_CONTEXT) => {
   const shimSignals = collectPathShimSignals(relativePath);
   const thinReexportSignal = parseThinReexportShim(rawContent);
   const surface = inferArtifactSurface(relativePath);
   const basenameTokens = tokenizeBasename(path.posix.basename(relativePath));
   const isCanonicalHostPassThrough = detectCanonicalHostPassThrough(relativePath, thinReexportSignal);
-  const isPublicEntryPointPassThrough = detectPublicEntrypointPassThrough(relativePath, rawContent);
-  const isShimDetectorImplementationModule =
-    relativePath.startsWith('calculogic-validator/tree/src/') &&
-    basenameTokens.includes('shim') &&
-    basenameTokens.some((token) => TREE_SIGNAL_POLICY.shimDetectorImplementationTokens.has(token));
+  const isPublicEntryPointPassThrough = detectPublicEntrypointPassThrough(relativePath, rawContent, shimContext);
 
   return {
     surface,
@@ -195,11 +230,11 @@ export const collectShimEvidence = (relativePath, rawContent) => {
     reexportTargetCount: thinReexportSignal?.reexportTargetCount ?? 0,
     isCanonicalHostPassThrough,
     isPublicEntryPointPassThrough,
-    isShimDetectorImplementationModule,
+    isShimDetectorImplementationModule: isShimDetectorImplementationModule(relativePath, basenameTokens, shimContext),
   };
 };
 
-const collectPathOnlyShimEvidence = (relativePath) => {
+const collectPathOnlyShimEvidence = (relativePath, shimContext) => {
   const shimSignals = collectPathShimSignals(relativePath);
   const basenameTokens = tokenizeBasename(path.posix.basename(relativePath));
 
@@ -208,15 +243,12 @@ const collectPathOnlyShimEvidence = (relativePath) => {
     folderSignals: shimSignals.folderSignals,
     nameTokenSignals: shimSignals.basenameTokens,
     insideCompatSurface: shimSignals.insideCompatSurface,
-    shouldReadContent: isDeterministicShimContentCandidate(relativePath, shimSignals),
-    isShimDetectorImplementationModule:
-      relativePath.startsWith('calculogic-validator/tree/src/') &&
-      basenameTokens.includes('shim') &&
-      basenameTokens.some((token) => TREE_SIGNAL_POLICY.shimDetectorImplementationTokens.has(token)),
+    shouldReadContent: isDeterministicShimContentCandidate(relativePath, shimSignals, shimContext),
+    isShimDetectorImplementationModule: isShimDetectorImplementationModule(relativePath, basenameTokens, shimContext),
   };
 };
 
-const collectContentBackedShimEvidence = (relativePath, rawContent) => {
+const collectContentBackedShimEvidence = (relativePath, rawContent, shimContext) => {
   const thinReexportSignal = parseThinReexportShim(rawContent);
 
   return {
@@ -224,11 +256,12 @@ const collectContentBackedShimEvidence = (relativePath, rawContent) => {
     canonicalTargetPath: thinReexportSignal?.canonicalTargetPath,
     reexportTargetCount: thinReexportSignal?.reexportTargetCount ?? 0,
     isCanonicalHostPassThrough: detectCanonicalHostPassThrough(relativePath, thinReexportSignal),
-    isPublicEntryPointPassThrough: detectPublicEntrypointPassThrough(relativePath, rawContent),
+    isPublicEntryPointPassThrough: detectPublicEntrypointPassThrough(relativePath, rawContent, shimContext),
   };
 };
 
-export const collectShimCompatFindings = (paths, getFileContent) => {
+export const collectShimCompatFindings = (paths, getFileContent, { validatorDevelopmentRoot = null } = {}) => {
+  const shimContext = prepareShimValidatorDevelopmentContext(validatorDevelopmentRoot);
   const findings = [];
 
   for (const relativePath of paths) {
@@ -237,7 +270,7 @@ export const collectShimCompatFindings = (paths, getFileContent) => {
       continue;
     }
 
-    const pathEvidence = collectPathOnlyShimEvidence(relativePath);
+    const pathEvidence = collectPathOnlyShimEvidence(relativePath, shimContext);
 
     let contentEvidence = {
       thinReexportShim: false,
@@ -249,7 +282,7 @@ export const collectShimCompatFindings = (paths, getFileContent) => {
 
     if (pathEvidence.shouldReadContent && typeof getFileContent === 'function') {
       const rawContent = getFileContent(relativePath);
-      contentEvidence = collectContentBackedShimEvidence(relativePath, rawContent);
+      contentEvidence = collectContentBackedShimEvidence(relativePath, rawContent, shimContext);
     }
 
     const evidence = {

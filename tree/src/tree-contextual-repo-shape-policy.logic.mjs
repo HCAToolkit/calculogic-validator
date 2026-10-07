@@ -7,25 +7,14 @@
 // policy object, cached by its registry loader, is never modified, so context cannot leak between
 // runs.
 
-const resolveEmbeddedRootTopLevelFolder = (validatorDevelopmentRoot) => {
-  if (
-    typeof validatorDevelopmentRoot !== 'string' ||
-    validatorDevelopmentRoot.length === 0 ||
-    validatorDevelopmentRoot === '.'
-  ) {
-    return null;
-  }
-
-  const [topLevelFolder] = validatorDevelopmentRoot.split('/');
-  return topLevelFolder && topLevelFolder !== '..' ? topLevelFolder : null;
-};
+import { toValidatorDevelopmentRootTopLevelFolder } from './tree-validator-development-root.logic.mjs';
 
 export const prepareContextualTreeRepoShapePolicy = ({ builtinPolicy, validatorDevelopmentRoot } = {}) => {
   if (!builtinPolicy || !Array.isArray(builtinPolicy.allowedTopLevelDirectories)) {
     throw new Error('Contextual Tree repo-shape policy requires a builtin policy with allowedTopLevelDirectories[].');
   }
 
-  const embeddedRootFolder = resolveEmbeddedRootTopLevelFolder(validatorDevelopmentRoot);
+  const embeddedRootFolder = toValidatorDevelopmentRootTopLevelFolder(validatorDevelopmentRoot);
   const allowedTopLevelDirectories = embeddedRootFolder
     ? [...builtinPolicy.allowedTopLevelDirectories, embeddedRootFolder]
     : [...builtinPolicy.allowedTopLevelDirectories];

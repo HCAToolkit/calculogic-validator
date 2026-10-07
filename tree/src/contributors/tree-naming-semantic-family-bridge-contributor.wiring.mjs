@@ -5,10 +5,15 @@ import {
 export const attachTreeNamingSemanticFamilyBridgeContributor = ({
   namingSemanticFamilyBridge,
   preparedAddressKeyedJoinEvidence,
+  validatorDevelopmentRoot = null,
 }) => {
   if (namingSemanticFamilyBridge === undefined && preparedAddressKeyedJoinEvidence === undefined) {
     return null;
   }
 
-  return () => collectNamingSemanticFamilyBridgeFindings(namingSemanticFamilyBridge, { preparedAddressKeyedJoinEvidence });
+  return () =>
+    collectNamingSemanticFamilyBridgeFindings(namingSemanticFamilyBridge, {
+      preparedAddressKeyedJoinEvidence,
+      validatorDevelopmentRoot,
+    });
 };

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { collectShimCompatFindings } from '../tree-shim-detection.logic.mjs';
 
-export const attachTreeShimDiagnosticsContributor = ({ repositoryRoot, selectedPaths }) => {
+export const attachTreeShimDiagnosticsContributor = ({ repositoryRoot, selectedPaths, validatorDevelopmentRoot = null }) => {
   if (typeof repositoryRoot !== 'string' || repositoryRoot.length === 0) {
     throw new Error('Tree shim diagnostics attachment requires repositoryRoot prepared input.');
   }
@@ -29,5 +29,5 @@ export const attachTreeShimDiagnosticsContributor = ({ repositoryRoot, selectedP
     return rawContent;
   };
 
-  return () => collectShimCompatFindings(selectedPaths, getFileContent);
+  return () => collectShimCompatFindings(selectedPaths, getFileContent, { validatorDevelopmentRoot });
 };
