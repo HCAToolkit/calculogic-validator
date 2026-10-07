@@ -73,7 +73,7 @@ Authority labels used in this index:
   **Authority:** bounded normative supporting spec. **Intended use:** current bridge-contract expectations for Naming -> Tree and Addressing -> Tree ownership boundaries, bridge ids, provider/consumer responsibilities, registry metadata expectations, and no-silent-rederivation tests; defer primary runtime authority to suite contract + slice specs.
 
 - `doc/ValidatorSpecs/structural-addressing-tree-codebase-validation-input.spec.md`
-  **Authority:** bounded normative supporting spec. **Intended use:** Addressing-owned validation input adapter contract for the `tree-codebase` profile (#45). It turns suite-core selected paths, include roots and targets into the declared (uncollapsed) and effective (collapsed) root sets and the node tree Structural Addressing addresses. Staged until #45's wiring switch lands.
+  **Authority:** bounded normative supporting spec. **Intended use:** Addressing-owned validation input adapter contract for the `tree-codebase` profile (#45). It turns suite-core selected paths, include roots and targets into the declared (uncollapsed) and effective (collapsed) root sets and the node tree Structural Addressing addresses. Tree wiring consumes it since #45.
 
 - `doc/ValidatorSpecs/tree-owned/tree-structural-vocabulary-and-root-classification.spec.md`
   **Authority:** bounded normative supporting spec. **Intended use:** tree-owned structural vocabulary and root-classification modeling contract; supports tree interpretation work without replacing canonical tree runtime authority.

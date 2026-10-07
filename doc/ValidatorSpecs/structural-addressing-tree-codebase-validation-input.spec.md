@@ -4,13 +4,8 @@
 
 - **Ownership:** Addressing-owned (`structural-addressing`). The adapter is a domain adapter for the `tree-codebase` profile, as `ValidatorBridgeContracts.md` §3.2 assigns to Addressing.
 - **Authority:** bounded normative supporting spec for the validation input adapter of the `tree-codebase` profile. It does not change the profile, the marker strategies or `prepareTreeCodebaseAddressedSnapshot`.
-- **current runtime truth:** Tree wiring prepares its addressed snapshot with Tree's private producers (`prepareTreeOccurrenceSnapshot`, `prepareTreeStructuralAddressSnapshot`). The adapter defined here is not yet implemented or consumed.
-- **staged implementation path (#45):**
-  1. this spec, together with the Tree-owned projection rules in `tree-owned/tree-structural-address-probe-contract.spec.md`;
-  2. the adapter module (`structural-addressing/src/structural-addressing-tree-codebase-validation-input.logic.mjs`) and the Tree projection, with parity tests and no wiring change;
-  3. Tree wiring switches its producer to adapter → `prepareTreeCodebaseAddressedSnapshot` → Tree projection.
-
-  Until step 3 lands, the statements below describe the contract the implementation must meet, not current runtime behavior.
+- **current runtime truth (#45):** the adapter (`structural-addressing/src/structural-addressing-tree-codebase-validation-input.logic.mjs`, `prepareTreeCodebaseValidationInput`) is implemented. Tree wiring consumes it: adapter → `prepareTreeCodebaseAddressedSnapshot` → the Tree-owned projection (`tree-owned/tree-structural-address-probe-contract.spec.md`, "Addressing-backed projection"). Tree's private producers (`prepareTreeOccurrenceSnapshot`, `prepareTreeStructuralAddressSnapshot`) are no longer used by wiring. They remain only as the comparison and parity tests' reference until their retirement, a separate #39 follow-on.
+- **History:** this spec landed first (#46), the adapter and projection with parity tests second (#47), and the wiring switch third.
 
 Evidence: `doc/Audits/tree-structural-addressing-comparison.audit.md` (#40, #44), §5.
 

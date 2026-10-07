@@ -8,7 +8,7 @@
 - **current runtime truth:** occurrence snapshot runtime substrate exists and is consumed inside Tree runtime preparation/reasoning flow.
 - **not current runtime truth:** this document does not introduce runtime behavior, loader/normalization implementation, report output exposure, final placement confidence semantics, or known-root replacement semantics.
 - **staged implementation path:** formalize contract boundary first, then evaluate bounded runtime exposure in a later issue.
-- **staged producer migration (#45):** the evidence shape below will be produced by a Tree-owned projection over Structural Addressing output instead of Tree's private snapshot producers. See "Addressing-backed projection" under Handoff boundaries. Until #45's wiring switch lands, the private producers remain current runtime truth.
+- **producer (#45, current runtime truth):** the evidence shape below is produced by a Tree-owned projection over Structural Addressing output, not by Tree's private snapshot producers. See "Addressing-backed projection" under Handoff boundaries.
 
 Issue lineage: Refs #480; parent roadmap context Refs #452; audit context Refs #478; producer migration Refs #45.
 
@@ -107,9 +107,9 @@ This section defines neutral structural-address evidence semantics only; it does
 - The current occurrence snapshot is the current implementation reality substrate that supplies most of the required neutral probe evidence fields.
 - This contract formalizes boundary expectations without claiming a new runtime surface.
 
-### Addressing-backed projection (staged, #45)
+### Addressing-backed projection (#45)
 
-Status: staged. These rules bind the Tree projection module (`tree/src/tree-addressed-occurrence-snapshot.logic.mjs`) once it exists. They become current runtime truth only when #45's wiring switch lands. Evidence: `doc/Audits/tree-structural-addressing-comparison.audit.md` §5.
+Status: current runtime truth. These rules bind the Tree projection module (`tree/src/tree-addressed-occurrence-snapshot.logic.mjs`, `prepareTreeAddressedOccurrenceSnapshot`), which Tree wiring uses to prepare `structuralAddressSnapshot`. Evidence: `doc/Audits/tree-structural-addressing-comparison.audit.md` §5, and the parity tests `test/tree-addressed-occurrence-snapshot.parity.test.mjs` and `test/tree-structural-addressing.comparison.test.mjs`.
 
 **Producer chain.** Tree wiring passes suite-core's prepared values to the Addressing-owned adapter (`structural-addressing-tree-codebase-validation-input.spec.md`). The adapter's `treeCodebaseInput` goes to `prepareTreeCodebaseAddressedSnapshot`. This projection then maps the addressed records onto the evidence shape above. Only Tree wiring imports Addressing modules; Tree core keeps consuming prepared inputs.
 
@@ -149,7 +149,7 @@ Deepest-root binding keeps an inner root's own binding after the adapter collaps
 - `occurrenceSnapshot` references **the same object**. It is a transitional, deprecated alias kept for one transition, and is removed with the retirement of the private snapshot modules (a separate #39 follow-on).
 - New consumers read `structuralAddressSnapshot`.
 
-**Expected corrections** (gated in #45, see the audit §5.7):
+**Corrections relative to the private producer** (gated in #45, see the audit §5.7):
 - **D1:** a root file outside every declared root binds to `.`, which corrects `scopeRootPath`, `lineageSegments`, `isScopeTopOccurrence` and `depth`.
 - **D2:** no phantom ancestors.
 - **D4:** collapsed overlapping roots change address, marker segments, parent and depth, while binding, lineage and both scope flags are preserved. An empty collapsed root stays as an occurrence, and nesting it can add intermediate folder occurrences below the outer root.

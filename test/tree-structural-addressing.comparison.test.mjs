@@ -18,6 +18,8 @@ import { test } from 'node:test';
 import { prepareTreeStructureAdvisorInputs } from '../tree/src/tree-structure-advisor.wiring.mjs';
 import { prepareTreeOccurrenceSnapshot } from '../tree/src/tree-occurrence-snapshot.logic.mjs';
 import { prepareTreeStructuralAddressSnapshot } from '../tree/src/tree-structural-address-snapshot.logic.mjs';
+import { prepareTreeAddressedOccurrenceSnapshot } from '../tree/src/tree-addressed-occurrence-snapshot.logic.mjs';
+import { prepareTreeCodebaseValidationInput } from '../structural-addressing/src/structural-addressing-tree-codebase-validation-input.logic.mjs';
 import { prepareTreeCodebaseAddressedSnapshot } from '../structural-addressing/src/structural-addressing-tree-codebase.logic.mjs';
 import { buildTreeCodebaseInputFromFileSystem } from '../scripts/addressing-get-tree.host.mjs';
 
@@ -123,15 +125,20 @@ const compareOverSharedMembership = (treeInputs, getTreeInput) => {
     rawAddressing.occurrenceRecords.map((record) => stripNamespace(record.path)).filter((occurrencePath) => treePaths.has(occurrencePath)),
   );
   const targets = treeInputs.targets ?? [];
-  // Rebuild through the same addressed-snapshot wrapper Tree consumers read (addressPath and
-  // parentAddressPath), first proving it reproduces the wiring's own snapshot from the wiring's
-  // inputs, so normalization cannot bypass the layer under test.
-  const rebuildTreeSnapshot = (selectedPaths) =>
-    prepareTreeStructuralAddressSnapshot({
-      selectedPaths,
+  // Rebuild through the same production chain Tree wiring uses since #45 (validation input adapter,
+  // tree-codebase producer, Tree projection), first proving it reproduces the wiring's own snapshot
+  // from the wiring's inputs, so normalization cannot bypass the layer under test.
+  const rebuildTreeSnapshot = (selectedPaths) => {
+    const includeRoots = targets.length > 0 ? [] : rawTree.scopeRoots;
+    const adapted = prepareTreeCodebaseValidationInput({ selectedPaths, includeRoots, targets });
+    return prepareTreeAddressedOccurrenceSnapshot({
+      occurrenceRecords: prepareTreeCodebaseAddressedSnapshot(adapted.treeCodebaseInput).occurrenceRecords,
+      declaredScopeRoots: adapted.declaredScopeRoots,
       targets,
-      includeRoots: targets.length > 0 ? [] : rawTree.scopeRoots,
+      selectedPaths,
+      source: rawTree.scope.source,
     });
+  };
   assert.deepEqual(
     rebuildTreeSnapshot(treeInputs.selectedPaths).occurrenceRecords,
     rawTree.occurrenceRecords,
@@ -619,7 +626,7 @@ test('comparison B: the embedded validator root is a real occurrence on both sid
   );
 });
 
-test('comparison B: a single target is addressed identically when its phantom ancestor sorts after it', async (t) => {
+test('comparison B, D2 corrected in production: a single target has no phantom ancestor and is addressed identically', async (t) => {
   const root = createStandaloneFixture(t, {
     'tree/src/a.logic.mjs': 'x\n',
     'tree/src/sub/b.logic.mjs': 'x\n',
@@ -635,14 +642,17 @@ test('comparison B: a single target is addressed identically when its phantom an
     assert.equal(addressingByPath.get(record.resolvedPath).parentAddressPath, record.parentAddressPath, record.resolvedPath);
     assert.equal(addressingByPath.get(record.resolvedPath).depth, record.depth, record.resolvedPath);
   }
-  // The only difference is defect D2's phantom ancestor (`tree`, which sorts after `src`).
+  // Since #45 Tree wiring has no D2 phantom ancestor, so no Tree-only record remains. The private
+  // producer, fed the same inputs, still emits the phantom `tree` (sorting after `src`).
   assert.deepEqual(
     tree.occurrenceRecords.filter((record) => !addressingByPath.has(record.resolvedPath)).map((record) => record.resolvedPath),
-    ['tree'],
+    [],
   );
+  const privateSnapshot = prepareTreeStructuralAddressSnapshot({ selectedPaths: treeInputsFor(root, { targets: ['tree/src'] }).selectedPaths, targets: ['tree/src'] });
+  assert.equal(privateSnapshot.occurrenceRecords.some((record) => record.resolvedPath === 'tree'), true);
 });
 
-test('comparison B, known Tree defect D2: a single target shifts when its phantom ancestor sorts first', async (t) => {
+test('comparison B, D2 corrected in production: a single target whose phantom ancestor sorted first keeps its identity', async (t) => {
   const root = createStandaloneFixture(t, {
     'tree/zz/a.logic.mjs': 'x\n',
     'tree/zz/sub/b.logic.mjs': 'x\n',
@@ -652,13 +662,23 @@ test('comparison B, known Tree defect D2: a single target shifts when its phanto
     (await getTreeSnapshotFor(root, ['tree/zz'])).occurrenceRecords.map((record) => [stripNamespace(record.path), record]),
   );
 
-  // Root siblings sort by basename: the phantom `tree` takes `A`, so the target becomes `B` in Tree
-  // while Structural Addressing roots the target at `A`. Every address under the target shifts.
-  assert.equal(treeByPath.get('tree').addressPath, 'A');
-  assert.equal(treeByPath.get('tree/zz').addressPath, 'B');
+  // Since #45 Tree wiring roots the target directly, as Structural Addressing does: no phantom `tree`,
+  // the target is `A` and nothing under it shifts.
+  assert.equal(treeByPath.has('tree'), false);
+  assert.equal(treeByPath.get('tree/zz').addressPath, 'A');
   assert.equal(addressingByPath.get('tree/zz').addressPath, 'A');
-  assert.equal(treeByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'B.A.1');
+  assert.equal(treeByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'A.A.1');
   assert.equal(addressingByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'A.A.1');
+
+  // The private producer, fed the same inputs, still shows the defect: the phantom `tree` sorts first
+  // and takes `A`, so the target becomes `B` and every address under it shifts.
+  const privateByPath = byPath(
+    prepareTreeStructuralAddressSnapshot({ selectedPaths: treeInputsFor(root, { targets: ['tree/zz'] }).selectedPaths, targets: ['tree/zz'] }).occurrenceRecords,
+    'resolvedPath',
+  );
+  assert.equal(privateByPath.get('tree').addressPath, 'A');
+  assert.equal(privateByPath.get('tree/zz').addressPath, 'B');
+  assert.equal(privateByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'B.A.1');
 });
 
 test('comparison B, intentional difference I3: an explicitly targeted excluded directory is empty in Tree but walked by get-tree', async (t) => {
@@ -775,7 +795,7 @@ test('comparison B: a repository-root file target is addressed identically by bo
   ]);
 });
 
-test('comparison B, known defect D4: overlapping targets get one detached identity in Tree and two in get-tree', async (t) => {
+test('comparison B, D4: overlapping targets get one nested identity in Tree (corrected in production) and two in get-tree', async (t) => {
   const root = createStandaloneFixture(t, {
     'tree/top.logic.mjs': 'x\n',
     'tree/src/a.logic.mjs': 'x\n',
@@ -786,11 +806,20 @@ test('comparison B, known defect D4: overlapping targets get one detached identi
   const treeByPath = byPath(tree.occurrenceRecords, 'resolvedPath');
   const addressing = await getTreeSnapshotFor(root, targets);
 
-  // Tree: union semantics, each path once, but the inner target is detached from the outer one and
-  // becomes its own root instead of a child of `tree`.
+  // Tree wiring since #45: each path once, and the collapsed inner target nests under the outer one
+  // while keeping its own scope binding. The private producer still detaches it (`A`, parent null).
   assert.equal(treeByPath.size, tree.occurrenceRecords.length);
   assert.deepEqual(
     [treeByPath.get('tree/src').addressPath, treeByPath.get('tree/src').parentAddressPath, treeByPath.get('tree').addressPath],
+    ['A.A', 'A', 'A'],
+  );
+  assert.deepEqual([treeByPath.get('tree/src').scopeRootPath, treeByPath.get('tree/src').isScopedRoot], ['tree/src', true]);
+  const privateByPath = byPath(
+    prepareTreeStructuralAddressSnapshot({ selectedPaths: treeInputsFor(root, { targets }).selectedPaths, targets }).occurrenceRecords,
+    'resolvedPath',
+  );
+  assert.deepEqual(
+    [privateByPath.get('tree/src').addressPath, privateByPath.get('tree/src').parentAddressPath, privateByPath.get('tree').addressPath],
     ['A', null, 'B'],
   );
 
