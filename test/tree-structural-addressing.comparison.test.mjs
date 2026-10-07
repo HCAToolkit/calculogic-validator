@@ -251,15 +251,16 @@ test('comparison A: both implementations assign identical address, parent, depth
 
 // Maps a Structural Addressing record onto the concepts tree-structural-address-probe-contract.spec.md
 // preserves, so the migration can keep them without the private snapshot fields.
-// `declaredScopeRootPaths` are the scope roots that are occurrences themselves (include roots,
-// directory targets, the containing folder of a nested file target, an embedded root). A root ancestor that is not one of them sits directly under
-// the omitted standalone `.` scope root (§5.3), so it binds to `.`.
+// `declaredScopeRootPaths` are the folder scope roots Tree declares today, before any D4 collapse
+// (include roots, directory targets, the containing folder of a nested file target, an embedded root).
+// A record binds to the deepest declared root equal to or containing its path, so an inner root keeps
+// its own binding when the adapter collapses it under an outer root. A record under no declared root
+// sits directly under the omitted standalone `.` scope root (§5.3), so it binds to `.`.
 const toProbeContractConcepts = (record, addressingByAddress, declaredScopeRootPaths) => {
-  let root = record;
-  while (root.parentAddressPath !== null) {
-    root = addressingByAddress.get(root.parentAddressPath);
-  }
-  const scopeRootPath = declaredScopeRootPaths.has(root.path) ? root.path : '.';
+  const containingRoots = [...declaredScopeRootPaths].filter(
+    (rootPath) => rootPath !== '.' && (record.path === rootPath || record.path.startsWith(`${rootPath}/`)),
+  );
+  const scopeRootPath = containingRoots.sort((left, right) => right.length - left.length)[0] ?? '.';
   let lineageSegments;
   if (scopeRootPath === '.') {
     lineageSegments = record.path.split('/');
@@ -328,6 +329,45 @@ test('comparison A: the probe contract\'s occurrence concepts are deterministica
       );
     }
   }
+});
+
+test('comparison A, D4: collapsed overlapping scope roots keep every record\'s scope binding', () => {
+  // The adapter derives effective folder scope roots first (a file target becomes its containing
+  // folder), then collapses roots nested inside another root. Tree's declared roots stay in the
+  // envelope, and the deepest one containing a record still binds it, so scope binding, lineage and
+  // both scope flags are preserved. Only the D4 correction fields (address, markers, parent, depth) change.
+  const d4Fields = new Set(['occurrenceMarker', 'markerSegments', 'parentResolvedPath', 'depth']);
+  const cases = [
+    { label: 'overlapping directory targets', filePaths: ['tree/x.mjs', 'tree/src/y.mjs'], targets: ['tree', 'tree/src'], inner: 'tree/src' },
+    // Neither file target contains the other, but their containing folders `tree` and `tree/sub` nest.
+    { label: 'file targets with nested containing folders', filePaths: ['tree/a.mjs', 'tree/sub/b.mjs'], targets: ['tree/a.mjs', 'tree/sub/b.mjs'], inner: 'tree/sub' },
+  ];
+  for (const { label, filePaths, targets, inner } of cases) {
+    const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, targets });
+    assert.deepEqual(tree.scopeRoots, ['tree', inner], label);
+    // Today Tree detaches the inner root (D4).
+    assert.equal(tree.occurrenceRecords.find((record) => record.resolvedPath === inner).parentResolvedPath, null, label);
+
+    const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(filePaths, ['tree']) });
+    const addressingByPath = byPath(addressing.occurrenceRecords, 'path');
+    const addressingByAddress = new Map(addressing.occurrenceRecords.map((record) => [record.addressPath, record]));
+    // Exactly one identity per path, with the inner root nested under the outer one.
+    assert.equal(addressingByPath.size, addressing.occurrenceRecords.length, label);
+    assert.equal(addressingByAddress.get(addressingByPath.get(inner).parentAddressPath).path, 'tree', label);
+
+    for (const record of tree.occurrenceRecords) {
+      const mapped = toProbeContractConcepts(addressingByPath.get(record.resolvedPath), addressingByAddress, new Set(tree.scopeRoots));
+      const changed = Object.keys(mapped).filter((field) => !util.isDeepStrictEqual(mapped[field], record[field]));
+      assert.deepEqual(changed.filter((field) => !d4Fields.has(field)), [], `${label}: ${record.resolvedPath}`);
+    }
+    const mappedInner = toProbeContractConcepts(addressingByPath.get(inner), addressingByAddress, new Set(tree.scopeRoots));
+    assert.deepEqual([mappedInner.scopeRootPath, mappedInner.isScopedRoot, mappedInner.isScopeTopOccurrence], [inner, true, true], label);
+  }
+
+  // A repository-root file target binds to `.`, which never absorbs another root: `tree/src` stays its own root.
+  const mixed = prepareTreeOccurrenceSnapshot({ selectedPaths: ['README.md', 'tree/src/y.mjs'], targets: ['README.md', 'tree/src'] });
+  assert.deepEqual(mixed.scopeRoots, ['.', 'tree/src']);
+  assert.equal(mixed.occurrenceRecords.find((record) => record.resolvedPath === 'tree/src').scopeRootPath, 'tree/src');
 });
 
 test('comparison A: the probe contract\'s snapshot envelope is input-derived and not the Structural Addressing envelope', () => {
