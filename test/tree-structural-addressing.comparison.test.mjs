@@ -318,6 +318,30 @@ test('comparison B, known Tree defect D2: a single target shifts when its phanto
   assert.equal(addressingByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'A.A.1');
 });
 
+test('comparison B, intentional difference I4: a file target is rooted at its containing folder in Tree but at the file in get-tree', async (t) => {
+  const root = createStandaloneFixture(t, {
+    'src/index.mjs': 'x\n',
+    'src/other.mjs': 'x\n',
+  });
+  const tree = treeSnapshotFor(root, { targets: ['src/index.mjs'] });
+  const addressing = await getTreeSnapshotFor(root, ['src/index.mjs']);
+
+  // Tree scopes a file target to its containing folder: the folder is the scope root occurrence and
+  // the file is addressed beneath it. Only the target file is selected, so `src/other.mjs` is absent.
+  assert.deepEqual(
+    tree.occurrenceRecords.map((record) => [record.resolvedPath, record.addressPath, record.depth]),
+    [
+      ['src', 'A', 0],
+      ['src/index.mjs', 'A.1', 1],
+    ],
+  );
+  // get-tree roots the file itself, so the file is the only occurrence, addressed `1` at depth 0.
+  assert.deepEqual(
+    addressing.occurrenceRecords.map((record) => [stripNamespace(record.path), record.addressPath, record.depth]),
+    [['src/index.mjs', '1', 0]],
+  );
+});
+
 test('comparison B, known defect D4: overlapping targets get one detached identity in Tree and two in get-tree', async (t) => {
   const root = createStandaloneFixture(t, {
     'tree/top.logic.mjs': 'x\n',

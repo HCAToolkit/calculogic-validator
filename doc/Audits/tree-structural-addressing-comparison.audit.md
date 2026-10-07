@@ -23,7 +23,7 @@ Given the same occurrence set with the same roots, they assign identical address
 The differences that remain fall into four groups:
 
 - **Equivalent representation (E1–E3):** a namespace root occurrence in whole-scope get-tree runs, record order, and field names. A deterministic mapping covers each.
-- **Intentional membership differences (I1–I3):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly. They also shift sibling markers, so occurrences present on both sides can get different addresses. Re-addressed over the shared membership, those occurrences map exactly.
+- **Intentional differences (I1–I4):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly. They also shift sibling markers, so occurrences present on both sides can get different addresses. Re-addressed over the shared membership, those occurrences map exactly. File targets (I4) are rooted at their containing folder in Tree but at the file in get-tree.
 - **Defects in Tree's private snapshot (D1, D2):** a corrupt lineage and depth for root files outside every scope root, and phantom root occurrences for ancestors above a nested target. The second one shifts a target's address exactly when a phantom ancestor sorts before that target among the root occurrences. That depends on names, not on how many targets there are.
 - **A defect candidate in suite-core input collection (D3):** directory symlinks are collected as file paths. This affects Naming too.
 - **Overlapping targets (D4), defective on both sides:**
@@ -90,6 +90,10 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 
 Test for I1–I3: "comparison B: membership rules differ between Tree input collection and the get-tree walk".
 
+**I4. File-target rooting.** With a file target (`--target src/index.mjs`), Tree roots the snapshot at the file's containing folder. The folder is the scope-root occurrence (`src` = `A`, depth 0) and the file is addressed beneath it (`A.1`, depth 1). get-tree roots the file itself, so the file is the only occurrence, addressed `1` at depth 0. Both identity and membership differ (the containing folder exists only in Tree's snapshot).
+- Recommended decision: the validation adapter keeps Tree's containing-folder semantics. A file target becomes a node under its containing folder, and that folder is the root. File-target identities stay as they are today, and Tree keeps the folder context its classification reads for a target file. get-tree's file-rooted rendering stays a display choice.
+- Test: "comparison B, intentional difference I4: a file target is rooted at its containing folder in Tree but at the file in get-tree".
+
 ### Defects
 
 **D1 (Tree). A root file outside every scope root gets a corrupt lineage and depth.**
@@ -132,7 +136,7 @@ Test for I1–I3: "comparison B: membership rules differ between Tree input coll
 
 - **O1:** `--scope=system` has no include roots, so each root file becomes a `dir`-kind scope root (`isScopedRoot: true` on a file occurrence). Addresses are unaffected.
 - **O2:** Naming's occurrence bridge payload (`naming-occurrence-bridge-payload.logic.mjs`), Tree's Naming occurrence intake and the bridge contributor already read `orderIndex` / `occurrenceOrderIndex`. Tree's snapshot never provides it, so that value is `null` in production today. Structural Addressing provides it.
-- **O3:** get-tree supports only `--scope=validator`. Tree handles every scope, and target descriptors (`file` targets are rooted at their parent folder). A migration cannot reuse get-tree's input builder for validation runs as it is.
+- **O3:** get-tree supports only `--scope=validator`. Tree handles every scope and target descriptors, including file targets, whose rooting differs (I4). A migration cannot reuse get-tree's input builder for validation runs as it is.
 
 ## 4. Real-repository results
 
@@ -149,7 +153,7 @@ Test for I1–I3: "comparison B: membership rules differ between Tree input coll
 ## 5. Recommended canonical shape and migration requirements
 
 1. **Canonical producer:** Structural Addressing's `tree-codebase` profile. The algorithm is identical, it already provides `orderIndex`, and it roots targets directly, so D2 does not exist. A root file under a docs-style profile becomes a root-level node at depth 0, so D1 does not exist either.
-2. **Membership authority:** keep suite-core's scoped collection (`collectSuiteScopedSnapshotInputs`) for validation runs. An Addressing-owned adapter builds the node tree from those `selectedPaths` and the scope roots (include roots or targets), collapsing any target nested inside another target first (D4). Naming and Tree then keep validating the same file set. I1–I3 become a get-tree rendering choice and not a validation change. Changing validation membership would be a separate, explicit decision.
+2. **Membership authority:** keep suite-core's scoped collection (`collectSuiteScopedSnapshotInputs`) for validation runs. An Addressing-owned adapter builds the node tree from those `selectedPaths` and the scope roots (include roots or targets), collapsing any target nested inside another target first (D4) and rooting each file target at its containing folder, as Tree does today (I4). Naming and Tree then keep validating the same file set. I1–I3 become a get-tree rendering choice and not a validation change. Changing validation membership would be a separate, explicit decision.
 3. **Scope-root representation:** decide whether validation snapshots emit a scope-root occurrence (E1). Recommended: they do not. That matches today's Tree addresses, so classification and findings stay stable, and get-tree keeps its namespace root for display.
 4. **Field contract for Tree consumers:**
    - Provide `path`, `name`, `addressPath`, `parentAddressPath`, `depth`, `orderIndex`, plus the two scope flags (`isScopedRoot`, `isScopeTopOccurrence`) that classification reads.
@@ -161,6 +165,7 @@ Test for I1–I3: "comparison B: membership rules differ between Tree input coll
    - Any membership difference must be accounted for explicitly, including the sibling-marker shifts it causes on **shared** paths, not only the entries one side alone includes.
    - Nested targets may change identity deliberately, as D2 corrections, but only where the D2 rule applies, possibly with a single target. Each such change must be listed.
    - Overlapping targets must resolve to exactly one identity per path with nesting preserved (D4). The recommendation is to collapse nested targets into the outermost one.
+   - File targets keep their current identities, rooted at the containing folder (I4).
    - Every changed occurrence identity must be assessed for its effect on the Naming → Tree occurrence joins, not only on Tree findings. Those joins (`addressProfileId + addressedSnapshotId + occurrenceAddress`) key on these addresses.
 7. **Expected behavior changes, to be gated like #14 and #34 (React-app report comparison):**
    - D1: depth of root files under docs-style scopes.
