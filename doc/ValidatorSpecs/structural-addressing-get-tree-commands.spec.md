@@ -60,9 +60,11 @@ two things, both filesystem locations, never file content:
 
 This yields two supported layouts:
 
-1. **Embedded layout** - `packageRoot` is `targetRepositoryRoot/calculogic-validator` (the
-   historical form shown above, when this package is vendored inside a consumer repository).
-2. **Standalone layout** - `packageRoot` and `targetRepositoryRoot` are the same directory -
+1. **Embedded layout** - `packageRoot` is `targetRepositoryRoot/calculogic-validator`, when this
+   package is vendored inside a consumer repository. Run from that repository's root, the direct
+   host command is `node --experimental-strip-types calculogic-validator/scripts/addressing-get-tree.host.mjs --scope=validator`.
+2. **Standalone layout** - `packageRoot` and `targetRepositoryRoot` are the same directory (the
+   direct host command shown above, run from the Validator checkout root) -
    covers running the command directly inside this repository, including via a consumer's
    `npm --prefix node_modules/@calculogic/validator run addressing:get-tree -- ...` invocation
    against an `npm link`-ed development checkout, where the linked target's own real (symlink-
