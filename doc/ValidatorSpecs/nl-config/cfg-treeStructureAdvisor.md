@@ -58,7 +58,7 @@ V0.1.x uses deterministic path-based and occurrence-backed signals only:
 - top-level directory names in repository root
 - repository-relative file paths
 - filename basename patterns that strongly indicate validator ownership
-- occurrence-derived structural records when `occurrenceSnapshot.occurrenceRecords` is available
+- occurrence-derived structural records when `structuralAddressSnapshot.occurrenceRecords` is available
 
 Current boundary note: shipped tree heuristics may ingest naming-derived semantic-family evidence only through a bounded prepared-input bridge projection. Tree must consume naming-owned signals and must not derive semantic-family semantics independently.
 
@@ -99,7 +99,7 @@ V0.1.7 introduces a suite-core scoped snapshot/input helper boundary and migrate
 
 - suite-core helper owns scope profile read, includeRoots walk, includeRootFiles inclusion, normalized path collection, target filtering, and deterministic sort/dedupe
 - tree wiring consumes the shared scoped snapshot input and still prepares tree-local top-level directory inventory
-- tree runtime remains slice-owned for tree-core findings using prepared tree-core inputs only (`selectedPaths`, `topLevelDirectoryNames`, `targets`) and consumes occurrence-derived file-path reasoning input when `occurrenceSnapshot.occurrenceRecords` is available (bounded fallback to `selectedPaths` when occurrence snapshot is absent/malformed)
+- tree runtime remains slice-owned for tree-core findings using prepared tree-core inputs only (`selectedPaths`, `topLevelDirectoryNames`, `targets`) and consumes occurrence-derived file-path reasoning input when `structuralAddressSnapshot.occurrenceRecords` is available (bounded fallback to `selectedPaths` when the snapshot is absent/malformed)
 - tree contributor attachment now supports bounded naming-owned semantic-family bridge payloads (`namingSemanticFamilyBridge.observations[]`) for structural advisories while preserving naming ownership of semantic derivation and validity interpretation
 - the bridge contributor and the shim contributor receive the prepared validator development root from Tree wiring (Refs #34): the canonical docs-authority/runtime pairing (`<root>/doc/** <-> <root>/<semantic-container>/**`) and the shim self-exemptions apply only in Validator development context, and an embedded root's top-level folder is a bridge structural root surface for that run only. The bridge's generic structural root surfaces stay Tree-owned bridge policy and are not derived from the repo-shape allowance.
 - occurrence-driven file reasoning now carries bounded structural class metadata on occurrence records (`structuralClass`, `structuralKind`, repo-shape allowed top-level-directory flags, scoped-root flag, subtree-partition candidate flag) for near-term tree-local interpretation
@@ -116,7 +116,7 @@ V0.1.7 introduces a suite-core scoped snapshot/input helper boundary and migrate
 - Direct runtime callers that omit, mis-shape, or gate-block replacement-runtime composition still use the explicit Tree-owned repo-shape policy fallback instead of suppressing unexpected top-level folder findings.
 - Unexpected top-level folder details report the full Tree-owned allowed repo-shape policy in `details.allowedTopLevelDirectories`, not only the observed allowed top-level directory subset.
 - The former guarded known-roots fallback route is historical context only and is not current runtime truth.
-- Since #45, Tree wiring builds `structuralAddressSnapshot` through Structural Addressing. The chain is the Addressing-owned validation input adapter (`structural-addressing-tree-codebase-validation-input.spec.md`), then `prepareTreeCodebaseAddressedSnapshot`, then the Tree-owned projection (`tree-owned/tree-structural-address-probe-contract.spec.md`, "Addressing-backed projection"). The adapter keeps two root sets: `declaredScopeRoots` (uncollapsed, for the Tree envelope and scope binding) and `effectiveAddressingRoots` (collapsed, for addressing). `occurrenceSnapshot` is a transitional, deprecated alias of the same object. Tree core inputs and findings are unchanged.
+- Since #45, Tree wiring builds `structuralAddressSnapshot` through Structural Addressing. The chain is the Addressing-owned validation input adapter (`structural-addressing-tree-codebase-validation-input.spec.md`), then `prepareTreeCodebaseAddressedSnapshot`, then the Tree-owned projection (`tree-owned/tree-structural-address-probe-contract.spec.md`, "Addressing-backed projection"). The adapter keeps two root sets: `declaredScopeRoots` (uncollapsed, for the Tree envelope and scope binding) and `effectiveAddressingRoots` (collapsed, for addressing). The transitional `occurrenceSnapshot` alias and Tree's former private producers were retired in #49. Tree core inputs and findings are unchanged.
 
 Target behaviors in V0.1.2:
 

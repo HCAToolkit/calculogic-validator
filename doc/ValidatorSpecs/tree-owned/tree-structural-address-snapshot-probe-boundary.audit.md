@@ -6,6 +6,7 @@
 - **Task posture:** docs/spec/audit only.
 - **Runtime posture:** no runtime behavior change in this pass.
 - **Issue lineage:** Refs #478; parent roadmap context Refs #452.
+- **Later status (historical):** §1 describes the runtime as it was at #478. Since #45, Tree wiring prepares `structuralAddressSnapshot` through Structural Addressing and the Tree projection, and #49 retired `prepareTreeOccurrenceSnapshot` and the `occurrenceSnapshot` prepared input. For the current snapshot substrate and handoff, use the "Addressing-backed projection" section of `tree-structural-address-probe-contract.spec.md`. The boundary conclusions in §2–§5 are unchanged.
 
 This audit evaluates boundary clarity between:
 

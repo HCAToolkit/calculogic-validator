@@ -8,7 +8,10 @@ import {
   summarizeFindings,
 } from '../src/tree-structure-advisor.host.mjs';
 import { prepareTreeStructureAdvisorInputs } from '../src/tree-structure-advisor.wiring.mjs';
-import { runTreeStructureAdvisor as runTreeStructureAdvisorRuntime } from '../src/tree-structure-advisor.logic.mjs';
+import {
+  collectFileReasoningInput,
+  runTreeStructureAdvisor as runTreeStructureAdvisorRuntime,
+} from '../src/tree-structure-advisor.logic.mjs';
 import { collectShimCompatFindings, prepareShimValidatorDevelopmentContext } from '../src/tree-shim-detection.logic.mjs';
 import { prepareTreeStructuralHomeEvidence } from '../src/tree-structural-home-evidence.logic.mjs';
 import { prepareTreeSemanticHomeEvidence } from '../src/tree-semantic-home-evidence.logic.mjs';
@@ -90,7 +93,7 @@ const createReadyClassificationPreparedInputs = ({ topLevelDirectoryNames, class
     selectedPaths: [],
     topLevelDirectoryNames,
     targets: [],
-    occurrenceSnapshot: {
+    structuralAddressSnapshot: {
       scopeRoots: ['.'],
       occurrenceRecords,
     },
@@ -242,8 +245,8 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
     assert.equal(snapshot.occurrenceRecords.some((record) => Object.hasOwn(record, 'resolvedPath')), true);
     assert.equal(snapshot.occurrenceRecords.some((record) => Object.hasOwn(record, 'placementConfidence')), false);
     assert.equal(snapshot.occurrenceRecords.some((record) => Object.hasOwn(record, 'severity')), false);
-    // Refs #45: occurrenceSnapshot is a transitional, deprecated alias of the same object, not a copy.
-    assert.equal(preparedInputs.occurrenceSnapshot === snapshot, true);
+    // Refs #49: the transitional occurrenceSnapshot alias is retired; structuralAddressSnapshot is the only snapshot input.
+    assert.equal(Object.hasOwn(preparedInputs, 'occurrenceSnapshot'), false);
     assert.equal(snapshot.scope.source, 'tree-structure-advisor.wiring');
     assert.equal(snapshot.occurrenceRecords.every((record) => Number.isInteger(record.orderIndex)), true);
     assert.ok(preparedInputs.preparedDependencies);
@@ -911,7 +914,7 @@ test('tree-structure-advisor top-level advisory falls back when replacement evid
   });
   const withoutOccurrenceEvidence = runTreeStructureAdvisorRuntime({
     ...preparedInputs,
-    occurrenceSnapshot: undefined,
+    structuralAddressSnapshot: undefined,
   });
 
   assert.deepEqual(
@@ -2281,9 +2284,9 @@ test('tree-structure-advisor rejects invalid scope deterministically', async () 
 
 test('tree-structure-advisor computes occurrence-derived file reasoning input once per runtime run', () => {
   let occurrenceRecordReads = 0;
-  const occurrenceSnapshot = {};
+  const structuralAddressSnapshot = {};
 
-  Object.defineProperty(occurrenceSnapshot, 'occurrenceRecords', {
+  Object.defineProperty(structuralAddressSnapshot, 'occurrenceRecords', {
     get() {
       occurrenceRecordReads += 1;
       return [
@@ -2299,7 +2302,7 @@ test('tree-structure-advisor computes occurrence-derived file reasoning input on
     scope: 'repo',
     selectedPaths: ['doc/README.md'],
     validatorDevelopmentRoot: 'calculogic-validator',
-    occurrenceSnapshot,
+    structuralAddressSnapshot,
     topLevelDirectoryNames: [],
     targets: [],
   });
@@ -2319,7 +2322,7 @@ test('tree-structure-advisor consumes occurrence snapshot file records for valid
   const fromOccurrenceSnapshot = runTreeStructureAdvisorRuntime({
     scope: 'repo',
     selectedPaths: ['calculogic-validator/tree/src/tree-structure-advisor.logic.mjs'],
-    occurrenceSnapshot: {
+    structuralAddressSnapshot: {
       scopeRoots: ['src'],
       occurrenceRecords: [
         {
@@ -2350,7 +2353,7 @@ test('tree-structure-advisor consumes occurrence-derived file paths for owned-sl
     validatorDevelopmentRoot: '.',
     scope: 'repo',
     selectedPaths: ['doc/README.md'],
-    occurrenceSnapshot: {
+    structuralAddressSnapshot: {
       scopeRoots: ['.'],
       occurrenceRecords: [
         {
@@ -2394,7 +2397,7 @@ test('tree-structure-advisor occurrence-derived boundary drift reasoning remains
     validatorDevelopmentRoot: '.',
     scope: 'repo',
     selectedPaths: ['doc/README.md'],
-    occurrenceSnapshot: {
+    structuralAddressSnapshot: {
       scopeRoots: ['.'],
       occurrenceRecords: [
         {
@@ -2426,7 +2429,7 @@ test('tree-structure-advisor occurrence-derived boundary drift reasoning remains
     validatorDevelopmentRoot: '.',
     scope: 'validator',
     selectedPaths: ['doc/README.md'],
-    occurrenceSnapshot: {
+    structuralAddressSnapshot: {
       scopeRoots: ['tree'],
       occurrenceRecords: [
         {
@@ -2461,7 +2464,7 @@ test('tree-structure-advisor falls back to selectedPaths when occurrence snapsho
       'src/tree-structure-advisor/tree-structure-advisor.logic.mjs',
       'src/tree-structure-advisor/tree-structure-advisor.wiring.mjs',
     ],
-    occurrenceSnapshot: {
+    structuralAddressSnapshot: {
       occurrenceRecords: 'malformed',
     },
     topLevelDirectoryNames: [],
@@ -2764,4 +2767,21 @@ test('semantic-qualified structural-container relationship uses addressed semant
   assert.equal(semanticHomesByPath['calculogic-doc-engine'].semanticHome, 'calculogic-doc-engine');
   assert.equal(folderKindsByPath['calculogic-doc-engine'].folderKind, 'semantic');
   assert.equal(folderKindsByPath.src.folderKind, 'structural');
+});
+
+test('tree core file reasoning reads structuralAddressSnapshot only and labels its source by that contract', () => {
+  // Refs #49: the occurrenceSnapshot alias is retired, so it is no longer read, and the internal source
+  // label names the live input contract.
+  const occurrenceRecords = [
+    { resolvedPath: 'src', occurrenceType: 'folder', addressPath: 'A', parentAddressPath: null },
+    { resolvedPath: 'src/a.logic.mjs', occurrenceType: 'file', addressPath: 'A.1', parentAddressPath: 'A' },
+  ];
+  const fromSnapshot = collectFileReasoningInput({ selectedPaths: ['ignored.mjs'], structuralAddressSnapshot: { occurrenceRecords } });
+  assert.equal(fromSnapshot.source, 'structuralAddressSnapshot');
+  assert.deepEqual(fromSnapshot.resolvedFilePaths, ['src/a.logic.mjs']);
+
+  // A retired occurrenceSnapshot key is ignored; without structuralAddressSnapshot the selectedPaths fallback applies.
+  const fromRetiredAlias = collectFileReasoningInput({ selectedPaths: ['fallback.mjs'], occurrenceSnapshot: { occurrenceRecords } });
+  assert.equal(fromRetiredAlias.source, 'selectedPaths-fallback');
+  assert.deepEqual(fromRetiredAlias.resolvedFilePaths, ['fallback.mjs']);
 });

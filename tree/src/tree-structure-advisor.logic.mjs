@@ -128,8 +128,7 @@ const collectUnexpectedTopLevelDirectoryNamesFromClassification = ({
     return null;
   }
 
-  const occurrenceSnapshot = preparedInputs.structuralAddressSnapshot ?? preparedInputs.occurrenceSnapshot;
-  const occurrenceRecords = occurrenceSnapshot?.occurrenceRecords;
+  const occurrenceRecords = preparedInputs.structuralAddressSnapshot?.occurrenceRecords;
 
   if (!Array.isArray(occurrenceRecords)) {
     return null;
@@ -324,10 +323,10 @@ const collectOwnedSliceBoundaryDriftFindings = (paths, validatorDevelopmentRoot)
 };
 
 
-const collectFileReasoningInput = (preparedInputs, replacementRuntime) => {
-  const occurrenceSnapshot = preparedInputs?.structuralAddressSnapshot ?? preparedInputs?.occurrenceSnapshot;
-
-  const occurrenceRecords = occurrenceSnapshot?.occurrenceRecords;
+// File-path reasoning input for Tree core: occurrence-derived records from `structuralAddressSnapshot`,
+// or a deterministic fallback to `selectedPaths` when the snapshot is missing or malformed (Refs #49).
+export const collectFileReasoningInput = (preparedInputs, replacementRuntime) => {
+  const occurrenceRecords = preparedInputs?.structuralAddressSnapshot?.occurrenceRecords;
 
   if (Array.isArray(occurrenceRecords)) {
     const runtime = resolveReplacementRuntime(replacementRuntime);
@@ -359,7 +358,7 @@ const collectFileReasoningInput = (preparedInputs, replacementRuntime) => {
     );
 
     return {
-      source: 'occurrenceSnapshot',
+      source: 'structuralAddressSnapshot',
       occurrenceRecords: classifiedOccurrenceRecords,
       fileRecords,
       resolvedFilePaths,

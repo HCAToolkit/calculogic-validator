@@ -5,6 +5,7 @@ Status/Authority:
 - **Authority level:** Snapshot evidence for planning the Addressing → Tree migration. It changes no runtime behavior.
 - **Runtime authority:** The current runtime truth remains `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`, the Structural Addressing specs, and the suite contract.
 - **Scope:** Compares Tree's private addressed snapshot with the shared Structural Addressing `tree-codebase` output on `main` at `9796573`.
+- **Later status:** #45 (#46–#48) moved Tree's production snapshot onto Structural Addressing, and #49 retired Tree's private producers and the `occurrenceSnapshot` alias. This audit stays as the historical comparison evidence. Test names cited below describe the comparison as it ran. The D1/D2/D4 tests now assert corrected production behavior in `test/tree-structural-addressing.comparison.test.mjs`, and the old-vs-new parity test was retired.
 
 References:
 - Refs #40 (parent #39)

@@ -1,10 +1,12 @@
-// Comparison of Tree's private addressed snapshot with the shared Structural Addressing output
-// (Refs #40). Comparison only: no runtime behavior changes. Each test pins one classified finding
-// from doc/Audits/tree-structural-addressing-comparison.audit.md. The Addressing -> Tree migration is
-// expected to flip the "defect" and "differs" expectations here deliberately.
+// Comparison of Tree's addressed snapshot with the shared Structural Addressing output (Refs #40, #45,
+// #49). Each test pins one classified finding from doc/Audits/tree-structural-addressing-comparison.audit.md.
+// Since #45 Tree's snapshot is produced through Structural Addressing, so the former D1/D2/D4 defects
+// are asserted as corrected production behavior; the former private producer's evidence lives in the
+// audit (its modules were retired in #49).
 //
 // Two layers are compared:
-//   A. Algorithm parity: both implementations address the same occurrence set.
+//   A. Projection fidelity: the production snapshot against Structural Addressing records and the
+//      probe-contract mapping derived independently from them.
 //   B. Production inputs: Tree wiring's snapshot vs the get-tree host's filesystem snapshot.
 
 import assert from 'node:assert/strict';
@@ -16,8 +18,6 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { prepareTreeStructureAdvisorInputs } from '../tree/src/tree-structure-advisor.wiring.mjs';
-import { prepareTreeOccurrenceSnapshot } from '../tree/src/tree-occurrence-snapshot.logic.mjs';
-import { prepareTreeStructuralAddressSnapshot } from '../tree/src/tree-structural-address-snapshot.logic.mjs';
 import { prepareTreeAddressedOccurrenceSnapshot } from '../tree/src/tree-addressed-occurrence-snapshot.logic.mjs';
 import { prepareTreeCodebaseValidationInput } from '../structural-addressing/src/structural-addressing-tree-codebase-validation-input.logic.mjs';
 import { prepareTreeCodebaseAddressedSnapshot } from '../structural-addressing/src/structural-addressing-tree-codebase.logic.mjs';
@@ -60,6 +60,20 @@ const toAddressingScopeRoots = (filePaths, scopeRootPaths) => {
   }
 
   return scopeRoots;
+};
+
+// Tree's addressed snapshot exactly as production wiring builds it since #45: the validation input
+// adapter, the tree-codebase producer, then the Tree projection. Tree's former private producers were
+// retired in #49; their comparison evidence is preserved in the audit.
+const prepareProductionSnapshot = ({ selectedPaths = [], includeRoots = [], targets = [], source = 'tree-structure-advisor.wiring' } = {}) => {
+  const adapted = prepareTreeCodebaseValidationInput({ selectedPaths, includeRoots, targets });
+  return prepareTreeAddressedOccurrenceSnapshot({
+    occurrenceRecords: prepareTreeCodebaseAddressedSnapshot(adapted.treeCodebaseInput).occurrenceRecords,
+    declaredScopeRoots: adapted.declaredScopeRoots,
+    targets,
+    selectedPaths,
+    source,
+  });
 };
 
 const byPath = (records, pathKey) => new Map(records.map((record) => [record[pathKey], record]));
@@ -235,7 +249,7 @@ test('comparison A: both implementations assign identical address, parent, depth
     ...Array.from({ length: 28 }, (_, index) => `src/many/f${String(index).padStart(2, '0')}/leaf.mjs`),
     'test/a/x.test.mjs',
   ];
-  const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, includeRoots: ['src', 'test'] });
+  const tree = prepareProductionSnapshot({ selectedPaths: filePaths, includeRoots: ['src', 'test'] });
   const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(filePaths, ['src', 'test']) });
   const addressingByPath = byPath(addressing.occurrenceRecords, 'path');
   const addressingPathByAddress = new Map(addressing.occurrenceRecords.map((record) => [record.addressPath, record.path]));
@@ -309,7 +323,7 @@ test('comparison A: the probe contract\'s occurrence concepts are deterministica
     { label: 'repository-root file target', filePaths: ['README.md'], roots: [], options: { targets: ['README.md'] } },
   ];
   for (const { label, filePaths, roots, options } of cases) {
-    const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, ...options });
+    const tree = prepareProductionSnapshot({ selectedPaths: filePaths, ...options });
     const addressing = prepareTreeCodebaseAddressedSnapshot({
       scopeRoots: roots.length > 0 ? toAddressingScopeRoots(filePaths, roots) : withoutScopeRootOccurrence(filePaths),
     });
@@ -342,18 +356,17 @@ test('comparison A, D4: collapsed overlapping scope roots keep every record\'s s
   // The adapter derives effective folder scope roots first (a file target becomes its containing
   // folder), then collapses roots nested inside another root. Tree's declared roots stay in the
   // envelope, and the deepest one containing a record still binds it, so scope binding, lineage and
-  // both scope flags are preserved. Only the D4 correction fields (address, markers, parent, depth) change.
-  const d4Fields = new Set(['occurrenceMarker', 'markerSegments', 'parentResolvedPath', 'depth']);
+  // both scope flags are preserved. Every production field matches the mapping derived from Addressing.
   const cases = [
     { label: 'overlapping directory targets', filePaths: ['tree/x.mjs', 'tree/src/y.mjs'], targets: ['tree', 'tree/src'], inner: 'tree/src' },
     // Neither file target contains the other, but their containing folders `tree` and `tree/sub` nest.
     { label: 'file targets with nested containing folders', filePaths: ['tree/a.mjs', 'tree/sub/b.mjs'], targets: ['tree/a.mjs', 'tree/sub/b.mjs'], inner: 'tree/sub' },
   ];
   for (const { label, filePaths, targets, inner } of cases) {
-    const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, targets });
+    const tree = prepareProductionSnapshot({ selectedPaths: filePaths, targets });
     assert.deepEqual(tree.scopeRoots, ['tree', inner], label);
-    // Today Tree detaches the inner root (D4).
-    assert.equal(tree.occurrenceRecords.find((record) => record.resolvedPath === inner).parentResolvedPath, null, label);
+    // Production nests the inner root under the outer one (D4 corrected; the former private producer detached it).
+    assert.equal(tree.occurrenceRecords.find((record) => record.resolvedPath === inner).parentResolvedPath, 'tree', label);
 
     const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(filePaths, ['tree']) });
     const addressingByPath = byPath(addressing.occurrenceRecords, 'path');
@@ -365,14 +378,14 @@ test('comparison A, D4: collapsed overlapping scope roots keep every record\'s s
     for (const record of tree.occurrenceRecords) {
       const mapped = toProbeContractConcepts(addressingByPath.get(record.resolvedPath), addressingByAddress, new Set(tree.scopeRoots));
       const changed = Object.keys(mapped).filter((field) => !util.isDeepStrictEqual(mapped[field], record[field]));
-      assert.deepEqual(changed.filter((field) => !d4Fields.has(field)), [], `${label}: ${record.resolvedPath}`);
+      assert.deepEqual(changed, [], `${label}: ${record.resolvedPath}`);
     }
     const mappedInner = toProbeContractConcepts(addressingByPath.get(inner), addressingByAddress, new Set(tree.scopeRoots));
     assert.deepEqual([mappedInner.scopeRootPath, mappedInner.isScopedRoot, mappedInner.isScopeTopOccurrence], [inner, true, true], label);
   }
 
   // A repository-root file target binds to `.`, which never absorbs another root: `tree/src` stays its own root.
-  const mixed = prepareTreeOccurrenceSnapshot({ selectedPaths: ['README.md', 'tree/src/y.mjs'], targets: ['README.md', 'tree/src'] });
+  const mixed = prepareProductionSnapshot({ selectedPaths: ['README.md', 'tree/src/y.mjs'], targets: ['README.md', 'tree/src'] });
   assert.deepEqual(mixed.scopeRoots, ['.', 'tree/src']);
   assert.equal(mixed.occurrenceRecords.find((record) => record.resolvedPath === 'tree/src').scopeRootPath, 'tree/src');
 });
@@ -391,17 +404,19 @@ test('comparison A: the probe contract\'s snapshot envelope is input-derived and
   ];
   for (const { label, input, scopeRoots, scopeRootPath, targetKind } of cases) {
     const envelopeOf = ({ occurrenceRecords, ...envelope }) => envelope;
-    const snapshot = prepareTreeStructuralAddressSnapshot({ ...input, scope: { source: 'tree-structure-advisor.wiring' } });
+    const snapshot = prepareProductionSnapshot(input);
     assert.deepEqual(
       envelopeOf(snapshot),
       { scope: { scopeRootPath, targetKind, source: 'tree-structure-advisor.wiring' }, scopeRoots },
       label,
     );
-    // Same envelope with no occurrence records at all: it does not depend on them.
-    const recordless = prepareTreeStructuralAddressSnapshot({
-      ...input,
-      occurrenceSnapshot: { scopeRoots: snapshot.scopeRoots, occurrenceRecords: [] },
-      scope: { source: 'tree-structure-advisor.wiring' },
+    // Same envelope with no occurrence records at all: the projection derives it from inputs only.
+    const recordless = prepareTreeAddressedOccurrenceSnapshot({
+      occurrenceRecords: [],
+      declaredScopeRoots: prepareTreeCodebaseValidationInput(input).declaredScopeRoots,
+      targets: input.targets ?? [],
+      selectedPaths: input.selectedPaths,
+      source: 'tree-structure-advisor.wiring',
     });
     assert.deepEqual(envelopeOf(recordless), envelopeOf(snapshot), label);
   }
@@ -420,7 +435,7 @@ test('comparison A: the probe contract\'s snapshot envelope is input-derived and
 
 test('comparison A: record order differs (Tree sorts full paths; Addressing is pre-order with explicit orderIndex)', () => {
   const filePaths = ['doc/a/x.md', 'doc/a-b/x.md', 'doc/A/y.md'];
-  const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, includeRoots: ['doc'] });
+  const tree = prepareProductionSnapshot({ selectedPaths: filePaths, includeRoots: ['doc'] });
   const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(filePaths, ['doc']) });
 
   // Same identity for every occurrence...
@@ -428,7 +443,7 @@ test('comparison A: record order differs (Tree sorts full paths; Addressing is p
   for (const record of tree.occurrenceRecords) {
     assert.equal(addressingByPath.get(record.resolvedPath).addressPath, record.occurrenceMarker);
   }
-  // ...but a different array order, and only Addressing carries orderIndex.
+  // ...but a different array order: Tree keeps path order and carries Addressing's traversal order as orderIndex.
   assert.deepEqual(
     tree.occurrenceRecords.map((record) => record.resolvedPath),
     ['doc', 'doc/a', 'doc/A', 'doc/a-b', 'doc/a-b/x.md', 'doc/a/x.md', 'doc/A/y.md'],
@@ -438,135 +453,100 @@ test('comparison A: record order differs (Tree sorts full paths; Addressing is p
     ['doc', 'doc/a', 'doc/a/x.md', 'doc/A', 'doc/A/y.md', 'doc/a-b', 'doc/a-b/x.md'],
   );
   assert.deepEqual(addressing.occurrenceRecords.map((record) => record.orderIndex), [0, 1, 2, 3, 4, 5, 6]);
-  assert.equal(Object.hasOwn(tree.occurrenceRecords[0], 'orderIndex'), false);
+  assert.deepEqual(
+    [...tree.occurrenceRecords].sort((left, right) => left.orderIndex - right.orderIndex).map((record) => record.resolvedPath),
+    addressing.occurrenceRecords.map((record) => record.path),
+  );
 });
 
-test('comparison A, known Tree defect D1: a root file outside every scope root gets a corrupt lineage and depth', () => {
-  // The docs scope profile includes `README.md` beside the `doc`/`docs` scope roots.
-  const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: ['README.md', 'doc/guide.md'], includeRoots: ['doc', 'docs'] });
+test('comparison A, D1 corrected in production: a root file outside every scope root binds to . at depth 0', () => {
+  // The docs scope profile includes `README.md` beside the `doc`/`docs` scope roots. The former private
+  // producer attributed it to the first scope root (`doc`, lineage ['doc', 'ME.md'], depth 1); see the
+  // audit. Production matches the probe-contract mapping derived independently from Addressing records.
+  const tree = prepareProductionSnapshot({ selectedPaths: ['README.md', 'doc/guide.md'], includeRoots: ['doc', 'docs'] });
   const readme = tree.occurrenceRecords.find((record) => record.resolvedPath === 'README.md');
+  assert.deepEqual(
+    [readme.occurrenceMarker, readme.parentResolvedPath, readme.scopeRootPath, readme.lineageSegments, readme.isScopeTopOccurrence, readme.isScopedRoot, readme.depth],
+    ['1', null, '.', ['README.md'], true, false, 0],
+  );
 
-  assert.equal(readme.occurrenceMarker, '1');
-  assert.equal(readme.parentResolvedPath, null);
-  // Defect: the record is attributed to the first scope root and its lineage is sliced from an
-  // unrelated path. Structural Addressing would place it at depth 0 with lineage ['README.md'].
-  assert.equal(readme.scopeRootPath, 'doc');
-  assert.deepEqual(readme.lineageSegments, ['doc', 'ME.md']);
-  assert.equal(readme.depth, 1);
-
-  // The probe-contract mapping binds the root file to `.`. Every contract-visible field that changes
-  // is enumerated here, so a migration gates all of them, not depth alone.
   const addressing = prepareTreeCodebaseAddressedSnapshot({
     scopeRoots: [...toAddressingScopeRoots(['doc/guide.md'], ['doc']), { name: 'README.md', path: 'README.md', occurrenceType: 'file' }],
   });
   const addressingByAddress = new Map(addressing.occurrenceRecords.map((record) => [record.addressPath, record]));
-  const mapped = toProbeContractConcepts(
-    addressing.occurrenceRecords.find((record) => record.path === 'README.md'),
-    addressingByAddress,
-    new Set(['doc', 'docs']),
-  );
-  const changedFields = Object.keys(mapped).filter((field) => !util.isDeepStrictEqual(mapped[field], readme[field]));
-  assert.deepEqual(changedFields, ['scopeRootPath', 'lineageSegments', 'isScopeTopOccurrence', 'depth']);
-  assert.deepEqual(
-    { scopeRootPath: mapped.scopeRootPath, lineageSegments: mapped.lineageSegments, isScopeTopOccurrence: mapped.isScopeTopOccurrence, depth: mapped.depth },
-    { scopeRootPath: '.', lineageSegments: ['README.md'], isScopeTopOccurrence: true, depth: 0 },
-  );
-  // Today's values for the same fields: `doc`, ['doc', 'ME.md'], false, 1.
-  assert.equal(readme.isScopeTopOccurrence, false);
+  const mapped = toProbeContractConcepts(addressing.occurrenceRecords.find((record) => record.path === 'README.md'), addressingByAddress, new Set(['doc', 'docs']));
+  assert.deepEqual(Object.keys(mapped).filter((field) => !util.isDeepStrictEqual(mapped[field], readme[field])), []);
 });
 
-test('comparison A, known Tree defect D2: ancestors above a nested target become orphan root occurrences', () => {
+test('comparison A, D2 corrected in production: no orphan root occurrences above nested targets', () => {
+  // The former private producer emitted `naming` and `tree` as phantom root occurrences above the
+  // targets (see the audit). Production roots each target directly, exactly as Structural Addressing does.
   const filePaths = ['tree/src/a.logic.mjs', 'naming/src/b.logic.mjs'];
-  const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, targets: ['tree/src', 'naming/src'] });
-  const treeByPath = byPath(tree.occurrenceRecords, 'resolvedPath');
-
-  // Defect: `naming` and `tree` are not inside any target scope, yet they are emitted as root
-  // occurrences that are not parents of the targets, take root markers, and carry the lineage of an
-  // unrelated scope root.
+  const tree = prepareProductionSnapshot({ selectedPaths: filePaths, targets: ['tree/src', 'naming/src'] });
+  const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(filePaths, ['naming/src', 'tree/src']) });
+  const expectedRoots = [
+    ['naming/src', 'A'],
+    ['tree/src', 'B'],
+  ];
   assert.deepEqual(
     tree.occurrenceRecords.filter((record) => record.parentResolvedPath === null).map((record) => [record.resolvedPath, record.occurrenceMarker]),
-    [
-      ['naming', 'A'],
-      ['naming/src', 'B'],
-      ['tree', 'D'],
-      ['tree/src', 'C'],
-    ],
+    expectedRoots,
   );
-  assert.equal(treeByPath.get('tree').isScopedRoot, false);
-  assert.deepEqual(treeByPath.get('tree').lineageSegments, ['naming/src']);
-
-  // Structural Addressing roots each target directly, so target addresses do not depend on
-  // phantom ancestors.
-  const addressing = prepareTreeCodebaseAddressedSnapshot({
-    scopeRoots: toAddressingScopeRoots(filePaths, ['naming/src', 'tree/src']),
-  });
   assert.deepEqual(
     addressing.occurrenceRecords.filter((record) => record.parentAddressPath === null).map((record) => [record.path, record.addressPath]),
-    [
-      ['naming/src', 'A'],
-      ['tree/src', 'B'],
-    ],
+    expectedRoots,
   );
 });
 
-test('comparison A, D2 rule: sibling targets keep their addresses when the phantom ancestor sorts after them', () => {
-  // D2 shifts a target only when a phantom ancestor sorts before it among the root siblings. Here
-  // `tree` sorts after `a` and `b`, so only the phantom itself takes an extra marker.
+test('comparison A, D2 corrected in production: sibling targets are roots with no phantom ancestor', () => {
   const filePaths = ['tree/a/x.logic.mjs', 'tree/b/y.logic.mjs'];
-  const tree = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, targets: ['tree/a', 'tree/b'] });
+  const tree = prepareProductionSnapshot({ selectedPaths: filePaths, targets: ['tree/a', 'tree/b'] });
   const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(filePaths, ['tree/a', 'tree/b']) });
   const rootsOf = (records, pathKey, addressKey, parentKey) =>
     records.filter((record) => record[parentKey] === null).map((record) => [record[pathKey], record[addressKey]]);
-
-  assert.deepEqual(rootsOf(tree.occurrenceRecords, 'resolvedPath', 'occurrenceMarker', 'parentResolvedPath'), [
-    ['tree', 'C'],
+  const expectedRoots = [
     ['tree/a', 'A'],
     ['tree/b', 'B'],
-  ]);
-  assert.deepEqual(rootsOf(addressing.occurrenceRecords, 'path', 'addressPath', 'parentAddressPath'), [
-    ['tree/a', 'A'],
-    ['tree/b', 'B'],
-  ]);
+  ];
+  assert.deepEqual(rootsOf(tree.occurrenceRecords, 'resolvedPath', 'occurrenceMarker', 'parentResolvedPath'), expectedRoots);
+  assert.deepEqual(rootsOf(addressing.occurrenceRecords, 'path', 'addressPath', 'parentAddressPath'), expectedRoots);
 });
 
-test('comparison A, D2 rule: a nested file target shifts with its containing folder when a phantom sorts before that folder', () => {
-  // Tree roots a nested file target at its containing folder (I4), so that folder is a folder scope
-  // root and D2 applies to it like a directory target: the target file moves with it.
+test('comparison A, D2 corrected in production: a nested file target keeps its identity under its containing folder', () => {
+  // The former private producer shifted `tree/zz/index.mjs` to `B.1` because the phantom `tree` sorted
+  // first (see the audit). Production roots the containing folder directly in both cases.
   const cases = [
-    { target: 'tree/zz/index.mjs', tree: [['tree', 'A'], ['tree/zz', 'B'], ['tree/zz/index.mjs', 'B.1']], addressing: [['tree/zz', 'A'], ['tree/zz/index.mjs', 'A.1']] },
-    { target: 'tree/src/index.mjs', tree: [['tree', 'B'], ['tree/src', 'A'], ['tree/src/index.mjs', 'A.1']], addressing: [['tree/src', 'A'], ['tree/src/index.mjs', 'A.1']] },
+    { target: 'tree/zz/index.mjs', expected: [['tree/zz', 'A'], ['tree/zz/index.mjs', 'A.1']] },
+    { target: 'tree/src/index.mjs', expected: [['tree/src', 'A'], ['tree/src/index.mjs', 'A.1']] },
   ];
-  for (const { target, tree, addressing } of cases) {
-    const containingFolder = path.posix.dirname(target);
-    const treeSnapshot = prepareTreeOccurrenceSnapshot({ selectedPaths: [target], targets: [target] });
-    const addressingSnapshot = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots([target], [containingFolder]) });
-    assert.deepEqual(treeSnapshot.occurrenceRecords.map((record) => [record.resolvedPath, record.occurrenceMarker]).sort(), tree, target);
-    assert.deepEqual(addressingSnapshot.occurrenceRecords.map((record) => [record.path, record.addressPath]).sort(), addressing, target);
+  for (const { target, expected } of cases) {
+    const treeSnapshot = prepareProductionSnapshot({ selectedPaths: [target], targets: [target] });
+    const addressingSnapshot = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots([target], [path.posix.dirname(target)]) });
+    assert.deepEqual(treeSnapshot.occurrenceRecords.map((record) => [record.resolvedPath, record.occurrenceMarker]).sort(), expected, target);
+    assert.deepEqual(addressingSnapshot.occurrenceRecords.map((record) => [record.path, record.addressPath]).sort(), expected, target);
   }
 });
 
-test('comparison A, D2 rule: a phantom folder never shifts a root file target, which uses the file marker lane', () => {
-  // Folders take letter markers and files take number markers, counted separately. A phantom
-  // ancestor is always a folder, so it can shift only folder targets, never a root file target.
+test('comparison A, D2 corrected in production: mixed folder and root file targets keep their identities', () => {
+  // Folders take letter markers and files number markers, counted separately. With no phantom
+  // ancestors in production, neither the folder target nor the root file target shifts.
   const rootsOf = (records, pathKey, addressKey, parentKey) =>
     records.filter((record) => record[parentKey] === null).map((record) => [record[pathKey], record[addressKey]]).sort();
   const cases = [
-    // `tree` sorts before `zzz.md`, yet the file keeps `1`; the folder target is unchanged too.
-    { targets: ['tree/src', 'zzz.md'], filePaths: ['tree/src/a.logic.mjs', 'zzz.md'], tree: [['tree', 'B'], ['tree/src', 'A'], ['zzz.md', '1']], addressing: [['tree/src', 'A'], ['zzz.md', '1']] },
-    // `tree` sorts before `zz`, so the folder target shifts while `aaa.md` keeps `1`.
-    { targets: ['tree/zz', 'aaa.md'], filePaths: ['tree/zz/a.logic.mjs', 'aaa.md'], tree: [['aaa.md', '1'], ['tree', 'A'], ['tree/zz', 'B']], addressing: [['aaa.md', '1'], ['tree/zz', 'A']] },
+    { targets: ['tree/src', 'zzz.md'], filePaths: ['tree/src/a.logic.mjs', 'zzz.md'], expected: [['tree/src', 'A'], ['zzz.md', '1']] },
+    { targets: ['tree/zz', 'aaa.md'], filePaths: ['tree/zz/a.logic.mjs', 'aaa.md'], expected: [['aaa.md', '1'], ['tree/zz', 'A']] },
   ];
-  for (const { targets, filePaths, tree, addressing } of cases) {
+  for (const { targets, filePaths, expected } of cases) {
     const [folderTarget, fileTarget] = targets;
-    const treeSnapshot = prepareTreeOccurrenceSnapshot({ selectedPaths: filePaths, targets });
+    const treeSnapshot = prepareProductionSnapshot({ selectedPaths: filePaths, targets });
     const addressingSnapshot = prepareTreeCodebaseAddressedSnapshot({
       scopeRoots: [
         ...toAddressingScopeRoots(filePaths.filter((filePath) => filePath !== fileTarget), [folderTarget]),
         { name: fileTarget, path: fileTarget, occurrenceType: 'file' },
       ],
     });
-    assert.deepEqual(rootsOf(treeSnapshot.occurrenceRecords, 'resolvedPath', 'occurrenceMarker', 'parentResolvedPath'), tree, targets.join(' + '));
-    assert.deepEqual(rootsOf(addressingSnapshot.occurrenceRecords, 'path', 'addressPath', 'parentAddressPath'), addressing, targets.join(' + '));
+    assert.deepEqual(rootsOf(treeSnapshot.occurrenceRecords, 'resolvedPath', 'occurrenceMarker', 'parentResolvedPath'), expected, targets.join(' + '));
+    assert.deepEqual(rootsOf(addressingSnapshot.occurrenceRecords, 'path', 'addressPath', 'parentAddressPath'), expected, targets.join(' + '));
   }
 });
 
@@ -642,14 +622,12 @@ test('comparison B, D2 corrected in production: a single target has no phantom a
     assert.equal(addressingByPath.get(record.resolvedPath).parentAddressPath, record.parentAddressPath, record.resolvedPath);
     assert.equal(addressingByPath.get(record.resolvedPath).depth, record.depth, record.resolvedPath);
   }
-  // Since #45 Tree wiring has no D2 phantom ancestor, so no Tree-only record remains. The private
-  // producer, fed the same inputs, still emits the phantom `tree` (sorting after `src`).
+  // Since #45 Tree wiring has no D2 phantom ancestor, so no Tree-only record remains (the former
+  // private producer emitted a phantom `tree`; see the audit).
   assert.deepEqual(
     tree.occurrenceRecords.filter((record) => !addressingByPath.has(record.resolvedPath)).map((record) => record.resolvedPath),
     [],
   );
-  const privateSnapshot = prepareTreeStructuralAddressSnapshot({ selectedPaths: treeInputsFor(root, { targets: ['tree/src'] }).selectedPaths, targets: ['tree/src'] });
-  assert.equal(privateSnapshot.occurrenceRecords.some((record) => record.resolvedPath === 'tree'), true);
 });
 
 test('comparison B, D2 corrected in production: a single target whose phantom ancestor sorted first keeps its identity', async (t) => {
@@ -670,15 +648,6 @@ test('comparison B, D2 corrected in production: a single target whose phantom an
   assert.equal(treeByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'A.A.1');
   assert.equal(addressingByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'A.A.1');
 
-  // The private producer, fed the same inputs, still shows the defect: the phantom `tree` sorts first
-  // and takes `A`, so the target becomes `B` and every address under it shifts.
-  const privateByPath = byPath(
-    prepareTreeStructuralAddressSnapshot({ selectedPaths: treeInputsFor(root, { targets: ['tree/zz'] }).selectedPaths, targets: ['tree/zz'] }).occurrenceRecords,
-    'resolvedPath',
-  );
-  assert.equal(privateByPath.get('tree').addressPath, 'A');
-  assert.equal(privateByPath.get('tree/zz').addressPath, 'B');
-  assert.equal(privateByPath.get('tree/zz/sub/b.logic.mjs').addressPath, 'B.A.1');
 });
 
 test('comparison B, intentional difference I3: an explicitly targeted excluded directory is empty in Tree but walked by get-tree', async (t) => {
@@ -807,21 +776,13 @@ test('comparison B, D4: overlapping targets get one nested identity in Tree (cor
   const addressing = await getTreeSnapshotFor(root, targets);
 
   // Tree wiring since #45: each path once, and the collapsed inner target nests under the outer one
-  // while keeping its own scope binding. The private producer still detaches it (`A`, parent null).
+  // while keeping its own scope binding (the former private producer detached it; see the audit).
   assert.equal(treeByPath.size, tree.occurrenceRecords.length);
   assert.deepEqual(
     [treeByPath.get('tree/src').addressPath, treeByPath.get('tree/src').parentAddressPath, treeByPath.get('tree').addressPath],
     ['A.A', 'A', 'A'],
   );
   assert.deepEqual([treeByPath.get('tree/src').scopeRootPath, treeByPath.get('tree/src').isScopedRoot], ['tree/src', true]);
-  const privateByPath = byPath(
-    prepareTreeStructuralAddressSnapshot({ selectedPaths: treeInputsFor(root, { targets }).selectedPaths, targets }).occurrenceRecords,
-    'resolvedPath',
-  );
-  assert.deepEqual(
-    [privateByPath.get('tree/src').addressPath, privateByPath.get('tree/src').parentAddressPath, privateByPath.get('tree').addressPath],
-    ['A', null, 'B'],
-  );
 
   // get-tree: walks both roots, so every inner path appears twice with two identities.
   const addressesByPath = new Map();
