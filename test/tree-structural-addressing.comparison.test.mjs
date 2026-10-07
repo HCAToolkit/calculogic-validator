@@ -482,6 +482,22 @@ test('comparison A, D2 rule: sibling targets keep their addresses when the phant
   ]);
 });
 
+test('comparison A, D2 rule: a nested file target shifts with its containing folder when a phantom sorts before that folder', () => {
+  // Tree roots a nested file target at its containing folder (I4), so that folder is a folder scope
+  // root and D2 applies to it like a directory target: the target file moves with it.
+  const cases = [
+    { target: 'tree/zz/index.mjs', tree: [['tree', 'A'], ['tree/zz', 'B'], ['tree/zz/index.mjs', 'B.1']], addressing: [['tree/zz', 'A'], ['tree/zz/index.mjs', 'A.1']] },
+    { target: 'tree/src/index.mjs', tree: [['tree', 'B'], ['tree/src', 'A'], ['tree/src/index.mjs', 'A.1']], addressing: [['tree/src', 'A'], ['tree/src/index.mjs', 'A.1']] },
+  ];
+  for (const { target, tree, addressing } of cases) {
+    const containingFolder = path.posix.dirname(target);
+    const treeSnapshot = prepareTreeOccurrenceSnapshot({ selectedPaths: [target], targets: [target] });
+    const addressingSnapshot = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots([target], [containingFolder]) });
+    assert.deepEqual(treeSnapshot.occurrenceRecords.map((record) => [record.resolvedPath, record.occurrenceMarker]).sort(), tree, target);
+    assert.deepEqual(addressingSnapshot.occurrenceRecords.map((record) => [record.path, record.addressPath]).sort(), addressing, target);
+  }
+});
+
 test('comparison A, D2 rule: a phantom folder never shifts a root file target, which uses the file marker lane', () => {
   // Folders take letter markers and files take number markers, counted separately. A phantom
   // ancestor is always a folder, so it can shift only folder targets, never a root file target.
