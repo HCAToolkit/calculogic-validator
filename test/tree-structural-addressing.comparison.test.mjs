@@ -152,6 +152,51 @@ const assertMapsByE1 = (treeRecord, addressingRecord, label) => {
   assert.equal(addressingRecord.occurrenceType, treeRecord.occurrenceType, label);
 };
 
+// get-tree's exclusion list, read from its source so this classifier cannot drift from the walker.
+const GET_TREE_EXCLUDED_NAMES = new Set(
+  JSON.parse(
+    fs
+      .readFileSync(path.join(VALIDATOR_ROOT, 'scripts', 'addressing-get-tree.host.mjs'), 'utf8')
+      .match(/const EXCLUDED_WALK_NAMES = new Set\((\[[^\]]*\])\);/u)[1]
+      .replaceAll("'", '"'),
+  ),
+);
+
+// Classifies every occurrence present on only one side by the documented membership rules and
+// returns the ones no rule explains:
+//   Tree-only:     a path segment get-tree excludes by name, of any type and at any depth (I3,
+//                  including `build` folders and `.git` or excluded-name files), or a symlink (D3);
+//   get-tree-only: inside or itself a dot directory (I1), or a folder with no file descendants (I2).
+const listUnclassifiedMembershipDifferences = (repositoryRoot, treeSnapshot, addressingSnapshot) => {
+  const addressingByPath = new Map(addressingSnapshot.occurrenceRecords.map((record) => [stripNamespace(record.path), record]));
+  const treePaths = new Set(treeSnapshot.occurrenceRecords.map((record) => record.resolvedPath));
+  const isInDotDirectory = (occurrencePath, record) => {
+    const segments = occurrencePath.split('/');
+    const directorySegments = record.occurrenceType === 'folder' ? segments : segments.slice(0, -1);
+    return directorySegments.some((segment) => segment.startsWith('.') && segment !== '.');
+  };
+  const hasNoFileDescendants = (record) =>
+    record.occurrenceType === 'folder' &&
+    !addressingSnapshot.occurrenceRecords.some(
+      (candidate) => candidate.occurrenceType === 'file' && candidate.addressPath.startsWith(`${record.addressPath}.`),
+    );
+
+  const treeOnly = treeSnapshot.occurrenceRecords
+    .map((record) => record.resolvedPath)
+    .filter((occurrencePath) => !addressingByPath.has(occurrencePath))
+    .filter(
+      (occurrencePath) =>
+        !occurrencePath.split('/').some((segment) => GET_TREE_EXCLUDED_NAMES.has(segment)) &&
+        !fs.lstatSync(path.join(repositoryRoot, occurrencePath)).isSymbolicLink(),
+    );
+  const getTreeOnly = [...addressingByPath]
+    .filter(([occurrencePath]) => occurrencePath !== '.' && !treePaths.has(occurrencePath))
+    .filter(([occurrencePath, record]) => !isInDotDirectory(occurrencePath, record) && !hasNoFileDescendants(record))
+    .map(([occurrencePath]) => occurrencePath);
+
+  return { treeOnly, getTreeOnly };
+};
+
 // --- Layer A: algorithm parity on the same occurrence set -------------------------------------
 
 test('comparison A: both implementations assign identical address, parent, depth and type for the same nested input', () => {
@@ -485,6 +530,8 @@ test('comparison B: membership rules differ between Tree input collection and th
       '.hidden-file': 'x\n',
       'build/out.js': 'x\n',
       'src/build/nested.js': 'x\n',
+      // A regular file whose name get-tree excludes (the suite walk excludes only such directories).
+      'src/dist': 'x\n',
       // A `.git` file, as in a submodule or a Git worktree checkout.
       'vendored/.git': 'gitdir: ../.git/modules/vendored\n',
       'vendored/lib.js': 'x\n',
@@ -514,12 +561,22 @@ test('comparison B: membership rules differ between Tree input collection and th
     // file occurrence; a directory symlink is skipped by get-tree but collected by the suite walk as a
     // non-directory entry, so Tree records it as a file occurrence; a symlink to a regular file is
     // likewise collected by the suite walk and skipped by get-tree.
-    ['build', 'build/out.js', 'src-link', 'src/a-link.logic.mjs', 'src/build', 'src/build/nested.js', 'vendored/.git'],
+    ['build', 'build/out.js', 'src-link', 'src/a-link.logic.mjs', 'src/build', 'src/build/nested.js', 'src/dist', 'vendored/.git'],
   );
   assert.equal(treeByPath.get('src-link').occurrenceType, 'file');
   for (const excluded of ['dist', 'coverage', 'node_modules']) {
     assert.equal(treeByPath.has(excluded) || addressingPaths.has(excluded), false, excluded);
   }
+
+  // The classifier the live-repository test relies on explains every one of these differences.
+  assert.deepEqual(
+    listUnclassifiedMembershipDifferences(
+      root,
+      treeInputs.structuralAddressSnapshot,
+      prepareTreeCodebaseAddressedSnapshot(getTreeInput),
+    ),
+    { treeOnly: [], getTreeOnly: [] },
+  );
 
   // Membership differences also shift shared occurrences: `.github`, `empty` (get-tree only) and
   // `build` (Tree only) take root folder markers, so `src` is `B` in Tree but `A.C`, not `A.B`, in get-tree.
@@ -567,32 +624,10 @@ test('comparison B: every difference on this repository is a classified one', as
   const addressing = prepareTreeCodebaseAddressedSnapshot(getTreeInput);
   const addressingByPath = new Map(addressing.occurrenceRecords.map((record) => [stripNamespace(record.path), record]));
   const treeByPath = byPath(tree.occurrenceRecords, 'resolvedPath');
-  const isDotPath = (occurrencePath) => occurrencePath.split('/').some((segment) => segment.startsWith('.') && segment.length > 1);
-  const isEmptyFolder = (record) =>
-    record.occurrenceType === 'folder' &&
-    !addressing.occurrenceRecords.some((candidate) => candidate.parentAddressPath === record.addressPath);
 
   // Shared occurrences map by E1 once both sides are re-addressed over the shared membership.
   for (const { path: occurrencePath, tree: treeRecord, addressing: counterpart } of compareOverSharedMembership(treeInputs, getTreeInput)) {
     assertMapsByE1(treeRecord, counterpart, occurrencePath);
   }
-  for (const record of tree.occurrenceRecords) {
-    if (addressingByPath.has(record.resolvedPath)) {
-      continue;
-    }
-    assert.ok(
-      record.resolvedPath.split('/').some((segment) => segment === 'build' || segment === '.git') ||
-        fs.lstatSync(path.join(VALIDATOR_ROOT, record.resolvedPath)).isSymbolicLink(),
-      `unclassified Tree-only occurrence: ${record.resolvedPath}`,
-    );
-  }
-  for (const [occurrencePath, record] of addressingByPath) {
-    if (treeByPath.has(occurrencePath) || occurrencePath === '.') {
-      continue;
-    }
-    assert.ok(
-      isDotPath(occurrencePath) || isEmptyFolder(record),
-      `unclassified get-tree-only occurrence: ${occurrencePath}`,
-    );
-  }
+  assert.deepEqual(listUnclassifiedMembershipDifferences(VALIDATOR_ROOT, tree, addressing), { treeOnly: [], getTreeOnly: [] });
 });
