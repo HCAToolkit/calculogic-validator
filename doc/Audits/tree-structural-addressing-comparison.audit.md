@@ -1,0 +1,148 @@
+# Tree Private Addressing vs Shared Structural Addressing Comparison Audit
+
+Status/Authority:
+- **Status:** Audit (comparison only).
+- **Authority level:** Snapshot evidence for planning the Addressing → Tree migration. It changes no runtime behavior.
+- **Runtime authority:** The current runtime truth remains `doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md`, the Structural Addressing specs, and the suite contract.
+- **Scope:** Compares Tree's private addressed snapshot with the shared Structural Addressing `tree-codebase` output on `main` at `9796573`.
+
+References:
+- Refs #40 (parent #39)
+- Executable evidence: `test/tree-structural-addressing.comparison.test.mjs`
+
+## 1. Summary
+
+The two implementations use the **same addressing algorithm**:
+- per-parent counters;
+- upper-alpha markers for folders and arabic-number markers for files, with `AA` after `Z`;
+- sibling sort by name, then occurrence type, then path;
+- a `.` lineage separator.
+
+Given the same occurrence set with the same roots, they assign identical address, parent, depth and type to every occurrence. This held on fixtures, on this repository, and on `Calculogic_React_App`.
+
+The differences that remain fall into four groups:
+
+- **Equivalent representation (E1–E3):** a namespace root occurrence in whole-scope get-tree runs, record order, and field names. A deterministic mapping covers each.
+- **Intentional membership differences (I1–I3):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly.
+- **Defects in Tree's private snapshot (D1, D2):** a corrupt lineage and depth for root files outside every scope root, and phantom root occurrences for ancestors above a nested target. The second one shifts target addresses.
+- **A defect candidate in suite-core input collection (D3):** directory symlinks are collected as file paths. This affects Naming too.
+
+**Recommendation:** make Structural Addressing the canonical producer of occurrence identity and nesting for Tree. Keep suite-core's scoped collection as the membership authority for validation runs. In other words, build Structural Addressing's input from the same `selectedPaths` that Naming and Tree already share, rather than from get-tree's filesystem walk. The migration then fixes D1 and D2, makes `orderIndex` real for the consumers that already read it, and keeps validation membership unchanged. I1–I3 stay a get-tree rendering concern unless decided otherwise.
+
+## 2. What was compared
+
+| | Tree private snapshot | Shared Structural Addressing |
+|---|---|---|
+| Producer | `tree/src/tree-occurrence-snapshot.logic.mjs` (`prepareTreeOccurrenceSnapshot`), wrapped by `tree/src/tree-structural-address-snapshot.logic.mjs` | `structural-addressing/src/structural-addressing-tree-codebase.logic.mjs` (`prepareTreeCodebaseAddressedSnapshot`) with `structural-addressing-marker-strategies.logic.mjs` |
+| Input | flat `selectedPaths` + `targets` + `includeRoots`; folders are derived from file paths | a nested node tree (`scopeRoots[]` with `children[]`) |
+| Production caller | Tree wiring, for every Tree run and scope | `addressing:get-tree` only (`scripts/addressing-get-tree.host.mjs`), validator scope only, built from a filesystem walk |
+
+### Method
+
+- **Layer A, algorithm parity:** both producers address the same occurrence set. Tree receives `selectedPaths`; Structural Addressing receives the node tree built from the same paths and roots.
+- **Layer B, production inputs:** Tree wiring's `structuralAddressSnapshot` compared with the get-tree host's snapshot (`buildTreeCodebaseInputFromFileSystem` followed by `prepareTreeCodebaseAddressedSnapshot`) for `--scope=validator`. Paths are compared after removing get-tree's `calculogic-validator` source namespace.
+
+Dimensions compared: address and marker identity, parent identity, depth, occurrence type, record membership, record order, field shape, scope and target handling.
+
+### Reproducing
+
+- `node --test --experimental-strip-types test/tree-structural-addressing.comparison.test.mjs`, also part of `npm test`. Each finding below names its test. The last test compares the live repository and fails on any unclassified difference.
+- The real-repository counts in §4 came from the same two layers, run from the Validator checkout against `/home/user/calculogic-validator` and `/home/user/Calculogic_React_App` with `prepareTreeStructureAdvisorInputs` and `prepareTreeCodebaseAddressedSnapshot` / `buildTreeCodebaseInputFromFileSystem`.
+
+## 3. Classified differences
+
+### Equivalent representation
+
+**E1. Namespace root occurrence in whole-scope get-tree runs.** Without `--target`, get-tree emits the scope root itself as occurrence `A` (path `calculogic-validator`, depth 0) and prefixes every path with that source namespace. Tree emits no occurrence for the `.` scope root.
+- Mapping: get-tree address = `A.` + Tree address, and get-tree depth = Tree depth + 1.
+- Test: "comparison B: a whole-scope get-tree run adds a namespace root occurrence".
+
+**E2. Record order.** Tree orders records by sorting full paths (`localeCompare`). Structural Addressing emits records in pre-order traversal of the sorted sibling lists and states that order explicitly in `orderIndex`. Identity is unaffected, but the arrays differ. For example, with `doc/a`, `doc/a-b` and `doc/A`:
+- Tree: `doc/a-b/x.md` before `doc/a/x.md`;
+- Addressing: each folder followed by its own children.
+- Test: "comparison A: record order differs".
+
+**E3. Field names.** Tree records carry `resolvedPath`, `actualName`, `occurrenceMarker`, `parentResolvedPath`, `lineageSegments`, `markerSegments`, `scopeRootPath`, `isScopedRoot` and `isScopeTopOccurrence`. The wrapper adds `path`, `name`, `addressPath` and `parentAddressPath`. Structural Addressing records carry `address`, `addressPath`, `displayMarker`, `name`, `path`, `parentAddressPath`, `depth` and `orderIndex`. Outside the two snapshot modules, Tree runtime reads only these Tree-only fields:
+- `resolvedPath`: occurrence classification, the advisor, Naming occurrence intake and the bridge contributor;
+- `actualName`: classification, the semantic-naming relationship and intake;
+- `isScopedRoot`: classification;
+- `isScopeTopOccurrence`: classification parity evidence.
+
+`lineageSegments`, `markerSegments`, `scopeRootPath`, `occurrenceMarker` and `parentResolvedPath` have no consumers outside the snapshot modules.
+
+### Intentional membership differences (decision required)
+
+**I1. Dot directories.** The suite walk skips them (`skipDotDirectories: true`). get-tree walks them, except `.git`; for example it includes `.github/workflows/ci.yml`. Root dotfiles such as `.gitignore` appear in both.
+
+**I2. Empty folders.** get-tree includes them. Tree cannot represent them, because it derives folders from file paths.
+
+**I3. Walk exclusions.**
+- Tree wiring (`WALK_EXCLUDED_DIRECTORIES`): `.git`, `.next`, `.reports`, `.turbo`, `.yarn`, `coverage`, `dist`, `node_modules`.
+- get-tree (`EXCLUDED_WALK_NAMES`): `.git`, `node_modules`, `.reports`, `dist`, `build`, `coverage`.
+- `build/` is excluded only by get-tree. `.next`, `.turbo` and `.yarn` are dot directories, so I1 skips them on Tree's side anyway.
+
+Test for I1–I3: "comparison B: membership rules differ between Tree input collection and the get-tree walk".
+
+### Defects
+
+**D1 (Tree). A root file outside every scope root gets a corrupt lineage and depth.**
+- When a scope profile includes root files beside its include roots (`--scope=docs`: `README.md` beside `doc` and `docs`), the record is attributed to the first scope root. Its lineage is then sliced from an unrelated path: `scopeRootPath: 'doc'`, `lineageSegments: ['doc', 'ME.md']`, `depth: 1`.
+- Its address (`1`) and parent (`null`) are correct. Structural Addressing gives depth 0.
+- Observed on both repositories under `--scope=docs`.
+- Test: "known Tree defect D1".
+
+**D2 (Tree). Ancestors above a nested target become orphan root occurrences.**
+- `collectAllOccurrencePaths` adds every ancestor folder of each selected file, including folders above a target scope root. With `--target tree/src`, Tree emits `tree` as an extra root occurrence. It is not the parent of `tree/src`, it takes a root marker, and it carries the lineage of a scope root it is not inside (`['naming/src']` in the two-target case).
+- Effect on addresses: with `--target tree/src --target naming/src`, Tree assigns `naming` = `A`, `naming/src` = `B`, `tree/src` = `C`, `tree` = `D`. Structural Addressing roots each target directly: `naming/src` = `A`, `tree/src` = `B`. Every address under the targets therefore differs (103 of 103 shared occurrences on this repository).
+- With a single target the phantom ancestor happens to sort after the target, so addresses agree.
+- Test: "known Tree defect D2", plus "a single target is addressed identically by both".
+
+**D3 (suite-core input collection, defect candidate). A directory symlink is collected as a file path.**
+- The suite walk treats every non-directory `Dirent` as a file, so a symlink to a directory enters `selectedPaths` and becomes a Tree file occurrence. Naming receives the same path.
+- get-tree skips symlinks and rejects targets that traverse them.
+- This is outside Tree and Structural Addressing, so it needs a separate suite-core decision.
+- Test: the membership test (`src-link`).
+
+### Observations
+
+- **O1:** `--scope=system` has no include roots, so each root file becomes a `dir`-kind scope root (`isScopedRoot: true` on a file occurrence). Addresses are unaffected.
+- **O2:** Naming's occurrence bridge payload (`naming-occurrence-bridge-payload.logic.mjs`), Tree's Naming occurrence intake and the bridge contributor already read `orderIndex` / `occurrenceOrderIndex`. Tree's snapshot never provides it, so that value is `null` in production today. Structural Addressing provides it.
+- **O3:** get-tree supports only `--scope=validator`. Tree handles every scope, and target descriptors (`file` targets are rooted at their parent folder). A migration cannot reuse get-tree's input builder for validation runs as it is.
+
+## 4. Real-repository results
+
+**Validator repository (`main` at `9796573`):**
+- Layer A, every scope (`repo`, `validator`, `app`, `docs`) and the targets `tree/src`, `tree/src` + `naming/src`, `src/index.mjs`: identical address, parent and type for all records. The only exceptions are D1 under `docs` (1 record) and D2 for nested targets.
+- Layer B, `--scope=validator` with no target: 369 shared occurrences. All map by E1. get-tree adds only its namespace root. The checkout has no dot directories, empty folders, `build/` or symlinks, so I1–I3 and D3 do not appear here.
+- Layer B, `--target tree/src`: 49 shared and identical. The only Tree extra is the D2 ancestor `tree`.
+- Layer B, `--target tree/src --target naming/src`: 103 shared. All addresses differ because of D2.
+
+**`Calculogic_React_App`:**
+- Layer A for `repo` (180 records), `app` (56), `docs` (80), `system` (7) and `--target src/tabs` (11): identical, except D1 under `docs` (`README.md`).
+- Layer B is not available: get-tree supports only `--scope=validator` (O3).
+
+## 5. Recommended canonical shape and migration requirements
+
+1. **Canonical producer:** Structural Addressing's `tree-codebase` profile. The algorithm is identical, it already provides `orderIndex`, and it roots targets directly, so D2 does not exist. A root file under a docs-style profile becomes a root-level node at depth 0, so D1 does not exist either.
+2. **Membership authority:** keep suite-core's scoped collection (`collectSuiteScopedSnapshotInputs`) for validation runs. An Addressing-owned adapter builds the node tree from those `selectedPaths` and the scope roots (include roots or targets). Naming and Tree then keep validating the same file set. I1–I3 become a get-tree rendering choice and not a validation change. Changing validation membership would be a separate, explicit decision.
+3. **Scope-root representation:** decide whether validation snapshots emit a scope-root occurrence (E1). Recommended: they do not. That matches today's Tree addresses, so classification and findings stay stable, and get-tree keeps its namespace root for display.
+4. **Field contract for Tree consumers:**
+   - Provide `path`, `name`, `addressPath`, `parentAddressPath`, `depth`, `orderIndex`, plus the two scope flags (`isScopedRoot`, `isScopeTopOccurrence`) that classification reads.
+   - Either migrate the `resolvedPath`/`actualName` readers to `path`/`name`, or provide them as aliases for one transition.
+   - `lineageSegments`, `markerSegments`, `scopeRootPath`, `occurrenceMarker` and `parentResolvedPath` can be retired, since nothing outside the snapshot modules reads them.
+5. **Ordering:** consumers must not depend on array order. Use `orderIndex` when order matters (E2).
+6. **Expected behavior changes, to be gated like #14 and #34 (React-app report comparison):**
+   - D1: depth of root files under docs-style scopes.
+   - D2: target addresses with nested targets.
+   - O2: `orderIndex` becomes non-null.
+
+   For the default scopes without targets, the addresses should not change.
+7. **Not part of the migration:** D3 (suite-core symlink collection, which affects Naming too) should be decided in its own issue.
+8. **Order of work:** Addressing-owned input adapter and parity tests, then Tree wiring switches producers behind the comparison test (flipping the D1/D2 expectations deliberately), then the private snapshot modules are retired. Shared helper extraction (parent/child/sibling lookup) follows the living document's extraction rule, once Naming is the second consumer.
+
+## 6. Out of scope
+
+- Any runtime change to Tree, Structural Addressing, get-tree or suite-core collection.
+- Deciding I1–I3 for get-tree output.
+- Fixing D3.
+- The registry lifecycle (#41).
