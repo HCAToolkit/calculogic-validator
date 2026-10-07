@@ -107,6 +107,8 @@ Boundary examples:
 | Runtime staging owner | Addressing get-tree host for the standalone addressed tree snapshot utility; Tree direct wiring currently prepares Tree-local structural address evidence before Tree-owned reasoning. |
 | Contract version | Unversioned single-shape current implementation reality. Add a version only if multiple addressed snapshot payload shapes must be supported. |
 
+Staged producer migration (#45), not yet current runtime truth: Tree direct wiring stays the staging owner, but it will stage Addressing-produced evidence instead of Tree-local preparation. The chain is the Addressing-owned validation input adapter (`doc/ValidatorSpecs/structural-addressing-tree-codebase-validation-input.spec.md`), then `prepareTreeCodebaseAddressedSnapshot` (`addressedTreeSnapshot`), then a Tree-owned projection onto the Tree snapshot contract (`doc/ValidatorSpecs/tree-owned/tree-structural-address-probe-contract.spec.md`). Tree wiring is the only Tree surface that imports Addressing modules. Addressing stays unregistered and non-runnable.
+
 ### 3.2 Addressing-owned or Addressing-expected responsibilities
 
 Addressing owns or is expected to own:
@@ -161,6 +163,7 @@ Current implementation reality:
 - Tree-local structural address snapshot output provides occurrence records with address paths and parent address paths.
 - Addressed records must not include Tree findings, severities, summary buckets, placement confidence, structural-home policy decisions, semantic-home policy decisions, or folder-kind policy decisions as provider-owned truth.
 - Tree evidence preparers and Tree runtime remain the owner of Tree placement interpretation and findings.
+- After the #45 producer migration (staged), the adapter output and `addressedTreeSnapshot` records stay neutral: identity, containment, depth and order only. Tree vocabulary (scope binding, lineage segments, scope flags, envelope) is added by the Tree-owned projection, not by Addressing.
 
 Boundary examples:
 

@@ -116,6 +116,7 @@ V0.1.7 introduces a suite-core scoped snapshot/input helper boundary and migrate
 - Direct runtime callers that omit, mis-shape, or gate-block replacement-runtime composition still use the explicit Tree-owned repo-shape policy fallback instead of suppressing unexpected top-level folder findings.
 - Unexpected top-level folder details report the full Tree-owned allowed repo-shape policy in `details.allowedTopLevelDirectories`, not only the observed allowed top-level directory subset.
 - The former guarded known-roots fallback route is historical context only and is not current runtime truth.
+- Staged (#45), not yet current runtime truth: Tree wiring will build `structuralAddressSnapshot` through Structural Addressing. The chain is the Addressing-owned validation input adapter (`structural-addressing-tree-codebase-validation-input.spec.md`), then `prepareTreeCodebaseAddressedSnapshot`, then the Tree-owned projection (`tree-owned/tree-structural-address-probe-contract.spec.md`, "Addressing-backed projection"). The adapter keeps two root sets: `declaredScopeRoots` (uncollapsed, for the Tree envelope and scope binding) and `effectiveAddressingRoots` (collapsed, for addressing). `occurrenceSnapshot` becomes a transitional, deprecated alias of the same object. Tree core inputs and findings are unchanged.
 
 Target behaviors in V0.1.2:
 

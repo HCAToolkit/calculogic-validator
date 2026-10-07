@@ -64,6 +64,10 @@ const REVIEWED_UNPACKAGED_REFERENCES = Object.freeze({
     'external',
   'doc/ConventionRoutines/ValidatorBridgeContracts.md -> doc/Audits/validator-slice-formula-alignment.audit.md':
     'development-only',
+  'doc/ConventionRoutines/ValidatorBridgeContracts.md -> doc/ValidatorSpecs/structural-addressing-tree-codebase-validation-input.spec.md':
+    'development-only',
+  'doc/ConventionRoutines/ValidatorBridgeContracts.md -> doc/ValidatorSpecs/tree-owned/tree-structural-address-probe-contract.spec.md':
+    'development-only',
   'doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md -> doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md':
     'development-only',
   'doc/ConventionRoutines/ValidatorRuleIds-Contract.md -> doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md':
