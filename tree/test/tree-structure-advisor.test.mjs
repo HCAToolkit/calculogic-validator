@@ -242,12 +242,10 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
     assert.equal(snapshot.occurrenceRecords.some((record) => Object.hasOwn(record, 'resolvedPath')), true);
     assert.equal(snapshot.occurrenceRecords.some((record) => Object.hasOwn(record, 'placementConfidence')), false);
     assert.equal(snapshot.occurrenceRecords.some((record) => Object.hasOwn(record, 'severity')), false);
-    assert.equal(snapshot.scopeRoots, preparedInputs.occurrenceSnapshot.scopeRoots);
-    assert.equal(snapshot.occurrenceRecords === preparedInputs.occurrenceSnapshot.occurrenceRecords, false);
-    assert.deepEqual(
-      snapshot.occurrenceRecords.map((record) => record.resolvedPath),
-      preparedInputs.occurrenceSnapshot.occurrenceRecords.map((record) => record.resolvedPath),
-    );
+    // Refs #45: occurrenceSnapshot is a transitional, deprecated alias of the same object, not a copy.
+    assert.equal(preparedInputs.occurrenceSnapshot === snapshot, true);
+    assert.equal(snapshot.scope.source, 'tree-structure-advisor.wiring');
+    assert.equal(snapshot.occurrenceRecords.every((record) => Number.isInteger(record.orderIndex)), true);
     assert.ok(preparedInputs.preparedDependencies);
     assert.ok(preparedInputs.preparedDependencies.treeStructuralHomeEvidence);
     assert.ok(preparedInputs.preparedDependencies.treeSemanticHomeEvidence);

@@ -11,8 +11,9 @@ import {
   collectSuiteScopedSnapshotInputs,
 } from '../../src/core/suite-scoped-snapshot-input.logic.mjs';
 import { resolveValidatorDevelopmentContext } from '../../src/core/validator-development-context.logic.mjs';
-import { prepareTreeOccurrenceSnapshot } from './tree-occurrence-snapshot.logic.mjs';
-import { prepareTreeStructuralAddressSnapshot } from './tree-structural-address-snapshot.logic.mjs';
+import { prepareTreeCodebaseValidationInput } from '../../structural-addressing/src/structural-addressing-tree-codebase-validation-input.logic.mjs';
+import { prepareTreeCodebaseAddressedSnapshot } from '../../structural-addressing/src/structural-addressing-tree-codebase.logic.mjs';
+import { prepareTreeAddressedOccurrenceSnapshot } from './tree-addressed-occurrence-snapshot.logic.mjs';
 import { prepareTreeStructuralHomeEvidence } from './tree-structural-home-evidence.logic.mjs';
 import { prepareTreeSemanticHomeEvidence } from './tree-semantic-home-evidence.logic.mjs';
 import { prepareTreeSemanticNamingFolderTypeRelationshipEvidence } from './tree-semantic-naming-folder-type-relationship.logic.mjs';
@@ -87,20 +88,23 @@ export const prepareTreeStructureAdvisorInputs = (
       .join('/');
   const selectedPaths = scopedSnapshotInputs.selectedPaths;
   const structuralAddressTargets = scopedSnapshotInputs.targetDescriptors ?? scopedSnapshotInputs.targets;
-  const occurrenceSnapshot = prepareTreeOccurrenceSnapshot({
+  // Occurrence identity and nesting come from Structural Addressing (Refs #45): the Addressing-owned
+  // validation input adapter, the tree-codebase producer, then Tree's projection onto its snapshot
+  // contract. Contract: doc/ValidatorSpecs/tree-owned/tree-structural-address-probe-contract.spec.md.
+  const treeCodebaseValidationInput = prepareTreeCodebaseValidationInput({
     selectedPaths,
-    targets: structuralAddressTargets,
     includeRoots: scopedSnapshotInputs.includeRoots,
+    targets: structuralAddressTargets,
   });
-  const structuralAddressSnapshot = prepareTreeStructuralAddressSnapshot({
-    occurrenceSnapshot,
+  const structuralAddressSnapshot = prepareTreeAddressedOccurrenceSnapshot({
+    occurrenceRecords: prepareTreeCodebaseAddressedSnapshot(treeCodebaseValidationInput.treeCodebaseInput).occurrenceRecords,
+    declaredScopeRoots: treeCodebaseValidationInput.declaredScopeRoots,
+    targets: structuralAddressTargets,
     selectedPaths,
-    targets: structuralAddressTargets,
-    includeRoots: scopedSnapshotInputs.includeRoots,
-    scope: {
-      source: 'tree-structure-advisor.wiring',
-    },
+    source: 'tree-structure-advisor.wiring',
   });
+  // Transitional, deprecated alias of the same object; removed with the private snapshot modules.
+  const occurrenceSnapshot = structuralAddressSnapshot;
   const structuralHomesRegistry = getBuiltinStructuralHomesRegistry();
   const folderKindsRegistry = getBuiltinFolderKindsRegistry();
   const treeRepoShapePolicy = prepareContextualTreeRepoShapePolicy({
