@@ -166,7 +166,9 @@ const GET_TREE_EXCLUDED_NAMES = new Set(
 // returns the ones no rule explains:
 //   Tree-only:     a path segment get-tree excludes by name, of any type and at any depth (I3,
 //                  including `build` folders and `.git` or excluded-name files), or a symlink (D3);
-//   get-tree-only: inside or itself a dot directory (I1), or a folder with no file descendants (I2).
+//   get-tree-only: inside or itself a dot directory (I1), or a folder with no file descendant
+//                  outside a dot directory (I2, including folders whose files all sit under a
+//                  dot directory that I1 skips).
 const listUnclassifiedMembershipDifferences = (repositoryRoot, treeSnapshot, addressingSnapshot) => {
   const addressingByPath = new Map(addressingSnapshot.occurrenceRecords.map((record) => [stripNamespace(record.path), record]));
   const treePaths = new Set(treeSnapshot.occurrenceRecords.map((record) => record.resolvedPath));
@@ -175,10 +177,13 @@ const listUnclassifiedMembershipDifferences = (repositoryRoot, treeSnapshot, add
     const directorySegments = record.occurrenceType === 'folder' ? segments : segments.slice(0, -1);
     return directorySegments.some((segment) => segment.startsWith('.') && segment !== '.');
   };
-  const hasNoFileDescendants = (record) =>
+  const hasNoTreeVisibleFileDescendants = (record) =>
     record.occurrenceType === 'folder' &&
     !addressingSnapshot.occurrenceRecords.some(
-      (candidate) => candidate.occurrenceType === 'file' && candidate.addressPath.startsWith(`${record.addressPath}.`),
+      (candidate) =>
+        candidate.occurrenceType === 'file' &&
+        candidate.addressPath.startsWith(`${record.addressPath}.`) &&
+        !isInDotDirectory(stripNamespace(candidate.path), candidate),
     );
 
   const treeOnly = treeSnapshot.occurrenceRecords
@@ -191,7 +196,7 @@ const listUnclassifiedMembershipDifferences = (repositoryRoot, treeSnapshot, add
     );
   const getTreeOnly = [...addressingByPath]
     .filter(([occurrencePath]) => occurrencePath !== '.' && !treePaths.has(occurrencePath))
-    .filter(([occurrencePath, record]) => !isInDotDirectory(occurrencePath, record) && !hasNoFileDescendants(record))
+    .filter(([occurrencePath, record]) => !isInDotDirectory(occurrencePath, record) && !hasNoTreeVisibleFileDescendants(record))
     .map(([occurrencePath]) => occurrencePath);
 
   return { treeOnly, getTreeOnly };
@@ -629,6 +634,8 @@ test('comparison B: membership rules differ between Tree input collection and th
       'src/a.logic.mjs': 'x\n',
       '.github/workflows/ci.yml': 'x\n',
       '.hidden-file': 'x\n',
+      // A visible folder whose only files sit under a dot directory: Tree never derives it.
+      'examples/.fixtures/case.json': 'x\n',
       'build/out.js': 'x\n',
       'src/build/nested.js': 'x\n',
       // A regular file whose name get-tree excludes (the suite walk excludes only such directories).
@@ -652,8 +659,19 @@ test('comparison B: membership rules differ between Tree input collection and th
 
   assert.deepEqual(
     [...addressingPaths].filter((occurrencePath) => !treeByPath.has(occurrencePath)).sort(),
-    // namespace root; dot directories (Tree skips them); empty folders (Tree derives folders from files)
-    ['.', '.github', '.github/workflows', '.github/workflows/ci.yml', 'empty', 'empty/nested'],
+    // namespace root; dot directories (Tree skips them); empty folders and folders whose files all sit
+    // under a dot directory (Tree derives folders from the files it collects)
+    [
+      '.',
+      '.github',
+      '.github/workflows',
+      '.github/workflows/ci.yml',
+      'empty',
+      'empty/nested',
+      'examples',
+      'examples/.fixtures',
+      'examples/.fixtures/case.json',
+    ],
   );
   assert.deepEqual(
     [...treeByPath.keys()].filter((occurrencePath) => !addressingPaths.has(occurrencePath)).sort(),
@@ -679,10 +697,11 @@ test('comparison B: membership rules differ between Tree input collection and th
     { treeOnly: [], getTreeOnly: [] },
   );
 
-  // Membership differences also shift shared occurrences: `.github`, `empty` (get-tree only) and
-  // `build` (Tree only) take root folder markers, so `src` is `B` in Tree but `A.C`, not `A.B`, in get-tree.
+  // Membership differences also shift shared occurrences: `.github`, `empty`, `examples` (get-tree
+  // only) and `build` (Tree only) take root folder markers, so `src` is `B` in Tree but `A.D`, not
+  // `A.B`, in get-tree.
   assert.equal(treeByPath.get('src').addressPath, 'B');
-  assert.equal(addressingByPath.get('src').addressPath, 'A.C');
+  assert.equal(addressingByPath.get('src').addressPath, 'A.D');
 
   // Re-addressed over the shared membership, every shared occurrence maps by E1 again: the shift is
   // fully explained by I1-I3 and D3.

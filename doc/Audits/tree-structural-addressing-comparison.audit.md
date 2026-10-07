@@ -53,7 +53,7 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 
 - `node --test --experimental-strip-types test/tree-structural-addressing.comparison.test.mjs`, also part of `npm test`. Each finding below names its test. The last test compares the live repository. It does **not** require repository membership to stay fixed. New files and folders pass as long as every difference falls into a documented category: shared occurrences map by E1 after re-addressing over the shared membership, and unshared ones are explained by one shared classifier, `listUnclassifiedMembershipDifferences`, which the membership fixture also exercises:
   - a Tree-only path is explained by a segment get-tree excludes by name (its list is read from the get-tree source) or by a symlink;
-  - a get-tree-only path is explained by being in or being a dot directory, or by being a folder with no file descendants, which covers nested empty folders.
+  - a get-tree-only path is explained by being in or being a dot directory, or by being a folder with no file descendant outside a dot directory, which covers nested empty folders and folders whose files all sit under a dot directory.
 
   The live test therefore also passes when run from a Git worktree. It fails only on a new, unclassified *kind* of difference, which then needs a classification decision before the test is updated.
 - **Detection check (mutation testing on `ce59f17`).** Each producer was broken on purpose, one change at a time, and the comparison test was run, then each file was restored:
@@ -98,7 +98,7 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 
 **I1. Dot directories.** The suite walk skips them (`skipDotDirectories: true`). get-tree walks them, except `.git`; for example it includes `.github/workflows/ci.yml`. Root dotfiles such as `.gitignore` appear in both.
 
-**I2. Empty folders.** get-tree includes them. Tree cannot represent them, because it derives folders from file paths. This applies to any folder with no file descendants, including the parent of a nested empty folder (`empty` above `empty/nested`).
+**I2. Empty folders.** get-tree includes them. Tree cannot represent them, because it derives folders from file paths. This applies to any folder with no file descendants, including the parent of a nested empty folder (`empty` above `empty/nested`). Combined with I1, it also applies to a visible folder whose files all sit under a dot directory: get-tree emits `examples` for `examples/.fixtures/case.json`, but Tree never collects that file and so never derives `examples`.
 
 **I3. Walk exclusions.**
 - Tree wiring (`WALK_EXCLUDED_DIRECTORIES`): `.git`, `.next`, `.reports`, `.turbo`, `.yarn`, `coverage`, `dist`, `node_modules`.
@@ -174,7 +174,7 @@ The classification above covers the input classes this audit exercised. It is no
 
 - **Scopes:** `repo`, `validator`, `app`, `docs`, `system` (layer A); `validator` in the standalone and embedded layouts (layer B, the only scope get-tree supports).
 - **Targets:** none; one directory (nested, with its phantom ancestor sorting after or before it); sibling directories; directories in different branches; overlapping directories; a nested file; a repository-root file; an explicitly targeted excluded directory (`dist`: membership differs; `build`: identical).
-- **Membership:** dot directories and dotfiles, empty folders, each walk-exclusion list (including a nested `build` folder, a `.git` file and a regular file with an excluded name), nested empty folders, symlinks to directories and to files.
+- **Membership:** dot directories and dotfiles, empty folders, each walk-exclusion list (including a nested `build` folder, a `.git` file and a regular file with an excluded name), nested empty folders, a visible folder whose files all sit under a dot directory, symlinks to directories and to files.
 - **Names:** repeated names in different branches, case and punctuation variants, more than 26 siblings.
 
 Review of this audit found D2's single-target and sibling cases, the membership shift on shared paths, D4, I4 and the excluded-target case one at a time, which shows the input space is larger than any fixed list. The migration should therefore not rely on this list being complete. Its adapter must carry parity tests for each input class above, and treat any new input class (for example a target outside the scope, a symlinked target, or a target with a trailing slash) as unverified until a test classifies it.
