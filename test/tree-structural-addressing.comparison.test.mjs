@@ -77,7 +77,8 @@ const createStandaloneFixture = (t, files, { emptyDirectories = [], symlinks = [
     fs.mkdirSync(path.join(root, directory), { recursive: true });
   }
   for (const [linkPath, targetPath] of symlinks) {
-    fs.symlinkSync(path.join(root, targetPath), path.join(root, linkPath), 'dir');
+    const targetAbsolute = path.join(root, targetPath);
+    fs.symlinkSync(targetAbsolute, path.join(root, linkPath), fs.statSync(targetAbsolute).isDirectory() ? 'dir' : 'file');
   }
   execFileSync('git', ['init', '-q'], { cwd: root });
   return root;
@@ -277,6 +278,38 @@ test('comparison B: a whole-scope get-tree run adds a namespace root occurrence;
   }
 });
 
+test('comparison B: the embedded validator root is a real occurrence on both sides, so E1 does not apply', async (t) => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'tree-addressing-comparison-embedded-')));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const [relativePath, content] of Object.entries({
+    'package.json': `${JSON.stringify({ name: 'consumer-app' })}\n`,
+    'src/app.mjs': 'x\n',
+    'calculogic-validator/package.json': `${JSON.stringify({ name: '@calculogic/validator' })}\n`,
+    'calculogic-validator/src/a.logic.mjs': 'x\n',
+    'calculogic-validator/tree/src/b.logic.mjs': 'x\n',
+  })) {
+    fs.mkdirSync(path.dirname(path.join(root, relativePath)), { recursive: true });
+    fs.writeFileSync(path.join(root, relativePath), content);
+  }
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  const packageRoot = path.join(root, 'calculogic-validator');
+
+  const tree = prepareTreeStructureAdvisorInputs(root, { scope: 'validator', packageRoot }).structuralAddressSnapshot;
+  const addressing = prepareTreeCodebaseAddressedSnapshot(
+    await buildTreeCodebaseInputFromFileSystem({ scope: 'validator', targets: [], cwd: root, packageRoot }),
+  );
+  const toRows = (records, pathOf) => records.map((record) => [pathOf(record), record.addressPath, record.depth]);
+
+  // In embedded development the validator scope root is the real folder `calculogic-validator`, which
+  // both producers emit as occurrence `A` with the same descendants. Only the standalone `.` root
+  // differs (E1).
+  assert.deepEqual(toRows(tree.occurrenceRecords, (record) => record.resolvedPath)[0], ['calculogic-validator', 'A', 0]);
+  assert.deepEqual(
+    toRows(addressing.occurrenceRecords, (record) => record.path).sort(),
+    toRows(tree.occurrenceRecords, (record) => record.resolvedPath).sort(),
+  );
+});
+
 test('comparison B: a single target is addressed identically when its phantom ancestor sorts after it', async (t) => {
   const root = createStandaloneFixture(t, {
     'tree/src/a.logic.mjs': 'x\n',
@@ -433,7 +466,7 @@ test('comparison B: membership rules differ between Tree input collection and th
       'coverage/lcov.info': 'x\n',
       'node_modules/pkg/index.js': 'x\n',
     },
-    { emptyDirectories: ['empty/nested'], symlinks: [['src-link', 'src']] },
+    { emptyDirectories: ['empty/nested'], symlinks: [['src-link', 'src'], ['src/a-link.logic.mjs', 'src/a.logic.mjs']] },
   );
   const treeInputs = treeInputsFor(root);
   const getTreeInput = await getTreeInputFor(root);
@@ -453,8 +486,9 @@ test('comparison B: membership rules differ between Tree input collection and th
     // get-tree excludes `build` folders at any depth, Tree excludes none; get-tree excludes any entry
     // named `.git` while the suite walk excludes only a `.git` directory, so a `.git` file is a Tree
     // file occurrence; a directory symlink is skipped by get-tree but collected by the suite walk as a
-    // non-directory entry, so Tree records it as a file occurrence.
-    ['build', 'build/out.js', 'src-link', 'src/build', 'src/build/nested.js', 'vendored/.git'],
+    // non-directory entry, so Tree records it as a file occurrence; a symlink to a regular file is
+    // likewise collected by the suite walk and skipped by get-tree.
+    ['build', 'build/out.js', 'src-link', 'src/a-link.logic.mjs', 'src/build', 'src/build/nested.js', 'vendored/.git'],
   );
   assert.equal(treeByPath.get('src-link').occurrenceType, 'file');
   for (const excluded of ['dist', 'coverage', 'node_modules']) {

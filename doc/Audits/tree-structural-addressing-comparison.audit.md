@@ -22,10 +22,10 @@ Given the same occurrence set with the same roots, they assign identical address
 
 The differences that remain fall into four groups:
 
-- **Equivalent representation (E1–E3):** a namespace root occurrence in whole-scope get-tree runs, record order, and field names. A deterministic mapping covers each.
+- **Equivalent representation (E1–E3):** a namespace root occurrence in standalone whole-scope get-tree runs (not in the embedded layout), record order, and field names. A deterministic mapping covers each.
 - **Intentional differences (I1–I4):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly. They also shift sibling markers, so occurrences present on both sides can get different addresses. Re-addressed over the shared membership, those occurrences map exactly. Nested file targets (I4) are rooted at their containing folder in Tree but at the file in get-tree. Root-level file targets agree.
 - **Defects in Tree's private snapshot (D1, D2):** a corrupt lineage and depth for root files outside every scope root, and phantom root occurrences for ancestors above a nested target. The second one shifts a target's address exactly when a phantom ancestor sorts before that target among the root occurrences. That depends on names, not on how many targets there are.
-- **A defect candidate in suite-core input collection (D3):** directory symlinks are collected as file paths. This affects Naming too.
+- **A defect candidate in suite-core input collection (D3):** symlinks, to directories or to files, are collected as file paths. This affects Naming too.
 - **Overlapping targets (D4), defective on both sides:**
   - Tree lists each path once but detaches an inner target from the outer one.
   - get-tree lists every inner path twice, under two identities.
@@ -58,8 +58,9 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 
 ### Equivalent representation
 
-**E1. Namespace root occurrence in whole-scope get-tree runs.** Without `--target`, get-tree emits the scope root itself as occurrence `A` (path `calculogic-validator`, depth 0) and prefixes every path with that source namespace. Tree emits no occurrence for the `.` scope root.
+**E1. Namespace root occurrence in standalone whole-scope get-tree runs.** Without `--target`, get-tree emits the scope root itself as occurrence `A` (path `calculogic-validator`, depth 0) and prefixes every path with that source namespace. Tree emits no occurrence for the `.` scope root.
 - Mapping: get-tree address = `A.` + Tree address, and get-tree depth = Tree depth + 1.
+- This applies only to the standalone layout, where the validator scope root is `.`. In embedded development the scope root is the real folder `calculogic-validator`. Both producers then emit it as occurrence `A`, with identical descendants and paths, so E1 does not apply. Test: "the embedded validator root is a real occurrence on both sides, so E1 does not apply".
 - Test: "comparison B: a whole-scope get-tree run adds a namespace root occurrence".
 
 **E2. Record order.** Tree orders records by sorting full paths (`localeCompare`). Structural Addressing emits records in pre-order traversal of the sorted sibling lists and states that order explicitly in `orderIndex`. Identity is unaffected, but the arrays differ. For example, with `doc/a`, `doc/a-b` and `doc/A`:
@@ -121,11 +122,11 @@ Tests for I1–I3: "comparison B: membership rules differ between Tree input col
   - "a single target is addressed identically when its phantom ancestor sorts after it";
   - "known Tree defect D2: a single target shifts when its phantom ancestor sorts first".
 
-**D3 (suite-core input collection, defect candidate). A directory symlink is collected as a file path.**
-- The suite walk treats every non-directory `Dirent` as a file, so a symlink to a directory enters `selectedPaths` and becomes a Tree file occurrence. Naming receives the same path.
+**D3 (suite-core input collection, defect candidate). A symlink is collected as a file path.**
+- The suite walk treats every non-directory `Dirent` as a file, so any symlink enters `selectedPaths` and becomes a Tree file occurrence. That covers both a symlink to a directory (collected as a file, without its contents) and a symlink to a regular file. Naming receives the same paths.
 - get-tree skips symlinks and rejects targets that traverse them.
 - This is outside Tree and Structural Addressing, so it needs a separate suite-core decision.
-- Test: the membership test (`src-link`).
+- Test: the membership test (`src-link` for a directory, `src/a-link.logic.mjs` for a file).
 
 **D4 (Tree and get-tree). Overlapping targets.** Repeatable targets can overlap, for example `--target tree --target tree/src`.
 - Tree applies union semantics and emits each path once, but treats every target as a scope root. The inner target becomes its own root (`tree/src` = `A`, parent `null`) instead of a child of `tree` (`B`), so nesting is lost.
@@ -144,9 +145,9 @@ Tests for I1–I3: "comparison B: membership rules differ between Tree input col
 
 The classification above covers the input classes this audit exercised. It is not a claim about every possible input:
 
-- **Scopes:** `repo`, `validator`, `app`, `docs`, `system` (layer A); `validator` (layer B, the only scope get-tree supports).
+- **Scopes:** `repo`, `validator`, `app`, `docs`, `system` (layer A); `validator` in the standalone and embedded layouts (layer B, the only scope get-tree supports).
 - **Targets:** none; one directory (nested, with its phantom ancestor sorting after or before it); sibling directories; directories in different branches; overlapping directories; a nested file; a repository-root file; an explicitly targeted excluded directory.
-- **Membership:** dot directories and dotfiles, empty folders, each walk-exclusion list (including a nested `build` folder and a `.git` file), directory symlinks.
+- **Membership:** dot directories and dotfiles, empty folders, each walk-exclusion list (including a nested `build` folder and a `.git` file), symlinks to directories and to files.
 - **Names:** repeated names in different branches, case and punctuation variants, more than 26 siblings.
 
 Review of this audit found D2's single-target and sibling cases, the membership shift on shared paths, D4, I4 and the excluded-target case one at a time, which shows the input space is larger than any fixed list. The migration should therefore not rely on this list being complete. Its adapter must carry parity tests for each input class above, and treat any new input class (for example a target outside the scope, a symlinked target, or a target with a trailing slash) as unverified until a test classifies it.
@@ -167,7 +168,7 @@ Review of this audit found D2's single-target and sibling cases, the membership 
 
 1. **Canonical producer:** Structural Addressing's `tree-codebase` profile. The algorithm is identical, it already provides `orderIndex`, and it roots targets directly, so D2 does not exist. A root file under a docs-style profile becomes a root-level node at depth 0, so D1 does not exist either.
 2. **Membership authority:** keep suite-core's scoped collection (`collectSuiteScopedSnapshotInputs`) for validation runs. An Addressing-owned adapter builds the node tree from those `selectedPaths` and the scope roots (include roots or targets), collapsing any target nested inside another target first (D4) and rooting each file target at its containing folder, as Tree does today (I4). Naming and Tree then keep validating the same file set. I1–I3 become a get-tree rendering choice and not a validation change. Changing validation membership would be a separate, explicit decision.
-3. **Scope-root representation:** decide whether validation snapshots emit a scope-root occurrence (E1). Recommended: they do not. That matches today's Tree addresses, so classification and findings stay stable, and get-tree keeps its namespace root for display.
+3. **Scope-root representation:** decide whether validation snapshots emit an occurrence for the standalone `.` scope root (E1). Recommended: they do not. Non-`.` scope roots stay occurrences exactly as today: the embedded `calculogic-validator` root, include roots such as `src`/`test`, and directory targets. That matches today's Tree addresses in every layout, so classification and findings stay stable, and get-tree keeps its namespace root for standalone display.
 4. **Field contract for Tree consumers:**
    - Provide `path`, `name`, `occurrenceType`, `addressPath`, `parentAddressPath`, `depth`, `orderIndex`, plus the two scope flags (`isScopedRoot`, `isScopeTopOccurrence`) that classification reads.
    - Either migrate the `resolvedPath`/`actualName` readers to `path`/`name`, or provide them as aliases for one transition.
