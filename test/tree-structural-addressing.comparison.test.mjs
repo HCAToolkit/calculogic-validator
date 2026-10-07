@@ -580,6 +580,28 @@ test('comparison B, intentional difference I4: a nested file target is rooted at
   );
 });
 
+test('comparison B, I3 before I4: a file target beneath an excluded directory selects no file in Tree', async (t) => {
+  const root = createStandaloneFixture(t, {
+    'dist/out.js': 'x\n',
+    'src/a.logic.mjs': 'x\n',
+  });
+  const treeInputs = treeInputsFor(root, { targets: ['dist/out.js'] });
+  const addressing = await getTreeSnapshotFor(root, ['dist/out.js']);
+
+  // Suite collection skips `dist` before target filtering, so the file target selects nothing and
+  // only its containing-folder root remains: I3 membership applies before I4 rooting. get-tree roots
+  // the targeted file itself, so a file Tree does not validate appears in its output.
+  assert.deepEqual(treeInputs.selectedPaths, []);
+  assert.deepEqual(
+    treeInputs.structuralAddressSnapshot.occurrenceRecords.map((record) => [record.resolvedPath, record.addressPath]),
+    [['dist', 'A']],
+  );
+  assert.deepEqual(
+    addressing.occurrenceRecords.map((record) => [stripNamespace(record.path), record.addressPath, record.depth]),
+    [['dist/out.js', '1', 0]],
+  );
+});
+
 test('comparison B: a repository-root file target is addressed identically by both', async (t) => {
   const root = createStandaloneFixture(t, {
     'README.md': 'x\n',
