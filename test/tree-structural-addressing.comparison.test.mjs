@@ -346,7 +346,7 @@ test('comparison B, intentional difference I3: an explicitly targeted excluded d
   );
 });
 
-test('comparison B, intentional difference I4: a file target is rooted at its containing folder in Tree but at the file in get-tree', async (t) => {
+test('comparison B, intentional difference I4: a nested file target is rooted at its containing folder in Tree but at the file in get-tree', async (t) => {
   const root = createStandaloneFixture(t, {
     'src/index.mjs': 'x\n',
     'src/other.mjs': 'x\n',
@@ -368,6 +368,23 @@ test('comparison B, intentional difference I4: a file target is rooted at its co
     addressing.occurrenceRecords.map((record) => [stripNamespace(record.path), record.addressPath, record.depth]),
     [['src/index.mjs', '1', 0]],
   );
+});
+
+test('comparison B: a repository-root file target is addressed identically by both', async (t) => {
+  const root = createStandaloneFixture(t, {
+    'README.md': 'x\n',
+    'src/a.logic.mjs': 'x\n',
+  });
+  const toRows = (records, pathOf) => records.map((record) => [pathOf(record), record.addressPath, record.depth, record.parentAddressPath]);
+
+  // Tree's containing scope for a root file is `.`, which emits no occurrence, so both producers emit
+  // only the file at `1`, depth 0, with no parent. I4 applies to files below the root only.
+  assert.deepEqual(toRows(treeSnapshotFor(root, { targets: ['README.md'] }).occurrenceRecords, (record) => record.resolvedPath), [
+    ['README.md', '1', 0, null],
+  ]);
+  assert.deepEqual(toRows((await getTreeSnapshotFor(root, ['README.md'])).occurrenceRecords, (record) => stripNamespace(record.path)), [
+    ['README.md', '1', 0, null],
+  ]);
 });
 
 test('comparison B, known defect D4: overlapping targets get one detached identity in Tree and two in get-tree', async (t) => {
@@ -408,6 +425,7 @@ test('comparison B: membership rules differ between Tree input collection and th
       '.github/workflows/ci.yml': 'x\n',
       '.hidden-file': 'x\n',
       'build/out.js': 'x\n',
+      'src/build/nested.js': 'x\n',
       'dist/out.js': 'x\n',
       'coverage/lcov.info': 'x\n',
       'node_modules/pkg/index.js': 'x\n',
@@ -429,9 +447,10 @@ test('comparison B: membership rules differ between Tree input collection and th
   );
   assert.deepEqual(
     [...treeByPath.keys()].filter((occurrencePath) => !addressingPaths.has(occurrencePath)).sort(),
-    // `build/` is excluded only by get-tree; a directory symlink is skipped by get-tree but collected
-    // by the suite walk as a non-directory entry, so Tree records it as a file occurrence.
-    ['build', 'build/out.js', 'src-link'],
+    // get-tree excludes `build` folders at any depth, Tree excludes none; a directory symlink is
+    // skipped by get-tree but collected by the suite walk as a non-directory entry, so Tree records it
+    // as a file occurrence.
+    ['build', 'build/out.js', 'src-link', 'src/build', 'src/build/nested.js'],
   );
   assert.equal(treeByPath.get('src-link').occurrenceType, 'file');
   for (const excluded of ['dist', 'coverage', 'node_modules']) {
@@ -476,7 +495,7 @@ test('comparison B: every difference on this repository is a classified one', as
       continue;
     }
     assert.ok(
-      record.resolvedPath === 'build' || record.resolvedPath.startsWith('build/') || fs.lstatSync(path.join(VALIDATOR_ROOT, record.resolvedPath)).isSymbolicLink(),
+      record.resolvedPath.split('/').includes('build') || fs.lstatSync(path.join(VALIDATOR_ROOT, record.resolvedPath)).isSymbolicLink(),
       `unclassified Tree-only occurrence: ${record.resolvedPath}`,
     );
   }

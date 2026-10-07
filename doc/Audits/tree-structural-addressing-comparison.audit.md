@@ -23,7 +23,7 @@ Given the same occurrence set with the same roots, they assign identical address
 The differences that remain fall into four groups:
 
 - **Equivalent representation (E1–E3):** a namespace root occurrence in whole-scope get-tree runs, record order, and field names. A deterministic mapping covers each.
-- **Intentional differences (I1–I4):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly. They also shift sibling markers, so occurrences present on both sides can get different addresses. Re-addressed over the shared membership, those occurrences map exactly. File targets (I4) are rooted at their containing folder in Tree but at the file in get-tree.
+- **Intentional differences (I1–I4):** dot directories, empty folders, and differing walk exclusions. The migration must decide these explicitly. They also shift sibling markers, so occurrences present on both sides can get different addresses. Re-addressed over the shared membership, those occurrences map exactly. Nested file targets (I4) are rooted at their containing folder in Tree but at the file in get-tree. Root-level file targets agree.
 - **Defects in Tree's private snapshot (D1, D2):** a corrupt lineage and depth for root files outside every scope root, and phantom root occurrences for ancestors above a nested target. The second one shifts a target's address exactly when a phantom ancestor sorts before that target among the root occurrences. That depends on names, not on how many targets there are.
 - **A defect candidate in suite-core input collection (D3):** directory symlinks are collected as file paths. This affects Naming too.
 - **Overlapping targets (D4), defective on both sides:**
@@ -51,7 +51,7 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 
 ### Reproducing
 
-- `node --test --experimental-strip-types test/tree-structural-addressing.comparison.test.mjs`, also part of `npm test`. Each finding below names its test. The last test compares the live repository. It does **not** require repository membership to stay fixed. New files and folders pass as long as every difference falls into a documented category: shared occurrences map by E1 after re-addressing over the shared membership, and unshared ones are dot paths, empty folders, `build/` or symlinks. It fails only on a new, unclassified *kind* of difference, which then needs a classification decision before the test is updated.
+- `node --test --experimental-strip-types test/tree-structural-addressing.comparison.test.mjs`, also part of `npm test`. Each finding below names its test. The last test compares the live repository. It does **not** require repository membership to stay fixed. New files and folders pass as long as every difference falls into a documented category: shared occurrences map by E1 after re-addressing over the shared membership, and unshared ones are dot paths, empty folders, paths with a `build` segment, or symlinks. It fails only on a new, unclassified *kind* of difference, which then needs a classification decision before the test is updated.
 - The real-repository counts in §4 came from the same two layers, run from the Validator checkout against `/home/user/calculogic-validator` and `/home/user/Calculogic_React_App` with `prepareTreeStructureAdvisorInputs` and `prepareTreeCodebaseAddressedSnapshot` / `buildTreeCodebaseInputFromFileSystem`.
 
 ## 3. Classified differences
@@ -84,16 +84,16 @@ Dimensions compared: address and marker identity, parent identity, depth, occurr
 **I3. Walk exclusions.**
 - Tree wiring (`WALK_EXCLUDED_DIRECTORIES`): `.git`, `.next`, `.reports`, `.turbo`, `.yarn`, `coverage`, `dist`, `node_modules`.
 - get-tree (`EXCLUDED_WALK_NAMES`): `.git`, `node_modules`, `.reports`, `dist`, `build`, `coverage`.
-- `build/` is excluded only by get-tree. `.next`, `.turbo` and `.yarn` are dot directories, so I1 skips them on Tree's side anyway.
+- `build` folders are excluded only by get-tree, at any depth: the get-tree walk filters every child of that name, as both walks do for their own lists. `.next`, `.turbo` and `.yarn` are dot directories, so I1 skips them on Tree's side anyway.
 - The lists also apply at different points. The suite walk skips an excluded directory before target filtering, so an explicitly targeted excluded directory (`--target=dist`) selects no files and Tree emits only the bare target root (`dist` = `A`). get-tree applies its exclusions only to the contents of a folder it walks, so the same target is walked in full (`dist/out.js` = `A.1`, `dist/sub/b.js` = `A.A.1`). Under the recommended adapter (§5.2), suite-core decides: an excluded-directory target contributes no files. Whether suite-core should honor an explicit target of an excluded directory is a separate suite-core question.
 
 **Effect on shared occurrences.** A membership difference is not confined to the entries one side alone includes. An extra or missing sibling folder takes a marker, so the addresses of shared occurrences shift too. In the membership fixture, `.github` and `empty` (get-tree only) and `build` (Tree only) make `src` `B` in Tree but `A.C`, not `A.B`, in get-tree. The comparison test therefore re-addresses both producers over the shared membership (`compareOverSharedMembership`). After that, every shared occurrence maps by E1 again, so the shift is fully explained by I1–I3 and D3.
 
 Tests for I1–I3: "comparison B: membership rules differ between Tree input collection and the get-tree walk" and "intentional difference I3: an explicitly targeted excluded directory is empty in Tree but walked by get-tree".
 
-**I4. File-target rooting.** With a file target (`--target src/index.mjs`), Tree roots the snapshot at the file's containing folder. The folder is the scope-root occurrence (`src` = `A`, depth 0) and the file is addressed beneath it (`A.1`, depth 1). get-tree roots the file itself, so the file is the only occurrence, addressed `1` at depth 0. Both identity and membership differ (the containing folder exists only in Tree's snapshot).
+**I4. Nested file-target rooting.** With a file target below the repository root (`--target src/index.mjs`), Tree roots the snapshot at the file's containing folder. The folder is the scope-root occurrence (`src` = `A`, depth 0) and the file is addressed beneath it (`A.1`, depth 1). get-tree roots the file itself, so the file is the only occurrence, addressed `1` at depth 0. Both identity and membership differ (the containing folder exists only in Tree's snapshot). A repository-root file target (`--target README.md`) is **not** affected. Tree's containing scope is then `.`, which emits no occurrence, so both producers emit only the file at `1`, depth 0, with no parent.
 - Recommended decision: the validation adapter keeps Tree's containing-folder semantics. A file target becomes a node under its containing folder, and that folder is the root. File-target identities stay as they are today, and Tree keeps the folder context its classification reads for a target file. get-tree's file-rooted rendering stays a display choice.
-- Test: "comparison B, intentional difference I4: a file target is rooted at its containing folder in Tree but at the file in get-tree".
+- Tests: "intentional difference I4: a nested file target is rooted at its containing folder in Tree but at the file in get-tree" and "a repository-root file target is addressed identically by both".
 
 ### Defects
 
@@ -144,8 +144,8 @@ Tests for I1–I3: "comparison B: membership rules differ between Tree input col
 The classification above covers the input classes this audit exercised. It is not a claim about every possible input:
 
 - **Scopes:** `repo`, `validator`, `app`, `docs`, `system` (layer A); `validator` (layer B, the only scope get-tree supports).
-- **Targets:** none; one directory (nested, with its phantom ancestor sorting after or before it); sibling directories; directories in different branches; overlapping directories; a file; an explicitly targeted excluded directory.
-- **Membership:** dot directories and dotfiles, empty folders, each walk-exclusion list, directory symlinks.
+- **Targets:** none; one directory (nested, with its phantom ancestor sorting after or before it); sibling directories; directories in different branches; overlapping directories; a nested file; a repository-root file; an explicitly targeted excluded directory.
+- **Membership:** dot directories and dotfiles, empty folders, each walk-exclusion list (including a nested `build` folder), directory symlinks.
 - **Names:** repeated names in different branches, case and punctuation variants, more than 26 siblings.
 
 Review of this audit found D2's single-target and sibling cases, the membership shift on shared paths, D4, I4 and the excluded-target case one at a time, which shows the input space is larger than any fixed list. The migration should therefore not rely on this list being complete. Its adapter must carry parity tests for each input class above, and treat any new input class (for example a target outside the scope, a symlinked target, or a target with a trailing slash) as unverified until a test classifies it.
@@ -168,7 +168,7 @@ Review of this audit found D2's single-target and sibling cases, the membership 
 2. **Membership authority:** keep suite-core's scoped collection (`collectSuiteScopedSnapshotInputs`) for validation runs. An Addressing-owned adapter builds the node tree from those `selectedPaths` and the scope roots (include roots or targets), collapsing any target nested inside another target first (D4) and rooting each file target at its containing folder, as Tree does today (I4). Naming and Tree then keep validating the same file set. I1–I3 become a get-tree rendering choice and not a validation change. Changing validation membership would be a separate, explicit decision.
 3. **Scope-root representation:** decide whether validation snapshots emit a scope-root occurrence (E1). Recommended: they do not. That matches today's Tree addresses, so classification and findings stay stable, and get-tree keeps its namespace root for display.
 4. **Field contract for Tree consumers:**
-   - Provide `path`, `name`, `addressPath`, `parentAddressPath`, `depth`, `orderIndex`, plus the two scope flags (`isScopedRoot`, `isScopeTopOccurrence`) that classification reads.
+   - Provide `path`, `name`, `occurrenceType`, `addressPath`, `parentAddressPath`, `depth`, `orderIndex`, plus the two scope flags (`isScopedRoot`, `isScopeTopOccurrence`) that classification reads.
    - Either migrate the `resolvedPath`/`actualName` readers to `path`/`name`, or provide them as aliases for one transition.
    - `lineageSegments`, `markerSegments`, `scopeRootPath`, `occurrenceMarker` and `parentResolvedPath` can be retired, since nothing outside the snapshot modules reads them.
 5. **Ordering:** consumers must not depend on array order. Use `orderIndex` when order matters (E2).
@@ -177,7 +177,7 @@ Review of this audit found D2's single-target and sibling cases, the membership 
    - Any membership difference must be accounted for explicitly, including the sibling-marker shifts it causes on **shared** paths, not only the entries one side alone includes.
    - Nested targets may change identity deliberately, as D2 corrections, but only where the D2 rule applies, possibly with a single target. Each such change must be listed.
    - Overlapping targets must resolve to exactly one identity per path with nesting preserved (D4). The recommendation is to collapse nested targets into the outermost one.
-   - File targets keep their current identities, rooted at the containing folder (I4).
+   - File targets keep their current identities: nested ones rooted at the containing folder (I4), and root-level ones as a root file occurrence, as both producers do today.
    - The adapter's parity tests cover every input class listed under Coverage and limits (§3), and any input class outside that list is treated as unverified until a test classifies it.
    - Every changed occurrence identity must be assessed for its effect on the Naming → Tree occurrence joins, not only on Tree findings. Those joins (`addressProfileId + addressedSnapshotId + occurrenceAddress`) key on these addresses.
 7. **Expected behavior changes, to be gated like #14 and #34 (React-app report comparison):**
