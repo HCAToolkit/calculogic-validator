@@ -106,6 +106,12 @@ Anti-pattern to avoid:
 
 - Do **not** flatten every registry surface behind one universal state layer; that pattern obscures ownership, increases coupling, and weakens clear extraction paths.
 
+Planned registry lifecycle (Issue #41, accepted, not yet implemented):
+
+- The suite-level Builtin/Custom registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`) is suite-owned **set selection**. It chooses the whole Builtin or Custom set, checks completeness and versions, and hands each slice a resolved registry root.
+- It does not validate, canonicalize or interpret slice payloads, so it is not the universal state layer this section rules out.
+- Under it, loaders keep the responsibilities in §2, except that "builtin/custom source resolution" becomes reading from the resolved root. Runtime merging of builtin, custom and overlay sources is retired.
+
 ## 7. Canonical usage rule
 
 When documenting or implementing validator slices, treat this contract as the canonical ownership reference for loader-converter-runtime boundaries.

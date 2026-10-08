@@ -72,6 +72,14 @@ const REVIEWED_UNPACKAGED_REFERENCES = Object.freeze({
     'development-only',
   'doc/ConventionRoutines/ValidatorRuleIds-Contract.md -> doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md':
     'development-only',
+  'doc/ConventionRoutines/NamingValidatorSpec.md -> doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md':
+    'development-only',
+  'doc/ConventionRoutines/ValidatorLoaderConverterRuntimeOwnership-Contract.md -> doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md':
+    'development-only',
+  'doc/ConventionRoutines/ValidatorReportSchema-V0_1.md -> doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md':
+    'development-only',
+  'doc/ValidatorSpecs/validator-config.spec.md -> doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md':
+    'development-only',
   'doc/ConventionRoutines/ValidatorReportSchema-V0_1.md -> test/fixtures/report-examples/validate-naming.system.report.example.json':
     'development-only',
   'doc/ConventionRoutines/ValidatorReportSchema-V0_1.md -> test/fixtures/report-examples/validate-all.system.naming.report.example.json':

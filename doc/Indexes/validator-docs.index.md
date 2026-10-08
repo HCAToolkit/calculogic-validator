@@ -66,6 +66,9 @@ Authority labels used in this index:
 - `doc/ValidatorSpecs/cross-cutting/registry-model-and-slice-interaction.spec.md`
   **Authority:** bounded normative supporting spec. **Intended use:** suite-level registry model/interaction constraints for implementation design and ownership boundaries; defer primary runtime authority to canonical contracts/slice specs.
 
+- `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`
+  **Authority:** bounded normative supporting spec (accepted, not yet implemented). **Intended use:** suite-level Builtin/Custom registry lifecycle contract (#41): complete registry sets, active-set selection, Baseline and user-controlled inheritance, whole-set resolution, provenance and lifecycle commands. Evolved from the former registry customization draft. Not current runtime truth until its implementation slices land.
+
 - `doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
   **Authority:** bounded normative supporting spec. **Intended use:** concise normative formula/checklist for validator slice integration, suite-core usage, report behavior, bridge relationships, evidence-vs-policy separation, registry metadata, and command/docs/test expectations; defer primary runtime authority to suite contract + slice specs.
 
@@ -98,6 +101,9 @@ Authority labels used in this index:
 - `doc/ValidatorSpecs/nl-config/cfg-validatorRunner.md`
   **Authority:** supporting implementation guidance. **Intended use:** runner and `validate-all` CLI implementation context; defer normative behavior to the suite contract.
 
+- `doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md`
+  **Authority:** supporting implementation guidance (planned). **Intended use:** NL/config implementation plan for the suite registry lifecycle (#41); defer normative behavior to the registry lifecycle spec.
+
 ## 5) Transitional inventories / migration routing
 
 - `doc/ValidatorSpecs/naming-owned/naming-documentation-map-and-reorg.inventory.md`
@@ -116,9 +122,6 @@ Authority labels used in this index:
 
 - `doc/ValidatorSpecs/suite-owned/compat-shim.policy.md`
   **Authority:** draft. **Intended use:** draft policy for time-bounded compat shims during refactor staging; does not establish canonical runtime behavior by itself.
-
-- `doc/ValidatorSpecs/suite-owned/registry-customization-state-system-draft.md`
-  **Authority:** draft. **Intended use:** draft spec for built-in vs custom registry state and customization commands (report-only).
 
 ## 7) Audits (snapshot artifacts)
 

@@ -6,6 +6,15 @@ Status: **Canonical**
 
 The naming validator remains **report-first** for detection and findings emission. Supplying validator config changes report inputs/metadata and may additionally enable strict exit semantics via `strictExit`. It does **not** enable fix execution or broader mode selection.
 
+## Planned change (Issue #41)
+
+The suite registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`, accepted, not yet implemented) moves registry customization out of configuration:
+- `naming.roles.add` and `naming.reportableExtensions.add` are removed, and the customization path is the consumer's Custom registry set;
+- the hard-coded role `category` enum is removed, and categories are validated against the resolved registry set;
+- `naming.caseRules` is retired in favor of Naming's case-rules registry in the Custom set.
+
+`version` and `strictExit` are unaffected. Until that slice lands, this spec describes current behavior.
+
 ## 1) Purpose
 
 This spec defines the canonical validator config contract for current suite runtime behavior. The config provides strict, deterministic input for naming registry shaping (reportable extension additions, role metadata additions, case-rules style) and reproducible report metadata.
