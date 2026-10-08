@@ -146,6 +146,7 @@ Digests are computed over canonical forms only. File formatting, key order and t
 - `activeSet: custom` → every slice loads every registry from `custom/<slice>/`.
 - No registry is ever loaded from the other set during a run.
 - The resolved set is passed to slices as **resolved registry roots**, one directory per slice. Slice loaders read their files from that root and keep their own validation, canonicalization and conversion (§9).
+- **Activation gate:** Custom activation is available only when **every** registry consumer of every inventory slice reads its resolved root. A partially adopted suite would mix Custom and Builtin policy in one run and misreport provenance. Until that holds, `use custom` is not offered, and a `registry-state.json` that selects `custom` is a lifecycle error. The rollout is in §13.
 - A per-run source choice may later be supplied explicitly (for example "validate against Builtin" or a candidate set for preview, §10). It changes only that run's source. It never changes `registry-state.json` and never writes Custom.
 
 ## 7) Validity of an active Custom set
@@ -169,7 +170,7 @@ These are reported (§11), never blocking:
 - **Builtin drift:** Custom is complete, compatible and valid, but the current Builtin content differs from Custom's Baseline. The run proceeds on Custom.
 - **Orphan registry:** Custom contains a registry absent from the current Builtin inventory, for example one removed or renamed in a later release. The engine does not read it. It is listed for review.
 
-A lifecycle check runs on every validation run, whichever set is active. It is read-only. When `activeSet` is `builtin`, problems in an existing Custom set (any of §7.1 items 2–5 except a malformed `registry-state.json`) are reported, not blocking, because Custom is not being used.
+A lifecycle check runs on every validation run, whichever set is active. It is read-only. When `activeSet` is `builtin`, problems in an existing Custom set are reported as `registrySet.customIssues` (§11.1), not blocking, because Custom is not being used. Those problems are §7.1 items 2–5, except a malformed `registry-state.json`. This way a user validating with Builtin can see why their retained Custom set could not be activated.
 
 ## 8) Builtin updates and Custom inheritance
 
@@ -250,7 +251,7 @@ Naming keeps a registry-state owner for its loader responsibilities, reading fro
 
 - Configuration never carries registry records.
 - Configuration may choose a **source for a single run** (Builtin, or a candidate set for preview, later). It never relocates the lifecycle root, never changes the active set and never writes Custom.
-- Naming's record-carrying config surfaces are retired (§13, slice 3):
+- Naming's record-carrying config surfaces are retired in the same slice in which Naming starts reading the resolved set (§13, slice 2). Whole-set loading leaves no contract-compliant way to keep applying them, and no consumer uses them. There is no overlay compatibility bridge:
   - `naming.roles.add` and `naming.reportableExtensions.add`: the customization path is editing Custom;
   - the hard-coded role `category` enum in `src/validator-config.schema.json` and `src/core/config/validator-config.logic.mjs`: categories are validated against the resolved set instead;
   - `naming.caseRules`, which accepts only `kebab-case`: the customization path is the Custom `naming/case-rules` registry.
@@ -271,12 +272,22 @@ The runner envelope and each direct slice report carry:
     "basedOn": { "validatorVersion": "0.1.0", "builtinSetDigest": "<sha256-hex>" },
     "builtinDriftSinceBaseline": false,
     "orphanRegistries": [],
+    "customIssues": [
+      { "registryId": "naming/roles", "condition": "invalid", "detail": "<slice validation message>" }
+    ],
     "resolvedSetDigest": "<sha256-hex>"
   }
 }
 ```
 
-`basedOn` and `builtinDriftSinceBaseline` are present only when `customExists` is `true`.
+- `basedOn` and `builtinDriftSinceBaseline` are present only when `customExists` is `true`.
+- `customIssues` lists the non-blocking problems of an inactive Custom set (§7.2), sorted by `registryId` then `condition`. It is empty when there are none.
+- `condition` is one of:
+  - `missing`: a current Builtin registry is absent from Custom;
+  - `version-incompatible`;
+  - `invalid`: a shape or reference failure;
+  - `manifest-malformed`: `registryId` is `null`.
+- A run with an active Custom set never reports `customIssues`, because each of these conditions blocks it (§7.1).
 
 ### 11.2 Per slice: `registryProvenance`
 
@@ -311,7 +322,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 | Command | Effect | Writes |
 |---|---|---|
 | `init-custom` | Copies every registry of every slice inventory from Builtin into `custom/`, writes `.baseline/` and the manifest. Refuses if `custom/` already exists. | `custom/**`; `registry-state.json` only if absent (written with `activeSet: builtin`) |
-| `use builtin` \| `use custom` | Sets the active set. `use custom` runs the §7.1 checks first and refuses on a blocking condition. | `registry-state.json` |
+| `use builtin` \| `use custom` | Sets the active set. `use custom` runs the §7.1 checks first and refuses on a blocking condition. Available only once the activation gate holds (§6, §13 slice 3). | `registry-state.json` |
 | `status` | Prints the three facts, completeness, version compatibility, drift and orphans, with a per-registry classification (unchanged, custom-modified, builtin-changed, both-changed, missing, orphan, version-incompatible). Deterministic JSON on stdout. | nothing |
 
 **Activation rule:**
@@ -327,22 +338,27 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
 ## 13) Implementation slices
 
 1. **Spec/NL (this document):** `nl-config/cfg-registryLifecycle.md` and aligned specs.
-2. **Suite lifecycle mechanics plus Naming adoption:**
-   - slice inventories and descriptors;
+2. **Suite lifecycle mechanics, Naming and suite adoption, config retirement:**
+   - slice inventories and descriptors for Naming, Tree and suite core;
    - `version` added to the Builtin registries that lack it;
    - `src/core/registry-lifecycle/`;
-   - the lifecycle commands;
-   - Naming reading from resolved roots;
-   - `registrySet` and `registryProvenance`.
-   
+   - `init-custom` and `status`;
+   - Naming and suite-core registry consumers (scope profiles, exit policy) reading resolved roots;
+   - `registrySet` and `registryProvenance`;
+   - removal of the config record surfaces, the hard-coded enums, `naming.caseRules` and Naming's `overlay-capabilities` registry, which describes only those surfaces.
+
+   Custom activation is **not** available in this slice (activation gate, §6), because Tree still reads Builtin.
+
    Acceptance:
    - runs without a Custom set keep their findings and existing report fields unchanged, and gain only the new provenance fields;
-   - Naming's in-package `_custom/` set and `registry-state.json` become test fixtures, and a fixture Custom set equivalent to today's custom mode resolves to the same Naming payload digest.
-3. **Migration inputs:**
-   - remove the config record surfaces and the hard-coded enums;
-   - retire `naming.caseRules` and Naming's `overlay-capabilities` registry, which describes only those surfaces.
-4. **Tree adoption:** Tree loaders read from resolved roots, and Tree reports `registryProvenance`. #37 decides separately between the Custom-policy route and evidence-derived repository shape.
-5. **Follow-ons:**
+   - the config-overlay tests are replaced by tests that the retired surfaces are rejected;
+   - Naming's in-package `_custom/` set and `registry-state.json` become test fixtures, and a fixture Custom set equivalent to today's custom mode resolves to the same Naming payload digest through the internal resolution API.
+3. **Tree adoption and Custom activation:**
+   - Tree loaders read resolved roots, and Tree reports `registryProvenance`;
+   - with every consumer adopted, `use custom` and active-Custom resolution become available.
+
+   #37 decides separately between the Custom-policy route and evidence-derived repository shape.
+4. **Follow-ons:**
    - the advanced management surface (§12.2);
    - the cross-slice compatibility check (§9.4).
 
