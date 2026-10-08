@@ -235,7 +235,7 @@ Suite core (`src/core/registry-lifecycle/`, a new semantic area) owns:
 - the report provenance shape (§11);
 - the lifecycle commands (§12).
 
-Suite core does **not** interpret registry content. It does not canonicalize meaning, validate slice-specific shapes, or decide what an entry means. This is set selection, not the universal policy-state layer that `ValidatorLoaderConverterRuntimeOwnership-Contract.md` §6.4 rules out.
+Suite core does **not** interpret registry content. Its canonicalization is **comparison canonicalization** only (§5): descriptor-driven, used solely for digests and equality, and never handed to slices as runtime input. Runtime-form canonicalization (trimming, normalizing, deduplicating, converting) stays in slice loaders (§9.3). Suite core does not validate slice-specific shapes or decide what an entry means. This is set selection, not the universal policy-state layer that `ValidatorLoaderConverterRuntimeOwnership-Contract.md` §6.4 rules out.
 
 ### 9.3 Slice-owned: meaning
 

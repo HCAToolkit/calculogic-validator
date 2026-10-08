@@ -115,7 +115,7 @@ Registry lifecycle (accepted in #41, not yet implemented): `doc/ValidatorSpecs/s
 - Baseline, digests and provenance;
 - whole-set resolution into one resolved registry root per slice.
 
-Slices keep their registry inventories, shape validation, canonicalization, reference edges and interpretation. That is set selection, not a universal policy-state layer, so the ownership rule above is unchanged. The multi-source composition Naming performs today (in-package custom set and config overlay) is replaced by reading the resolved set.
+Suite core also performs comparison canonicalization, for digests and equality only, driven by slice-declared descriptors. Slices keep their registry inventories and those descriptors, shape validation, runtime-form canonicalization, reference edges and interpretation. That is set selection, not a universal policy-state layer, so the ownership rule above is unchanged. The multi-source composition Naming performs today (in-package custom set and config overlay) is replaced by reading the resolved set.
 
 ## Slice-local vs suite-level ownership
 
