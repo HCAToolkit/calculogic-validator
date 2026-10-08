@@ -66,6 +66,14 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 - An active Custom set that is missing, incomplete, version-incompatible or invalid stops the run before validation. There is no Builtin fallback.
 - Only `use` changes `activeSet`. `init-custom` never does.
 
+## 3.0 Build Concern (Structure)
+
+Not applicable: this is a non-UI suite configuration with no structural anchors (see 1.4).
+
+## 4.0 BuildStyle Concern (Visual Styling of Structure)
+
+Not applicable (see 1.4).
+
 ## 5.0 Logic Concern (Workflow)
 
 ### 5.1 Container `Registry lifecycle resolution` (`src/core/registry-lifecycle/`)
@@ -166,6 +174,10 @@ The same on-disk state always gives byte-identical output.
 
 Human-readable stderr messages for blocking conditions. Each names the condition, the registries involved, and both ways forward (reconcile Custom, or `registry:use builtin`).
 
+## 8.0 ResultsStyle Concern (Output Styling)
+
+Not applicable: outputs are JSON report fields, JSON status output and plain-text stderr notices (see 7.0).
+
 ## 9.0 Assembly Pattern
 
 ### 9.1 File structure (planned)
@@ -184,7 +196,20 @@ bin/calculogic-validator-registry.host.mjs
 
 Final file names are confirmed against `FileNamingMasterList-V1_1.md` in the implementation PR.
 
-### 9.2 Implementation passes
+### 9.2 Assembly logic
+
+- The resolution module (5.2.5) is the single entry point validation runs call.
+- The CLI host (5.3) composes 5.2.1, 5.2.4, 5.2.6 and 5.2.7.
+- There is no barrel file. Callers import the module they need.
+
+### 9.3 Integration
+
+- The runner and direct slice CLIs integrate through 5.4: one resolution call per run, then resolved roots are passed through slice wiring.
+- Slices integrate only by declaring their inventories (6.1) and accepting a resolved root.
+
+## 10.0 Implementation Passes
+
+### 10.1 Pass mapping
 
 Spec §13 slice 2:
 1. Inventories and descriptors for Naming, Tree and suite core, plus `version` on the five unversioned Builtin registries (data-only change, then registry shape tests).
@@ -196,3 +221,10 @@ Spec §13 slice 2:
 Spec §13 slice 3:
 
 6. Tree loaders read resolved roots. Add `use` (5.2.7) and active-Custom resolution.
+
+### 10.2 Export checklist
+
+- Every module listed in 9.1 exists, with CCPP file headers linking to this note and atomic comments using its section numbers.
+- Every invariant in 2.4 is covered by a test.
+- Report fields match the spec §11, and status output is byte-stable for a fixed on-disk state.
+- The Validator docs index, the report schema and the Naming spec are updated in the same PR as the behavior they describe.
