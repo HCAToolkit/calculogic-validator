@@ -51,7 +51,7 @@ Rules that follow from the model:
 
 | Fact | Values | Derived from |
 |---|---|---|
-| `customExists` | `true` / `false` | presence of a readable `custom/registry-set.manifest.json` |
+| `customExists` | `true` / `false` | presence of the `custom/` directory. Whether its manifest is readable is a separate condition (`manifest-malformed`, §7.1, §11.1). |
 | `customDiffers` | `true` / `false` | `true` when any of these holds: a registry's Custom canonical digest differs from the current Builtin canonical digest; a completeness issue (§7.1); or a Custom registry that cannot be parsed or canonicalized. An unparseable registry has no digest; it counts as differing, and its per-registry digest is reported as `null` in `status` output (§12.1). |
 | `activeSet` | `builtin` / `custom` | `registry-state.json` (§4.2); `builtin` when the file is absent |
 
@@ -196,7 +196,8 @@ The update/inherit operation (part of the advanced management surface, §12) com
 | `builtin-changed` | changed in Builtin, unchanged in Custom | review required |
 | `builtin-removed` | removed or deprecated in Builtin | review required |
 | `custom-only` | changed or added only in Custom | kept |
-| `both-changed` | changed in both | reconciliation required |
+| `aligned` | changed identically in Builtin and Custom | no action; counts as decided |
+| `both-changed` | changed differently in both | reconciliation required |
 | `registry-added` | a whole new Builtin registry (blocking per §7.1 until resolved) | offered for inheritance |
 | `version-changed` | Builtin moved a registry to a new `version` | migration required (§8.3) |
 
@@ -298,7 +299,7 @@ The runner envelope and each direct slice report carry:
 }
 ```
 
-- `basedOn` and `builtinDriftSinceBaseline` are present only when `customExists` is `true`.
+- `basedOn` and `builtinDriftSinceBaseline` are present only when `customExists` is `true` **and** the manifest is readable. With a malformed manifest they are omitted, and `customIssues` carries `manifest-malformed`.
 - `basedOn.builtinSetDigest` is the derived Baseline set digest (§4.3), and `basedOn.validatorVersions` is the sorted list of distinct per-registry Baseline Validator versions.
 - `customIssues` lists the non-blocking problems of an inactive Custom set (§7.2), sorted by `registryId` then `condition`. It is empty when there are none.
 - `condition` is one of:
@@ -363,12 +364,15 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 | 2 | `orphan` | the registry is absent from the current Builtin inventory |
 | 3 | `invalid` | the registry is unparseable (`customDigest: null`) or fails the slice's registry-set validation (§9.3); `detail` carries the reason |
 | 4 | `version-incompatible` | the registry's `version` cannot be read by the current engine |
-| 5 | `both-changed` | both Custom and Builtin differ from the Baseline |
-| 6 | `custom-modified` | only Custom differs from the Baseline |
-| 7 | `builtin-changed` | only Builtin differs from the Baseline |
-| 8 | `unchanged` | none of the above |
+| 5 | `baseline-unavailable` | the manifest is malformed or has no entry for this registry, so no Baseline digest exists (`baselineDigest: null`) |
+| 6 | `aligned` | Custom and Builtin have the same canonical digest, but both differ from the Baseline, for example after a manual adoption of an upstream change. There is no conflict; an update advances the Baseline without asking. |
+| 7 | `both-changed` | Custom and Builtin both differ from the Baseline, and from each other |
+| 8 | `custom-modified` | only Custom differs from the Baseline |
+| 9 | `builtin-changed` | only Builtin differs from the Baseline |
+| 10 | `unchanged` | none of the above |
 
-- Classes 5–8 compare canonical digests against the manifest's Baseline digests.
+- Classes 6–10 compare canonical digests against the manifest's Baseline digests.
+- When the manifest is malformed, `status` also prints a top-level `manifestError` with the parse detail. Every registry that is not class 1–4 is then `baseline-unavailable`, and `customDigest` and `builtinDigest` are still reported.
 - `baselineMismatch` is reported independently of `classification` (§4.4).
 
 **Activation rule:**
