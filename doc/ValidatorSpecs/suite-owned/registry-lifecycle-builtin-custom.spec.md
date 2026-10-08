@@ -119,6 +119,11 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 
 `custom/.baseline/` holds a byte-for-byte copy of each registry's Baseline Builtin version. A digest only tells you *that* Builtin changed; the copy tells you *what* changed. The copy is the merge base for the three-way comparison (§8.2), and a shared set carries its own merge base.
 
+**Verification.** The manifest's per-registry digests (§4.3) are authoritative, and the copy is checked against them:
+- **Drift detection** (§7.2) compares the current Builtin digest with the manifest digest. It never needs the copy.
+- **Before any three-way comparison or Baseline advancement** (§8.2, §8.3), every expected `.baseline/` file must exist and its canonical digest must equal its manifest digest. A missing or mismatched copy is a `baseline-mismatch` for that registry, and update/migration operations refuse to proceed for it. Nothing is classified or advanced from an untrusted merge base.
+- Validation runs report `baseline-mismatch` in `registrySet.customIssues` (§11.1). It never blocks a run, because resolution never reads the copy.
+
 ### 4.5 `registry-state.json`
 
 ```json
@@ -219,7 +224,8 @@ Every registry-bearing slice declares a registry inventory. For each registry, i
 - registry id and filename;
 - readable `version` values (every registry in the inventory carries a `version` field);
 - the canonical-form descriptor (§5): set-like array paths, entry keys and omittable optional fields;
-- reference edges to other registries of the same slice (§9.3).
+- reference edges to other registries of the same slice (§9.3);
+- a **registry-set validation entry point**, slice-owned (§9.3).
 
 The inventory is the only list of registries the lifecycle knows. A slice that adds a registry adds it to its inventory, and the registry then belongs to both sets automatically. Slices with few registries today are expected to gain more as policy moves from code into registries; the lifecycle needs no change for that.
 
@@ -243,6 +249,11 @@ Each slice keeps:
 
 - payload shape validation, canonicalization into runtime form, and conversion;
 - reference edges between its registries, validated against the **resolved** set. For example, Naming roles reference Naming categories, so a Custom categories registry is what Custom roles are checked against;
+- the **registry-set validation entry point** declared in its inventory (§9.1):
+  - Given a slice registry root, it runs the slice's own shape and reference validation over that root. It returns a deterministic list of `{ registryId, detail }` failures and builds no runtime state.
+  - Suite core calls it on the active root before validation (failures block, §7.1 item 4).
+  - It also calls it on an existing **inactive** Custom root (failures are reported as `invalid` in `customIssues`, §7.2) and from `status`.
+  - Suite core only calls the entry point. The validation rules stay with the slice;
 - interpretation.
 
 Naming keeps a registry-state owner for its loader responsibilities, reading from the resolved root. Tree keeps its direct builtin loaders, pointed at the resolved root.
@@ -294,8 +305,10 @@ The runner envelope and each direct slice report carry:
   - `missing`: a current Builtin registry is absent from Custom;
   - `version-incompatible`;
   - `invalid`: a shape or reference failure;
-  - `manifest-malformed`: `registryId` is `null`.
-- A run with an active Custom set never reports `customIssues`, because each of these conditions blocks it (§7.1).
+  - `manifest-malformed`: `registryId` is `null`;
+  - `baseline-mismatch`: a `.baseline/` copy is missing or does not match its manifest digest (§4.4).
+- `detail` for `invalid` comes from the slice's registry-set validation entry point (§9.3), or from the parse error for an unparseable registry.
+- With an active Custom set, `customIssues` can contain only `baseline-mismatch`, because every other condition blocks the run (§7.1).
 
 ### 11.2 Per slice: `registryProvenance`
 
@@ -338,7 +351,25 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 |---|---|---|
 | `init-custom` | Copies every registry of every slice inventory from Builtin into `custom/`, writes `.baseline/` and the manifest. Refuses if `custom/` already exists. | `custom/**`; `registry-state.json` only if absent (written with `activeSet: builtin`) |
 | `use builtin` \| `use custom` | Sets the active set. `use custom` runs the §7.1 checks first and refuses on a blocking condition. Available only once the activation gate holds (§6, §13 slice 3). | `registry-state.json` |
-| `status` | Prints the three facts, completeness, version compatibility, drift and orphans, with a per-registry classification (unchanged, custom-modified, builtin-changed, both-changed, missing, orphan, version-incompatible). Deterministic JSON on stdout. | nothing |
+| `status` | Prints the three facts, completeness, version compatibility, drift, orphans and `customIssues`, with one classification per registry (below). Deterministic JSON on stdout. | nothing |
+
+**`status` per-registry entries** have the shape `{ registryId, classification, customDigest, builtinDigest, baselineDigest, baselineMismatch, detail? }`.
+
+`classification` is the first of these that applies:
+
+| # | Classification | Applies when |
+|---|---|---|
+| 1 | `missing` | the registry is absent from Custom |
+| 2 | `orphan` | the registry is absent from the current Builtin inventory |
+| 3 | `invalid` | the registry is unparseable (`customDigest: null`) or fails the slice's registry-set validation (§9.3); `detail` carries the reason |
+| 4 | `version-incompatible` | the registry's `version` cannot be read by the current engine |
+| 5 | `both-changed` | both Custom and Builtin differ from the Baseline |
+| 6 | `custom-modified` | only Custom differs from the Baseline |
+| 7 | `builtin-changed` | only Builtin differs from the Baseline |
+| 8 | `unchanged` | none of the above |
+
+- Classes 5–8 compare canonical digests against the manifest's Baseline digests.
+- `baselineMismatch` is reported independently of `classification` (§4.4).
 
 **Activation rule:**
 - `init-custom` creates the set and its initial state (Custom exists and does not differ). It does **not** change the active set.

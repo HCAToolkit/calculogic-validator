@@ -42,7 +42,8 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
   - Builtin file path;
   - readable `version` values;
   - canonical-form descriptor (set-like array paths, entry keys, omittable optional fields);
-  - same-slice reference edges.
+  - same-slice reference edges;
+  - a slice-owned registry-set validation entry point (shape and reference checks over a given root; spec §9.3).
 - **Validator package version.**
 - **Internal-only root override,** for tests and package development.
 
@@ -98,7 +99,8 @@ Compares Custom with the current Builtin inventory and the Baseline. Produces:
 - `customDiffers`;
 - `builtinDriftSinceBaseline`;
 - the per-registry status classification;
-- `customIssues` for an inactive Custom set (spec §7.2, §11.1).
+- `customIssues` for an inactive Custom set, using each slice's registry-set validation entry point for `invalid` (spec §7.2, §9.3, §11.1);
+- Baseline copy verification against manifest digests, giving `baseline-mismatch` (spec §4.4).
 
 #### 5.2.5 Workflow: `resolveActiveRegistrySet`
 
