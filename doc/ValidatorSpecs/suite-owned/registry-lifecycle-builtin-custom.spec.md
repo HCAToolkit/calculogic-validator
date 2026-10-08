@@ -52,7 +52,7 @@ Rules that follow from the model:
 | Fact | Values | Derived from |
 |---|---|---|
 | `customExists` | `true` / `false` | presence of the `custom/` directory. Whether its manifest is readable is a separate condition (`manifest-malformed`, §7.1, §11.1). |
-| `customDiffers` | `true` / `false` | `true` when any of these holds: a registry's Custom canonical digest differs from the current Builtin canonical digest; a completeness issue (§7.1); or a Custom registry that cannot be parsed or canonicalized. An unparseable registry has no digest; it counts as differing, and its per-registry digest is reported as `null` in `status` output (§12.1). |
+| `customDiffers` | `true` / `false` | `true` when any of these holds: a registry's Custom canonical digest differs from the current Builtin canonical digest; a completeness issue (§7.1); an orphan registry, meaning one present in Custom but absent from the current Builtin inventory (§7.2); or a Custom registry that cannot be parsed or canonicalized. An unparseable registry has no digest; it counts as differing, and its per-registry digest is reported as `null` in `status` output (§12.1). |
 | `activeSet` | `builtin` / `custom` | `registry-state.json` (§4.2); `builtin` when the file is absent |
 
 The facts are independent. In particular:
@@ -373,10 +373,10 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 
 - Classes 6–10 compare canonical digests against the manifest's Baseline digests.
 - **Nullable fields.** `customDigest`, `builtinDigest` and `baselineDigest` are always present, and are `null` exactly when there is no value:
-  - `customDigest` is `null` for `missing`, and for an unparseable `invalid` registry;
+  - `customDigest` is `null` for `missing`, and for any unparseable registry, whether `invalid` or an `orphan` that also fails to parse;
   - `builtinDigest` is `null` for `orphan`;
   - `baselineDigest` is `null` for `missing` (a registry introduced after the Baseline has no manifest entry), for `baseline-unavailable`, and whenever the manifest is malformed;
-  - `detail` is present only for `invalid` and `version-incompatible`.
+  - `detail` is present only for `invalid`, `version-incompatible`, and an `orphan` that fails to parse (carrying the parse error). An orphan is never validated by its slice, because no current inventory entry describes it.
 - With `customExists: false`, `status` prints only the set-level facts and an empty per-registry list.
 - When the manifest is malformed, `status` also prints a top-level `manifestError` with the parse detail. Every registry that is not class 1–4 is then `baseline-unavailable`, and `customDigest` and `builtinDigest` are still reported.
 - `baselineMismatch` is reported independently of `classification` (§4.4).
