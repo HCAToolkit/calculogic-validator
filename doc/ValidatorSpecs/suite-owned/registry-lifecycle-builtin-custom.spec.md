@@ -41,7 +41,7 @@ Rules that follow from the model:
 | Registry id | `<slice>/<registry>`, for example `naming/roles`, `tree/repo-shape-policy`, `suite/scope-profiles`. The `<registry>` part is the file's basename without `.registry.json`. |
 | Builtin set | Every registry in every slice inventory (§9.1), as shipped in the installed package. |
 | Custom set | A consumer-owned copy of the complete Builtin set, possibly edited. |
-| Baseline | The exact Builtin set a Custom set was copied from (§4.4). |
+| Baseline | The Builtin registries a Custom set is based on, recorded per registry. It starts as the exact Builtin set at initialization and advances per registry through updates (§4.3, §8.2). |
 | Active set | The set a validation run uses: `builtin` or `custom`. |
 | Canonical form | The comparison form of a registry payload (§5). |
 | Registry digest | `sha256(stableStringify(canonicalForm))` of one registry. |
@@ -52,7 +52,7 @@ Rules that follow from the model:
 | Fact | Values | Derived from |
 |---|---|---|
 | `customExists` | `true` / `false` | presence of a readable `custom/registry-set.manifest.json` |
-| `customDiffers` | `true` / `false` | any registry whose Custom canonical digest differs from the current Builtin canonical digest, or any completeness issue (§7.1) |
+| `customDiffers` | `true` / `false` | `true` when any of these holds: a registry's Custom canonical digest differs from the current Builtin canonical digest; a completeness issue (§7.1); or a Custom registry that cannot be parsed or canonicalized. An unparseable registry has no digest; it counts as differing, and its per-registry digest is reported as `null` in `status` output (§12.1). |
 | `activeSet` | `builtin` / `custom` | `registry-state.json` (§4.2); `builtin` when the file is absent |
 
 The facts are independent. In particular:
@@ -101,22 +101,23 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 {
   "schemaVersion": "1",
   "basedOn": {
-    "validatorVersion": "0.1.0",
-    "builtinSetDigest": "<sha256-hex>",
     "registries": {
-      "naming/roles": { "version": "1", "digest": "<sha256-hex>" }
+      "naming/roles": { "validatorVersion": "0.1.0", "version": "1", "digest": "<sha256-hex>" }
     }
   }
 }
 ```
 
-- `basedOn` records the Baseline. It is written by `registry:init-custom` and by later update/migration operations, never by validation runs.
+- `basedOn` records the Baseline **per registry**: the Validator version, registry `version` and canonical digest of the Builtin registry it was copied from. It is written by `registry:init-custom` and by later update/migration operations, never by validation runs.
+- Per-registry provenance is authoritative, because a Baseline can legitimately combine registries from different Validator releases after a partial update (§8.2). Set-level values are derived from it:
+  - the Baseline set digest is the set digest (§2) over the per-registry Baseline digests;
+  - a single Baseline `validatorVersion` exists only when every registry shares one.
 - The manifest carries no registry records and no active-set choice.
 - Additional descriptive fields, such as a set name or author, may be added later as optional metadata. They never affect resolution.
 
 ### 4.4 Baseline copy
 
-`custom/.baseline/` holds a byte-for-byte copy of every Builtin registry at the Baseline. A digest only tells you *that* Builtin changed; the copy tells you *what* changed. The copy is the merge base for the three-way comparison (§8.2), and a shared set carries its own merge base.
+`custom/.baseline/` holds a byte-for-byte copy of each registry's Baseline Builtin version. A digest only tells you *that* Builtin changed; the copy tells you *what* changed. The copy is the merge base for the three-way comparison (§8.2), and a shared set carries its own merge base.
 
 ### 4.5 `registry-state.json`
 
@@ -194,7 +195,13 @@ The update/inherit operation (part of the advanced management surface, §12) com
 | `registry-added` | a whole new Builtin registry (blocking per §7.1 until resolved) | offered for inheritance |
 | `version-changed` | Builtin moved a registry to a new `version` | migration required (§8.3) |
 
-For each item the user chooses: keep theirs, take Builtin, merge selected fields, or add the Builtin form alongside theirs where the registry allows it. Nothing is overwritten without that choice. Accepting an update re-records `basedOn` and the Baseline copy for the inherited registries.
+For each item the user chooses: keep theirs, take Builtin, merge selected fields, or add the Builtin form alongside theirs where the registry allows it. Nothing is overwritten without that choice.
+
+**Baseline advancement is atomic per registry.**
+- A registry's Baseline advances only when every difference in that registry has a recorded choice.
+- It then advances to the current Builtin as a whole: its `.baseline/` copy and its `basedOn.registries` entry are rewritten together.
+- A declined Builtin change stays in Custom as a deliberate Custom difference (`custom-only`) relative to the new Baseline. It is not offered again until Builtin changes that entry again.
+- Registries the user has not reviewed keep their previous Baseline. A Baseline mixing releases is therefore expected, and per-registry provenance (§4.3) describes it exactly.
 
 ### 8.3 Shape migrations
 
@@ -269,7 +276,7 @@ The runner envelope and each direct slice report carry:
     "activeSet": "builtin",
     "customExists": true,
     "customDiffers": true,
-    "basedOn": { "validatorVersion": "0.1.0", "builtinSetDigest": "<sha256-hex>" },
+    "basedOn": { "builtinSetDigest": "<sha256-hex>", "validatorVersions": ["0.1.0"] },
     "builtinDriftSinceBaseline": false,
     "orphanRegistries": [],
     "customIssues": [
@@ -281,6 +288,7 @@ The runner envelope and each direct slice report carry:
 ```
 
 - `basedOn` and `builtinDriftSinceBaseline` are present only when `customExists` is `true`.
+- `basedOn.builtinSetDigest` is the derived Baseline set digest (§4.3), and `basedOn.validatorVersions` is the sorted list of distinct per-registry Baseline Validator versions.
 - `customIssues` lists the non-blocking problems of an inactive Custom set (§7.2), sorted by `registryId` then `condition`. It is empty when there are none.
 - `condition` is one of:
   - `missing`: a current Builtin registry is absent from Custom;
@@ -301,7 +309,9 @@ Each slice report carries its own registries:
 }
 ```
 
-`source` is always the active set. The field exists so a later per-run source choice (§10) is disclosed per registry.
+- `source` is always the active set. The field exists so a later per-run source choice (§10) is disclosed per registry.
+- `digest` is the canonical digest of the resolved registry. An active registry always has one, because a registry that cannot be parsed blocks an active-Custom run (§7.1).
+- The `null` digest of an unparseable registry (§3) appears only in `status` output and in the diagnostics behind `customIssues`.
 
 ### 11.3 Naming's transitional fields
 
@@ -309,7 +319,12 @@ Naming's `registryState`, `registrySource` and `registryDigests` stay for one tr
 
 - `registryState` = `registrySet.activeSet`.
 - `registrySource` = `registrySet.activeSet`. The `config` value is retired with the config record surfaces.
-- `registryDigests` keeps its current shape and computation over Naming's resolved payload. Its values are unchanged for runs without a Custom set.
+- `registryDigests` keeps its `{ builtin, custom, resolved }` shape, each a digest of Naming's resolved payload:
+  - `builtin`: from the Builtin set; unchanged.
+  - `resolved`: from the active set; unchanged for runs without a Custom set.
+  - `custom`: from the consumer's Custom set when it exists and resolves validly; otherwise equal to `builtin`.
+
+  **Documented value change:** today `custom` is the digest of the packaged in-package `_custom/` payload. Slice 2 moves that payload into test fixtures, so production keeps no hidden legacy policy just for this field. From slice 2, a run without a Custom set reports `custom` equal to `builtin`.
 
 The transition ends in a later, deliberately scoped change. The React app captures reports, so the fields are not removed inside #41.
 
@@ -350,7 +365,7 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
    Custom activation is **not** available in this slice (activation gate, §6), because Tree still reads Builtin.
 
    Acceptance:
-   - runs without a Custom set keep their findings and existing report fields unchanged, and gain only the new provenance fields;
+   - runs without a Custom set keep their findings and existing report fields unchanged, except the documented `registryDigests.custom` change (§11.3), and gain only the new provenance fields;
    - the config-overlay tests are replaced by tests that the retired surfaces are rejected;
    - Naming's in-package `_custom/` set and `registry-state.json` become test fixtures, and a fixture Custom set equivalent to today's custom mode resolves to the same Naming payload digest through the internal resolution API.
 3. **Tree adoption and Custom activation:**

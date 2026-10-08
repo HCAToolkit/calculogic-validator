@@ -49,7 +49,7 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 ### 2.2 Data and state
 
 - `<repo>/.calculogic/registries/registry-state.json`: `{ schemaVersion, activeSet }`.
-- `<repo>/.calculogic/registries/custom/registry-set.manifest.json`: `{ schemaVersion, basedOn: { validatorVersion, builtinSetDigest, registries: { [id]: { version, digest } } } }`.
+- `<repo>/.calculogic/registries/custom/registry-set.manifest.json`: `{ schemaVersion, basedOn: { registries: { [id]: { validatorVersion, version, digest } } } }`. Baseline provenance is per registry; set-level Baseline values are derived (spec §4.3).
 - `<repo>/.calculogic/registries/custom/<slice>/<registry>.registry.json` and `custom/.baseline/<slice>/<registry>.registry.json`.
 
 ### 2.3 Dependencies
