@@ -165,7 +165,7 @@ When `activeSet: custom`, the run checks the Custom set **before any validation*
 2. **Incomplete set:** the current Builtin inventory contains a registry that Custom lacks, for example one introduced by a later Validator release.
 3. **Incompatible version:** a Custom registry's `version` is not among the versions its slice declares as readable (§9.1).
 4. **Invalid payload:** a Custom registry fails its slice's shape validation, or a reference between registries fails against the resolved set (§9.3).
-5. **Unreadable state or manifest:** malformed `registry-set.manifest.json`. A manifest is also malformed when it lacks a `basedOn.registries` entry for any registry present in `custom/`, because every Custom registry must have authoritative Baseline provenance. A malformed `registry-state.json` blocks every run, whichever set it would select, because the active set cannot be known.
+5. **Unreadable state or manifest:** malformed `registry-set.manifest.json`. A manifest is also malformed when it lacks a `basedOn.registries` entry for any registry that is present in `custom/` **and** in the current Builtin inventory, because every Custom registry the engine reads must have authoritative Baseline provenance. Orphan registries (§7.2) are exempt: the engine never reads them, and they stay non-blocking with or without a manifest entry. A malformed `registry-state.json` blocks every run, whichever set it would select, because the active set cannot be known.
 
 There is **no Builtin fallback**. Builtin never fills gaps in an active Custom set. The notice names each failing registry and gives the two ways forward: reconcile Custom, or run `registry:use builtin`, which keeps Custom intact.
 
@@ -301,7 +301,7 @@ The runner envelope and each direct slice report carry:
 
 - `basedOn` and `builtinDriftSinceBaseline` are present only when `customExists` is `true` **and** the manifest is readable. With a malformed manifest they are omitted, and `customIssues` carries `manifest-malformed`.
 - `basedOn.builtinSetDigest` is the derived Baseline set digest (§4.3), and `basedOn.validatorVersions` is the sorted list of distinct per-registry Baseline Validator versions.
-- `customIssues` lists the non-blocking problems of an inactive Custom set (§7.2), sorted by `registryId` then `condition`. It is empty when there are none.
+- `customIssues` lists the non-blocking problems of an inactive Custom set (§7.2), sorted by `registryId` then `condition`, with a `null` `registryId` sorting before every string. The list is empty when there are none.
 - `condition` is one of:
   - `missing`: a current Builtin registry is absent from Custom;
   - `version-incompatible`;
@@ -379,7 +379,9 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
   - `detail` is present only for `invalid`, `version-incompatible`, and an `orphan` that fails to parse (carrying the parse error). An orphan is never validated by its slice, because no current inventory entry describes it.
 - With `customExists: false`, `status` prints only the set-level facts and an empty per-registry list.
 - When the manifest is malformed, `status` also prints a top-level `manifestError` with the parse detail. Every registry that is not class 1–4 is then `baseline-unavailable`, and `customDigest` and `builtinDigest` are still reported.
-- `baselineMismatch` is reported independently of `classification` (§4.4).
+- `baselineMismatch` is reported independently of `classification` (§4.4):
+  - it is `true` or `false` when the manifest is readable and has an entry for the registry;
+  - it is `null` when there is no trusted manifest digest to check against (a malformed manifest, or no entry, such as for a registry introduced after the Baseline).
 
 **Activation rule:**
 - `init-custom` creates the set and its initial state (Custom exists and does not differ). It does **not** change the active set.
