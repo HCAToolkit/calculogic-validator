@@ -165,7 +165,7 @@ When `activeSet: custom`, the run checks the Custom set **before any validation*
 2. **Incomplete set:** the current Builtin inventory contains a registry that Custom lacks, for example one introduced by a later Validator release.
 3. **Incompatible version:** a Custom registry's `version` is not among the versions its slice declares as readable (§9.1).
 4. **Invalid payload:** a Custom registry fails its slice's shape validation, or a reference between registries fails against the resolved set (§9.3).
-5. **Unreadable state or manifest:** malformed `registry-set.manifest.json`. A malformed `registry-state.json` blocks every run, whichever set it would select, because the active set cannot be known.
+5. **Unreadable state or manifest:** malformed `registry-set.manifest.json`. A manifest is also malformed when it lacks a `basedOn.registries` entry for any registry present in `custom/`, because every Custom registry must have authoritative Baseline provenance. A malformed `registry-state.json` blocks every run, whichever set it would select, because the active set cannot be known.
 
 There is **no Builtin fallback**. Builtin never fills gaps in an active Custom set. The notice names each failing registry and gives the two ways forward: reconcile Custom, or run `registry:use builtin`, which keeps Custom intact.
 
@@ -364,7 +364,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 | 2 | `orphan` | the registry is absent from the current Builtin inventory |
 | 3 | `invalid` | the registry is unparseable (`customDigest: null`) or fails the slice's registry-set validation (§9.3); `detail` carries the reason |
 | 4 | `version-incompatible` | the registry's `version` cannot be read by the current engine |
-| 5 | `baseline-unavailable` | the manifest is malformed or has no entry for this registry, so no Baseline digest exists (`baselineDigest: null`) |
+| 5 | `baseline-unavailable` | the manifest is malformed (§7.1 item 5, which includes a missing entry for a registry present in `custom/`), so no Baseline digest is trusted (`baselineDigest: null`) |
 | 6 | `aligned` | Custom and Builtin have the same canonical digest, but both differ from the Baseline, for example after a manual adoption of an upstream change. There is no conflict; an update advances the Baseline without asking. |
 | 7 | `both-changed` | Custom and Builtin both differ from the Baseline, and from each other |
 | 8 | `custom-modified` | only Custom differs from the Baseline |
@@ -372,6 +372,12 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 | 10 | `unchanged` | none of the above |
 
 - Classes 6–10 compare canonical digests against the manifest's Baseline digests.
+- **Nullable fields.** `customDigest`, `builtinDigest` and `baselineDigest` are always present, and are `null` exactly when there is no value:
+  - `customDigest` is `null` for `missing`, and for an unparseable `invalid` registry;
+  - `builtinDigest` is `null` for `orphan`;
+  - `baselineDigest` is `null` for `missing` (a registry introduced after the Baseline has no manifest entry), for `baseline-unavailable`, and whenever the manifest is malformed;
+  - `detail` is present only for `invalid` and `version-incompatible`.
+- With `customExists: false`, `status` prints only the set-level facts and an empty per-registry list.
 - When the manifest is malformed, `status` also prints a top-level `manifestError` with the parse detail. Every registry that is not class 1–4 is then `baseline-unavailable`, and `customDigest` and `builtinDigest` are still reported.
 - `baselineMismatch` is reported independently of `classification` (§4.4).
 
