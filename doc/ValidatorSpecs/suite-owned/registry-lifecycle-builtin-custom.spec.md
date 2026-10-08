@@ -375,7 +375,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 - **Nullable fields.** `customDigest`, `builtinDigest` and `baselineDigest` are always present, and are `null` exactly when there is no value:
   - `customDigest` is `null` for `missing`, and for any unparseable registry, whether `invalid` or an `orphan` that also fails to parse;
   - `builtinDigest` is `null` for `orphan`;
-  - `baselineDigest` is `null` for `missing` (a registry introduced after the Baseline has no manifest entry), for `baseline-unavailable`, and whenever the manifest is malformed;
+  - `baselineDigest` is the manifest's Baseline digest whenever the manifest is readable and has an entry for the registry. That includes a `missing` registry the user deleted after initialization, so it stays distinguishable from one introduced after the Baseline. It is `null` only when there is no such entry (for example, a registry introduced after the Baseline), for `baseline-unavailable`, and whenever the manifest is malformed;
   - `detail` is present only for `invalid`, `version-incompatible`, and an `orphan` that fails to parse (carrying the parse error). An orphan is never validated by its slice, because no current inventory entry describes it.
 - With `customExists: false`, `status` prints only the set-level facts and an empty per-registry list.
 - When the manifest is malformed, `status` also prints a top-level `manifestError` with the parse detail. Every registry that is not class 1–4 is then `baseline-unavailable`, and `customDigest` and `builtinDigest` are still reported.
