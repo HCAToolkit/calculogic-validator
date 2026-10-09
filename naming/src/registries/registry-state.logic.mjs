@@ -506,6 +506,24 @@ const validateCategoryRolePerspectiveReferences = ({ registryRoot }) => {
     throw new Error(`Invalid category-role-perspective registry: ${message}`);
   };
 
+  // A role belongs to exactly one category: runtime keeps the first membership it meets, so a role
+  // listed twice would make category order (which comparison digests ignore) decide its category.
+  const categoryByRole = new Map();
+  for (const [category, entries] of Object.entries(rolesByCategory)) {
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      const role = typeof entry?.role === 'string' ? entry.role.trim() : '';
+      if (!role) {
+        continue;
+      }
+
+      if (categoryByRole.has(role)) {
+        fail(`role "${role}" is listed under both ${categoryByRole.get(role)} and ${category}.`);
+      }
+
+      categoryByRole.set(role, category);
+    }
+  }
+
   for (const [category, entries] of Object.entries(rolesByCategory)) {
     (Array.isArray(entries) ? entries : []).forEach((entry, index) => {
       const label = `rolesByCategory.${category}[${index}]`;

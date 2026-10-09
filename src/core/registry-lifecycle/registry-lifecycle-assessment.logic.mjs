@@ -304,8 +304,11 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
       ),
       validatorVersions: [...new Set(baselineEntries.map((item) => item.validatorVersion))].sort(),
     },
-    builtinDriftSinceBaseline: currentEntries.some(
-      ({ entry }) => manifestEntries[entry.registryId]?.digest !== builtinDigests[entry.registryId],
-    ),
+    // Builtin drifted when a shared registry's digest changed, or when the current inventory and the
+    // Baseline list different registries (one added or removed by a later release).
+    builtinDriftSinceBaseline:
+      currentEntries.some(
+        ({ entry }) => manifestEntries[entry.registryId]?.digest !== builtinDigests[entry.registryId],
+      ) || Object.keys(manifestEntries).some((registryId) => !(registryId in builtinDigests)),
   };
 };

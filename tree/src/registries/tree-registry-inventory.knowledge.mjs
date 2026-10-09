@@ -38,3 +38,13 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
   defineTreeRegistry('surface-structural-home-perspective'),
   defineTreeRegistry('validator-owned-signals'),
 ]);
+
+// [6.1] cfg-registryLifecycle · Primitive · "Tree reference edges" (spec §9.3; informative,
+// enforced by Tree's registry-set validation entry point)
+export const TREE_REGISTRY_REFERENCE_EDGES = Object.freeze([
+  Object.freeze({
+    from: 'tree/surface-structural-home-perspective',
+    to: 'tree/structural-homes',
+    via: 'structuralHomesBySurface[].structuralHome',
+  }),
+]);

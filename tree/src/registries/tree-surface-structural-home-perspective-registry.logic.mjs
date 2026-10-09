@@ -26,3 +26,27 @@ export const assertValidSurfaceStructuralHomePerspectiveRegistry = (payload) => 
 
   return payload;
 };
+
+// Reference edge (lifecycle spec §9.3): every perspective entry names a structural home declared in
+// the resolved structural-homes registry.
+export const assertSurfaceStructuralHomePerspectiveReferences = (perspectivePayload, structuralHomesPayload) => {
+  const declaredHomes = new Set(
+    (Array.isArray(structuralHomesPayload?.structuralHomes) ? structuralHomesPayload.structuralHomes : []).map(
+      (entry) => entry?.structuralHome,
+    ),
+  );
+  const danglingHomes = new Set();
+  for (const entries of Object.values(perspectivePayload.structuralHomesBySurface)) {
+    for (const entry of entries) {
+      if (!declaredHomes.has(entry.structuralHome)) {
+        danglingHomes.add(entry.structuralHome);
+      }
+    }
+  }
+
+  if (danglingHomes.size > 0) {
+    throw new Error(
+      `Invalid Tree surface-structural-home-perspective registry: structural homes not declared in structural-homes: ${[...danglingHomes].sort().join(', ')}.`,
+    );
+  }
+};

@@ -299,11 +299,15 @@ test('Tree validation rejects malformed entries in its runtime registries', () =
     'semantic-naming-folder-type-relationships': 'semanticNamingFolderTypeRelationships',
   };
 
+  // The perspective references structural homes, so it fails alongside a broken structural-homes.
+  const expectedIds = (name) =>
+    name === 'structural-homes' ? ['tree/structural-homes', 'tree/surface-structural-home-perspective'] : [`tree/${name}`];
+
   for (const [name, listField] of Object.entries(entryLists)) {
     const fileName = `${name}.registry.json`;
     assert.deepEqual(
       invalidIdsAfter('tree', fileName, (payload) => ({ ...payload, [listField]: [null] })),
-      [`tree/${name}`],
+      expectedIds(name),
       `${name} accepted a null entry`,
     );
     assert.deepEqual(
@@ -315,6 +319,48 @@ test('Tree validation rejects malformed entries in its runtime registries', () =
       `${name} accepted a duplicated entry`,
     );
   }
+});
+
+test('reference edges: perspective homes must be declared; a role belongs to one category', () => {
+  assert.deepEqual(
+    invalidIdsAfter('tree', 'surface-structural-home-perspective.registry.json', (payload) => ({
+      ...payload,
+      structuralHomesBySurface: {
+        ...payload.structuralHomesBySurface,
+        runtime: [{ ...payload.structuralHomesBySurface.runtime[0], structuralHome: 'not-a-home' }],
+      },
+    })),
+    ['tree/surface-structural-home-perspective'],
+  );
+
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'category-role-perspective.registry.json', (payload) => {
+      const [firstCategory, secondCategory] = Object.keys(payload.rolesByCategory);
+      const movedRole = payload.rolesByCategory[firstCategory][0];
+      return {
+        ...payload,
+        rolesByCategory: {
+          ...payload.rolesByCategory,
+          [secondCategory]: [...payload.rolesByCategory[secondCategory], { role: movedRole.role }],
+        },
+      };
+    }),
+    ['naming/category-role-perspective'],
+  );
+});
+
+test('Builtin drift includes registries the Baseline recorded but Builtin no longer has', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    updateJson(paths.manifestPath, (manifest) => {
+      manifest.basedOn.registries['naming/retired-registry'] = { ...manifest.basedOn.registries['naming/roles'] };
+      return manifest;
+    });
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.equal(assessment.builtinDriftSinceBaseline, true);
+    assert.ok(assessment.registries.every((entry) => entry.classification === 'unchanged'));
+  }, { copyBuiltin: true });
 });
 
 test('reordering keyed Tree vocabularies does not make Custom differ', () => {

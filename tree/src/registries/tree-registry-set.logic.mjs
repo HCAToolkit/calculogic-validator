@@ -20,7 +20,10 @@ import { normalizeStructuralHomesRegistryPayload } from './tree-structural-homes
 import { assertValidStructuralRoleTokensRegistry } from './tree-structural-role-tokens-registry.logic.mjs';
 import { assertValidSemanticHomePolicyRegistry } from './tree-semantic-home-policy-registry.logic.mjs';
 import { assertValidStructuralHomeSignalPolicyRegistry } from './tree-structural-home-signal-policy-registry.logic.mjs';
-import { assertValidSurfaceStructuralHomePerspectiveRegistry } from './tree-surface-structural-home-perspective-registry.logic.mjs';
+import {
+  assertSurfaceStructuralHomePerspectiveReferences,
+  assertValidSurfaceStructuralHomePerspectiveRegistry,
+} from './tree-surface-structural-home-perspective-registry.logic.mjs';
 import { TREE_REGISTRY_INVENTORY } from './tree-registry-inventory.knowledge.mjs';
 
 const readRegistryPayload = (registryRoot, fileName) =>
@@ -42,6 +45,16 @@ const TREE_REGISTRY_PAYLOAD_VALIDATORS = Object.freeze({
   'structural-homes': normalizeStructuralHomesRegistryPayload,
   'structural-role-tokens': assertValidStructuralRoleTokensRegistry,
   'surface-structural-home-perspective': assertValidSurfaceStructuralHomePerspectiveRegistry,
+});
+
+// Same-slice reference edges, checked against the resolved root once the referring registry's shape
+// passed. Each check reads its registries and throws on a failed edge (lifecycle spec §9.3).
+const TREE_REGISTRY_REFERENCE_CHECKS = Object.freeze({
+  'surface-structural-home-perspective': (registryRoot) =>
+    assertSurfaceStructuralHomePerspectiveReferences(
+      readRegistryPayload(registryRoot, 'surface-structural-home-perspective.registry.json'),
+      readRegistryPayload(registryRoot, 'structural-homes.registry.json'),
+    ),
 });
 
 // Every inventory registry has exactly one validator; a gap is a programming error, never a pass.
@@ -70,6 +83,7 @@ export const validateTreeRegistrySet = (registryRoot) => {
 
       const payload = readRegistryPayload(registryRoot, entry.fileName);
       TREE_REGISTRY_PAYLOAD_VALIDATORS[entry.name](payload);
+      TREE_REGISTRY_REFERENCE_CHECKS[entry.name]?.(registryRoot);
     } catch (error) {
       failures.push({ registryId: entry.registryId, detail: error.message });
     }
