@@ -73,9 +73,15 @@ const canonicalizeNode = (value, pathSegments, compiled) => {
       canonicalizeNode(element, [...pathSegments, ARRAY_ELEMENT_SEGMENT], compiled),
     );
     const setLikeEntry = compiled.setLike.find((entry) => pathMatches(entry.segments, pathSegments));
-    return setLikeEntry
-      ? [...elements].sort((left, right) => compareSetLikeItems(left, right, setLikeEntry.key))
-      : elements;
+    if (!setLikeEntry) {
+      return elements;
+    }
+
+    // Membership is the meaning of a set-like array (spec §5): identical members collapse to one.
+    const sorted = [...elements].sort((left, right) => compareSetLikeItems(left, right, setLikeEntry.key));
+    return sorted.filter(
+      (element, index) => index === 0 || stableStringify(element) !== stableStringify(sorted[index - 1]),
+    );
   }
 
   if (value !== null && typeof value === 'object') {

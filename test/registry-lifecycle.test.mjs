@@ -122,6 +122,23 @@ test('digests ignore key order and set-like order but not ordered-array order', 
   );
 });
 
+test('identical members of a set-like array collapse to one; distinct keyed records stay', () => {
+  const descriptor = { setLike: [{ path: 'values' }, { path: 'records', key: 'id' }] };
+
+  assert.equal(
+    digestRegistryPayload({ values: ['.js', '.ts', '.js'] }, descriptor),
+    digestRegistryPayload({ values: ['.ts', '.js'] }, descriptor),
+  );
+  assert.deepEqual(
+    canonicalizeRegistryPayload({ records: [{ id: 'a', v: 2 }, { id: 'a', v: 1 }, { id: 'a', v: 1 }] }, descriptor),
+    { records: [{ id: 'a', v: 1 }, { id: 'a', v: 2 }] },
+  );
+  assert.notEqual(
+    digestRegistryPayload({ ordered: ['.js', '.js'] }, descriptor),
+    digestRegistryPayload({ ordered: ['.js'] }, descriptor),
+  );
+});
+
 test('set digests do not depend on input key order', () => {
   assert.equal(
     digestRegistrySet({ 'tree/a': 'x', 'naming/b': 'y' }),
@@ -739,7 +756,38 @@ test('an inactive Custom set is reported but never resolved or blocking', () => 
     );
     assert.equal(resolution.registrySet.resolvedSetDigest, withoutCustom.registrySet.resolvedSetDigest);
     assert.deepEqual(resolution.registryProvenance, withoutCustom.registryProvenance);
-    assert.equal(resolution.customRegistryRoots.naming, path.join(paths.customRoot, 'naming'));
+    // An invalid Custom set does not resolve validly, so no Custom roots are exposed (spec §11.3).
+    assert.equal(resolution.customRegistryRoots, undefined);
+  });
+});
+
+test('Custom roots are exposed only when the Custom set resolves validly; baseline-mismatch does not block', () => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    assert.equal(resolveActiveRegistrySet({ targetRoot }).customRegistryRoots.naming, path.join(paths.customRoot, 'naming'));
+
+    updateJson(path.join(paths.baselineRoot, 'naming', 'roles.registry.json'), (payload) => ({ ...payload, tampered: true }));
+    const withMismatch = resolveActiveRegistrySet({ targetRoot });
+    assert.deepEqual(withMismatch.registrySet.customIssues.map((issue) => issue.condition), ['baseline-mismatch']);
+    assert.equal(withMismatch.customRegistryRoots.naming, path.join(paths.customRoot, 'naming'));
+  });
+});
+
+test('registryDigests.custom falls back to builtin when the Custom set is invalid outside the Naming payload', () => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    updateJson(customFile(paths, 'naming/reportable-extensions'), (payload) => ({
+      ...payload,
+      reportableExtensions: [...payload.reportableExtensions, '.py'],
+    }));
+    const validDigests = prepareNamingRuntimeInputs({ registryResolution: resolveActiveRegistrySet({ targetRoot }) })
+      .registry.registryDigests;
+    assert.notEqual(validDigests.custom, validDigests.builtin);
+
+    fs.writeFileSync(customFile(paths, 'naming/special-cases'), '{ broken');
+    const invalidDigests = prepareNamingRuntimeInputs({ registryResolution: resolveActiveRegistrySet({ targetRoot }) })
+      .registry.registryDigests;
+    assert.equal(invalidDigests.custom, invalidDigests.builtin);
   });
 });
 

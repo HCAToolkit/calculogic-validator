@@ -171,7 +171,7 @@ Runtime output for host-wiring includes registry metadata for observability:
 - `registrySet` and `registryProvenance` (Naming's registries) from the lifecycle resolution
 - derived, deprecated transitional fields, kept for one transition (lifecycle spec §11.3):
   - `registry.registryState` and `registry.registrySource` = the active set (`builtin | custom`)
-  - `registry.registryDigests` (`builtin`, `custom`, `resolved`), where `custom` digests the consumer's Custom Naming payload when it exists and loads validly, and otherwise equals `builtin`
+  - `registry.registryDigests` (`builtin`, `custom`, `resolved`), where `custom` digests the consumer's Custom Naming payload when the Custom set exists and resolves validly (its only `customIssues`, if any, are `baseline-mismatch`), and otherwise equals `builtin`
 
 Validator config contract includes a publishable JSON Schema for editor/tool integration:
 

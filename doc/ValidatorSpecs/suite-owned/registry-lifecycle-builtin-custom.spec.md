@@ -140,11 +140,11 @@ Comparison decides whether Custom *differs* from Builtin rather than being merel
 - **Plain JSON only:** objects, arrays, strings, numbers, booleans and `null`.
 - **Object keys** are sorted lexicographically at every depth (`stableStringify`, `src/core/validator-report-meta.logic.mjs`).
 - **Ordered arrays** (meaningful sequences, such as priority lists or rule pipelines) keep their order.
-- **Set-like arrays** (membership is the meaning) are sorted by their declared entry key, or by value for scalar arrays, with the stable-stringified item as the tie-breaker.
+- **Set-like arrays** (membership is the meaning) are sorted by their declared entry key, or by value for scalar arrays, with the stable-stringified item as the tie-breaker. Identical members collapse to one, since a repeated member does not change membership; keyed records that differ in any field stay distinct.
 - **Empty optional values** that a registry declares as omittable (for example an empty `notes` string) are normalized out.
 - Arrays are **ordered by default**. A registry's descriptor (§9.1) declares which array paths are set-like, their entry keys and which optional fields are omittable.
 
-Digests are computed over canonical forms only. File formatting, key order and the order of set-like arrays never make Custom "differ".
+Digests are computed over canonical forms only. File formatting, key order, and the order or repetition of set-like array members never make Custom "differ".
 
 ## 6) Resolution: whole-set loading
 
@@ -428,7 +428,7 @@ After slice 2:
 - **Activation gate closed:** `use` is not offered, and a state file selecting `custom` is a lifecycle error that stops every validation run. The active set is always Builtin.
 - **Naming and suite core** read every registry from their resolved roots. An existing inactive Custom set is assessed and reported in `registrySet.customIssues`, never resolved.
 - **Tree** still loads its own registries from Builtin and emits no `registryProvenance`; it receives resolved roots only for suite scope profiles. Tree's registry-set validation entry point covers Custom shape checks for `status` and `customIssues`.
-- **Reports** carry `registrySet` (runner envelope and Naming report) and `registryProvenance` (Naming report and runner Naming entry `meta`; suite-core registries on the runner envelope). Naming's transitional fields are derived (§11.3); `registryDigests.custom` equals `builtin` unless a Custom set exists and its Naming payload loads.
+- **Reports** carry `registrySet` (runner envelope and Naming report) and `registryProvenance` (Naming report and runner Naming entry `meta`; suite-core registries on the runner envelope). Naming's transitional fields are derived (§11.3); `registryDigests.custom` equals `builtin` unless a Custom set exists and resolves validly, meaning its only `customIssues`, if any, are `baseline-mismatch`.
 - **Retired:** Naming's config record surfaces (`naming.*` in config), the `overlay-capabilities` registry, and the in-package `_custom/` set and `registry-state.json`, which are now test fixtures under `naming/test/fixtures/registry-lifecycle/legacy-in-package-custom-set/`.
 - **Before slice 2:** Naming resolved from Builtin, a partial in-package `_custom/` set selected by in-package `registry-state.json`, or the `--config` overlay. It emitted `registrySource` values `builtin | custom | config`. Tree and suite core loaded Builtin only and emitted no provenance. Five Builtin registries had no `version` field.
 

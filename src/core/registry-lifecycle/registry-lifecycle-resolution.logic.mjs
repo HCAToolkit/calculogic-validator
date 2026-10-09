@@ -21,6 +21,7 @@ import {
   ACTIVE_SET_BUILTIN,
   ACTIVE_SET_CUSTOM,
   CUSTOM_ACTIVATION_AVAILABLE,
+  CUSTOM_ISSUE_CONDITIONS,
 } from './registry-lifecycle.contracts.mjs';
 
 // [5.2.5] cfg-registryLifecycle · Primitive · "Builtin registry roots"
@@ -57,12 +58,19 @@ const buildRegistryProvenance = ({ activeSet, resolvedDigests, slices }) =>
     ),
   );
 
+// [5.2.5] cfg-registryLifecycle · Primitive · "customResolvesValidly"
+// A Custom set resolves validly when none of the §7.1 blocking conditions holds: its only reported
+// issues, if any, are non-blocking `baseline-mismatch` (spec §7.1, §11.1, §11.3).
+const customResolvesValidly = (assessment) =>
+  assessment.customExists &&
+  assessment.customIssues.every((issue) => issue.condition === CUSTOM_ISSUE_CONDITIONS.baselineMismatch);
+
 // [5.2.5] cfg-registryLifecycle · Workflow · "resolveActiveRegistrySet"
 // Returns:
 // - `activeSet`;
 // - `registryRoots`: one resolved registry root per slice id;
-// - `customRegistryRoots`: the consumer Custom roots when a Custom set exists (used only for
-//   transitional fields such as Naming's `registryDigests.custom`);
+// - `customRegistryRoots`: the consumer Custom roots when a Custom set exists and resolves validly
+//   (used only for transitional fields such as Naming's `registryDigests.custom`, spec §11.3);
 // - `registrySet`: the set-level report block (spec §11.1);
 // - `registryProvenance`: per-slice `{ [registryId]: { source, digest } }` (spec §11.2).
 export const resolveActiveRegistrySet = ({
@@ -85,7 +93,7 @@ export const resolveActiveRegistrySet = ({
 
   const assessment = assessCustomRegistrySet({ paths, slices });
   const resolvedDigests = assessment.builtinDigests;
-  const customRegistryRoots = assessment.customExists
+  const customRegistryRoots = customResolvesValidly(assessment)
     ? Object.freeze(
         Object.fromEntries(slices.map((slice) => [slice.sliceId, path.join(paths.customRoot, slice.sliceId)])),
       )
