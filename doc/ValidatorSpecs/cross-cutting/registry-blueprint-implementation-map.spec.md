@@ -62,6 +62,8 @@ Current behavior:
 - normalizes grouped `rolesByCategory` storage into flat runtime role entries
 - returns deterministic registry source and digest metadata
 
+Planned change (Issue #41, accepted, not yet implemented): the suite registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`) replaces the in-package custom state and the config overlay with complete Builtin/Custom registry sets selected per run. Naming's registry-state owner then reads registries from the resolved set root.
+
 ### Tree advisor
 
 Current behavior:

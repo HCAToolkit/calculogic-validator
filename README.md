@@ -276,6 +276,8 @@ Current intentional pattern:
 - Tree slice policy payloads remain under direct local builtin-loader ownership in tree-owned registry logic modules.
 - Suite-core scope/runtime composition ownership remains local under `src/core/**` instead of acting as a universal registry-state host.
 
+Planned (Issue #41, accepted, not yet implemented): a suite-level Builtin/Custom registry lifecycle selects whole registry sets per run. The consumer owns a Custom set under `.calculogic/registries/`, while slices keep their loaders and meaning. See [`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`](./doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md).
+
 ## 3) Quickstart (repo root)
 
 ```bash

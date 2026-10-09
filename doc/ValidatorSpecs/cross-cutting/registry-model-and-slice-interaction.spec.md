@@ -109,6 +109,14 @@ Rationale:
 
 - This preserves clear ownership boundaries and extraction paths, avoids mega-loader coupling, and keeps registry policy ownership aligned to the slice that consumes it.
 
+Registry lifecycle (accepted in #41, not yet implemented): `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` defines the suite-level Builtin/Custom lifecycle. Suite core will own **set selection**:
+- complete Builtin and Custom sets;
+- the active-set switch;
+- Baseline, digests and provenance;
+- whole-set resolution into one resolved registry root per slice.
+
+Suite core also performs comparison canonicalization, for digests and equality only, driven by slice-declared descriptors. Slices keep their registry inventories and those descriptors, shape validation, runtime-form canonicalization, reference edges and interpretation. That is set selection, not a universal policy-state layer, so the ownership rule above is unchanged. The multi-source composition Naming performs today (in-package custom set and config overlay) is replaced by reading the resolved set.
+
 ## Slice-local vs suite-level ownership
 
 ### Slice-local ownership (default)

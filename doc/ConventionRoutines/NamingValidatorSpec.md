@@ -219,6 +219,8 @@ When provided, config only affects naming report inputs for:
 
 In current behavior, these config effects are limited to classification/runtime registries only for report generation.
 
+Planned change (Issue #41, accepted, not yet implemented): the suite registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`) retires these config overlay surfaces and `overlay-capabilities.registry.json`. Naming registry customization moves to the consumer's complete Custom registry set, selected per run. Naming's `registryState`, `registrySource` and `registryDigests` become derived transitional fields.
+
 Config does not change detection mode/scope semantics and does not introduce enforcement/fix execution. Current exit policy remains policy-driven as documented in this spec.
 
 ## CLI Usage (V0.1.8)

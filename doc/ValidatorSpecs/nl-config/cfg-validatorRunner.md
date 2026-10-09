@@ -122,3 +122,4 @@ Deferred to future slices:
 - parallel validator execution
 - validator dependency graph orchestration
 - report persistence and baselining
+- registry lifecycle resolution (#41, planned): before slice execution, resolve the active Builtin/Custom registry set once per run, stop on a blocking lifecycle condition, pass resolved registry roots to slices, and add `registrySet` to the envelope. See `doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md`.

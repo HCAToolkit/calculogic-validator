@@ -70,6 +70,11 @@ Current naming CLI output includes:
 - `registrySource` (`"builtin" | "custom" | "config"`)
 - `registryDigests` (object `{ builtin, custom, resolved }`)
 
+Planned (Issue #41, accepted, not yet implemented): the suite registry lifecycle adds set-level `registrySet` (runner envelope and direct slice reports) and per-slice `registryProvenance`.
+- `registryState`, `registrySource` and `registryDigests` stay for one transition as fields derived from them.
+- `registrySource` loses its `config` value.
+- Contract: `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` §11.
+
 Slice-specific note (current naming emitted behavior):
 
 - Naming now emits bounded semantic-family-derived per-file details inside `finding.details` when the semantic-name shape supports deterministic derivation. Current derived fields include `semanticTokens`, `semanticFamily`, `familyRoot`, `familySubgroup`, optional `ambiguityFlags`, optional `splitFamilyFlags`, and run-scoped `relatedSemanticNames` when observed.
