@@ -81,9 +81,9 @@ The role and category vocabulary is defined by the builtin registries, not by th
 
 - `naming/src/registries/_builtin/roles.registry.json`: the canonical flat role list with each role's `status` (for example the active roles `host`, `logic`, `adapter`, and the deprecated historical role `view`)
 - `naming/src/registries/_builtin/category-role-perspective.registry.json`: which roles belong to which category
-- `naming/src/registries/_builtin/categories.registry.json`: the categories allowed when builtin and custom registry roles are composed (for example `concern-core`, `documentation`, `surface-system`, `integration-adapter`)
+- `naming/src/registries/_builtin/categories.registry.json`: the categories roles are validated against (for example `concern-core`, `documentation`, `surface-system`, `integration-adapter`)
 
-Config-added roles (`naming.roles.add`) are narrower: their `category` must be one of the four values accepted by the config contract (§2.6), not any registry category.
+A consumer's Custom registry set carries its own copies of these registries; roles are then validated against the Custom categories registry (#41).
 
 How these files are composed at runtime is described in §2.6.
 
@@ -140,51 +140,38 @@ Output (stdout, exit `0`):
 
 Health-check behavior is fail-fast semantics: any contract violation returns non-zero exit status.
 
-### 2.6 Validator config contract (V0.1)
+### 2.6 Validator config contract and registry inputs (V0.1)
 
-Naming validator supports optional runtime config input with deterministic JSON contract:
+Naming accepts optional runtime config input with a deterministic JSON contract (`doc/ValidatorSpecs/validator-config.spec.md`):
 
 - `version` must equal `"0.1"`
-- optional `strictExit` boolean (enables strict exit semantics; see `doc/ValidatorSpecs/validator-config.spec.md`)
-- optional `naming.reportableExtensions.add` array
-- each extension entry must be a string starting with `.`
-- optional `naming.roles.add` array of role metadata objects:
-  - required `role` string
-  - required `category`, one of `concern-core`, `architecture-support`, `documentation`, `deprecated`. This is the config contract's own allowlist (`VALID_ROLE_CATEGORIES` in `src/core/config/validator-config.logic.mjs`, the matching enum in `src/validator-config.schema.json`, and `doc/ValidatorSpecs/validator-config.spec.md`). It is narrower than `categories.registry.json`, so a registry category such as `surface-system` is rejected in config before registry composition.
-  - required `status` from `active | deprecated`
-  - optional `notes` string
-- optional `naming.caseRules.semanticName.style` string
-  - when provided, must be `kebab-case` for current runtime support
+- optional `strictExit` boolean (enables strict exit semantics)
 
-Normalization and merge semantics for `naming.roles.add` are deterministic and additive-only:
+Config carries no registry records (#41 slice 2). The retired `naming.reportableExtensions.add`, `naming.roles.add` (with its hard-coded category enum) and `naming.caseRules` surfaces are rejected: a config with a `naming` key fails validation with a notice that points to the Custom registry set. The `overlay-capabilities.registry.json` registry that bounded those surfaces is removed.
 
-- role values are trimmed before validation and storage
-- duplicate role entries in config are dropped by first occurrence (input-order stable)
-- entries whose role already exists in built-in role registry are treated as no-op at runtime
+Runtime behavior resolves Naming registries from one resolved registry root (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`):
 
-Runtime behavior in this slice resolves naming registries via registry-state logic:
-
-- wiring resolves inputs through `resolveNamingRegistryInputs({ config })`
-- resolver computes one effective built-in registry root per call (defaulting to `naming/src/registries/_builtin`)
-- built-in roles are composed from two files in that effective root (`loadBuiltinRolesPayload` in `naming/src/registries/registry-state.logic.mjs`):
+- suite core resolves the active registry set once per run (`resolveActiveRegistrySet`, `src/core/registry-lifecycle/`) and passes `registryResolution` to Naming; direct Naming callers without one resolve it from the repository root
+- wiring (`prepareNamingRuntimeInputs({ registryResolution })`) reads every Naming registry from `registryResolution.registryRoots.naming`; until Custom activation ships (#41 slice 3) that root is always the Builtin root `naming/src/registries/_builtin`
+- the registry-state owner (`resolveNamingRegistryInputs({ registryRoot, activeSet, customRegistryRoot })` in `naming/src/registries/registry-state.logic.mjs`) loads the payload from that root; there is no per-file fallback to Builtin and no source merging:
   - category membership (`rolesByCategory`) comes from `category-role-perspective.registry.json` when present; only when it is absent is `rolesByCategory` read from `roles.registry.json` (legacy grouped shape)
   - each role's status comes from the flat canonical role list in `roles.registry.json` (`roles[]`: `{ role, status, definition }`), falling back to the membership entry's own `status`, then to a legacy grouped `rolesByCategory` status
-  - the composed entries are flattened into `{ role, category, status, notes? }` and validated against the allowed categories
-- built-in reportable extensions are loaded from that effective root `reportable-extensions.registry.json` (`reportableExtensions`)
-- built-in summary-bucket policy is loaded from that effective root `summary-buckets.registry.json` (`classificationBuckets`, `secondaryBucketFamilies`) and returned by the resolver as `summaryBuckets`
-- built-in allowed categories for role validation are loaded from that same effective root `categories.registry.json`
-- when `activeRegistry` is `custom`, custom payload uses `_custom` roles/extensions plus builtin-backed `reportableRootFiles` and `summaryBuckets`
+  - the composed entries are flattened into `{ role, category, status, notes? }` and validated against `categories.registry.json` from the same root
+  - reportable extensions, reportable root files, summary buckets, missing-role patterns, finding policy and case rules come from the same root
+- walk exclusions, special cases and folder-composition patterns are loaded from the same root by their registry modules
+- Naming's registry-set validation entry point (`validateNamingRegistrySet(registryRoot)`) runs the same shape and reference checks per registry and returns `{ registryId, detail }` failures; suite core calls it on Custom roots
 - resolver returns normalized arrays for `reportableExtensions` and `roles`, plus `reportableRootFiles` and `summaryBuckets`
 - wiring converts arrays into runtime structures expected by naming runtime:
   - `reportableExtensions` → `Set`
   - `roles` → `{ roleMetadata: Map, activeRoles: Set, roleSuffixes: string[] }` where role suffixes are length-desc sorted
 - duplicate roles remain first-wins during map conversion
 
-Runtime output for host-wiring now includes additive registry metadata for observability:
+Runtime output for host-wiring includes registry metadata for observability:
 
-- `registry.registryState` from registry-state selection (`builtin | custom`)
-- `registry.registrySource` to indicate effective source (`builtin | custom | config`)
-- `registry.registryDigests` with deterministic digest entries (`builtin`, `custom`, `resolved`)
+- `registrySet` and `registryProvenance` (Naming's registries) from the lifecycle resolution
+- derived, deprecated transitional fields, kept for one transition (lifecycle spec §11.3):
+  - `registry.registryState` and `registry.registrySource` = the active set (`builtin | custom`)
+  - `registry.registryDigests` (`builtin`, `custom`, `resolved`), where `custom` digests the consumer's Custom Naming payload when it exists and loads validly, and otherwise equals `builtin`
 
 Validator config contract includes a publishable JSON Schema for editor/tool integration:
 
@@ -192,15 +179,7 @@ Validator config contract includes a publishable JSON Schema for editor/tool int
 - canonical authority: this top-level schema file is the single maintained source (no independently maintained duplicate under `src/core/config`)
 - schema `properties.version.const` must match runtime `VALIDATOR_CONFIG_VERSION`
 
-Runtime and schema strictness are intentionally aligned. Unknown keys are rejected at the following levels:
-
-- root object (except optional `$schema` editor-hint key, ignored by runtime normalization)
-- `naming`
-- `naming.reportableExtensions`
-- `naming.roles`
-- `naming.caseRules`
-- `naming.caseRules.semanticName`
-- each `naming.roles.add[]` entry object
+Runtime and schema strictness are intentionally aligned: unknown root keys are rejected (except the optional `$schema` editor-hint key, ignored by runtime normalization).
 
 ### 2.7 Report metadata contract (V0.1.12)
 

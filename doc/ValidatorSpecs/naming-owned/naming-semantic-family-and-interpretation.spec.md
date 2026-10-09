@@ -25,9 +25,7 @@ Classification: Normative
 
 Current naming runtime already normalizes registry and policy inputs through deterministic resolution in `naming/src/registries/registry-state.logic.mjs`, including:
 
-- registry-state selection (`builtin` / `custom`),
-- builtin/custom payload loading and canonicalization,
-- config overlay handling for bounded capabilities,
+- payload loading and canonicalization from the one resolved Naming registry root chosen by the suite registry lifecycle (#41; Builtin until Custom activation ships),
 - resolved runtime inputs for roles, reportable extensions/root files,
 - resolved finding-policy and summary-bucket surfaces,
 - resolved case-rules surface (`semanticName.style`) as prepared runtime policy input.

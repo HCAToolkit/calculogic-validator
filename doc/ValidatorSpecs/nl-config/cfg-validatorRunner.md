@@ -29,6 +29,7 @@ The runner reads validator definitions from a deterministic registry in `src/cor
 - `scope` (optional scope string forwarded to validators that support scope selection)
 - `config` (optional loaded validator config object from JSON contract V0.1)
 - `targets` (optional repeatable path filters forwarded to validators that implement target-aware filtering)
+- `registryResolution` (optional result of `resolveActiveRegistrySet`; when absent the runner resolves it once from the repository root, `doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md`)
 
 ### 2.3 Validator set
 
@@ -54,6 +55,8 @@ Runner accepts optional host-provided report metadata:
 - optional `validatorId` (canonical alias, stable runner identity)
 - optional `validatorVersion` (canonical alias of tool version when provided)
 - optional `configDigest`
+- `registrySet` (set-level registry lifecycle facts for the run, #41)
+- `registryProvenance` (suite-core registries: `suite/exit-policy`, `suite/scope-profiles`)
 - optional `sourceSnapshot` (`source = "fs"` plus optional git metadata/diagnostics)
 - `startedAt`, `endedAt`, `durationMs`
 - `validators` (deterministic execution order)
@@ -104,9 +107,11 @@ Each validator entry includes:
   - Primary path: if `npm_config_argv` is parseable, detect supported validator flags supplied to npm while absent in forwarded argv.
   - Fallback path (npm v7+ / Codespaces): when `npm_config_argv` is unavailable, use deterministic `npm_config_<flag>` heuristics gated by lifecycle event and only when forwarded argv lacks supported flags.
   - Fallback suspicious env detection uses stable ordering and low-false-positive rules: known scopes (`repo|app|docs|validator|system`), non-empty target/config, truthy strict (`true|1|yes`), and validator list indicators (`naming` or comma-list).
+- Resolves the active registry set once per run (`resolveActiveRegistrySet`, `src/core/registry-lifecycle/`) before scope resolution. A lifecycle error (malformed state file, or a state selecting `custom` while Custom activation is unavailable) writes the notice to stderr, emits no report and exits `1`.
+- Resolves scope profiles and exit policy from the resolved suite registry root, and passes the resolution to every slice.
 - Executes runner with selected options.
 - Writes JSON report to stdout.
-- Resolves ordered exit-policy mappings from builtin validator registry payload (`src/registries/_builtin/exit-policy.registry.json`) via runtime loader while keeping predicate evaluation deterministic in code.
+- Resolves ordered exit-policy mappings from the resolved suite registry root (`exit-policy.registry.json`; Builtin `src/registries/_builtin/` until Custom activation ships) via runtime loader while keeping predicate evaluation deterministic in code.
 - Exits `2` when any aggregated finding has `severity="warn"`.
 - Exits `1` only in strict mode when no warnings exist and any aggregated finding has `classification="legacy-exception"`.
 - Exits `0` when neither condition applies.
@@ -122,4 +127,3 @@ Deferred to future slices:
 - parallel validator execution
 - validator dependency graph orchestration
 - report persistence and baselining
-- registry lifecycle resolution (#41, planned): before slice execution, resolve the active Builtin/Custom registry set once per run, stop on a blocking lifecycle condition, pass resolved registry roots to slices, and add `registrySet` to the envelope. See `doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md`.

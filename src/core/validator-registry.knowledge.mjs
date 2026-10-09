@@ -1,4 +1,4 @@
-import { runNamingValidator, summarizeFindings } from '../../naming/src/naming-validator.host.mjs';
+import { runNamingValidator } from '../../naming/src/naming-validator.host.mjs';
 import {
   runTreeStructureAdvisor,
   summarizeFindings as summarizeTreeStructureAdvisorFindings,
@@ -9,7 +9,7 @@ const runNamingValidatorHook = (repositoryRoot, options = {}) => {
   const targets = options.targets;
   const registryResolution = options.registryResolution;
   const namingResult = runNamingValidator(repositoryRoot, { scope, targets, registryResolution });
-  const summary = summarizeFindings(namingResult.findings);
+  const summary = namingResult.summary;
   const meta = {};
 
   if (namingResult.filters?.isFiltered) {

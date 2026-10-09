@@ -2,7 +2,7 @@
 
 - **Classification:** Normative target contract for the suite-level registry lifecycle. Sections marked *Current implementation reality* or *Historical* are Informative.
 - **Ownership:** suite-owned lifecycle mechanics; slice-owned registry meaning (§9).
-- **Status:** accepted contract, not yet implemented. Runtime behavior on `main` is unchanged until the implementation slices in §13 land. Do not describe anything in §2–§12 as current runtime behavior before its slice lands.
+- **Status:** accepted contract, partially implemented. Slice 2 (§13) has landed: suite lifecycle mechanics, `init-custom` and `status`, Naming and suite-core adoption, report provenance and the config retirement. Slice 3 (Tree adoption, `use` and active-Custom resolution) has not; until it lands the activation gate (§6) stays closed. §14 records current reality.
 - **Report-only note:** the lifecycle selects registry inputs and discloses them in report metadata. It adds no enforcement mode and no fix execution.
 - **Issue lineage:** Refs #41; parent Refs #39. Decision record: #41 comments "Decision record (before the spec PR)", "Decision record: section 9 resolved" and "Decision record: activation, and the earlier customization draft".
 
@@ -422,16 +422,15 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
 
 ## 14) Current implementation reality (Informative)
 
-Until slice 2 lands:
+After slice 2:
 
-- **Naming** resolves from three non-stacking sources (`naming/src/registries/registry-state.logic.mjs`):
-  - Builtin;
-  - a partial in-package `_custom/` set (`roles.registry.custom.json`, `reportable-extensions.registry.custom.json`, optional `case-rules.registry.custom.json`) selected by in-package `registry-state.json`;
-  - the `--config` overlay. A supplied config is applied on top of Builtin, and the custom state is then ignored.
-- **Custom roles** are validated against Builtin categories.
-- **Naming emits** `registryState`, `registrySource` (`builtin | custom | config`) and `registryDigests`.
-- **Tree and suite core** load Builtin only and emit no registry provenance.
-- **Five Builtin registries have no `version` field:** `naming/finding-policy`, `naming/missing-role-patterns`, `naming/summary-buckets`, `tree/shim-detection-signals` and `tree/validator-owned-signals`.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, canonical digests, state and manifest reading, Custom assessment and status classification, one resolution per run, `init-custom` and `status` (bin `calculogic-validator-registry`; scripts `registry:init-custom`, `registry:status`).
+- **Activation gate closed:** `use` is not offered, and a state file selecting `custom` is a lifecycle error that stops every validation run. The active set is always Builtin.
+- **Naming and suite core** read every registry from their resolved roots. An existing inactive Custom set is assessed and reported in `registrySet.customIssues`, never resolved.
+- **Tree** still loads its own registries from Builtin and emits no `registryProvenance`; it receives resolved roots only for suite scope profiles. Tree's registry-set validation entry point covers Custom shape checks for `status` and `customIssues`.
+- **Reports** carry `registrySet` (runner envelope and Naming report) and `registryProvenance` (Naming report and runner Naming entry `meta`; suite-core registries on the runner envelope). Naming's transitional fields are derived (§11.3); `registryDigests.custom` equals `builtin` unless a Custom set exists and its Naming payload loads.
+- **Retired:** Naming's config record surfaces (`naming.*` in config), the `overlay-capabilities` registry, and the in-package `_custom/` set and `registry-state.json`, which are now test fixtures under `naming/test/fixtures/registry-lifecycle/legacy-in-package-custom-set/`.
+- **Before slice 2:** Naming resolved from Builtin, a partial in-package `_custom/` set selected by in-package `registry-state.json`, or the `--config` overlay. It emitted `registrySource` values `builtin | custom | config`. Tree and suite core loaded Builtin only and emitted no provenance. Five Builtin registries had no `version` field.
 
 ## 15) Non-goals
 

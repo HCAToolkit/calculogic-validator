@@ -160,6 +160,8 @@ export const runNamingValidator = (
 
   return {
     ...result,
+    // Summarized with the resolved summary-bucket registry, so callers never fall back to Builtin.
+    summary: summarizeFindingsRuntime(result.findings, preparedInputs.summaryBucketsRuntime),
     registry: preparedInputs.registry,
     ...(preparedInputs.registrySet ? { registrySet: preparedInputs.registrySet } : {}),
     ...(preparedInputs.registryProvenance ? { registryProvenance: preparedInputs.registryProvenance } : {}),

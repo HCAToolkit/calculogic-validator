@@ -3,6 +3,7 @@ import { summarizeFindings } from '../naming-validator.host.mjs';
 
 export const buildNamingValidatorReport = ({
   findings,
+  summary: resolvedSummary,
   totalFilesScanned,
   scope,
   filters,
@@ -17,7 +18,7 @@ export const buildNamingValidatorReport = ({
   endedAtDate,
   registryEntry,
 }) => {
-  const summary = summarizeFindings(findings);
+  const summary = resolvedSummary ?? summarizeFindings(findings);
 
   return {
     ...buildDirectValidatorReportEnvelope({

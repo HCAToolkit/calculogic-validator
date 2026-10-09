@@ -83,10 +83,10 @@ Default runtime registry roles in the naming slice:
 - `audit` (`documentation`, `active`)
 - `healthcheck` (`documentation`, `active`)
 
-Registry vocabulary vs config additions:
+Registry vocabulary vs Custom registries:
 
-- The default role registry is the runtime baseline used by naming validation.
-- Config can add roles (add-only).
+- The Builtin role registry is the runtime baseline used by naming validation.
+- A consumer customizes roles by editing its complete Custom registry set, not through config (#41). Custom roles are validated against the Custom categories registry.
 - `FileNamingMasterList-V1_1.md` remains the source-of-truth taxonomy, while the naming slice currently uses a bounded category vocabulary for deterministic checks.
 - If runtime-supported category values expand beyond the bounded set listed here, update this section and the master-list compatibility note accordingly.
 
@@ -209,17 +209,16 @@ Config reference: [`validator-config.spec.md`](../ValidatorSpecs/validator-confi
 
 Current naming behavior remains report-first in implementation. Passing `--config=<path>` does **not** enable fix execution or broader enforcement modes, but config may enable strict-exit semantics via `strictExit`.
 
-When provided, config only affects naming report inputs for:
+Config carries no registry records (#41 slice 2). Its only effects on Naming are strict exit semantics (`strictExit`) and report metadata (`configDigest`). The retired `naming.reportableExtensions.add`, `naming.roles.add` and `naming.caseRules` surfaces, and the `overlay-capabilities.registry.json` registry that bounded them, are gone; a config that still contains `naming` is rejected.
 
-- reportable extension set (defaults ∪ additions)
-- naming role registry runtime (defaults + add-only role additions)
-- missing-role pattern policy runtime (builtin normalized schema for legacy exception detection)
-- finding-policy runtime (builtin outcome→finding metadata mapping for stable decision outcomes)
-- overlay capability contract runtime (`overlay-capabilities.registry.json`) that bounds supported config overlay surfaces to `naming.reportableExtensions.add`, `naming.roles.add`, and bounded whole-surface `naming.caseRules` set/replace semantics
+Naming registry inputs come from the run's resolved registry set (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`): one Naming registry root, Builtin or the consumer's complete Custom set, chosen once per run by the suite registry lifecycle. Naming reads every registry from that root:
 
-In current behavior, these config effects are limited to classification/runtime registries only for report generation.
+- reportable extensions and reportable root files
+- roles, categories and the category-role perspective
+- case rules, missing-role patterns, finding policy and summary buckets
+- walk exclusions, special cases and folder-composition patterns
 
-Planned change (Issue #41, accepted, not yet implemented): the suite registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`) retires these config overlay surfaces and `overlay-capabilities.registry.json`. Naming registry customization moves to the consumer's complete Custom registry set, selected per run. Naming's `registryState`, `registrySource` and `registryDigests` become derived transitional fields.
+Custom activation is not available yet (#41 slice 3); until then the resolved Naming root is always Builtin.
 
 Config does not change detection mode/scope semantics and does not introduce enforcement/fix execution. Current exit policy remains policy-driven as documented in this spec.
 
@@ -341,9 +340,12 @@ Report object includes (canonical current contract for naming slice output):
 When `--config=<path>` is supplied, report metadata may include:
 
 - `configDigest`
-- `registryState`
-- `registrySource`
-- `registryDigests`
+
+Registry provenance is always emitted (lifecycle spec §11):
+
+- `registrySet`: set-level lifecycle facts for the run (`activeSet`, `customExists`, `customDiffers`, optional `basedOn` / `builtinDriftSinceBaseline`, `orphanRegistries`, `customIssues`, `resolvedSetDigest`)
+- `registryProvenance`: `{ [registryId]: { source, digest } }` for every Naming registry
+- transitional, deprecated for one transition: `registryState` and `registrySource` (both equal `registrySet.activeSet`) and `registryDigests` (`builtin`, `custom`, `resolved`; `custom` equals `builtin` when no valid Custom set exists)
 
 ### Semantic-family report surfaces (current emitted behavior)
 

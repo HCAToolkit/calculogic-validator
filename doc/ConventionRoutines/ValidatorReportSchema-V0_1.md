@@ -66,14 +66,14 @@ Current naming CLI output includes:
 
 - `validatorVersion` (string; currently emitted alongside `toolVersion`)
 - `configDigest` (string; emitted when config is supplied)
-- `registryState` (`"builtin" | "custom"`)
-- `registrySource` (`"builtin" | "custom" | "config"`)
-- `registryDigests` (object `{ builtin, custom, resolved }`)
+- `registrySet` (object; set-level registry lifecycle facts for the run: `activeSet`, `customExists`, `customDiffers`, optional `basedOn` and `builtinDriftSinceBaseline`, `orphanRegistries`, `customIssues`, `resolvedSetDigest`)
+- `registryProvenance` (object; `{ [registryId]: { source, digest } }` for every Naming registry)
+- `registryState` (`"builtin" | "custom"`; derived, deprecated: equals `registrySet.activeSet`)
+- `registrySource` (`"builtin" | "custom"`; derived, deprecated: equals `registrySet.activeSet`; the `config` value is retired)
+- `registryDigests` (object `{ builtin, custom, resolved }`; derived, deprecated; `custom` equals `builtin` when no valid Custom set exists)
 
-Planned (Issue #41, accepted, not yet implemented): the suite registry lifecycle adds set-level `registrySet` (runner envelope and direct slice reports) and per-slice `registryProvenance`.
-- `registryState`, `registrySource` and `registryDigests` stay for one transition as fields derived from them.
-- `registrySource` loses its `config` value.
-- Contract: `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` §11.
+`registrySet` and `registryProvenance` are emitted from #41 slice 2. `registryState`, `registrySource` and `registryDigests` stay for one transition as fields derived from them.
+Contract: `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` §11.
 
 Slice-specific note (current naming emitted behavior):
 
@@ -104,6 +104,10 @@ Current runner output includes:
 - `toolVersion` (string)
 - `validatorVersion` (string; transitional/current compatibility field)
 - `configDigest` (string)
+- `registrySet` (object; same shape as the slice envelope field, §4)
+- `registryProvenance` (object; `{ [registryId]: { source, digest } }` for the suite-core registries, `suite/exit-policy` and `suite/scope-profiles`)
+
+`registrySet` and `registryProvenance` are emitted from #41 slice 2. Contract: `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` §11.
 
 ## 6) Canonical current contract: Runner `validators[]` Entry
 
@@ -122,6 +126,7 @@ Entry-level optional fields:
 - `meta` (object)
   - `meta.filters` (object; present when target filtering is active)
   - `meta.registry` (object; present when slice exposes registry metadata)
+  - `meta.registryProvenance` (object; the slice's own registries, `{ [registryId]: { source, digest } }`; Naming from #41 slice 2, Tree from #41 slice 3)
 
 Runner currently passes through deterministic slice summary fields in addition to `counts` (for example naming `codeCounts`, `familyRootCounts`, `familySubgroupCounts`, `semanticFamilyCounts`, and tree `codeCounts`).
 
