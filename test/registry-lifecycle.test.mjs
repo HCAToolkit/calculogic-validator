@@ -581,6 +581,29 @@ test('membership-only matcher, policy and relationship records compare as sets',
   }, { copyBuiltin: true });
 });
 
+test('omittable empty role notes are valid and equal to no note', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    updateJson(customFile(paths, 'naming/roles'), (payload) => ({
+      ...payload,
+      roles: payload.roles.map((entry, index) => (index === 0 ? { ...entry, notes: '' } : index === 1 ? { ...entry, notes: null } : entry)),
+    }));
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.deepEqual(assessment.customIssues, []);
+    assert.equal(classificationOf(assessment, 'naming/roles'), 'unchanged');
+    assert.equal(assessment.customDiffers, false);
+  }, { copyBuiltin: true });
+
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'roles.registry.json', (payload) => ({
+      ...payload,
+      roles: payload.roles.map((entry, index) => (index === 0 ? { ...entry, notes: 42 } : entry)),
+    })),
+    ['naming/roles'],
+  );
+});
+
 test('status reports a malformed Custom roles registry as invalid, not custom-modified', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });

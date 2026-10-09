@@ -468,11 +468,14 @@ const validateCanonicalRolesRegistry = ({ registryRoot }) => {
       throw new Error(`Invalid roles registry: roles[${index}].status must be "active" or "deprecated".`);
     }
 
-    for (const optionalField of ['definition', 'notes']) {
-      const value = roleEntry[optionalField];
-      if (value !== undefined && (typeof value !== 'string' || value.trim().length === 0)) {
-        throw new Error(`Invalid roles registry: roles[${index}].${optionalField} must be a non-empty string when provided.`);
-      }
+    const { definition, notes } = roleEntry;
+    if (definition !== undefined && (typeof definition !== 'string' || definition.trim().length === 0)) {
+      throw new Error(`Invalid roles registry: roles[${index}].definition must be a non-empty string when provided.`);
+    }
+
+    // `notes` is declared omittable (inventory omitEmpty): an empty string or null equals no note.
+    if (notes !== undefined && notes !== null && typeof notes !== 'string') {
+      throw new Error(`Invalid roles registry: roles[${index}].notes must be a string when provided.`);
     }
 
     canonicalRoles.add(role);
