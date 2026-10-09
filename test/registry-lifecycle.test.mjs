@@ -267,6 +267,57 @@ test('suite validation rejects scope profiles outside the scope contract', () =>
   );
 });
 
+test('suite validation rejects scope roots that escape the target repository', () => {
+  for (const escapingRoot of ['..', '../neighbor', 'src/../..', '/etc', 'C:/Windows', 'src\\lib', 'src//lib', './src']) {
+    assert.deepEqual(
+      invalidIdsAfter('suite', 'scope-profiles.registry.json', (payload) => ({
+        ...payload,
+        profiles: { ...payload.profiles, app: { ...payload.profiles.app, includeRoots: [escapingRoot] } },
+      })),
+      ['suite/scope-profiles'],
+      `accepted includeRoots ${escapingRoot}`,
+    );
+  }
+
+  for (const nonRootFile of ['../package.json', 'config/app.json', '..']) {
+    assert.deepEqual(
+      invalidIdsAfter('suite', 'scope-profiles.registry.json', (payload) => ({
+        ...payload,
+        profiles: { ...payload.profiles, docs: { ...payload.profiles.docs, includeRootFiles: [nonRootFile] } },
+      })),
+      ['suite/scope-profiles'],
+      `accepted includeRootFiles ${nonRootFile}`,
+    );
+  }
+});
+
+test('membership-only lists compare as sets: special-case matches and shim vocabularies', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    updateJson(customFile(paths, 'naming/special-cases'), (payload) => ({
+      ...payload,
+      specialCases: payload.specialCases.map((entry) =>
+        Array.isArray(entry.match?.suffixEquals)
+          ? { ...entry, match: { ...entry.match, suffixEquals: [...entry.match.suffixEquals].reverse().concat(entry.match.suffixEquals[0]) } }
+          : entry,
+      ),
+    }));
+    updateJson(customFile(paths, 'tree/shim-detection-signals'), (payload) => ({
+      ...payload,
+      shimDetectionSignals: Object.fromEntries(
+        Object.entries(payload.shimDetectionSignals).map(([key, values]) =>
+          Array.isArray(values) ? [key, [...values].reverse()] : [key, values],
+        ),
+      ),
+    }));
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.equal(classificationOf(assessment, 'naming/special-cases'), 'unchanged');
+    assert.equal(classificationOf(assessment, 'tree/shim-detection-signals'), 'unchanged');
+    assert.equal(assessment.customDiffers, false);
+  }, { copyBuiltin: true });
+});
+
 test('Tree validation rejects malformed evidence-policy and perspective registries', () => {
   assert.deepEqual(
     invalidIdsAfter('tree', 'semantic-home-policy.registry.json', (payload) => ({

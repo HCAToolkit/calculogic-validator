@@ -93,6 +93,19 @@ const assertNonEmptyStringArray = (value, label) => {
   }
 };
 
+// Scope roots are repository-relative POSIX paths that cannot leave the validation target: no
+// absolute or drive paths, no backslashes, no `..` or empty segments, and `.` only on its own.
+// Root files are bare file names (patterns allowed) at the repository root.
+const isContainedScopeRoot = (root) =>
+  root === '.' ||
+  (!root.startsWith('/') &&
+    !/^[A-Za-z]:/u.test(root) &&
+    !root.includes('\\') &&
+    root.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..'));
+
+const isRootFileName = (fileName) =>
+  !fileName.includes('/') && !fileName.includes('\\') && fileName !== '.' && fileName !== '..';
+
 // The scope contract: a registry defines exactly the scopes suite core describes and runs
 // (`LEGACY_SCOPE_DESCRIPTIONS`, including the default scope), each with both include lists.
 const assertValidScopeProfilesRegistry = (parsedRegistry) => {
@@ -115,6 +128,20 @@ const assertValidScopeProfilesRegistry = (parsedRegistry) => {
 
     assertNonEmptyStringArray(profile.includeRoots, `profiles.${scope}.includeRoots`);
     assertNonEmptyStringArray(profile.includeRootFiles, `profiles.${scope}.includeRootFiles`);
+
+    const escapingRoots = profile.includeRoots.filter((root) => !isContainedScopeRoot(root));
+    if (escapingRoots.length > 0) {
+      throw new Error(
+        `Invalid scope profiles registry: profiles.${scope}.includeRoots must be repository-relative paths inside the target (rejected: ${escapingRoots.join(', ')}).`,
+      );
+    }
+
+    const nonRootFiles = profile.includeRootFiles.filter((fileName) => !isRootFileName(fileName));
+    if (nonRootFiles.length > 0) {
+      throw new Error(
+        `Invalid scope profiles registry: profiles.${scope}.includeRootFiles must be file names at the repository root (rejected: ${nonRootFiles.join(', ')}).`,
+      );
+    }
   }
 };
 

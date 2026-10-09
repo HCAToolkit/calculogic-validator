@@ -30,12 +30,12 @@
     "customDiffers": false,
     "orphanRegistries": [],
     "customIssues": [],
-    "resolvedSetDigest": "d56a1f1c303cf9631c592bccacd566374931fd69da8cc3b375c3d545c229ed43"
+    "resolvedSetDigest": "d890ab1d98305f1cdbd31dd210fe878547cc434fea6ca6a9770ca7ed1a886472"
   },
   "registryProvenance": {
     "naming/agnostic-core-meanings": {
       "source": "builtin",
-      "digest": "e8bd0d17117f74bec8508a404c42d2b78750fb8bfde980f615694c834ede6423"
+      "digest": "f5a5480d4103823a1f4a8b6fecfe94f25b52e102e93c21c8012637d71950e524"
     },
     "naming/case-rules": {
       "source": "builtin",
@@ -47,7 +47,7 @@
     },
     "naming/category-role-perspective": {
       "source": "builtin",
-      "digest": "0214d2d10532333e97b164d06ad0825c248f7b3425b7290b79318d2635ccfe9b"
+      "digest": "9e21f18fb48faa0382d2474f9f9309ca0e58772c346cff8c2239c331cc3b4965"
     },
     "naming/finding-policy": {
       "source": "builtin",

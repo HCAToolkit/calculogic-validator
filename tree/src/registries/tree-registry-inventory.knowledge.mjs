@@ -28,14 +28,26 @@ const defineTreeRegistry = (name, descriptor = {}) =>
 export const TREE_REGISTRY_INVENTORY = Object.freeze([
   defineTreeRegistry('folder-kinds', { setLike: [{ path: 'folderKinds', key: 'folderKind' }] }),
   defineTreeRegistry('repo-shape-policy', { setLike: [{ path: 'allowedTopLevelDirectories' }] }),
-  defineTreeRegistry('semantic-home-policy'),
+  defineTreeRegistry('semantic-home-policy', { setLike: [{ path: 'semanticHomePolicy', key: 'policyId' }] }),
   defineTreeRegistry('semantic-naming-folder-type-relationships'),
-  defineTreeRegistry('shim-detection-signals'),
+  // The loader converts all six vocabularies to Sets.
+  defineTreeRegistry('shim-detection-signals', {
+    setLike: [
+      { path: 'shimDetectionSignals.folderSignals' },
+      { path: 'shimDetectionSignals.nameTokenSignals' },
+      { path: 'shimDetectionSignals.surfaceSegmentSignals' },
+      { path: 'shimSuppressionVocabularies.nonRuntimeWeakSignalSurfaces' },
+      { path: 'shimSuppressionVocabularies.detectorImplementationTokens' },
+      { path: 'shimExtensionAllowlist.relevantFileExtensions' },
+    ],
+  }),
   defineTreeRegistry('structural-context-assessment-policies'),
-  defineTreeRegistry('structural-home-signal-policy'),
+  defineTreeRegistry('structural-home-signal-policy', { setLike: [{ path: 'structuralHomeSignalPolicy', key: 'token' }] }),
   defineTreeRegistry('structural-homes', { setLike: [{ path: 'structuralHomes', key: 'structuralHome' }] }),
   defineTreeRegistry('structural-role-tokens', { setLike: [{ path: 'structuralRoleTokens', key: 'token' }] }),
-  defineTreeRegistry('surface-structural-home-perspective'),
+  defineTreeRegistry('surface-structural-home-perspective', {
+    setLike: [{ path: 'structuralHomesBySurface.*', key: 'structuralHome' }],
+  }),
   defineTreeRegistry('validator-owned-signals'),
 ]);
 

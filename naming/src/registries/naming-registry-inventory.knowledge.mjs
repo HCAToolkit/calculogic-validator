@@ -26,11 +26,16 @@ const defineNamingRegistry = (name, descriptor = {}) =>
 
 // [6.1] cfg-registryLifecycle · Container · "Naming registry inventory"
 export const NAMING_REGISTRY_INVENTORY = Object.freeze([
-  defineNamingRegistry('agnostic-core-meanings'),
+  defineNamingRegistry('agnostic-core-meanings', { setLike: [{ path: 'meanings', key: 'meaning' }] }),
   defineNamingRegistry('case-rules'),
   defineNamingRegistry('categories', { setLike: [{ path: 'categories', key: 'category' }] }),
   defineNamingRegistry('category-role-perspective', {
-    setLike: [{ path: 'rolesByCategory.*', key: 'role' }],
+    setLike: [
+      { path: 'rolesByCategory.*', key: 'role' },
+      { path: 'rolesByCategory.*[].agnosticCoreMeanings' },
+      { path: 'rolesByCategory.*[].baseMeanings' },
+      { path: 'rolesByCategory.*[].overlayMeanings' },
+    ],
   }),
   defineNamingRegistry('finding-policy'),
   defineNamingRegistry('folder-composition-patterns'),
@@ -43,7 +48,10 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
     setLike: [{ path: 'roles', key: 'role' }],
     omitEmpty: ['roles[].notes'],
   }),
-  defineNamingRegistry('special-cases'),
+  // `specialCases` is first-match ordered; its match lists are membership tests.
+  defineNamingRegistry('special-cases', {
+    setLike: [{ path: 'specialCases[].match.suffixEquals' }, { path: 'specialCases[].match.basenameEquals' }],
+  }),
   defineNamingRegistry('summary-buckets'),
   defineNamingRegistry('walk-exclusions', {
     setLike: [{ path: 'excludedDirectories' }, { path: 'allowDotFiles' }],
