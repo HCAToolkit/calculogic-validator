@@ -92,7 +92,7 @@ const listOrphanRegistries = ({ customRoot, slices }) => {
 
       const registryId = `${sliceDirName}/${fileName.slice(0, -REGISTRY_FILENAME_SUFFIX.length)}`;
       if (!knownRegistryIds.has(registryId)) {
-        orphans.push({ registryId, filePath: path.join(sliceDir, fileName) });
+        orphans.push({ registryId, sliceId: sliceDirName, fileName, filePath: path.join(sliceDir, fileName) });
       }
     }
   }
@@ -256,13 +256,31 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
   for (const orphan of orphanRegistries) {
     const orphanFile = readRegistryFile(orphan.filePath, {});
     const manifestEntry = trustedManifestEntries[orphan.registryId];
+    // An orphan's Baseline copy is verified like any other whenever the manifest has its entry
+    // (lifecycle spec §4.4, §12.1). No current inventory descriptor describes an orphan, so its
+    // copy is digested descriptor-free, as its Custom digest is.
+    let baselineMismatch = null;
+    if (manifestEntry) {
+      const baseline = readRegistryFile(path.join(paths.baselineRoot, orphan.sliceId, orphan.fileName), {});
+      baselineMismatch = baseline.digest !== manifestEntry.digest;
+      if (baselineMismatch) {
+        customIssues.push({
+          registryId: orphan.registryId,
+          condition: CUSTOM_ISSUE_CONDITIONS.baselineMismatch,
+          detail: baseline.present
+            ? 'The .baseline copy does not match its manifest digest.'
+            : 'The .baseline copy is missing.',
+        });
+      }
+    }
+
     registries.push({
       registryId: orphan.registryId,
       classification: 'orphan',
       customDigest: orphanFile.digest,
       builtinDigest: null,
       baselineDigest: manifestEntry ? manifestEntry.digest : null,
-      baselineMismatch: null,
+      baselineMismatch,
       ...(orphanFile.parseError ? { detail: orphanFile.parseError } : {}),
     });
   }

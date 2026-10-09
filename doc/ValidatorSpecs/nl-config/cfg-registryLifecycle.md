@@ -108,6 +108,7 @@ Compares Custom with the current Builtin inventory and the Baseline. Produces:
 - `builtinDriftSinceBaseline`;
 - the per-registry status classification;
 - `customIssues` for an inactive Custom set, using each slice's registry-set validation entry point for `invalid` (spec §7.2, §9.3, §11.1);
+- `baselineMismatch` for every registry the trusted manifest lists, orphans included (spec §4.4, §12.1). No current inventory descriptor describes an orphan, so its Custom file and Baseline copy are digested descriptor-free;
 - Baseline copy verification against manifest digests, giving `baseline-mismatch` (spec §4.4).
 
 #### 5.2.5 Workflow: `resolveActiveRegistrySet`

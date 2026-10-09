@@ -846,6 +846,50 @@ test('missing, invalid, version-incompatible and orphan registries are classifie
   }, { copyBuiltin: true });
 });
 
+test('an orphan Baseline copy is verified whenever the manifest has its entry', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    const orphanPayload = { version: '1', retiredEntries: ['b', 'a'] };
+    const orphanBaselinePath = path.join(paths.baselineRoot, 'naming', 'retired.registry.json');
+    writeJson(path.join(paths.customRoot, 'naming', 'retired.registry.json'), orphanPayload);
+    writeJson(orphanBaselinePath, orphanPayload);
+    updateJson(paths.manifestPath, (manifest) => {
+      manifest.basedOn.registries['naming/retired'] = {
+        validatorVersion: VALIDATOR_VERSION,
+        version: '1',
+        digest: digestRegistryPayload(orphanPayload, {}),
+      };
+      return manifest;
+    });
+    const orphanState = () => {
+      const assessment = assessCustomRegistrySet({ paths, slices });
+      return {
+        entry: assessment.registries.find((entry) => entry.registryId === 'naming/retired'),
+        issues: assessment.customIssues.filter((issue) => issue.registryId === 'naming/retired'),
+      };
+    };
+
+    const intact = orphanState();
+    assert.equal(intact.entry.classification, 'orphan');
+    assert.equal(intact.entry.baselineMismatch, false);
+    assert.deepEqual(intact.issues, []);
+
+    writeJson(orphanBaselinePath, { ...orphanPayload, retiredEntries: ['c'] });
+    const tampered = orphanState();
+    assert.equal(tampered.entry.classification, 'orphan');
+    assert.equal(tampered.entry.baselineMismatch, true);
+    assert.deepEqual(
+      tampered.issues.map((issue) => [issue.condition, issue.detail]),
+      [['baseline-mismatch', 'The .baseline copy does not match its manifest digest.']],
+    );
+
+    fs.rmSync(orphanBaselinePath);
+    const missing = orphanState();
+    assert.equal(missing.entry.baselineMismatch, true);
+    assert.deepEqual(missing.issues.map((issue) => issue.detail), ['The .baseline copy is missing.']);
+  }, { copyBuiltin: true });
+});
+
 test('a broken referenced registry also fails the registries validated against it', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });
