@@ -57,7 +57,7 @@ test('validate-all emits current runner report envelope and forwards configDiges
   const result = runScript('scripts/validate-all.host.mjs', [
     '--scope=system',
     '--validators=naming',
-    '--config=test/fixtures/validator-config.roles.contracts.json',
+    '--config=test/fixtures/validator-config.contracts.json',
   ]);
 
   assert.ok([0, 1, 2].includes(result.status));

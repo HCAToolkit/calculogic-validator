@@ -3,11 +3,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const EXIT_POLICY_REGISTRY_FILENAME = 'exit-policy.registry.json';
 
 const BUILTIN_EXIT_POLICY_REGISTRY_PATH = path.join(
   MODULE_DIR,
   '_builtin',
-  'exit-policy.registry.json',
+  EXIT_POLICY_REGISTRY_FILENAME,
 );
 
 const ALLOWED_PREDICATE_KEYS = new Set([
@@ -25,27 +26,27 @@ const loadJsonFile = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'))
 const validatePredicateShape = (predicate, { policyId }) => {
   if (!isPlainObject(predicate)) {
     throw new Error(
-      `Invalid builtin exit policy registry: predicate for policy "${policyId}" must be an object.`,
+      `Invalid exit policy registry: predicate for policy "${policyId}" must be an object.`,
     );
   }
 
   const predicateKeys = Object.keys(predicate);
   if (predicateKeys.length === 0) {
     throw new Error(
-      `Invalid builtin exit policy registry: predicate for policy "${policyId}" must declare at least one condition.`,
+      `Invalid exit policy registry: predicate for policy "${policyId}" must declare at least one condition.`,
     );
   }
 
   for (const key of predicateKeys) {
     if (!ALLOWED_PREDICATE_KEYS.has(key)) {
       throw new Error(
-        `Invalid builtin exit policy registry: unsupported predicate key "${key}" in policy "${policyId}".`,
+        `Invalid exit policy registry: unsupported predicate key "${key}" in policy "${policyId}".`,
       );
     }
 
     if (typeof predicate[key] !== 'boolean') {
       throw new Error(
-        `Invalid builtin exit policy registry: predicate key "${key}" in policy "${policyId}" must be boolean.`,
+        `Invalid exit policy registry: predicate key "${key}" in policy "${policyId}" must be boolean.`,
       );
     }
   }
@@ -53,17 +54,17 @@ const validatePredicateShape = (predicate, { policyId }) => {
 
 const canonicalizeExitPolicyEntry = (policyEntry) => {
   if (!isPlainObject(policyEntry)) {
-    throw new Error('Invalid builtin exit policy registry: each policy entry must be an object.');
+    throw new Error('Invalid exit policy registry: each policy entry must be an object.');
   }
 
   const id = typeof policyEntry.id === 'string' ? policyEntry.id.trim() : '';
   if (!id) {
-    throw new Error('Invalid builtin exit policy registry: each policy entry requires a non-empty id.');
+    throw new Error('Invalid exit policy registry: each policy entry requires a non-empty id.');
   }
 
   if (!Number.isInteger(policyEntry.exitCode) || policyEntry.exitCode < 0) {
     throw new Error(
-      `Invalid builtin exit policy registry: exitCode for policy "${id}" must be a non-negative integer.`,
+      `Invalid exit policy registry: exitCode for policy "${id}" must be a non-negative integer.`,
     );
   }
 
@@ -84,11 +85,11 @@ const canonicalizeExitPolicyEntry = (policyEntry) => {
 
 export const loadExitPolicyRegistryFromPayload = (payload) => {
   if (!isPlainObject(payload)) {
-    throw new Error('Invalid builtin exit policy registry: expected root object payload.');
+    throw new Error('Invalid exit policy registry: expected root object payload.');
   }
 
   if (!Array.isArray(payload.policies)) {
-    throw new Error('Invalid builtin exit policy registry: expected policies array.');
+    throw new Error('Invalid exit policy registry: expected policies array.');
   }
 
   const canonicalPolicies = payload.policies.map((policyEntry) =>
@@ -96,14 +97,14 @@ export const loadExitPolicyRegistryFromPayload = (payload) => {
   );
 
   if (canonicalPolicies.length === 0) {
-    throw new Error('Invalid builtin exit policy registry: policies array must not be empty.');
+    throw new Error('Invalid exit policy registry: policies array must not be empty.');
   }
 
   const dedupedPolicyIds = new Set();
   for (const policy of canonicalPolicies) {
     if (dedupedPolicyIds.has(policy.id)) {
       throw new Error(
-        `Invalid builtin exit policy registry: duplicate policy id "${policy.id}" is not allowed.`,
+        `Invalid exit policy registry: duplicate policy id "${policy.id}" is not allowed.`,
       );
     }
 
@@ -112,7 +113,7 @@ export const loadExitPolicyRegistryFromPayload = (payload) => {
 
   if (!canonicalPolicies.some((policy) => policy.predicate.always)) {
     throw new Error(
-      'Invalid builtin exit policy registry: policies must include a deterministic fallback predicate with always=true.',
+      'Invalid exit policy registry: policies must include a deterministic fallback predicate with always=true.',
     );
   }
 
@@ -120,6 +121,19 @@ export const loadExitPolicyRegistryFromPayload = (payload) => {
 };
 
 let cachedBuiltinExitPolicies = null;
+
+const copyExitPolicies = (policies) =>
+  policies.map((policy) => ({
+    id: policy.id,
+    exitCode: policy.exitCode,
+    predicate: { ...policy.predicate },
+  }));
+
+// Loads exit policies from a resolved suite registry root (#41 registry lifecycle).
+export const loadExitPoliciesFromRegistryRoot = (registryRoot) =>
+  copyExitPolicies(
+    loadExitPolicyRegistryFromPayload(loadJsonFile(path.join(registryRoot, EXIT_POLICY_REGISTRY_FILENAME))),
+  );
 
 export const getBuiltinExitPolicies = () => {
   if (!cachedBuiltinExitPolicies) {

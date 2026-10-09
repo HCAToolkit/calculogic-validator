@@ -9,13 +9,13 @@ export const BUILTIN_SEMANTIC_NAMING_FOLDER_TYPE_RELATIONSHIPS_REGISTRY_PATH = f
 
 let cachedBuiltinRelationshipsRegistry = null;
 
-const assertValidRegistry = (payload) => {
+export const assertValidSemanticNamingFolderTypeRelationshipsRegistry = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('Invalid builtin semantic naming folder-type relationships registry: expected object payload.');
+    throw new Error('Invalid semantic naming folder-type relationships registry: expected object payload.');
   }
 
   if (!Array.isArray(payload.semanticNamingFolderTypeRelationships)) {
-    throw new Error('Invalid builtin semantic naming folder-type relationships registry: semanticNamingFolderTypeRelationships must be an array.');
+    throw new Error('Invalid semantic naming folder-type relationships registry: semanticNamingFolderTypeRelationships must be an array.');
   }
 
   return payload;
@@ -23,7 +23,7 @@ const assertValidRegistry = (payload) => {
 
 export const getBuiltinSemanticNamingFolderTypeRelationshipsRegistry = () => {
   if (!cachedBuiltinRelationshipsRegistry) {
-    cachedBuiltinRelationshipsRegistry = assertValidRegistry(
+    cachedBuiltinRelationshipsRegistry = assertValidSemanticNamingFolderTypeRelationshipsRegistry(
       JSON.parse(fs.readFileSync(BUILTIN_SEMANTIC_NAMING_FOLDER_TYPE_RELATIONSHIPS_REGISTRY_PATH, 'utf8')),
     );
   }

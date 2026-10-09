@@ -9,13 +9,13 @@ export const BUILTIN_STRUCTURAL_HOMES_REGISTRY_PATH = fileURLToPath(
 
 let cachedBuiltinStructuralHomesRegistry = null;
 
-const normalizeStructuralHomesRegistryPayload = (payload) => {
+export const normalizeStructuralHomesRegistryPayload = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('Invalid builtin structural-homes registry: expected object payload.');
+    throw new Error('Invalid structural-homes registry: expected object payload.');
   }
 
   if (!Array.isArray(payload.structuralHomes)) {
-    throw new Error('Invalid builtin structural-homes registry: structuralHomes must be an array.');
+    throw new Error('Invalid structural-homes registry: structuralHomes must be an array.');
   }
 
   return payload;

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
@@ -9,15 +10,17 @@ export const BUILTIN_SPECIAL_CASES_REGISTRY_PATH = fileURLToPath(
 
 let cachedBuiltinSpecialCaseRules = null;
 
-const loadBuiltinSpecialCases = () => {
-  const payload = JSON.parse(fs.readFileSync(BUILTIN_SPECIAL_CASES_REGISTRY_PATH, 'utf8'));
+const SPECIAL_CASES_REGISTRY_FILENAME = 'special-cases.registry.json';
+
+const loadSpecialCaseRulesFromFile = (registryFilePath) => {
+  const payload = JSON.parse(fs.readFileSync(registryFilePath, 'utf8'));
 
   if (!payload || typeof payload !== 'object' || !Array.isArray(payload.specialCases)) {
-    throw new Error('Invalid builtin special-cases registry: missing specialCases array.');
+    throw new Error('Invalid special-cases registry: missing specialCases array.');
   }
 
   return payload.specialCases.map((specialCase, index) => {
-    const entryPrefix = `Invalid builtin special-cases registry entry at index ${index}`;
+    const entryPrefix = `Invalid special-cases registry entry at index ${index}`;
 
     if (!specialCase || typeof specialCase !== 'object') {
       throw new Error(`${entryPrefix}: expected object.`);
@@ -58,9 +61,13 @@ const loadBuiltinSpecialCases = () => {
   });
 };
 
+// Loads special-case rules from a resolved Naming registry root (#41 registry lifecycle).
+export const loadNamingSpecialCaseRulesFromRegistryRoot = (registryRoot) =>
+  loadSpecialCaseRulesFromFile(path.join(registryRoot, SPECIAL_CASES_REGISTRY_FILENAME));
+
 export const getBuiltinSpecialCaseRules = () => {
   if (cachedBuiltinSpecialCaseRules === null) {
-    cachedBuiltinSpecialCaseRules = loadBuiltinSpecialCases();
+    cachedBuiltinSpecialCaseRules = loadSpecialCaseRulesFromFile(BUILTIN_SPECIAL_CASES_REGISTRY_PATH);
   }
 
   return cachedBuiltinSpecialCaseRules;

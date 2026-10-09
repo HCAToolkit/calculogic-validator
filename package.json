@@ -35,7 +35,8 @@
     "calculogic-validate-naming": "./bin/calculogic-validate-naming.host.mjs",
     "calculogic-validator-health": "./bin/calculogic-validator-health.host.mjs",
     "calculogic-validate-tree": "./bin/calculogic-validate-tree.host.mjs",
-    "calculogic-validator-report-summarize": "./bin/calculogic-validator-report-summarize.host.mjs"
+    "calculogic-validator-report-summarize": "./bin/calculogic-validator-report-summarize.host.mjs",
+    "calculogic-validator-registry": "./bin/calculogic-validator-registry.host.mjs"
   },
   "scripts": {
     "test": "node --test --experimental-strip-types test/**/*.test.mjs naming/test/**/*.test.mjs tree/test/**/*.test.mjs structural-addressing/test/**/*.test.mjs",
@@ -44,6 +45,8 @@
     "validate:tree": "node --experimental-strip-types scripts/validate-tree.host.mjs",
     "health:validator": "node --experimental-strip-types scripts/validator-health-check.host.mjs",
     "addressing:get-tree": "node --experimental-strip-types scripts/addressing-get-tree.host.mjs",
+    "registry:init-custom": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs init-custom",
+    "registry:status": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs status",
     "report:naming:repo": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-repo -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=repo",
     "report:naming:app": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-app -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=app",
     "report:naming:docs": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-docs -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=docs",

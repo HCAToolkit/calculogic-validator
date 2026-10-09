@@ -235,6 +235,7 @@ export const classifyPath = (
   missingRolePatternsRuntime,
   findingPolicyRuntime,
   caseRulesRuntime,
+  specialCaseRulesRuntime,
 ) => {
   const runtime = assertPreparedNamingRolesRuntime(namingRolesRuntime);
   const missingRolePatterns = assertPreparedMissingRolePatternsRuntime(missingRolePatternsRuntime);
@@ -243,7 +244,7 @@ export const classifyPath = (
   const normalizedPath = normalizePath(relativePath);
   const basename = path.posix.basename(normalizedPath);
 
-  const specialCaseType = getSpecialCaseType(normalizedPath);
+  const specialCaseType = getSpecialCaseType(normalizedPath, specialCaseRulesRuntime);
   if (specialCaseType) {
     return createFindingFromOutcome({
       outcomeId: NAMING_DECISION_OUTCOME_IDS.ALLOWED_SPECIAL_CASE,
@@ -375,6 +376,7 @@ export const runNamingValidator = (preparedInputs = {}) => {
         missingRolePatternsRuntime,
         findingPolicyRuntime,
         caseRulesRuntime,
+        preparedInputs.specialCaseRulesRuntime,
       ),
     ),
   );

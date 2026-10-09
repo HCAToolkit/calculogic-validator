@@ -3,6 +3,7 @@ import { VALIDATOR_REGISTRY, getValidatorById } from './validator-registry.knowl
 import { getSourceSnapshot } from './source-snapshot.logic.mjs';
 import { getValidatorReportIdentity } from './validator-report-identity.logic.mjs';
 import { projectNamingSemanticFamilyBridge } from '../../naming/src/naming-validator.host.mjs';
+import { resolveActiveRegistrySet } from './registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
 
 const toValidatorReportEntry = (registryEntry, validatorResult) => {
   const summary = validatorResult.summary ?? null;
@@ -45,8 +46,9 @@ export const runValidatorRunner = (repositoryRoot, options = {}) => {
   const startedAtDate = new Date();
   const validatorsToRun = resolveValidatorsToRun(options.validators);
   const scope = options.scope;
-  const config = options.config;
   const targets = options.targets;
+  // One lifecycle resolution per run, shared by every slice (#41 registry lifecycle).
+  const registryResolution = options.registryResolution ?? resolveActiveRegistrySet({ targetRoot: repositoryRoot });
 
   const shouldRunTreeStructureAdvisor = validatorsToRun.some(
     (registryEntry) => registryEntry.id === 'tree-structure-advisor',
@@ -59,7 +61,7 @@ export const runValidatorRunner = (repositoryRoot, options = {}) => {
   let stagedNamingResult = null;
   let stagedNamingSemanticFamilyBridge = undefined;
   if (shouldRunTreeStructureAdvisor && namingRegistryEntry) {
-    stagedNamingResult = namingRegistryEntry.run(repositoryRoot, { scope, config, targets });
+    stagedNamingResult = namingRegistryEntry.run(repositoryRoot, { scope, targets, registryResolution });
     stagedNamingSemanticFamilyBridge = projectNamingSemanticFamilyBridge(stagedNamingResult);
   }
 
@@ -70,8 +72,8 @@ export const runValidatorRunner = (repositoryRoot, options = {}) => {
 
     const result = registryEntry.run(repositoryRoot, {
       scope,
-      config,
       targets,
+      registryResolution,
       ...(registryEntry.id === 'tree-structure-advisor' && stagedNamingSemanticFamilyBridge
         ? { namingSemanticFamilyBridge: stagedNamingSemanticFamilyBridge }
         : {}),
@@ -90,6 +92,8 @@ export const runValidatorRunner = (repositoryRoot, options = {}) => {
     ...(options.toolVersion ? { toolVersion: options.toolVersion } : {}),
     ...(options.toolVersion ? { validatorVersion: options.toolVersion } : {}),
     ...(options.configDigest ? { configDigest: options.configDigest } : {}),
+    registrySet: registryResolution.registrySet,
+    registryProvenance: registryResolution.registryProvenance.suite,
     sourceSnapshot,
     startedAt: startedAtDate.toISOString(),
     endedAt: endedAtDate.toISOString(),

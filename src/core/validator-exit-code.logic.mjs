@@ -1,4 +1,20 @@
-import { getBuiltinExitPolicies } from '../registries/validator-exit-policy.logic.mjs';
+import path from 'node:path';
+import {
+  getBuiltinExitPolicies,
+  loadExitPoliciesFromRegistryRoot,
+} from '../registries/validator-exit-policy.logic.mjs';
+import { SUITE_BUILTIN_REGISTRY_ROOT } from '../registries/suite-registry-inventory.knowledge.mjs';
+
+// Exit policies for a run: the resolved suite registry root when the lifecycle supplied one
+// (`registryRoots.suite`), otherwise Builtin.
+const getExitPolicies = ({ registryRoots } = {}) => {
+  const suiteRegistryRoot = registryRoots?.suite;
+  if (!suiteRegistryRoot || path.resolve(suiteRegistryRoot) === path.resolve(SUITE_BUILTIN_REGISTRY_ROOT)) {
+    return getBuiltinExitPolicies();
+  }
+
+  return loadExitPoliciesFromRegistryRoot(suiteRegistryRoot);
+};
 
 const toBooleanStrictOption = (options) => Boolean(options?.strict);
 
@@ -38,7 +54,7 @@ const doesPolicyMatchSemantics = (policy, semantics) => {
 
 export const deriveExitCodeFromFindings = (findings = [], options = {}) => {
   const semantics = getExitSemantics(findings, options);
-  const matchingPolicy = getBuiltinExitPolicies().find((policy) =>
+  const matchingPolicy = getExitPolicies(options).find((policy) =>
     doesPolicyMatchSemantics(policy, semantics),
   );
 

@@ -57,7 +57,7 @@ test('calculogic-validate bin accepts --config path', () => {
     'bin/calculogic-validate.host.mjs',
     '--scope=app',
     '--validators=naming',
-    '--config=test/fixtures/validator-config.extensions.contracts.json',
+    '--config=test/fixtures/validator-config.contracts.json',
   ]);
 
   assert.ok([0, 1, 2].includes(result.status), result.stderr);

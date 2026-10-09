@@ -3,36 +3,21 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { resolveNamingRegistryInputs } from '../src/registries/registry-state.logic.mjs';
+import {
+  resolveNamingRegistryInputs,
+  validateNamingRegistrySet,
+} from '../src/registries/registry-state.logic.mjs';
+import { NAMING_BUILTIN_REGISTRY_ROOT } from '../src/registries/naming-registry-inventory.knowledge.mjs';
 import { toSummaryBucketsRuntime } from '../src/naming-runtime-converters.logic.mjs';
 import { summarizeFindings } from '../src/naming-validator.logic.mjs';
 
-const REGISTRY_MODULE_ROOT = path.resolve('naming/src/registries');
+const LEGACY_CUSTOM_FIXTURE_ROOT = path.resolve(
+  'naming/test/fixtures/registry-lifecycle/legacy-in-package-custom-set',
+);
 
-const DEFAULT_OVERLAY_CAPABILITIES_REGISTRY = {
-  version: '1',
-  capabilities: [
-    {
-      configPath: 'naming.reportableExtensions',
-      operation: 'add',
-      payloadType: 'string-array',
-      target: 'reportableExtensions',
-    },
-    {
-      configPath: 'naming.roles',
-      operation: 'add',
-      payloadType: 'role-array',
-      target: 'roles',
-    },
-    {
-      configPath: 'naming.caseRules',
-      operation: 'set',
-      payloadType: 'case-rules-object',
-      target: 'caseRules',
-    },
-  ],
-};
-
+// Digest the pre-#41 resolver produced for the in-package `_custom` set (`registryDigests.custom`).
+// The lifecycle conversion of that set to a complete Naming root must reproduce it exactly.
+const LEGACY_CUSTOM_SET_DIGEST = '8d5ccfbe4cc90cf86d4b03abcc68e003d7f6f05b7508eb241c9b8d49ac29dd8f';
 
 const INTENDED_BUILTIN_REPORTABLE_EXTENSIONS = [
   '.cjs',
@@ -46,33 +31,51 @@ const INTENDED_BUILTIN_REPORTABLE_EXTENSIONS = [
   '.tsx',
 ];
 
-const makeTempRegistryRoot = () => fs.mkdtempSync(path.join(os.tmpdir(), 'registry-state-test-'));
+const readBuiltinRegistry = (fileName) =>
+  JSON.parse(fs.readFileSync(path.join(NAMING_BUILTIN_REGISTRY_ROOT, fileName), 'utf8'));
 
 const writeJson = (filePath, value) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 };
 
+// Creates a complete Naming registry root (a copy of Builtin) and applies per-file overrides:
+// an object is written as JSON, a string is written raw, `null` removes the file.
+const withNamingRegistryRoot = (overrides, run) => {
+  const registryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'naming-registry-root-'));
+
+  try {
+    fs.cpSync(NAMING_BUILTIN_REGISTRY_ROOT, registryRoot, { recursive: true });
+    for (const [fileName, value] of Object.entries(overrides)) {
+      const filePath = path.join(registryRoot, fileName);
+      if (value === null) {
+        fs.rmSync(filePath, { force: true });
+      } else if (typeof value === 'string') {
+        fs.writeFileSync(filePath, value);
+      } else {
+        writeJson(filePath, value);
+      }
+    }
+
+    return run(registryRoot);
+  } finally {
+    fs.rmSync(registryRoot, { recursive: true, force: true });
+  }
+};
+
 const assertDigestShape = (digest) => {
   assert.equal(typeof digest, 'string');
-  assert.equal(digest.length, 64);
   assert.match(digest, /^[a-f0-9]{64}$/u);
 };
 
-test('defaults to builtin when registry-state.json is missing', () => {
-  const tempRoot = makeTempRegistryRoot();
+test('defaults to the Builtin root with transitional builtin fields and equal digests', () => {
+  const result = resolveNamingRegistryInputs();
 
-  try {
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-
-    assert.equal(result.registryState, 'builtin');
-    assert.equal(result.registrySource, 'builtin');
-    assertDigestShape(result.registryDigests.builtin);
-    assertDigestShape(result.registryDigests.custom);
-    assertDigestShape(result.registryDigests.resolved);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
+  assert.equal(result.registryState, 'builtin');
+  assert.equal(result.registrySource, 'builtin');
+  assertDigestShape(result.registryDigests.builtin);
+  assert.equal(result.registryDigests.custom, result.registryDigests.builtin);
+  assert.equal(result.registryDigests.resolved, result.registryDigests.builtin);
 });
 
 test('resolver contract shape remains stable', () => {
@@ -97,37 +100,18 @@ test('resolver contract shape remains stable', () => {
   ]);
 });
 
-test('builtin state selects builtin and digests stay stable across calls', () => {
-  const tempRoot = makeTempRegistryRoot();
+test('digests stay stable across calls', () => {
+  const first = resolveNamingRegistryInputs();
+  const second = resolveNamingRegistryInputs();
 
-  try {
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'builtin',
-    });
-
-    const first = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    const second = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-
-    assert.equal(first.registryState, 'builtin');
-    assert.equal(first.registrySource, 'builtin');
-    assert.equal(first.registryDigests.builtin, second.registryDigests.builtin);
-    assert.equal(first.registryDigests.custom, second.registryDigests.custom);
-    assert.equal(first.registryDigests.resolved, second.registryDigests.resolved);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
+  assert.deepEqual(first.registryDigests, second.registryDigests);
 });
 
-test('builtin resolution loads roles and reportable extensions from _builtin JSON registries', () => {
+test('builtin resolution loads roles and reportable extensions from the Builtin JSON registries', () => {
   const result = resolveNamingRegistryInputs();
 
-  const builtinRolesRegistry = JSON.parse(
-    fs.readFileSync(path.join(REGISTRY_MODULE_ROOT, '_builtin', 'category-role-perspective.registry.json'), 'utf8'),
-  );
-  const canonicalRolesRegistry = JSON.parse(
-    fs.readFileSync(path.join(REGISTRY_MODULE_ROOT, '_builtin', 'roles.registry.json'), 'utf8'),
-  );
+  const builtinRolesRegistry = readBuiltinRegistry('category-role-perspective.registry.json');
+  const canonicalRolesRegistry = readBuiltinRegistry('roles.registry.json');
   const canonicalStatusByRole = new Map(
     canonicalRolesRegistry.roles.map((entry) => [entry.role.trim(), entry.status.trim()]),
   );
@@ -152,23 +136,14 @@ test('builtin resolution loads roles and reportable extensions from _builtin JSO
     )
     .sort((left, right) => left.role.localeCompare(right.role));
 
-  const builtinExtensionsRegistry = JSON.parse(
-    fs.readFileSync(
-      path.join(REGISTRY_MODULE_ROOT, '_builtin', 'reportable-extensions.registry.json'),
-      'utf8',
-    ),
-  );
-  const expectedExtensions = [...new Set(builtinExtensionsRegistry.reportableExtensions)]
+  const expectedExtensions = [
+    ...new Set(readBuiltinRegistry('reportable-extensions.registry.json').reportableExtensions),
+  ]
     .map((value) => value.trim())
     .sort((left, right) => left.localeCompare(right));
-
-  const builtinRootFilesRegistry = JSON.parse(
-    fs.readFileSync(
-      path.join(REGISTRY_MODULE_ROOT, '_builtin', 'reportable-root-files.registry.json'),
-      'utf8',
-    ),
-  );
-  const expectedRootFiles = [...new Set(builtinRootFilesRegistry.reportableRootFiles)]
+  const expectedRootFiles = [
+    ...new Set(readBuiltinRegistry('reportable-root-files.registry.json').reportableRootFiles),
+  ]
     .map((value) => value.trim())
     .sort((left, right) => left.localeCompare(right));
 
@@ -176,825 +151,347 @@ test('builtin resolution loads roles and reportable extensions from _builtin JSO
   assert.deepEqual(result.reportableExtensions, expectedExtensions);
   assert.deepEqual(result.reportableRootFiles, expectedRootFiles);
 
-  const builtinSummaryBucketsRegistry = JSON.parse(
-    fs.readFileSync(
-      path.join(REGISTRY_MODULE_ROOT, '_builtin', 'summary-buckets.registry.json'),
-      'utf8',
-    ),
-  );
-
+  const builtinSummaryBucketsRegistry = readBuiltinRegistry('summary-buckets.registry.json');
   assert.deepEqual(result.summaryBuckets, {
     classificationBuckets: builtinSummaryBucketsRegistry.classificationBuckets,
     secondaryBucketFamilies: builtinSummaryBucketsRegistry.secondaryBucketFamilies,
   });
 
-  const builtinMissingRolePatternsRegistry = JSON.parse(
-    fs.readFileSync(
-      path.join(REGISTRY_MODULE_ROOT, '_builtin', 'missing-role-patterns.registry.json'),
-      'utf8',
-    ),
-  );
-
-  assert.deepEqual(result.missingRolePatterns.length, builtinMissingRolePatternsRegistry.missingRolePatterns.length);
-
-  const builtinFindingPolicyRegistry = JSON.parse(
-    fs.readFileSync(path.join(REGISTRY_MODULE_ROOT, '_builtin', 'finding-policy.registry.json'), 'utf8'),
+  assert.deepEqual(
+    result.missingRolePatterns.length,
+    readBuiltinRegistry('missing-role-patterns.registry.json').missingRolePatterns.length,
   );
   assert.deepEqual(
     Object.keys(result.findingPolicy),
-    Object.keys(builtinFindingPolicyRegistry.outcomes).sort((left, right) =>
+    Object.keys(readBuiltinRegistry('finding-policy.registry.json').outcomes).sort((left, right) =>
       left.localeCompare(right),
     ),
   );
 });
 
-test('registryRootDir drives builtin roles, extensions, and categories from the same _builtin root', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'from-temp-root' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'category-role-perspective.registry.json'), {
-      rolesByCategory: {
-        'from-temp-root': [{ role: 'temp-builtin-role' }],
-      },
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'roles.registry.json'), {
-      roles: [{ role: 'temp-builtin-role', status: 'active' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), {
-      reportableExtensions: ['.tmp', '.tmp', '.alt'],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), {
-      reportableRootFiles: ['root-b.json', 'root-a.json', 'root-b.json'],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), {
-      classificationBuckets: ['bucket-a', 'bucket-b'],
-      secondaryBucketFamilies: ['codeCounts'],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), {
-      missingRolePatterns: [
-        {
-          patternId: 'single-extension',
-          dotSegments: 2,
-          semanticSegmentIndex: 0,
-          extensionSegmentIndexes: [1],
-        },
-      ],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), {
-      outcomes: {
-        canonical: {
-          code: 'TEMP_CANONICAL',
-          severity: 'info',
-          classification: 'canonical',
-          message: 'Temporary canonical policy.',
-          ruleRef: 'temp-rule-ref',
-        },
-      },
-    });
-
-    writeJson(
-      path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'),
-      DEFAULT_OVERLAY_CAPABILITIES_REGISTRY,
-    );
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), {
-      semanticName: { style: 'kebab-case' },
-    });
-
-    const builtinResult = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.deepEqual(builtinResult.roles, [
-      { role: 'temp-builtin-role', category: 'from-temp-root', status: 'active' },
-    ]);
-    assert.deepEqual(builtinResult.reportableExtensions, ['.alt', '.tmp']);
-    assert.deepEqual(builtinResult.reportableRootFiles, ['root-a.json', 'root-b.json']);
-    assert.deepEqual(builtinResult.summaryBuckets, {
-      classificationBuckets: ['bucket-a', 'bucket-b'],
-      secondaryBucketFamilies: ['codeCounts'],
-    });
-    assert.equal(builtinResult.missingRolePatterns.length, 1);
-    assert.equal(builtinResult.findingPolicy.canonical.code, 'TEMP_CANONICAL');
-
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'custom',
-    });
-    writeJson(path.join(tempRoot, '_custom', 'roles.registry.custom.json'), [
-      { role: 'temp-custom-role', category: 'from-temp-root', status: 'active' },
-    ]);
-    writeJson(path.join(tempRoot, '_custom', 'reportable-extensions.registry.custom.json'), ['.tmp']);
-
-    const customResult = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.ok(customResult.roles.some((entry) => entry.role === 'temp-custom-role'));
-    assert.deepEqual(customResult.summaryBuckets, {
-      classificationBuckets: ['bucket-a', 'bucket-b'],
-      secondaryBucketFamilies: ['codeCounts'],
-    });
-    assert.equal(customResult.missingRolePatterns.length, 1);
-    assert.equal(customResult.findingPolicy.canonical.code, 'TEMP_CANONICAL');
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-
-
-test('registryRootDir accepts legacy grouped roles filename as builtin compatibility fallback', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'from-temp-root' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'roles.registry.json'), {
-      rolesByCategory: {
-        'from-temp-root': [{ role: 'temp-legacy-role', status: 'active' }],
-      },
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), {
-      reportableExtensions: ['.tmp'],
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), {
-      reportableRootFiles: ['root-a.json'],
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), {
-      classificationBuckets: ['bucket-a'],
-      secondaryBucketFamilies: ['codeCounts'],
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), {
-      missingRolePatterns: [],
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), {
-      outcomes: {
-        canonical: {
-          code: 'TEMP_CANONICAL',
-          severity: 'info',
-          classification: 'canonical',
-          message: 'Temporary canonical policy.',
-          ruleRef: 'temp-rule-ref',
-        },
-      },
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'), DEFAULT_OVERLAY_CAPABILITIES_REGISTRY);
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), {
-      semanticName: { style: 'kebab-case' },
-    });
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.ok(result.roles.some((entry) => entry.role === 'temp-legacy-role'));
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('registryRootDir prefers category-role-perspective over legacy grouped roles when both exist', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'from-temp-root' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'category-role-perspective.registry.json'), {
-      rolesByCategory: {
-        'from-temp-root': [{ role: 'temp-new-role', status: 'active' }],
-      },
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'roles.registry.json'), {
-      rolesByCategory: {
-        'from-temp-root': [{ role: 'temp-legacy-role', status: 'active' }],
-      },
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), {
-      reportableExtensions: ['.tmp'],
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), {
-      reportableRootFiles: ['root-a.json'],
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), {
-      classificationBuckets: ['bucket-a'],
-      secondaryBucketFamilies: ['codeCounts'],
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), {
-      missingRolePatterns: [],
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), {
-      outcomes: {
-        canonical: {
-          code: 'TEMP_CANONICAL',
-          severity: 'info',
-          classification: 'canonical',
-          message: 'Temporary canonical policy.',
-          ruleRef: 'temp-rule-ref',
-        },
-      },
-    });
-    writeJson(path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'), DEFAULT_OVERLAY_CAPABILITIES_REGISTRY);
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), {
-      semanticName: { style: 'kebab-case' },
-    });
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.ok(result.roles.some((entry) => entry.role === 'temp-new-role'));
-    assert.ok(!result.roles.some((entry) => entry.role === 'temp-legacy-role'));
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-
-
-test('builtin resolution prefers canonical roles.registry.json status over category-role perspective status', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'architecture-support' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'category-role-perspective.registry.json'), {
-      rolesByCategory: {
-        'architecture-support': [{ role: 'host', status: 'deprecated' }],
-      },
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'roles.registry.json'), {
-      roles: [{ role: 'host', status: 'active', definition: 'host role' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), { reportableExtensions: ['.ts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), { reportableRootFiles: ['package.json'] });
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), { classificationBuckets: ['canonical'], secondaryBucketFamilies: ['codeCounts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), { missingRolePatterns: [] });
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), { outcomes: { canonical: { code: 'TEMP_CANONICAL', severity: 'info', classification: 'canonical', message: 'Temporary canonical policy.', ruleRef: 'temp-rule-ref' } } });
-    writeJson(path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'), DEFAULT_OVERLAY_CAPABILITIES_REGISTRY);
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), { semanticName: { style: 'kebab-case' } });
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.deepEqual(result.roles, [{ role: 'host', category: 'architecture-support', status: 'active' }]);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('legacy grouped roles fallback keeps legacy status when category-role perspective is missing', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'architecture-support' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'roles.registry.json'), {
-      rolesByCategory: {
-        'architecture-support': [{ role: 'host', status: 'deprecated' }],
-      },
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), { reportableExtensions: ['.ts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), { reportableRootFiles: ['package.json'] });
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), { classificationBuckets: ['canonical'], secondaryBucketFamilies: ['codeCounts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), { missingRolePatterns: [] });
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), { outcomes: { canonical: { code: 'TEMP_CANONICAL', severity: 'info', classification: 'canonical', message: 'Temporary canonical policy.', ruleRef: 'temp-rule-ref' } } });
-    writeJson(path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'), DEFAULT_OVERLAY_CAPABILITIES_REGISTRY);
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), { semanticName: { style: 'kebab-case' } });
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.deepEqual(result.roles, [{ role: 'host', category: 'architecture-support', status: 'deprecated' }]);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-
-test('category-role perspective membership remains authoritative when canonical roles registry is malformed', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'architecture-support' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'category-role-perspective.registry.json'), {
-      rolesByCategory: {
-        'architecture-support': [{ role: 'host', status: 'deprecated' }],
-      },
-    });
-
-    fs.writeFileSync(path.join(tempRoot, '_builtin', 'roles.registry.json'), '{ not valid json');
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), { reportableExtensions: ['.ts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), { reportableRootFiles: ['package.json'] });
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), { classificationBuckets: ['canonical'], secondaryBucketFamilies: ['codeCounts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), { missingRolePatterns: [] });
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), { outcomes: { canonical: { code: 'TEMP_CANONICAL', severity: 'info', classification: 'canonical', message: 'Temporary canonical policy.', ruleRef: 'temp-rule-ref' } } });
-    writeJson(path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'), DEFAULT_OVERLAY_CAPABILITIES_REGISTRY);
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), { semanticName: { style: 'kebab-case' } });
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.deepEqual(result.roles, [{ role: 'host', category: 'architecture-support', status: 'deprecated' }]);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('category-role perspective membership-only entries can use legacy grouped roles status fallback', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'architecture-support' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'category-role-perspective.registry.json'), {
-      rolesByCategory: {
-        'architecture-support': [{ role: 'host' }],
-      },
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'roles.registry.json'), {
-      rolesByCategory: {
-        'architecture-support': [{ role: 'host', status: 'deprecated' }],
-      },
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), { reportableExtensions: ['.ts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), { reportableRootFiles: ['package.json'] });
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), { classificationBuckets: ['canonical'], secondaryBucketFamilies: ['codeCounts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), { missingRolePatterns: [] });
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), { outcomes: { canonical: { code: 'TEMP_CANONICAL', severity: 'info', classification: 'canonical', message: 'Temporary canonical policy.', ruleRef: 'temp-rule-ref' } } });
-    writeJson(path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'), DEFAULT_OVERLAY_CAPABILITIES_REGISTRY);
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), { semanticName: { style: 'kebab-case' } });
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.deepEqual(result.roles, [{ role: 'host', category: 'architecture-support', status: 'deprecated' }]);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('canonical roles array status wins over perspective status and legacy grouped fallback', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'architecture-support' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'category-role-perspective.registry.json'), {
-      rolesByCategory: {
-        'architecture-support': [{ role: 'host', status: 'deprecated' }],
-      },
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'roles.registry.json'), {
-      roles: [{ role: 'host', status: 'active' }],
-      rolesByCategory: {
-        'architecture-support': [{ role: 'host', status: 'deprecated' }],
-      },
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), { reportableExtensions: ['.ts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), { reportableRootFiles: ['package.json'] });
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), { classificationBuckets: ['canonical'], secondaryBucketFamilies: ['codeCounts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), { missingRolePatterns: [] });
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), { outcomes: { canonical: { code: 'TEMP_CANONICAL', severity: 'info', classification: 'canonical', message: 'Temporary canonical policy.', ruleRef: 'temp-rule-ref' } } });
-    writeJson(path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'), DEFAULT_OVERLAY_CAPABILITIES_REGISTRY);
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), { semanticName: { style: 'kebab-case' } });
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.deepEqual(result.roles, [{ role: 'host', category: 'architecture-support', status: 'active' }]);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('legacy grouped roles registry remains strict membership source when category-role perspective is absent', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'architecture-support' }],
-    });
-
-    fs.writeFileSync(path.join(tempRoot, '_builtin', 'roles.registry.json'), '{ malformed legacy membership source');
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), { reportableExtensions: ['.ts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), { reportableRootFiles: ['package.json'] });
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), { classificationBuckets: ['canonical'], secondaryBucketFamilies: ['codeCounts'] });
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), { missingRolePatterns: [] });
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), { outcomes: { canonical: { code: 'TEMP_CANONICAL', severity: 'info', classification: 'canonical', message: 'Temporary canonical policy.', ruleRef: 'temp-rule-ref' } } });
-    writeJson(path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'), DEFAULT_OVERLAY_CAPABILITIES_REGISTRY);
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), { semanticName: { style: 'kebab-case' } });
-
-    assert.throws(() => resolveNamingRegistryInputs({ registryRootDir: tempRoot }), SyntaxError);
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-test('registryRootDir falls back to module _builtin when temp _builtin is incomplete', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'from-incomplete-temp-root' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'category-role-perspective.registry.json'), {
-      rolesByCategory: {
-        'from-incomplete-temp-root': [{ role: 'incomplete-temp-role', status: 'active' }],
-      },
-    });
-
-    const moduleBuiltinResult = resolveNamingRegistryInputs();
-    const incompleteBuiltinResult = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-
-    assert.deepEqual(incompleteBuiltinResult.roles, moduleBuiltinResult.roles);
-    assert.deepEqual(
-      incompleteBuiltinResult.reportableExtensions,
-      moduleBuiltinResult.reportableExtensions,
-    );
-    assert.deepEqual(
-      incompleteBuiltinResult.reportableRootFiles,
-      moduleBuiltinResult.reportableRootFiles,
-    );
-    assert.ok(
-      !incompleteBuiltinResult.roles.some((entry) => entry.role === 'incomplete-temp-role'),
-    );
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
 test('builtin resolved reportable extensions preserve intended parity, including .jsx and .cjs', () => {
   const result = resolveNamingRegistryInputs();
 
   assert.deepEqual(result.reportableExtensions, INTENDED_BUILTIN_REPORTABLE_EXTENSIONS);
-  assert.ok(result.reportableExtensions.includes('.jsx'));
-  assert.ok(result.reportableExtensions.includes('.cjs'));
 });
 
-test('custom state selects custom and digests diverge from builtin when payload differs', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'custom',
-    });
-
-    writeJson(path.join(tempRoot, '_custom', 'roles.registry.custom.json'), [
-      { role: 'host', category: 'architecture-support', status: 'active' },
-      { role: 'custom-role', category: 'architecture-support', status: 'active' },
-    ]);
-
-    writeJson(path.join(tempRoot, '_custom', 'reportable-extensions.registry.custom.json'), [
-      '.ts',
-      '.abc',
-    ]);
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-
-    assert.equal(result.registryState, 'custom');
-    assert.equal(result.registrySource, 'custom');
-    assert.notEqual(result.registryDigests.custom, result.registryDigests.builtin);
-    assert.equal(result.registryDigests.resolved, result.registryDigests.custom);
-    assert.ok(result.roles.some((entry) => entry.role === 'custom-role'));
-    assert.ok(result.reportableExtensions.includes('.abc'));
-    assert.ok(Array.isArray(result.summaryBuckets.classificationBuckets));
-    assert.ok(Array.isArray(result.summaryBuckets.secondaryBucketFamilies));
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-
-test('custom state preserves builtin summary buckets for summary runtime preparation', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'custom',
-    });
-
-    writeJson(path.join(tempRoot, '_custom', 'roles.registry.custom.json'), [
-      { role: 'host', category: 'architecture-support', status: 'active' },
-      { role: 'custom-role', category: 'architecture-support', status: 'active' },
-    ]);
-
-    writeJson(path.join(tempRoot, '_custom', 'reportable-extensions.registry.custom.json'), [
-      '.ts',
-      '.abc',
-    ]);
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    const summaryBucketsRuntime = toSummaryBucketsRuntime(result.summaryBuckets);
-    const summary = summarizeFindings([], summaryBucketsRuntime);
-
-    assert.ok(Object.hasOwn(summary, 'counts'));
-    assert.ok(Object.hasOwn(summary, 'codeCounts'));
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('throws on invalid activeRegistry value', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'nope',
-    });
-
-    assert.throws(
-      () => resolveNamingRegistryInputs({ registryRootDir: tempRoot }),
-      /Invalid activeRegistry/u,
-    );
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('throws when custom is active and custom files are missing', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'custom',
-    });
-
-    writeJson(path.join(tempRoot, '_custom', 'roles.registry.custom.json'), [
-      { role: 'host', category: 'architecture-support', status: 'active' },
-    ]);
-
-    assert.throws(
-      () => resolveNamingRegistryInputs({ registryRootDir: tempRoot }),
-      /Custom registry file missing: _custom\/reportable-extensions\.registry\.custom\.json\./u,
-    );
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('accepts custom role category values that exist in _builtin/categories.registry.json', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'custom',
-    });
-
-    writeJson(path.join(tempRoot, '_custom', 'roles.registry.custom.json'), [
-      { role: 'perf-role', category: 'performance', status: 'active' },
-    ]);
-
-    writeJson(path.join(tempRoot, '_custom', 'reportable-extensions.registry.custom.json'), [
-      '.ts',
-    ]);
-
-    const result = resolveNamingRegistryInputs({ registryRootDir: tempRoot });
-    assert.ok(result.roles.some((entry) => entry.role === 'perf-role'));
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('throws when custom roles include invalid category', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'custom',
-    });
-
-    writeJson(path.join(tempRoot, '_custom', 'roles.registry.custom.json'), [
-      { role: 'x', category: 'nope', status: 'active' },
-    ]);
-
-    writeJson(path.join(tempRoot, '_custom', 'reportable-extensions.registry.custom.json'), [
-      '.ts',
-    ]);
-
-    assert.throws(
-      () => resolveNamingRegistryInputs({ registryRootDir: tempRoot }),
-      /category must be one of/u,
-    );
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('throws when custom roles include invalid status', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'custom',
-    });
-
-    writeJson(path.join(tempRoot, '_custom', 'roles.registry.custom.json'), [
-      { role: 'x', category: 'architecture-support', status: 'provisional' },
-    ]);
-
-    writeJson(path.join(tempRoot, '_custom', 'reportable-extensions.registry.custom.json'), [
-      '.ts',
-    ]);
-
-    assert.throws(
-      () => resolveNamingRegistryInputs({ registryRootDir: tempRoot }),
-      /status must be "active" or "deprecated"/u,
-    );
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-test('throws when custom reportable extension omits leading dot', () => {
-  const tempRoot = makeTempRegistryRoot();
-
-  try {
-    writeJson(path.join(tempRoot, 'registry-state.json'), {
-      schemaVersion: '1',
-      activeRegistry: 'custom',
-    });
-
-    writeJson(path.join(tempRoot, '_custom', 'roles.registry.custom.json'), [
-      { role: 'host', category: 'architecture-support', status: 'active' },
-    ]);
-
-    writeJson(path.join(tempRoot, '_custom', 'reportable-extensions.registry.custom.json'), ['ts']);
-
-    assert.throws(
-      () => resolveNamingRegistryInputs({ registryRootDir: tempRoot }),
-      /must start with "\."|must start with "."/u,
-    );
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
-
-test('config overlay preserves supported add-only semantics for roles and reportable extensions', () => {
-  const result = resolveNamingRegistryInputs({
-    config: {
-      naming: {
-        reportableExtensions: { add: ['.xyz', '.ts'] },
-        roles: {
-          add: [
-            { role: 'overlay-role', category: 'architecture-support', status: 'active' },
-            { role: 'host', category: 'architecture-support', status: 'active' },
-          ],
-        },
+test('registryRoot drives roles, extensions, categories and policy registries from one root', () => {
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': { categories: [{ category: 'from-temp-root' }] },
+      'category-role-perspective.registry.json': {
+        rolesByCategory: { 'from-temp-root': [{ role: 'temp-role' }] },
       },
-    },
-  });
-
-  assert.equal(result.registrySource, 'config');
-  assert.ok(result.reportableExtensions.includes('.xyz'));
-  assert.ok(result.reportableExtensions.includes('.ts'));
-  assert.ok(result.roles.some((entry) => entry.role === 'overlay-role'));
-  assert.equal(result.roles.filter((entry) => entry.role === 'host').length, 1);
-});
-
-test('unsupported config overlay paths remain ignored', () => {
-  const builtin = resolveNamingRegistryInputs();
-  const withUnsupportedOverlay = resolveNamingRegistryInputs({
-    config: {
-      naming: {
-        summaryBuckets: { add: ['not-supported'] },
+      'roles.registry.json': { roles: [{ role: 'temp-role', status: 'active' }] },
+      'reportable-extensions.registry.json': { reportableExtensions: ['.tmp', '.tmp', '.alt'] },
+      'reportable-root-files.registry.json': {
+        reportableRootFiles: ['root-b.json', 'root-a.json', 'root-b.json'],
       },
-    },
-  });
-
-  assert.equal(withUnsupportedOverlay.registrySource, 'config');
-  assert.deepEqual(withUnsupportedOverlay.roles, builtin.roles);
-  assert.deepEqual(withUnsupportedOverlay.reportableExtensions, builtin.reportableExtensions);
-  assert.deepEqual(withUnsupportedOverlay.summaryBuckets, builtin.summaryBuckets);
-  assert.deepEqual(withUnsupportedOverlay.caseRules, builtin.caseRules);
-});
-
-
-
-test('config overlay supports bounded case-rules set semantics', () => {
-  const result = resolveNamingRegistryInputs({
-    config: {
-      naming: {
-        caseRules: {
-          semanticName: { style: 'kebab-case' },
-        },
+      'summary-buckets.registry.json': {
+        classificationBuckets: ['bucket-a', 'bucket-b'],
+        secondaryBucketFamilies: ['codeCounts'],
       },
-    },
-  });
-
-  assert.equal(result.registrySource, 'config');
-  assert.deepEqual(result.caseRules, {
-    semanticName: { style: 'kebab-case' },
-  });
-});
-
-test('config overlay case-rules invalid semanticName.style throws deterministically', () => {
-  assert.throws(
-    () =>
-      resolveNamingRegistryInputs({
-        config: {
-          naming: {
-            caseRules: {
-              semanticName: { style: '' },
-            },
+      'missing-role-patterns.registry.json': {
+        missingRolePatterns: [
+          {
+            patternId: 'single-extension',
+            dotSegments: 2,
+            semanticSegmentIndex: 0,
+            extensionSegmentIndexes: [1],
+          },
+        ],
+      },
+      'finding-policy.registry.json': {
+        outcomes: {
+          canonical: {
+            code: 'TEMP_CANONICAL',
+            severity: 'info',
+            classification: 'canonical',
+            message: 'Temporary canonical policy.',
+            ruleRef: 'temp-rule-ref',
           },
         },
-      }),
-    /semanticName\.style must be a non-empty string/u,
+      },
+    },
+    (registryRoot) => {
+      const result = resolveNamingRegistryInputs({ registryRoot });
+
+      assert.deepEqual(result.roles, [
+        { role: 'temp-role', category: 'from-temp-root', status: 'active' },
+      ]);
+      assert.deepEqual(result.reportableExtensions, ['.alt', '.tmp']);
+      assert.deepEqual(result.reportableRootFiles, ['root-a.json', 'root-b.json']);
+      assert.deepEqual(result.summaryBuckets, {
+        classificationBuckets: ['bucket-a', 'bucket-b'],
+        secondaryBucketFamilies: ['codeCounts'],
+      });
+      assert.equal(result.missingRolePatterns.length, 1);
+      assert.equal(result.findingPolicy.canonical.code, 'TEMP_CANONICAL');
+      assert.notEqual(result.registryDigests.resolved, result.registryDigests.builtin);
+
+      const summary = summarizeFindings([], toSummaryBucketsRuntime(result.summaryBuckets));
+      assert.ok(Object.hasOwn(summary, 'counts'));
+      assert.ok(Object.hasOwn(summary, 'codeCounts'));
+    },
   );
 });
 
-test('throws when overlay capabilities registry is malformed', () => {
-  const tempRoot = makeTempRegistryRoot();
+test('an incomplete registry root throws; there is no per-file Builtin fallback', () => {
+  withNamingRegistryRoot({ 'reportable-root-files.registry.json': null }, (registryRoot) => {
+    assert.throws(() => resolveNamingRegistryInputs({ registryRoot }), /ENOENT/u);
+  });
+});
 
-  try {
-    writeJson(path.join(tempRoot, '_builtin', 'categories.registry.json'), {
-      categories: [{ category: 'architecture-support' }],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'category-role-perspective.registry.json'), {
-      rolesByCategory: {
-        'architecture-support': [{ role: 'host', status: 'active' }],
+test('legacy grouped roles filename is accepted when category-role-perspective is absent', () => {
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': { categories: [{ category: 'from-temp-root' }] },
+      'category-role-perspective.registry.json': null,
+      'roles.registry.json': {
+        rolesByCategory: { 'from-temp-root': [{ role: 'temp-legacy-role', status: 'active' }] },
       },
-    });
+    },
+    (registryRoot) => {
+      const result = resolveNamingRegistryInputs({ registryRoot });
+      assert.deepEqual(result.roles, [
+        { role: 'temp-legacy-role', category: 'from-temp-root', status: 'active' },
+      ]);
+    },
+  );
+});
 
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-extensions.registry.json'), {
-      reportableExtensions: ['.ts'],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'reportable-root-files.registry.json'), {
-      reportableRootFiles: ['package.json'],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'summary-buckets.registry.json'), {
-      classificationBuckets: ['canonical'],
-      secondaryBucketFamilies: ['codeCounts'],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'missing-role-patterns.registry.json'), {
-      missingRolePatterns: [
-        {
-          patternId: 'single-extension',
-          dotSegments: 2,
-          semanticSegmentIndex: 0,
-          extensionSegmentIndexes: [1],
-        },
-      ],
-    });
-
-    writeJson(path.join(tempRoot, '_builtin', 'finding-policy.registry.json'), {
-      outcomes: {
-        canonical: {
-          code: 'NAMING_CANONICAL',
-          severity: 'info',
-          classification: 'canonical',
-          message: 'ok',
-          ruleRef: 'naming-spec',
-        },
+test('category-role-perspective wins over legacy grouped roles membership when both exist', () => {
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': { categories: [{ category: 'from-temp-root' }] },
+      'category-role-perspective.registry.json': {
+        rolesByCategory: { 'from-temp-root': [{ role: 'temp-new-role', status: 'active' }] },
       },
-    });
+      'roles.registry.json': {
+        rolesByCategory: { 'from-temp-root': [{ role: 'temp-legacy-role', status: 'active' }] },
+      },
+    },
+    (registryRoot) => {
+      const result = resolveNamingRegistryInputs({ registryRoot });
+      assert.ok(result.roles.some((entry) => entry.role === 'temp-new-role'));
+      assert.ok(!result.roles.some((entry) => entry.role === 'temp-legacy-role'));
+    },
+  );
+});
 
-    writeJson(path.join(tempRoot, '_builtin', 'case-rules.registry.json'), {
-      semanticName: { style: 'kebab-case' },
-    });
+const ARCHITECTURE_SUPPORT_CATEGORIES = { categories: [{ category: 'architecture-support' }] };
 
-    writeJson(path.join(tempRoot, '_builtin', 'overlay-capabilities.registry.json'), {
-      version: '1',
-      capabilities: [
-        {
-          configPath: 'naming.roles',
-          operation: 'replace',
-          payloadType: 'role-array',
-          target: 'roles',
-        },
-      ],
-    });
+test('canonical roles.registry.json status wins over category-role perspective status', () => {
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': ARCHITECTURE_SUPPORT_CATEGORIES,
+      'category-role-perspective.registry.json': {
+        rolesByCategory: { 'architecture-support': [{ role: 'host', status: 'deprecated' }] },
+      },
+      'roles.registry.json': { roles: [{ role: 'host', status: 'active', definition: 'host role' }] },
+    },
+    (registryRoot) => {
+      assert.deepEqual(resolveNamingRegistryInputs({ registryRoot }).roles, [
+        { role: 'host', category: 'architecture-support', status: 'active' },
+      ]);
+    },
+  );
+});
 
-    assert.throws(
-      () => resolveNamingRegistryInputs({ registryRootDir: tempRoot, config: {} }),
-      /overlay-capabilities registry/u,
-    );
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
+test('legacy grouped roles keep their status when category-role perspective is absent', () => {
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': ARCHITECTURE_SUPPORT_CATEGORIES,
+      'category-role-perspective.registry.json': null,
+      'roles.registry.json': {
+        rolesByCategory: { 'architecture-support': [{ role: 'host', status: 'deprecated' }] },
+      },
+    },
+    (registryRoot) => {
+      assert.deepEqual(resolveNamingRegistryInputs({ registryRoot }).roles, [
+        { role: 'host', category: 'architecture-support', status: 'deprecated' },
+      ]);
+    },
+  );
+});
+
+test('perspective membership stays authoritative when canonical roles registry is malformed', () => {
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': ARCHITECTURE_SUPPORT_CATEGORIES,
+      'category-role-perspective.registry.json': {
+        rolesByCategory: { 'architecture-support': [{ role: 'host', status: 'deprecated' }] },
+      },
+      'roles.registry.json': '{ not valid json',
+    },
+    (registryRoot) => {
+      assert.deepEqual(resolveNamingRegistryInputs({ registryRoot }).roles, [
+        { role: 'host', category: 'architecture-support', status: 'deprecated' },
+      ]);
+    },
+  );
+});
+
+test('perspective membership-only entries can use legacy grouped roles status', () => {
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': ARCHITECTURE_SUPPORT_CATEGORIES,
+      'category-role-perspective.registry.json': {
+        rolesByCategory: { 'architecture-support': [{ role: 'host' }] },
+      },
+      'roles.registry.json': {
+        rolesByCategory: { 'architecture-support': [{ role: 'host', status: 'deprecated' }] },
+      },
+    },
+    (registryRoot) => {
+      assert.deepEqual(resolveNamingRegistryInputs({ registryRoot }).roles, [
+        { role: 'host', category: 'architecture-support', status: 'deprecated' },
+      ]);
+    },
+  );
+});
+
+test('canonical roles array status wins over perspective status and legacy grouped status', () => {
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': ARCHITECTURE_SUPPORT_CATEGORIES,
+      'category-role-perspective.registry.json': {
+        rolesByCategory: { 'architecture-support': [{ role: 'host', status: 'deprecated' }] },
+      },
+      'roles.registry.json': {
+        roles: [{ role: 'host', status: 'active' }],
+        rolesByCategory: { 'architecture-support': [{ role: 'host', status: 'deprecated' }] },
+      },
+    },
+    (registryRoot) => {
+      assert.deepEqual(resolveNamingRegistryInputs({ registryRoot }).roles, [
+        { role: 'host', category: 'architecture-support', status: 'active' },
+      ]);
+    },
+  );
+});
+
+test('legacy grouped roles registry stays a strict membership source when perspective is absent', () => {
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': ARCHITECTURE_SUPPORT_CATEGORIES,
+      'category-role-perspective.registry.json': null,
+      'roles.registry.json': '{ malformed legacy membership source',
+    },
+    (registryRoot) => {
+      assert.throws(() => resolveNamingRegistryInputs({ registryRoot }), SyntaxError);
+    },
+  );
+});
+
+test('roles with a category outside categories.registry.json are rejected', () => {
+  withNamingRegistryRoot(
+    {
+      'category-role-perspective.registry.json': {
+        rolesByCategory: { 'not-a-category': [{ role: 'host', status: 'active' }] },
+      },
+    },
+    (registryRoot) => {
+      assert.throws(
+        () => resolveNamingRegistryInputs({ registryRoot }),
+        /Invalid roles registry: category must be one of/u,
+      );
+    },
+  );
+});
+
+test('reportable extensions without a leading dot are rejected', () => {
+  withNamingRegistryRoot(
+    { 'reportable-extensions.registry.json': { version: '1', reportableExtensions: ['ts'] } },
+    (registryRoot) => {
+      assert.throws(
+        () => resolveNamingRegistryInputs({ registryRoot }),
+        /each extension must start with "\."/u,
+      );
+    },
+  );
+});
+
+test('activeSet only drives the derived transitional registryState and registrySource fields', () => {
+  const result = resolveNamingRegistryInputs({ activeSet: 'custom' });
+
+  assert.equal(result.registryState, 'custom');
+  assert.equal(result.registrySource, 'custom');
+  assert.equal(result.registryDigests.resolved, result.registryDigests.builtin);
+});
+
+test('registryDigests.custom digests a valid Custom root and falls back to builtin when it is invalid', () => {
+  withNamingRegistryRoot(
+    { 'reportable-extensions.registry.json': { version: '1', reportableExtensions: ['.ts', '.abc'] } },
+    (customRegistryRoot) => {
+      const result = resolveNamingRegistryInputs({ customRegistryRoot });
+
+      assert.notEqual(result.registryDigests.custom, result.registryDigests.builtin);
+      assert.equal(result.registryDigests.resolved, result.registryDigests.builtin);
+      assert.deepEqual(result.reportableExtensions, INTENDED_BUILTIN_REPORTABLE_EXTENSIONS);
+    },
+  );
+
+  withNamingRegistryRoot({ 'case-rules.registry.json': '{ broken' }, (customRegistryRoot) => {
+    const result = resolveNamingRegistryInputs({ customRegistryRoot });
+    assert.equal(result.registryDigests.custom, result.registryDigests.builtin);
+  });
+});
+
+test('the legacy in-package custom set converts to a complete root with its pre-#41 digest', () => {
+  const legacyRoles = JSON.parse(
+    fs.readFileSync(path.join(LEGACY_CUSTOM_FIXTURE_ROOT, 'roles.registry.custom.json'), 'utf8'),
+  );
+  const legacyExtensions = JSON.parse(
+    fs.readFileSync(
+      path.join(LEGACY_CUSTOM_FIXTURE_ROOT, 'reportable-extensions.registry.custom.json'),
+      'utf8',
+    ),
+  );
+  const rolesByCategory = {};
+  for (const { role, category, notes } of legacyRoles) {
+    rolesByCategory[category] ??= [];
+    rolesByCategory[category].push(notes === undefined ? { role } : { role, notes });
   }
+
+  withNamingRegistryRoot(
+    {
+      'category-role-perspective.registry.json': { version: '1', rolesByCategory },
+      'roles.registry.json': {
+        version: '1',
+        roles: legacyRoles.map(({ role, status }) => ({ role, status })),
+      },
+      'reportable-extensions.registry.json': { version: '1', reportableExtensions: legacyExtensions },
+    },
+    (customRegistryRoot) => {
+      const result = resolveNamingRegistryInputs({ customRegistryRoot });
+      assert.equal(result.registryDigests.custom, LEGACY_CUSTOM_SET_DIGEST);
+    },
+  );
+});
+
+test('validateNamingRegistrySet passes the Builtin root', () => {
+  assert.deepEqual(validateNamingRegistrySet(NAMING_BUILTIN_REGISTRY_ROOT), []);
+});
+
+test('validateNamingRegistrySet attributes failures per registry in registry-id order', () => {
+  withNamingRegistryRoot(
+    {
+      'reportable-extensions.registry.json': { version: '1', reportableExtensions: ['ts'] },
+      'case-rules.registry.json': '{ broken',
+      'summary-buckets.registry.json': null,
+    },
+    (registryRoot) => {
+      const failures = validateNamingRegistrySet(registryRoot);
+
+      assert.deepEqual(
+        failures.map((failure) => failure.registryId),
+        ['naming/case-rules', 'naming/reportable-extensions', 'naming/summary-buckets'],
+      );
+      for (const failure of failures) {
+        assert.equal(typeof failure.detail, 'string');
+        assert.ok(failure.detail.length > 0);
+      }
+    },
+  );
 });

@@ -15,17 +15,15 @@ test('validator config schema version const matches runtime contract version', (
 });
 
 
-test('validator config schema allows naming.caseRules.semanticName.style kebab-case only', () => {
+test('validator config schema declares no registry-record surfaces (#41)', () => {
   const schemaPath = path.join(
     process.cwd(),
     'src/validator-config.schema.json',
   );
   const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
 
-  assert.equal(
-    schema?.properties?.naming?.properties?.caseRules?.properties?.semanticName?.properties?.style?.const,
-    'kebab-case',
-  );
+  assert.equal(schema.additionalProperties, false);
+  assert.deepEqual(Object.keys(schema.properties).sort(), ['$schema', 'strictExit', 'version']);
 });
 
 test('legacy core schema path is not independently maintained', () => {

@@ -7,6 +7,8 @@ export const buildNamingValidatorReport = ({
   scope,
   filters,
   registry,
+  registrySet,
+  registryProvenance,
   toolVersion,
   configDigest,
   sourceSnapshot,
@@ -34,6 +36,8 @@ export const buildNamingValidatorReport = ({
           registryDigests: registry.registryDigests,
         }
       : {}),
+    ...(registrySet ? { registrySet } : {}),
+    ...(registryProvenance ? { registryProvenance } : {}),
     scope,
     totalFilesScanned,
     filters,

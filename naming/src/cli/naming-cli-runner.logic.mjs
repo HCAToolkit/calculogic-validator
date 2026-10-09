@@ -16,6 +16,7 @@ import {
   printValidatorUsageErrorToStderr,
 } from '../../../src/core/cli/validator-cli-usage.logic.mjs';
 import { resolveContextualValidatorScopeProfile } from '../../../src/core/validator-scopes.logic.mjs';
+import { resolveActiveRegistrySet } from '../../../src/core/registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
 import { parseNamingCliArguments } from './naming-cli-args.logic.mjs';
 import { buildNamingValidatorReport } from './naming-report-builder.logic.mjs';
 
@@ -38,8 +39,18 @@ export const runNamingCli = ({ argv, usageLines, repositoryRoot, npmArgForwardin
     return { shouldExit: true, exitCode: 0 };
   }
 
+  // One lifecycle resolution per run; a lifecycle error stops the run before any report.
+  let registryResolution;
+  try {
+    registryResolution = resolveActiveRegistrySet({ targetRoot: repositoryRoot });
+  } catch (error) {
+    printValidatorUsageErrorToStderr(error.message, usageLines);
+    return { shouldExit: true, exitCode: 1 };
+  }
+
   const scopeResolution = resolveContextualValidatorScopeProfile(parsed.selectedScope, {
     targetRepositoryRoot: repositoryRoot,
+    registryRoots: registryResolution.registryRoots,
   });
   if (scopeResolution.status === 'invalid-scope') {
     printValidatorUsageErrorToStderr(`Invalid scope: ${parsed.selectedScope}`, usageLines);
@@ -66,8 +77,8 @@ export const runNamingCli = ({ argv, usageLines, repositoryRoot, npmArgForwardin
   try {
     validatorResult = runNamingValidator(repositoryRoot, {
       scope: parsed.selectedScope,
-      config,
       targets: parsed.targets,
+      registryResolution,
     });
   } catch (error) {
     printValidatorUsageErrorToStderr(error.message, usageLines);
@@ -91,7 +102,10 @@ export const runNamingCli = ({ argv, usageLines, repositoryRoot, npmArgForwardin
 
   writeValidatorReportToStdout(report);
   setValidatorReportExitCode(
-    deriveExitCodeFromFindings(validatorResult.findings, { strict: effectiveStrictExit }),
+    deriveExitCodeFromFindings(validatorResult.findings, {
+      strict: effectiveStrictExit,
+      registryRoots: registryResolution.registryRoots,
+    }),
   );
 
   return { shouldExit: false };

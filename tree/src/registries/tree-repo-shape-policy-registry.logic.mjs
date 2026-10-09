@@ -12,14 +12,14 @@ let cachedBuiltinTreeRepoShapePolicy = null;
 const normalizeAllowedTopLevelDirectories = (allowedTopLevelDirectories) => {
   if (!Array.isArray(allowedTopLevelDirectories)) {
     throw new Error(
-      'Invalid builtin tree repo-shape policy registry: allowedTopLevelDirectories must be an array.',
+      'Invalid tree repo-shape policy registry: allowedTopLevelDirectories must be an array.',
     );
   }
 
   allowedTopLevelDirectories.forEach((directoryName, index) => {
     if (typeof directoryName !== 'string' || directoryName.length === 0) {
       throw new Error(
-        `Invalid builtin tree repo-shape policy registry: allowedTopLevelDirectories[${index}] must be a non-empty string.`,
+        `Invalid tree repo-shape policy registry: allowedTopLevelDirectories[${index}] must be a non-empty string.`,
       );
     }
   });
@@ -29,7 +29,7 @@ const normalizeAllowedTopLevelDirectories = (allowedTopLevelDirectories) => {
 
 export const normalizeTreeRepoShapePolicyRegistryPayload = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('Invalid builtin tree repo-shape policy registry: expected object payload.');
+    throw new Error('Invalid tree repo-shape policy registry: expected object payload.');
   }
 
   return {

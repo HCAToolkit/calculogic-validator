@@ -7,6 +7,7 @@ import {
 } from '../validator-report-meta.logic.mjs';
 import { deriveExitCodeFromRunnerReport } from '../validator-exit-code.logic.mjs';
 import { detectNpmArgForwardingFootgun } from '../npm-arg-forwarding-guard.logic.mjs';
+import { resolveActiveRegistrySet } from '../registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
 import {
   writeValidatorReportToStdout,
   setValidatorReportExitCode,
@@ -52,9 +53,19 @@ export const runValidatorRunnerCli = ({
     return { shouldExit: true, exitCode: 0 };
   }
 
+  // One lifecycle resolution per run; a lifecycle error stops the run before any report.
+  let registryResolution;
+  try {
+    registryResolution = resolveActiveRegistrySet({ targetRoot: repositoryRoot });
+  } catch (error) {
+    printValidatorUsageErrorToStderr(error.message, usageLines);
+    return { shouldExit: true, exitCode: 1 };
+  }
+
   if (parsed.selectedScope) {
     const scopeResolution = resolveContextualValidatorScopeProfile(parsed.selectedScope, {
       targetRepositoryRoot: repositoryRoot,
+      registryRoots: registryResolution.registryRoots,
     });
     if (scopeResolution.status === 'invalid-scope') {
       printValidatorUsageErrorToStderr(`Invalid scope: ${parsed.selectedScope}`, usageLines);
@@ -73,22 +84,22 @@ export const runValidatorRunnerCli = ({
 
     const toolVersion = getValidatorToolVersion();
 
-    const report = runValidatorRunner(
-      repositoryRoot,
-      buildRunnerOptions({
+    const report = runValidatorRunner(repositoryRoot, {
+      ...buildRunnerOptions({
         parsed,
         config,
         toolVersion,
         configDigest: config ? computeConfigDigest(config) : undefined,
       }),
-    );
+      registryResolution,
+    });
 
     writeValidatorReportToStdout(report);
     setValidatorReportExitCode(
-      deriveExitCodeFromRunnerReport(
-        report,
-        buildExitCodeOptions ? buildExitCodeOptions({ parsed, config }) : {},
-      ),
+      deriveExitCodeFromRunnerReport(report, {
+        ...(buildExitCodeOptions ? buildExitCodeOptions({ parsed, config }) : {}),
+        registryRoots: registryResolution.registryRoots,
+      }),
     );
   } catch (error) {
     printValidatorUsageErrorToStderr(error.message, usageLines);

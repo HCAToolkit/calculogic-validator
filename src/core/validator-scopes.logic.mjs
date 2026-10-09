@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT_APP_FILES } from './validator-root-files.knowledge.mjs';
 import { resolveValidatorDevelopmentContext } from './validator-development-context.logic.mjs';
+import { SUITE_BUILTIN_REGISTRY_ROOT } from '../registries/suite-registry-inventory.knowledge.mjs';
 
 // Ownership decision (2026-03 narrow audit slice):
 // - Keep this module as the canonical validator-owned runtime owner for builtin scope profiles.
@@ -13,12 +14,14 @@ import { resolveValidatorDevelopmentContext } from './validator-development-cont
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_VALIDATOR_SCOPE = 'repo';
 
+const SCOPE_PROFILES_REGISTRY_FILENAME = 'scope-profiles.registry.json';
+
 const BUILTIN_SCOPE_PROFILES_REGISTRY_PATH = path.join(
   MODULE_DIR,
   '..',
   'registries',
   '_builtin',
-  'scope-profiles.registry.json',
+  SCOPE_PROFILES_REGISTRY_FILENAME,
 );
 
 const LEGACY_SCOPE_DESCRIPTIONS = {
@@ -83,12 +86,12 @@ const canonicalizeScopeProfile = (scope, profile) => {
 };
 
 // Canonical runtime-owner behavior in this module:
-// validates + normalizes builtin scope-profile registry payload at load time.
-const loadBuiltinScopeProfiles = () => {
-  const parsedRegistry = loadJsonFile(BUILTIN_SCOPE_PROFILES_REGISTRY_PATH);
+// validates + normalizes a scope-profile registry payload at load time.
+const loadScopeProfilesFromFile = (registryFilePath) => {
+  const parsedRegistry = loadJsonFile(registryFilePath);
 
   if (!parsedRegistry?.profiles || typeof parsedRegistry.profiles !== 'object') {
-    throw new Error('Invalid builtin scope profiles registry: expected profiles object.');
+    throw new Error('Invalid scope profiles registry: expected profiles object.');
   }
 
   return Object.fromEntries(
@@ -104,10 +107,25 @@ let cachedBuiltinScopeProfiles = null;
 // Primary runtime path: getter-backed scope profile access for validator runtime.
 export const getBuiltinScopeProfiles = () => {
   if (!cachedBuiltinScopeProfiles) {
-    cachedBuiltinScopeProfiles = loadBuiltinScopeProfiles();
+    cachedBuiltinScopeProfiles = loadScopeProfilesFromFile(BUILTIN_SCOPE_PROFILES_REGISTRY_PATH);
   }
 
   return cachedBuiltinScopeProfiles;
+};
+
+// Loads scope profiles from a resolved suite registry root (#41 registry lifecycle).
+export const loadScopeProfilesFromRegistryRoot = (registryRoot) =>
+  loadScopeProfilesFromFile(path.join(registryRoot, SCOPE_PROFILES_REGISTRY_FILENAME));
+
+// Scope profiles for a run: the resolved suite registry root when the lifecycle supplied one
+// (`registryRoots.suite`), otherwise Builtin.
+const getScopeProfiles = ({ registryRoots } = {}) => {
+  const suiteRegistryRoot = registryRoots?.suite;
+  if (!suiteRegistryRoot || path.resolve(suiteRegistryRoot) === path.resolve(SUITE_BUILTIN_REGISTRY_ROOT)) {
+    return getBuiltinScopeProfiles();
+  }
+
+  return loadScopeProfilesFromRegistryRoot(suiteRegistryRoot);
 };
 
 // Primary runtime path helper: immutable copy for callers and compatibility shims.
@@ -118,12 +136,15 @@ export const cloneScopeProfile = (profile) => ({
 });
 
 
-export const listValidatorScopes = () =>
-  Array.from(new Set(Object.keys(getBuiltinScopeProfiles()))).sort((a, b) => a.localeCompare(b));
+export const listValidatorScopes = ({ registryRoots } = {}) =>
+  Array.from(new Set(Object.keys(getScopeProfiles({ registryRoots })))).sort((a, b) => a.localeCompare(b));
 
-export const resolveContextualValidatorScopeProfile = (scope, { targetRepositoryRoot = process.cwd(), packageRoot } = {}) => {
+export const resolveContextualValidatorScopeProfile = (
+  scope,
+  { targetRepositoryRoot = process.cwd(), packageRoot, registryRoots } = {},
+) => {
   const normalizedScope = scope ?? DEFAULT_VALIDATOR_SCOPE;
-  const profile = getBuiltinScopeProfiles()[normalizedScope];
+  const profile = getScopeProfiles({ registryRoots })[normalizedScope];
 
   if (!profile) {
     return { status: 'invalid-scope', scope: normalizedScope, profile: null };
@@ -164,12 +185,12 @@ export const getContextualValidatorScopeProfile = (scope, options = {}) => {
 };
 
 export const listAvailableValidatorScopes = (options = {}) =>
-  listValidatorScopes().filter(
+  listValidatorScopes(options).filter(
     (scope) => resolveContextualValidatorScopeProfile(scope, options).status === 'available',
   );
 
-export const getValidatorScopeProfile = (scope) => {
+export const getValidatorScopeProfile = (scope, { registryRoots } = {}) => {
   const normalizedScope = scope ?? DEFAULT_VALIDATOR_SCOPE;
-  const profile = getBuiltinScopeProfiles()[normalizedScope];
+  const profile = getScopeProfiles({ registryRoots })[normalizedScope];
   return profile ? cloneScopeProfile(profile) : null;
 };

@@ -9,13 +9,13 @@ export const BUILTIN_FOLDER_KINDS_REGISTRY_PATH = fileURLToPath(
 
 let cachedBuiltinFolderKindsRegistry = null;
 
-const normalizeFolderKindsRegistryPayload = (payload) => {
+export const normalizeFolderKindsRegistryPayload = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('Invalid builtin folder-kinds registry: expected object payload.');
+    throw new Error('Invalid folder-kinds registry: expected object payload.');
   }
 
   if (!Array.isArray(payload.folderKinds)) {
-    throw new Error('Invalid builtin folder-kinds registry: folderKinds must be an array.');
+    throw new Error('Invalid folder-kinds registry: folderKinds must be an array.');
   }
 
   return payload;

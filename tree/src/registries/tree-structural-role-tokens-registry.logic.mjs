@@ -9,19 +9,19 @@ export const BUILTIN_STRUCTURAL_ROLE_TOKENS_REGISTRY_PATH = fileURLToPath(
 
 let cachedBuiltinStructuralRoleTokensRegistry = null;
 
-const assertValidRegistry = (payload) => {
+export const assertValidStructuralRoleTokensRegistry = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('Invalid builtin Tree structural-role tokens registry: expected object payload.');
+    throw new Error('Invalid Tree structural-role tokens registry: expected object payload.');
   }
   if (!Array.isArray(payload.structuralRoleTokens)) {
-    throw new Error('Invalid builtin Tree structural-role tokens registry: structuralRoleTokens must be an array.');
+    throw new Error('Invalid Tree structural-role tokens registry: structuralRoleTokens must be an array.');
   }
   return payload;
 };
 
 export const getBuiltinStructuralRoleTokensRegistry = () => {
   if (!cachedBuiltinStructuralRoleTokensRegistry) {
-    cachedBuiltinStructuralRoleTokensRegistry = assertValidRegistry(
+    cachedBuiltinStructuralRoleTokensRegistry = assertValidStructuralRoleTokensRegistry(
       JSON.parse(fs.readFileSync(BUILTIN_STRUCTURAL_ROLE_TOKENS_REGISTRY_PATH, 'utf8')),
     );
   }
