@@ -95,7 +95,8 @@ const assertNonEmptyStringArray = (value, label) => {
 
 // Scope roots are repository-relative POSIX paths that cannot leave the validation target: no
 // absolute or drive paths, no backslashes, no `..` or empty segments, and `.` only on its own.
-// Root files are bare file names (patterns allowed) at the repository root.
+// Root files are bare file names at the repository root: a literal name, or one of the system-scope
+// compatibility patterns, which are the only patterns collection expands.
 const isContainedScopeRoot = (root) =>
   root === '.' ||
   (!root.startsWith('/') &&
@@ -103,8 +104,15 @@ const isContainedScopeRoot = (root) =>
     !root.includes('\\') &&
     root.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..'));
 
+const GLOB_SYNTAX_PATTERN = /[*?[\]{}]/u;
+
 const isRootFileName = (fileName) =>
-  !fileName.includes('/') && !fileName.includes('\\') && fileName !== '.' && fileName !== '..';
+  isKnownSystemScopeCompatibilityPattern(fileName) ||
+  (!fileName.includes('/') &&
+    !fileName.includes('\\') &&
+    fileName !== '.' &&
+    fileName !== '..' &&
+    !GLOB_SYNTAX_PATTERN.test(fileName));
 
 // The scope contract: a registry defines exactly the scopes suite core describes and runs
 // (`LEGACY_SCOPE_DESCRIPTIONS`, including the default scope), each with both include lists.
@@ -139,7 +147,7 @@ const assertValidScopeProfilesRegistry = (parsedRegistry) => {
     const nonRootFiles = profile.includeRootFiles.filter((fileName) => !isRootFileName(fileName));
     if (nonRootFiles.length > 0) {
       throw new Error(
-        `Invalid scope profiles registry: profiles.${scope}.includeRootFiles must be file names at the repository root (rejected: ${nonRootFiles.join(', ')}).`,
+        `Invalid scope profiles registry: profiles.${scope}.includeRootFiles must be literal file names at the repository root or a supported compatibility pattern (rejected: ${nonRootFiles.join(', ')}).`,
       );
     }
   }

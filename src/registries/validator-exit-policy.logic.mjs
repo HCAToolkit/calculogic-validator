@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const MAX_PROCESS_EXIT_CODE = 255;
+
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const EXIT_POLICY_REGISTRY_FILENAME = 'exit-policy.registry.json';
 
@@ -70,9 +72,11 @@ const canonicalizeExitPolicyEntry = (policyEntry) => {
     throw new Error('Invalid exit policy registry: each policy entry requires a non-empty id.');
   }
 
-  if (!Number.isInteger(policyEntry.exitCode) || policyEntry.exitCode < 0) {
+  // A process exit status is portable only in 0–255; POSIX truncates larger values, so 256 would
+  // exit as success.
+  if (!Number.isInteger(policyEntry.exitCode) || policyEntry.exitCode < 0 || policyEntry.exitCode > MAX_PROCESS_EXIT_CODE) {
     throw new Error(
-      `Invalid exit policy registry: exitCode for policy "${id}" must be a non-negative integer.`,
+      `Invalid exit policy registry: exitCode for policy "${id}" must be an integer from 0 to ${MAX_PROCESS_EXIT_CODE}.`,
     );
   }
 

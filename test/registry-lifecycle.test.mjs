@@ -290,7 +290,7 @@ test('suite validation rejects scope roots that escape the target repository', (
     );
   }
 
-  for (const nonRootFile of ['../package.json', 'config/app.json', '..']) {
+  for (const nonRootFile of ['../package.json', 'config/app.json', '..', '*.md', 'README.?d', '[Rr]EADME.md', '{a,b}.json']) {
     assert.deepEqual(
       invalidIdsAfter('suite', 'scope-profiles.registry.json', (payload) => ({
         ...payload,
@@ -300,6 +300,18 @@ test('suite validation rejects scope roots that escape the target repository', (
       `accepted includeRootFiles ${nonRootFile}`,
     );
   }
+
+  // Literal names and the system-scope compatibility patterns that collection expands stay valid.
+  assert.deepEqual(
+    invalidIdsAfter('suite', 'scope-profiles.registry.json', (payload) => ({
+      ...payload,
+      profiles: {
+        ...payload.profiles,
+        docs: { ...payload.profiles.docs, includeRootFiles: ['README.md', 'eslint.config.*', 'tsconfig*.json'] },
+      },
+    })),
+    [],
+  );
 });
 
 test('membership-only lists compare as sets: special-case matches and shim vocabularies', () => {
@@ -624,7 +636,7 @@ test('finding classifications and shim vocabulary casing follow their runtime co
   );
 });
 
-test('empty undeclared perspective categories and all-false exit predicates are invalid', () => {
+test('empty undeclared perspective categories, all-false exit predicates and unportable exit codes are invalid', () => {
   assert.deepEqual(
     invalidIdsAfter('naming', 'category-role-perspective.registry.json', (payload) => ({
       ...payload,
@@ -638,6 +650,24 @@ test('empty undeclared perspective categories and all-false exit predicates are 
       policies: [{ id: 'never-true', exitCode: 2, predicate: { anyWarnFindings: false } }, ...payload.policies],
     })),
     ['suite/exit-policy'],
+  );
+  // A process exit status above 255 is truncated on POSIX (256 exits as 0).
+  for (const exitCode of [256, 1000]) {
+    assert.deepEqual(
+      invalidIdsAfter('suite', 'exit-policy.registry.json', (payload) => ({
+        ...payload,
+        policies: payload.policies.map((policy, index) => (index === 0 ? { ...policy, exitCode } : policy)),
+      })),
+      ['suite/exit-policy'],
+      `accepted exitCode ${exitCode}`,
+    );
+  }
+  assert.deepEqual(
+    invalidIdsAfter('suite', 'exit-policy.registry.json', (payload) => ({
+      ...payload,
+      policies: payload.policies.map((policy, index) => (index === 0 ? { ...policy, exitCode: 255 } : policy)),
+    })),
+    [],
   );
 });
 
