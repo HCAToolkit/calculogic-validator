@@ -30,6 +30,7 @@ export const normalizeStructuralContextAssessmentPoliciesRegistryPayload = (payl
   }
 
   const seenPolicyIds = new Set();
+  const seenMatchKeys = new Map();
 
   payload.policies.forEach((policy, index) => {
     if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
@@ -62,6 +63,16 @@ export const normalizeStructuralContextAssessmentPoliciesRegistryPayload = (payl
         throw new Error(`Invalid structural-context assessment policies registry: policies[${index}].match.${selector} must be a non-empty string.`);
       }
     }
+
+    // Runtime matches all selectors exactly and treats a second matching policy as ambiguity, so a
+    // repeated selector tuple is unusable policy.
+    const matchKey = JSON.stringify(REQUIRED_MATCH_SELECTORS.map((selector) => policy.match[selector]));
+    if (seenMatchKeys.has(matchKey)) {
+      throw new Error(
+        `Invalid structural-context assessment policies registry: policies[${index}].match duplicates the selectors of policyId "${seenMatchKeys.get(matchKey)}".`,
+      );
+    }
+    seenMatchKeys.set(matchKey, policy.policyId);
 
     if (!policy.assessment || typeof policy.assessment !== 'object' || Array.isArray(policy.assessment)) {
       throw new Error(`Invalid structural-context assessment policies registry: policies[${index}].assessment must be an object.`);
