@@ -1,11 +1,15 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { assertTreeRegistryEntries } from './tree-registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
 export const BUILTIN_STRUCTURAL_HOMES_REGISTRY_PATH = fileURLToPath(
   new URL('structural-homes.registry.json', BUILTIN_REGISTRY_ROOT),
 );
+
+// Tree runtime consumers read only `active` entries; `deprecated` keeps an entry declared but unused.
+const STRUCTURAL_HOME_STATUSES = Object.freeze(['active', 'deprecated']);
 
 let cachedBuiltinStructuralHomesRegistry = null;
 
@@ -17,6 +21,14 @@ export const normalizeStructuralHomesRegistryPayload = (payload) => {
   if (!Array.isArray(payload.structuralHomes)) {
     throw new Error('Invalid structural-homes registry: structuralHomes must be an array.');
   }
+
+  assertTreeRegistryEntries(payload.structuralHomes, {
+    registryLabel: 'structural-homes',
+    listLabel: 'structuralHomes',
+    keyField: 'structuralHome',
+    requiredStringFields: ['definition'],
+    enumFields: { status: STRUCTURAL_HOME_STATUSES },
+  });
 
   return payload;
 };

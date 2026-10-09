@@ -274,6 +274,52 @@ test('Tree validation rejects malformed evidence-policy and perspective registri
   );
 });
 
+test('Tree validation rejects malformed entries in its runtime registries', () => {
+  const entryLists = {
+    'folder-kinds': 'folderKinds',
+    'structural-homes': 'structuralHomes',
+    'structural-role-tokens': 'structuralRoleTokens',
+    'semantic-naming-folder-type-relationships': 'semanticNamingFolderTypeRelationships',
+  };
+
+  for (const [name, listField] of Object.entries(entryLists)) {
+    const fileName = `${name}.registry.json`;
+    assert.deepEqual(
+      invalidIdsAfter('tree', fileName, (payload) => ({ ...payload, [listField]: [null] })),
+      [`tree/${name}`],
+      `${name} accepted a null entry`,
+    );
+    assert.deepEqual(
+      invalidIdsAfter('tree', fileName, (payload) => ({
+        ...payload,
+        [listField]: [...payload[listField], payload[listField][0]],
+      })),
+      [`tree/${name}`],
+      `${name} accepted a duplicated entry`,
+    );
+  }
+});
+
+test('reordering keyed Tree vocabularies does not make Custom differ', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    for (const [registryId, listField] of [
+      ['tree/folder-kinds', 'folderKinds'],
+      ['tree/structural-homes', 'structuralHomes'],
+    ]) {
+      updateJson(customFile(paths, registryId), (payload) => ({
+        ...payload,
+        [listField]: [...payload[listField]].reverse(),
+      }));
+    }
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.equal(assessment.customDiffers, false);
+    assert.equal(classificationOf(assessment, 'tree/folder-kinds'), 'unchanged');
+    assert.equal(classificationOf(assessment, 'tree/structural-homes'), 'unchanged');
+  }, { copyBuiltin: true });
+});
+
 test('status reports a malformed Custom roles registry as invalid, not custom-modified', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });

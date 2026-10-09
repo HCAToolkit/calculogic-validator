@@ -26,15 +26,15 @@ const defineTreeRegistry = (name, descriptor = {}) =>
 
 // [6.1] cfg-registryLifecycle · Container · "Tree registry inventory"
 export const TREE_REGISTRY_INVENTORY = Object.freeze([
-  defineTreeRegistry('folder-kinds'),
+  defineTreeRegistry('folder-kinds', { setLike: [{ path: 'folderKinds', key: 'folderKind' }] }),
   defineTreeRegistry('repo-shape-policy', { setLike: [{ path: 'allowedTopLevelDirectories' }] }),
   defineTreeRegistry('semantic-home-policy'),
   defineTreeRegistry('semantic-naming-folder-type-relationships'),
   defineTreeRegistry('shim-detection-signals'),
   defineTreeRegistry('structural-context-assessment-policies'),
   defineTreeRegistry('structural-home-signal-policy'),
-  defineTreeRegistry('structural-homes'),
-  defineTreeRegistry('structural-role-tokens'),
+  defineTreeRegistry('structural-homes', { setLike: [{ path: 'structuralHomes', key: 'structuralHome' }] }),
+  defineTreeRegistry('structural-role-tokens', { setLike: [{ path: 'structuralRoleTokens', key: 'token' }] }),
   defineTreeRegistry('surface-structural-home-perspective'),
   defineTreeRegistry('validator-owned-signals'),
 ]);
