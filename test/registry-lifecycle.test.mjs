@@ -146,6 +146,10 @@ test('a JSON __proto__ key is part of the canonical form and the digest', () => 
   assert.notEqual(digestRegistryPayload(withProtoKey, {}), digestRegistryPayload({ x: {} }, {}));
 });
 
+test('a number outside the finite range is rejected rather than hashed as null', () => {
+  assert.throws(() => digestRegistryPayload(JSON.parse('{"x":1e400}'), {}), /outside the finite JSON range/u);
+});
+
 test('set digests do not depend on input key order', () => {
   assert.equal(
     digestRegistrySet({ 'tree/a': 'x', 'naming/b': 'y' }),
@@ -537,6 +541,44 @@ test('Naming validation requires what its runtime can use: every outcome policy 
     })),
     ['naming/case-rules'],
   );
+});
+
+test('optional fields keep their declared type: a non-string compoundExtension is invalid', () => {
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'missing-role-patterns.registry.json', (payload) => ({
+      ...payload,
+      missingRolePatterns: [{ ...payload.missingRolePatterns[0], compoundExtension: 123 }, ...payload.missingRolePatterns.slice(1)],
+    })),
+    ['naming/missing-role-patterns'],
+  );
+});
+
+test('an unparseable-range number in Custom is reported invalid', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    fs.writeFileSync(customFile(paths, 'tree/validator-owned-signals'), '{"version":"1","validatorOwnedBasenameSignals":[],"x":1e400}');
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.equal(classificationOf(assessment, 'tree/validator-owned-signals'), 'invalid');
+    assert.equal(assessment.registries.find((entry) => entry.registryId === 'tree/validator-owned-signals').customDigest, null);
+  }, { copyBuiltin: true });
+});
+
+test('membership-only matcher, policy and relationship records compare as sets', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    for (const [registryId, listField] of [
+      ['tree/validator-owned-signals', 'validatorOwnedBasenameSignals'],
+      ['tree/structural-context-assessment-policies', 'policies'],
+    ]) {
+      updateJson(customFile(paths, registryId), (payload) => ({ ...payload, [listField]: [...payload[listField]].reverse() }));
+    }
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.equal(classificationOf(assessment, 'tree/validator-owned-signals'), 'unchanged');
+    assert.equal(classificationOf(assessment, 'tree/structural-context-assessment-policies'), 'unchanged');
+    assert.equal(assessment.customDiffers, false);
+  }, { copyBuiltin: true });
 });
 
 test('status reports a malformed Custom roles registry as invalid, not custom-modified', () => {

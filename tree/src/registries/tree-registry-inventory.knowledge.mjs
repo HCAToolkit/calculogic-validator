@@ -29,7 +29,10 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
   defineTreeRegistry('folder-kinds', { setLike: [{ path: 'folderKinds', key: 'folderKind' }] }),
   defineTreeRegistry('repo-shape-policy', { setLike: [{ path: 'allowedTopLevelDirectories' }] }),
   defineTreeRegistry('semantic-home-policy', { setLike: [{ path: 'semanticHomePolicy', key: 'policyId' }] }),
-  defineTreeRegistry('semantic-naming-folder-type-relationships'),
+  // At most one rule can match (relationshipPerspective is unique), so order carries no meaning.
+  defineTreeRegistry('semantic-naming-folder-type-relationships', {
+    setLike: [{ path: 'semanticNamingFolderTypeRelationships', key: 'relationshipPerspective' }],
+  }),
   // The loader converts all six vocabularies to Sets.
   defineTreeRegistry('shim-detection-signals', {
     setLike: [
@@ -41,14 +44,16 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
       { path: 'shimExtensionAllowlist.relevantFileExtensions' },
     ],
   }),
-  defineTreeRegistry('structural-context-assessment-policies'),
+  // policyId is unique, a second match is an ambiguity error, and results are sorted.
+  defineTreeRegistry('structural-context-assessment-policies', { setLike: [{ path: 'policies', key: 'policyId' }] }),
   defineTreeRegistry('structural-home-signal-policy', { setLike: [{ path: 'structuralHomeSignalPolicy', key: 'token' }] }),
   defineTreeRegistry('structural-homes', { setLike: [{ path: 'structuralHomes', key: 'structuralHome' }] }),
   defineTreeRegistry('structural-role-tokens', { setLike: [{ path: 'structuralRoleTokens', key: 'token' }] }),
   defineTreeRegistry('surface-structural-home-perspective', {
     setLike: [{ path: 'structuralHomesBySurface.*', key: 'structuralHome' }],
   }),
-  defineTreeRegistry('validator-owned-signals'),
+  // Both consumers test the matchers with .some(), so order and repetition carry no meaning.
+  defineTreeRegistry('validator-owned-signals', { setLike: [{ path: 'validatorOwnedBasenameSignals', key: 'pattern' }] }),
 ]);
 
 // [6.1] cfg-registryLifecycle · Primitive · "Tree reference edges" (spec §9.3; informative,

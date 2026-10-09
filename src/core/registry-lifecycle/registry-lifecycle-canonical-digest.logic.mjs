@@ -102,7 +102,17 @@ const canonicalizeNode = (value, pathSegments, compiled) => {
     return Object.fromEntries(canonicalEntries);
   }
 
-  if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
+  // JSON can spell numbers outside the double range (e.g. 1e400); JSON.parse turns them into
+  // Infinity, which stableStringify would write as null, so they are rejected rather than hashed.
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new Error('Registry payload contains a number outside the finite JSON range.');
+    }
+
+    return value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'boolean') {
     return value;
   }
 

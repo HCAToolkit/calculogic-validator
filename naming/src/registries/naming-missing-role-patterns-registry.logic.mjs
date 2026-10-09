@@ -89,9 +89,12 @@ const canonicalizeMissingRolePattern = (patternEntry) => {
     );
   }
 
-  if (typeof patternEntry.compoundExtension === 'string' && !patternEntry.compoundExtension.trim()) {
+  if (
+    patternEntry.compoundExtension !== undefined &&
+    (typeof patternEntry.compoundExtension !== 'string' || !patternEntry.compoundExtension.trim())
+  ) {
     throw new Error(
-      'Invalid missing-role patterns registry: compoundExtension must be non-empty when provided.',
+      'Invalid missing-role patterns registry: compoundExtension must be a non-empty string when provided.',
     );
   }
 
