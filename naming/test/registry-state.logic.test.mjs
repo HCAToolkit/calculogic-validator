@@ -498,6 +498,26 @@ test('validateNamingRegistrySet attributes failures per registry in registry-id 
   );
 });
 
+test('validateNamingRegistrySet rejects categories that differ only by surrounding whitespace', () => {
+  const { categories } = readBuiltinRegistry('categories.registry.json');
+  const [firstCategory] = categories;
+
+  withNamingRegistryRoot(
+    {
+      'categories.registry.json': {
+        version: '1',
+        categories: [...categories, { ...firstCategory, category: ` ${firstCategory.category} ` }],
+      },
+    },
+    (registryRoot) => {
+      const failures = validateNamingRegistrySet(registryRoot);
+
+      assert.deepEqual(failures.map((failure) => failure.registryId), ['naming/categories']);
+      assert.match(failures[0].detail, new RegExp(`category "${firstCategory.category}" is duplicated`, 'u'));
+    },
+  );
+});
+
 test('validateNamingRegistrySet rejects duplicate missing-role patternIds instead of keeping the first', () => {
   const { missingRolePatterns } = readBuiltinRegistry('missing-role-patterns.registry.json');
   const [firstPattern] = missingRolePatterns;

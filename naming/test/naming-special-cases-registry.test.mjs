@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   BUILTIN_SPECIAL_CASES_REGISTRY_PATH,
   getBuiltinSpecialCaseRules,
+  loadNamingSpecialCaseRulesFromRegistryRoot,
 } from '../src/registries/naming-special-case-rules-registry.logic.mjs';
 import {
   getSpecialCaseType,
@@ -52,4 +55,31 @@ test('runtime builtin special-case rules are loaded from builtin registry json',
 
   assert.equal(hasPackageRule, true);
   assert.equal(getSpecialCaseType('package.json'), 'ecosystem-required');
+});
+
+const loadSpecialCasesFromMatches = (matches) => {
+  const registryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'naming-special-cases-'));
+  try {
+    fs.writeFileSync(
+      path.join(registryRoot, 'special-cases.registry.json'),
+      JSON.stringify({ version: '1', specialCases: matches.map((match) => ({ type: 'barrel', match })) }),
+    );
+    return loadNamingSpecialCaseRulesFromRegistryRoot(registryRoot);
+  } finally {
+    fs.rmSync(registryRoot, { recursive: true, force: true });
+  }
+};
+
+test('a special case must declare exactly one match form', () => {
+  assert.throws(
+    () => loadSpecialCasesFromMatches([{ basenameEquals: ['index.ts'], suffixEquals: ['.d.ts'] }]),
+    /match must declare exactly one of basenameEquals, suffixEquals, regex/u,
+  );
+  assert.throws(
+    () => loadSpecialCasesFromMatches([{ suffixEquals: ['.d.ts'], regex: '^index\\.' }]),
+    /match must declare exactly one/u,
+  );
+  assert.throws(() => loadSpecialCasesFromMatches([{}]), /match must declare exactly one/u);
+  assert.throws(() => loadSpecialCasesFromMatches([{ regex: '' }]), /match\.regex must be a non-empty string/u);
+  assert.equal(loadSpecialCasesFromMatches([{ regex: '^index\\.' }]).length, 1);
 });

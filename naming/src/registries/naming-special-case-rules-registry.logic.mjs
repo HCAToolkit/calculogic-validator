@@ -12,6 +12,9 @@ let cachedBuiltinSpecialCaseRules = null;
 
 const SPECIAL_CASES_REGISTRY_FILENAME = 'special-cases.registry.json';
 
+// Supported match forms (cfg-namingValidator: basenameEquals, suffixEquals, regex).
+const SPECIAL_CASE_MATCH_FORMS = Object.freeze(['basenameEquals', 'suffixEquals', 'regex']);
+
 const loadSpecialCaseRulesFromFile = (registryFilePath) => {
   const payload = JSON.parse(fs.readFileSync(registryFilePath, 'utf8'));
 
@@ -33,6 +36,19 @@ const loadSpecialCaseRulesFromFile = (registryFilePath) => {
     const match = specialCase.match;
     if (!match || typeof match !== 'object') {
       throw new Error(`${entryPrefix}: missing match object.`);
+    }
+
+    // Each entry declares exactly one match form; runtime evaluates one, so a second form would be
+    // silently ignored.
+    const declaredForms = SPECIAL_CASE_MATCH_FORMS.filter((form) => match[form] !== undefined);
+    if (declaredForms.length !== 1) {
+      throw new Error(
+        `${entryPrefix}: match must declare exactly one of ${SPECIAL_CASE_MATCH_FORMS.join(', ')}.`,
+      );
+    }
+
+    if (match.regex !== undefined && (typeof match.regex !== 'string' || match.regex.length === 0)) {
+      throw new Error(`${entryPrefix}: match.regex must be a non-empty string.`);
     }
 
     for (const listField of ['basenameEquals', 'suffixEquals']) {

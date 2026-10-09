@@ -2,12 +2,13 @@
 // One bounded check for list-of-records registries: the list exists and is non-empty, each entry is
 // an object, required fields are non-empty strings, string-list fields are non-empty arrays of
 // non-empty strings, optional string fields are non-empty strings when present, enumerated fields
-// use their declared vocabulary, and the key field is unique. Slices declare each registry's shape
-// and own its meaning; this module only checks a declared shape.
+// use their declared vocabulary, and the key field is unique after trimming. Slices declare each
+// registry's shape and own its meaning; this module only checks a declared shape.
 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
+// Loaders trim registry strings, so whitespace-only is empty and keys compare trimmed.
+const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 
 export const assertRegistryEntries = (
   entries,
@@ -60,11 +61,12 @@ export const assertRegistryEntries = (
       }
     }
 
-    if (seenKeys.has(entry[keyField])) {
-      fail(`${label}.${keyField} "${entry[keyField]}" is duplicated.`);
+    const key = entry[keyField].trim();
+    if (seenKeys.has(key)) {
+      fail(`${label}.${keyField} "${key}" is duplicated.`);
     }
 
-    seenKeys.add(entry[keyField]);
+    seenKeys.add(key);
   });
 
   return entries;
