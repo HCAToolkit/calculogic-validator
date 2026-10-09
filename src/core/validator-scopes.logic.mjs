@@ -85,14 +85,44 @@ const canonicalizeScopeProfile = (scope, profile) => {
   };
 };
 
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const assertNonEmptyStringArray = (value, label) => {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.length === 0)) {
+    throw new Error(`Invalid scope profiles registry: ${label} must be an array of non-empty strings.`);
+  }
+};
+
+// The scope contract: a registry defines exactly the scopes suite core describes and runs
+// (`LEGACY_SCOPE_DESCRIPTIONS`, including the default scope), each with both include lists.
+const assertValidScopeProfilesRegistry = (parsedRegistry) => {
+  if (!isPlainObject(parsedRegistry?.profiles)) {
+    throw new Error('Invalid scope profiles registry: expected profiles object.');
+  }
+
+  const expectedScopes = Object.keys(LEGACY_SCOPE_DESCRIPTIONS).sort();
+  const actualScopes = Object.keys(parsedRegistry.profiles).sort();
+  if (JSON.stringify(actualScopes) !== JSON.stringify(expectedScopes)) {
+    throw new Error(
+      `Invalid scope profiles registry: profiles must define exactly the scopes ${expectedScopes.join(', ')}.`,
+    );
+  }
+
+  for (const [scope, profile] of Object.entries(parsedRegistry.profiles)) {
+    if (!isPlainObject(profile)) {
+      throw new Error(`Invalid scope profiles registry: profiles.${scope} must be an object.`);
+    }
+
+    assertNonEmptyStringArray(profile.includeRoots, `profiles.${scope}.includeRoots`);
+    assertNonEmptyStringArray(profile.includeRootFiles, `profiles.${scope}.includeRootFiles`);
+  }
+};
+
 // Canonical runtime-owner behavior in this module:
 // validates + normalizes a scope-profile registry payload at load time.
 const loadScopeProfilesFromFile = (registryFilePath) => {
   const parsedRegistry = loadJsonFile(registryFilePath);
-
-  if (!parsedRegistry?.profiles || typeof parsedRegistry.profiles !== 'object') {
-    throw new Error('Invalid scope profiles registry: expected profiles object.');
-  }
+  assertValidScopeProfilesRegistry(parsedRegistry);
 
   return Object.fromEntries(
     Object.entries(parsedRegistry.profiles).map(([scope, profile]) => [

@@ -16,6 +16,7 @@ import { loadFindingPolicyFromFile } from './naming-finding-policy-registry.logi
 import { loadNamingWalkExclusionsFromRegistryRoot } from './naming-walk-exclusions-registry.logic.mjs';
 import { loadNamingSpecialCaseRulesFromRegistryRoot } from './naming-special-case-rules-registry.logic.mjs';
 import { loadNamingFolderCompositionPatternsRegistryFromRegistryRoot } from './naming-folder-composition-patterns-registry.logic.mjs';
+import { validateAgnosticCoreMeaningsRegistryFromRegistryRoot } from './naming-agnostic-core-meanings-registry.logic.mjs';
 import {
   NAMING_BUILTIN_REGISTRY_ROOT,
   NAMING_REGISTRY_INVENTORY,
@@ -423,15 +424,67 @@ export const digestNamingRegistryPayload = (payload) => digestPayload(payload);
 
 const toNamingRegistryId = (name) => `${NAMING_REGISTRY_SLICE_ID}/${name}`;
 
+// Strict check of the canonical roles registry (`roles[]: { role, status, definition?, notes? }`)
+// and of the perspective → roles reference edge. Runtime loading stays tolerant of a malformed or
+// legacy-shaped roles file for older roots; registry-set validation does not.
+const validateCanonicalRolesRegistry = ({ registryRoot }) => {
+  const parsed = loadJsonFile(path.join(registryRoot, ROLES_REGISTRY_FILENAME));
+  const roles = parsed?.roles;
+  if (!Array.isArray(roles)) {
+    throw new Error('Invalid roles registry: expected a roles array.');
+  }
+
+  const canonicalRoles = new Set();
+  roles.forEach((roleEntry, index) => {
+    if (!roleEntry || typeof roleEntry !== 'object' || Array.isArray(roleEntry)) {
+      throw new Error(`Invalid roles registry: roles[${index}] must be an object.`);
+    }
+
+    const role = typeof roleEntry.role === 'string' ? roleEntry.role.trim() : '';
+    if (!role) {
+      throw new Error(`Invalid roles registry: roles[${index}].role must be a non-empty string.`);
+    }
+
+    if (canonicalRoles.has(role)) {
+      throw new Error(`Invalid roles registry: role "${role}" is duplicated.`);
+    }
+
+    if (!ALLOWED_ROLE_STATUSES.has(roleEntry.status)) {
+      throw new Error(`Invalid roles registry: roles[${index}].status must be "active" or "deprecated".`);
+    }
+
+    for (const optionalField of ['definition', 'notes']) {
+      if (roleEntry[optionalField] !== undefined && typeof roleEntry[optionalField] !== 'string') {
+        throw new Error(`Invalid roles registry: roles[${index}].${optionalField} must be a string when provided.`);
+      }
+    }
+
+    canonicalRoles.add(role);
+  });
+
+  const perspective = loadJsonFile(path.join(registryRoot, CATEGORY_ROLE_PERSPECTIVE_REGISTRY_FILENAME));
+  const missingRoles = Object.values(perspective?.rolesByCategory ?? {})
+    .flatMap((entries) => (Array.isArray(entries) ? entries : []))
+    .map((entry) => (typeof entry?.role === 'string' ? entry.role.trim() : ''))
+    .filter((role) => role && !canonicalRoles.has(role));
+  if (missingRoles.length > 0) {
+    throw new Error(
+      `Invalid roles registry: no roles entry for category-role-perspective roles ${[...new Set(missingRoles)].sort().join(', ')}.`,
+    );
+  }
+};
+
 // Naming's registry-set validation entry point (lifecycle spec §9.3). Runs Naming's own shape and
 // reference validation over one registry root, one registry at a time, and returns a
 // deterministic list of `{ registryId, detail }` failures. It builds no runtime state.
 export const validateNamingRegistrySet = (registryRoot) => {
   const checks = [
+    ['agnostic-core-meanings', () => validateAgnosticCoreMeaningsRegistryFromRegistryRoot(registryRoot)],
     ['categories', () => loadCategorySet({ registryRoot })],
     ['category-role-perspective', () => loadRolesPayload({ registryRoot })],
     ['reportable-extensions', () => loadReportableExtensions({ registryRoot })],
     ['reportable-root-files', () => loadReportableRootFiles({ registryRoot })],
+    ['roles', () => validateCanonicalRolesRegistry({ registryRoot })],
     ['summary-buckets', () => loadSummaryBuckets({ registryRoot })],
     ['missing-role-patterns', () => loadMissingRolePatterns({ registryRoot })],
     ['finding-policy', () => loadFindingPolicy({ registryRoot })],
@@ -443,14 +496,16 @@ export const validateNamingRegistrySet = (registryRoot) => {
       () => loadNamingFolderCompositionPatternsRegistryFromRegistryRoot(registryRoot),
     ],
   ];
-  const inventoryNames = new Set(NAMING_REGISTRY_INVENTORY.map((entry) => entry.name));
+  // Every inventory registry has exactly one check; a gap is a programming error, never a pass.
+  const inventoryNames = NAMING_REGISTRY_INVENTORY.map((entry) => entry.name).sort();
+  const checkedNames = checks.map(([name]) => name).sort();
+  if (JSON.stringify(inventoryNames) !== JSON.stringify(checkedNames)) {
+    throw new Error('Naming registry-set validation must check every Naming inventory registry exactly once.');
+  }
+
   const failures = [];
 
   for (const [name, check] of checks) {
-    if (!inventoryNames.has(name)) {
-      throw new Error(`Naming registry-set validation references unknown registry "${name}".`);
-    }
-
     try {
       check();
     } catch (error) {

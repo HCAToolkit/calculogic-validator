@@ -166,6 +166,128 @@ test('the Builtin set passes every slice registry-set validation entry point', (
   }
 });
 
+test('every slice validation entry point rejects a bare payload for each of its registries', () => {
+  for (const slice of REGISTRY_LIFECYCLE_SLICES) {
+    for (const entry of slice.inventory) {
+      const registryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-lifecycle-bare-'));
+      try {
+        fs.cpSync(slice.builtinRoot, registryRoot, { recursive: true });
+        fs.writeFileSync(path.join(registryRoot, entry.fileName), '{"version":"1"}');
+
+        const failingIds = validateSliceRegistrySet(slice.sliceId, registryRoot).map((failure) => failure.registryId);
+        assert.ok(failingIds.includes(entry.registryId), `${entry.registryId} accepted a bare payload`);
+      } finally {
+        fs.rmSync(registryRoot, { recursive: true, force: true });
+      }
+    }
+  }
+});
+
+const invalidIdsAfter = (sliceId, fileName, content) => {
+  const slice = REGISTRY_LIFECYCLE_SLICES.find((candidate) => candidate.sliceId === sliceId);
+  const registryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-lifecycle-invalid-'));
+  try {
+    fs.cpSync(slice.builtinRoot, registryRoot, { recursive: true });
+    const filePath = path.join(registryRoot, fileName);
+    fs.writeFileSync(filePath, JSON.stringify(typeof content === 'function' ? content(readJson(filePath)) : content));
+    return validateSliceRegistrySet(sliceId, registryRoot).map((failure) => failure.registryId);
+  } finally {
+    fs.rmSync(registryRoot, { recursive: true, force: true });
+  }
+};
+
+test('Naming validation rejects a malformed canonical roles registry and a dangling perspective role', () => {
+  // Perspective roles take their status from canonical roles, so the dependent registry fails too.
+  assert.deepEqual(invalidIdsAfter('naming', 'roles.registry.json', { version: '1', roles: 'bad' }), [
+    'naming/category-role-perspective',
+    'naming/roles',
+  ]);
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'roles.registry.json', (payload) => ({
+      ...payload,
+      roles: payload.roles.filter((entry) => entry.role !== 'host'),
+    })),
+    ['naming/category-role-perspective', 'naming/roles'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'agnostic-core-meanings.registry.json', (payload) => ({
+      ...payload,
+      meanings: [...payload.meanings, payload.meanings[0]],
+    })),
+    ['naming/agnostic-core-meanings'],
+  );
+});
+
+test('suite validation rejects scope profiles outside the scope contract', () => {
+  const withProfiles = (update) => (payload) => ({ ...payload, profiles: update(payload.profiles) });
+
+  assert.deepEqual(invalidIdsAfter('suite', 'scope-profiles.registry.json', { version: '1', profiles: [] }), [
+    'suite/scope-profiles',
+  ]);
+  assert.deepEqual(
+    invalidIdsAfter(
+      'suite',
+      'scope-profiles.registry.json',
+      withProfiles(({ repo, ...rest }) => rest),
+    ),
+    ['suite/scope-profiles'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter(
+      'suite',
+      'scope-profiles.registry.json',
+      withProfiles((profiles) => ({ ...profiles, app: { includeRoots: 'src', includeRootFiles: [] } })),
+    ),
+    ['suite/scope-profiles'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter(
+      'suite',
+      'scope-profiles.registry.json',
+      withProfiles((profiles) => ({ ...profiles, extra: { includeRoots: [], includeRootFiles: [] } })),
+    ),
+    ['suite/scope-profiles'],
+  );
+});
+
+test('Tree validation rejects malformed evidence-policy and perspective registries', () => {
+  assert.deepEqual(
+    invalidIdsAfter('tree', 'semantic-home-policy.registry.json', (payload) => ({
+      ...payload,
+      semanticHomePolicy: [{ ...payload.semanticHomePolicy[0], inputLane: 'unknown-lane' }],
+    })),
+    ['tree/semantic-home-policy'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('tree', 'structural-home-signal-policy.registry.json', (payload) => ({
+      ...payload,
+      structuralHomeSignalPolicy: [...payload.structuralHomeSignalPolicy, payload.structuralHomeSignalPolicy[0]],
+    })),
+    ['tree/structural-home-signal-policy'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('tree', 'surface-structural-home-perspective.registry.json', (payload) => ({
+      ...payload,
+      structuralHomesBySurface: { ...payload.structuralHomesBySurface, runtime: 'src' },
+    })),
+    ['tree/surface-structural-home-perspective'],
+  );
+});
+
+test('status reports a malformed Custom roles registry as invalid, not custom-modified', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    writeJson(customFile(paths, 'naming/roles'), { version: '1', roles: 'bad' });
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.equal(classificationOf(assessment, 'naming/roles'), 'invalid');
+    assert.deepEqual(
+      assessment.customIssues.map((issue) => `${issue.registryId}:${issue.condition}`),
+      ['naming/category-role-perspective:invalid', 'naming/roles:invalid'],
+    );
+  });
+});
+
 // ---- state ------------------------------------------------------------------------------------
 
 test('an absent state file means builtin', () => {
