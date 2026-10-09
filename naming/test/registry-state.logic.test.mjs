@@ -202,7 +202,9 @@ test('registryRoot drives roles, extensions, categories and policy registries fr
         ],
       },
       'finding-policy.registry.json': {
+        version: '1',
         outcomes: {
+          ...readBuiltinRegistry('finding-policy.registry.json').outcomes,
           canonical: {
             code: 'TEMP_CANONICAL',
             severity: 'info',

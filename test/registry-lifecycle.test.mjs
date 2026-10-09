@@ -139,6 +139,13 @@ test('identical members of a set-like array collapse to one; distinct keyed reco
   );
 });
 
+test('a JSON __proto__ key is part of the canonical form and the digest', () => {
+  const withProtoKey = JSON.parse('{"x":{"__proto__":{"a":1}}}');
+
+  assert.deepEqual(Object.keys(canonicalizeRegistryPayload(withProtoKey, {}).x), ['__proto__']);
+  assert.notEqual(digestRegistryPayload(withProtoKey, {}), digestRegistryPayload({ x: {} }, {}));
+});
+
 test('set digests do not depend on input key order', () => {
   assert.equal(
     digestRegistrySet({ 'tree/a': 'x', 'naming/b': 'y' }),
@@ -513,6 +520,23 @@ test('an unreadable inactive Custom directory is reported, never blocking', (t) 
     assert.equal(resolution.registrySet.customExists, true);
     assert.deepEqual(resolution.registrySet.orphanRegistries, []);
   });
+});
+
+test('Naming validation requires what its runtime can use: every outcome policy and a supported case style', () => {
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'finding-policy.registry.json', (payload) => {
+      const { canonical, ...otherOutcomes } = payload.outcomes;
+      return { ...payload, outcomes: otherOutcomes };
+    }),
+    ['naming/finding-policy'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'case-rules.registry.json', (payload) => ({
+      ...payload,
+      semanticName: { style: 'snake_case' },
+    })),
+    ['naming/case-rules'],
+  );
 });
 
 test('status reports a malformed Custom roles registry as invalid, not custom-modified', () => {

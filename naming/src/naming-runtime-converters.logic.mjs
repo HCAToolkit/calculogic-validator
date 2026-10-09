@@ -1,3 +1,5 @@
+import { NAMING_SUPPORTED_SEMANTIC_NAME_STYLES } from './naming-validator.contracts.mjs';
+
 import { prepareDisambiguationRoleTokens } from './rules/naming-rule-derive-disambiguation-hints.logic.mjs';
 
 export const toReportableExtensionsSet = (extensionArray) => new Set(extensionArray);
@@ -76,7 +78,7 @@ export const toCaseRulesRuntime = (caseRules) => {
   const semanticStyle =
     typeof caseRules.semanticName.style === 'string' ? caseRules.semanticName.style.trim() : '';
 
-  if (semanticStyle !== 'kebab-case') {
+  if (!NAMING_SUPPORTED_SEMANTIC_NAME_STYLES.includes(semanticStyle)) {
     throw new Error(`Unsupported semantic-name style in case rules runtime: ${semanticStyle}`);
   }
 

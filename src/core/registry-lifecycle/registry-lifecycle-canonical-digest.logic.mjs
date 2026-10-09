@@ -85,7 +85,9 @@ const canonicalizeNode = (value, pathSegments, compiled) => {
   }
 
   if (value !== null && typeof value === 'object') {
-    const canonicalObject = {};
+    // Built with Object.fromEntries so a JSON `__proto__` key stays an own property instead of
+    // invoking the prototype setter.
+    const canonicalEntries = [];
     for (const key of Object.keys(value).sort()) {
       const childPath = [...pathSegments, key];
       const childValue = value[key];
@@ -94,10 +96,10 @@ const canonicalizeNode = (value, pathSegments, compiled) => {
         continue;
       }
 
-      canonicalObject[key] = canonicalizeNode(childValue, childPath, compiled);
+      canonicalEntries.push([key, canonicalizeNode(childValue, childPath, compiled)]);
     }
 
-    return canonicalObject;
+    return Object.fromEntries(canonicalEntries);
   }
 
   if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {

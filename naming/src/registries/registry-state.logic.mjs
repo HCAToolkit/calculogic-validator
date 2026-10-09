@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { stableStringify, sha256Hex } from '../../../src/core/validator-report-meta.logic.mjs';
 import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
+import { NAMING_SUPPORTED_SEMANTIC_NAME_STYLES } from '../naming-validator.contracts.mjs';
 import { loadSummaryBucketsFromFile } from './naming-summary-buckets-registry.logic.mjs';
 import { loadMissingRolePatternsFromFile } from './naming-missing-role-patterns-registry.logic.mjs';
 import { loadFindingPolicyFromFile } from './naming-finding-policy-registry.logic.mjs';
@@ -158,9 +159,9 @@ const canonicalizeCaseRules = (caseRulesValue) => {
   }
 
   const style = typeof semanticName.style === 'string' ? semanticName.style.trim() : '';
-  if (!style) {
+  if (!NAMING_SUPPORTED_SEMANTIC_NAME_STYLES.includes(style)) {
     throw new Error(
-      'Invalid case-rules registry: semanticName.style must be a non-empty string.',
+      `Invalid case-rules registry: semanticName.style must be one of ${NAMING_SUPPORTED_SEMANTIC_NAME_STYLES.join(', ')}.`,
     );
   }
 

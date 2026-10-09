@@ -1,4 +1,8 @@
 import fs from 'node:fs';
+import {
+  NAMING_DECISION_OUTCOME_IDS,
+  NAMING_FINDING_SEVERITIES,
+} from '../naming-validator.contracts.mjs';
 
 const REQUIRED_KEYS = ['code', 'severity', 'classification', 'message', 'ruleRef'];
 
@@ -47,7 +51,7 @@ export const loadFindingPolicyFromFile = (registryFilePath) => {
     throw new Error('Invalid finding-policy registry: outcomes must not be empty.');
   }
 
-  return Object.fromEntries(
+  const findingPolicy = Object.fromEntries(
     entries
       .map(([outcomeId, entry]) => {
         const canonicalOutcomeId = assertNonEmptyString(outcomeId, 'outcome id');
@@ -55,4 +59,22 @@ export const loadFindingPolicyFromFile = (registryFilePath) => {
       })
       .sort(([left], [right]) => left.localeCompare(right)),
   );
+
+  // Every outcome the runtime emits needs a policy, and severities follow the report schema.
+  const missingOutcomeIds = Object.values(NAMING_DECISION_OUTCOME_IDS)
+    .filter((outcomeId) => !Object.hasOwn(findingPolicy, outcomeId))
+    .sort();
+  if (missingOutcomeIds.length > 0) {
+    throw new Error(`Invalid finding-policy registry: missing outcomes ${missingOutcomeIds.join(', ')}.`);
+  }
+
+  for (const [outcomeId, policy] of Object.entries(findingPolicy)) {
+    if (!NAMING_FINDING_SEVERITIES.includes(policy.severity)) {
+      throw new Error(
+        `Invalid finding-policy registry: ${outcomeId}.severity must be one of ${NAMING_FINDING_SEVERITIES.join(', ')}.`,
+      );
+    }
+  }
+
+  return findingPolicy;
 };

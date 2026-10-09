@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { NAMING_DECISION_OUTCOME_IDS } from './naming-validator.contracts.mjs';
 import {
   DEFAULT_VALIDATOR_SCOPE,
   listValidatorScopes,
@@ -99,16 +100,6 @@ const assertPreparedCaseRulesRuntime = (caseRulesRuntime) => {
   );
 };
 
-const NAMING_DECISION_OUTCOME_IDS = Object.freeze({
-  ALLOWED_SPECIAL_CASE: 'allowed-special-case',
-  DEPRECATED_ROLE: 'deprecated-role',
-  UNKNOWN_ROLE: 'unknown-role',
-  BAD_SEMANTIC_CASE: 'bad-semantic-case',
-  CANONICAL: 'canonical',
-  ROLE_HYPHEN_AMBIGUITY: 'role-hyphen-ambiguity',
-  MISSING_ROLE: 'missing-role',
-  LEGACY_EXCEPTION: 'legacy-exception',
-});
 
 const interpolateMessageTemplate = (template, values = {}) =>
   template.replace(/\{([a-zA-Z0-9_]+)\}/gu, (token, key) =>

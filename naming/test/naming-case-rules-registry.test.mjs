@@ -67,16 +67,21 @@ test('case rules are read from the resolved registry root', () => {
   );
 });
 
-test('unsupported case-rules style still throws deterministically at runtime preparation', () => {
+test('unsupported case-rules style is rejected when the registry loads', () => {
   withCaseRulesRegistryRoot(
     { version: '1', semanticName: { style: 'snake_case' } },
     (registryRoot) => {
-      const registryInputs = resolveNamingRegistryInputs({ registryRoot });
-
       assert.throws(
-        () => toCaseRulesRuntime(registryInputs.caseRules),
-        /Unsupported semantic-name style in case rules runtime: snake_case/u,
+        () => resolveNamingRegistryInputs({ registryRoot }),
+        /Invalid case-rules registry: semanticName\.style must be one of kebab-case\./u,
       );
     },
+  );
+});
+
+test('the case-rules runtime still rejects an unsupported style passed to it directly', () => {
+  assert.throws(
+    () => toCaseRulesRuntime({ semanticName: { style: 'snake_case' } }),
+    /Unsupported semantic-name style in case rules runtime: snake_case/u,
   );
 });

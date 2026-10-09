@@ -22,20 +22,24 @@ test('finding-policy registry loader canonicalizes and validates payload shape',
   const filePath = path.join(tempRoot, 'finding-policy.registry.json');
 
   try {
+    const builtinOutcomes = JSON.parse(
+      fs.readFileSync(new URL('../src/registries/_builtin/finding-policy.registry.json', import.meta.url), 'utf8'),
+    ).outcomes;
     writeJson(filePath, {
-      outcomes: {
-        canonical: {
-          code: 'NAMING_CANONICAL',
-          severity: 'info',
-          classification: 'canonical',
-          message: 'Filename is canonical.',
-          ruleRef: 'rule',
-        },
-      },
+      outcomes: { ...builtinOutcomes, canonical: { ...builtinOutcomes.canonical, message: '  Filename is canonical.  ' } },
     });
 
     const policy = loadFindingPolicyFromFile(filePath);
-    assert.deepEqual(Object.keys(policy), ['canonical']);
+    assert.deepEqual(Object.keys(policy), Object.keys(builtinOutcomes).sort((a, b) => a.localeCompare(b)));
+    assert.equal(policy.canonical.message, 'Filename is canonical.');
+
+    // Every runtime outcome needs a policy, and severities follow the report schema.
+    writeJson(filePath, { outcomes: { canonical: builtinOutcomes.canonical } });
+    assert.throws(() => loadFindingPolicyFromFile(filePath), /missing outcomes allowed-special-case, /u);
+    writeJson(filePath, {
+      outcomes: { ...builtinOutcomes, canonical: { ...builtinOutcomes.canonical, severity: 'error' } },
+    });
+    assert.throws(() => loadFindingPolicyFromFile(filePath), /canonical\.severity must be one of info, warn/u);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
