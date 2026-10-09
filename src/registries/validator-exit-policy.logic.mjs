@@ -60,6 +60,13 @@ const validatePredicateShape = (predicate, { policyId }) => {
       `Invalid exit policy registry: predicate for policy "${policyId}" must set at least one condition to true.`,
     );
   }
+
+  // `always` matches before any other condition is read, so a true condition beside it is ignored.
+  if (predicate.always === true && predicateKeys.some((key) => key !== 'always' && predicate[key] === true)) {
+    throw new Error(
+      `Invalid exit policy registry: predicate for policy "${policyId}" cannot combine always=true with other true conditions.`,
+    );
+  }
 };
 
 const canonicalizeExitPolicyEntry = (policyEntry) => {

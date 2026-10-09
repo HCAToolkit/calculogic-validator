@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 
+const CANONICAL_SEGMENT_INDEX_KEY = /^(0|[1-9][0-9]*)$/u;
+
 const toPositiveInteger = (value, label) => {
   if (!Number.isInteger(value) || value < 0) {
     throw new Error(`Invalid missing-role patterns registry: ${label} must be a non-negative integer.`);
@@ -34,6 +36,13 @@ const canonicalizeLiteralSegmentConstraints = (literalSegmentConstraints = {}) =
   return Object.fromEntries(
     Object.entries(literalSegmentConstraints)
       .map(([segmentIndexRaw, literalValue]) => {
+        // Index keys are plain decimal integers, so no two spellings ("01", "1e0") name one index.
+        if (!CANONICAL_SEGMENT_INDEX_KEY.test(segmentIndexRaw)) {
+          throw new Error(
+            `Invalid missing-role patterns registry: literal segment index "${segmentIndexRaw}" must be a decimal integer without leading zeros.`,
+          );
+        }
+
         const segmentIndex = toPositiveInteger(Number(segmentIndexRaw), 'literal segment index');
 
         if (typeof literalValue !== 'string' || !literalValue.trim()) {

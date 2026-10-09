@@ -52,10 +52,18 @@ export const loadFindingPolicyFromFile = (registryFilePath) => {
     throw new Error('Invalid finding-policy registry: outcomes must not be empty.');
   }
 
+  // Outcome ids compare trimmed; two ids that trim alike would leave the surviving policy to JSON
+  // property order, which the canonical digest ignores.
+  const seenOutcomeIds = new Set();
   const findingPolicy = Object.fromEntries(
     entries
       .map(([outcomeId, entry]) => {
         const canonicalOutcomeId = assertNonEmptyString(outcomeId, 'outcome id');
+        if (seenOutcomeIds.has(canonicalOutcomeId)) {
+          throw new Error(`Invalid finding-policy registry: outcome id "${canonicalOutcomeId}" is duplicated.`);
+        }
+
+        seenOutcomeIds.add(canonicalOutcomeId);
         return [canonicalOutcomeId, canonicalizeEntry(entry, canonicalOutcomeId)];
       })
       .sort(([left], [right]) => left.localeCompare(right)),

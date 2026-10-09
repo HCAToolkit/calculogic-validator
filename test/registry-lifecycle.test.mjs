@@ -876,6 +876,60 @@ test('missing, invalid, version-incompatible and orphan registries are classifie
   }, { copyBuiltin: true });
 });
 
+test('keys and conditions that collapse at load time are invalid', () => {
+  // Finding-policy outcome ids that trim alike.
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'finding-policy.registry.json', (payload) => ({
+      ...payload,
+      outcomes: { ...payload.outcomes, ' canonical ': payload.outcomes.canonical },
+    })),
+    ['naming/finding-policy'],
+  );
+
+  // Literal-segment index keys must be plain decimal integers.
+  for (const indexKey of ['01', '1e0', ' 1', '1.0']) {
+    assert.deepEqual(
+      invalidIdsAfter('naming', 'missing-role-patterns.registry.json', (payload) => ({
+        ...payload,
+        missingRolePatterns: payload.missingRolePatterns.map((pattern, index) =>
+          index === 0 ? { ...pattern, literalSegmentConstraints: { [indexKey]: 'ts' } } : pattern,
+        ),
+      })),
+      ['naming/missing-role-patterns'],
+      `accepted literal segment index ${JSON.stringify(indexKey)}`,
+    );
+  }
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'missing-role-patterns.registry.json', (payload) => ({
+      ...payload,
+      missingRolePatterns: payload.missingRolePatterns.map((pattern, index) =>
+        index === 0 ? { ...pattern, literalSegmentConstraints: { 1: 'ts' } } : pattern,
+      ),
+    })),
+    [],
+  );
+
+  // `always` matches first, so another true condition beside it would be ignored.
+  assert.deepEqual(
+    invalidIdsAfter('suite', 'exit-policy.registry.json', (payload) => ({
+      ...payload,
+      policies: payload.policies.map((policy) =>
+        policy.predicate.always ? { ...policy, predicate: { always: true, anyWarnFindings: true } } : policy,
+      ),
+    })),
+    ['suite/exit-policy'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('suite', 'exit-policy.registry.json', (payload) => ({
+      ...payload,
+      policies: payload.policies.map((policy) =>
+        policy.predicate.always ? { ...policy, predicate: { always: true, anyWarnFindings: false } } : policy,
+      ),
+    })),
+    [],
+  );
+});
+
 test('an orphan Baseline copy is verified whenever the manifest has its entry', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });
