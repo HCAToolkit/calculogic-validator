@@ -497,3 +497,26 @@ test('validateNamingRegistrySet attributes failures per registry in registry-id 
     },
   );
 });
+
+test('validateNamingRegistrySet rejects duplicate missing-role patternIds instead of keeping the first', () => {
+  const { missingRolePatterns } = readBuiltinRegistry('missing-role-patterns.registry.json');
+  const [firstPattern] = missingRolePatterns;
+
+  withNamingRegistryRoot(
+    {
+      'missing-role-patterns.registry.json': {
+        version: '1',
+        missingRolePatterns: [
+          ...missingRolePatterns,
+          { ...firstPattern, patternId: ` ${firstPattern.patternId} `, dotSegments: firstPattern.dotSegments + 1 },
+        ],
+      },
+    },
+    (registryRoot) => {
+      const failures = validateNamingRegistrySet(registryRoot);
+
+      assert.deepEqual(failures.map((failure) => failure.registryId), ['naming/missing-role-patterns']);
+      assert.match(failures[0].detail, /patternId "single-extension" is duplicated/u);
+    },
+  );
+});

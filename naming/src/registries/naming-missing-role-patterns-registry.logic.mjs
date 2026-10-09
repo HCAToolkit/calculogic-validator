@@ -122,14 +122,19 @@ export const loadMissingRolePatternsFromFile = (registryFilePath) => {
     );
   }
 
-  const dedupedPatterns = new Map();
+  const patternsById = new Map();
 
   for (const patternEntry of parsed.missingRolePatterns) {
     const pattern = canonicalizeMissingRolePattern(patternEntry);
-    if (!dedupedPatterns.has(pattern.patternId)) {
-      dedupedPatterns.set(pattern.patternId, pattern);
+    // A repeated patternId is an authoring error, not a first-wins override (#41 lifecycle spec §9.3).
+    if (patternsById.has(pattern.patternId)) {
+      throw new Error(
+        `Invalid missing-role patterns registry: patternId "${pattern.patternId}" is duplicated.`,
+      );
     }
+
+    patternsById.set(pattern.patternId, pattern);
   }
 
-  return [...dedupedPatterns.values()];
+  return [...patternsById.values()];
 };
