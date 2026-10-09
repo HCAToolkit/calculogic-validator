@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { assertTreeRegistryEntries } from './tree-registry-entry-shape.logic.mjs';
+import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -22,8 +22,8 @@ export const assertValidSemanticNamingFolderTypeRelationshipsRegistry = (payload
     throw new Error('Invalid semantic naming folder-type relationships registry: semanticNamingFolderTypeRelationships must be an array.');
   }
 
-  assertTreeRegistryEntries(payload.semanticNamingFolderTypeRelationships, {
-    registryLabel: 'semantic-naming-folder-type-relationships',
+  assertRegistryEntries(payload.semanticNamingFolderTypeRelationships, {
+    registryLabel: 'Tree semantic-naming-folder-type-relationships',
     listLabel: 'semanticNamingFolderTypeRelationships',
     keyField: 'relationshipPerspective',
     requiredStringFields: ['namingPerspective', 'treeFolderType', 'structuralHomeCondition', 'repoShapeCondition', 'definition'],

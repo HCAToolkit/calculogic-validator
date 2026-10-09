@@ -1,7 +1,7 @@
 // Tree surface-structural-home-perspective registry shape validation (#41 registry lifecycle).
 // The registry is placement-evidence reference data with no runtime consumer yet; this module owns
 // its shape so Tree's registry-set validation entry point covers it (lifecycle spec §9.3).
-import { assertTreeRegistryEntries } from './tree-registry-entry-shape.logic.mjs';
+import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 export const assertValidSurfaceStructuralHomePerspectiveRegistry = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -16,8 +16,8 @@ export const assertValidSurfaceStructuralHomePerspectiveRegistry = (payload) => 
   }
 
   for (const [surface, entries] of Object.entries(bySurface)) {
-    assertTreeRegistryEntries(entries, {
-      registryLabel: 'surface-structural-home-perspective',
+    assertRegistryEntries(entries, {
+      registryLabel: 'Tree surface-structural-home-perspective',
       listLabel: `structuralHomesBySurface.${surface}`,
       keyField: 'structuralHome',
       requiredStringFields: ['relationshipStatus', 'signalStrength', 'rationale'],

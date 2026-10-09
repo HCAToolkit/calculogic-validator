@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { assertTreeRegistryEntries } from './tree-registry-entry-shape.logic.mjs';
+import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -22,8 +22,8 @@ export const normalizeFolderKindsRegistryPayload = (payload) => {
     throw new Error('Invalid folder-kinds registry: folderKinds must be an array.');
   }
 
-  assertTreeRegistryEntries(payload.folderKinds, {
-    registryLabel: 'folder-kinds',
+  assertRegistryEntries(payload.folderKinds, {
+    registryLabel: 'Tree folder-kinds',
     listLabel: 'folderKinds',
     keyField: 'folderKind',
     requiredStringFields: ['definition'],

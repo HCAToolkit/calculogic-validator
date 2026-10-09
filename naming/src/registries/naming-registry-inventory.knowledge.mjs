@@ -55,4 +55,10 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
 export const NAMING_REGISTRY_REFERENCE_EDGES = Object.freeze([
   Object.freeze({ from: 'naming/category-role-perspective', to: 'naming/categories', via: 'rolesByCategory keys' }),
   Object.freeze({ from: 'naming/category-role-perspective', to: 'naming/roles', via: 'role status' }),
+  Object.freeze({
+    from: 'naming/category-role-perspective',
+    to: 'naming/agnostic-core-meanings',
+    via: 'agnosticCoreMeanings, baseMeanings and overlayMeanings values',
+  }),
+  Object.freeze({ from: 'naming/category-role-perspective', to: 'naming/category-role-perspective', via: 'inheritsFrom' }),
 ]);

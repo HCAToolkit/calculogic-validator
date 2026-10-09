@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { assertTreeRegistryEntries } from './tree-registry-entry-shape.logic.mjs';
+import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -22,8 +22,8 @@ export const normalizeStructuralHomesRegistryPayload = (payload) => {
     throw new Error('Invalid structural-homes registry: structuralHomes must be an array.');
   }
 
-  assertTreeRegistryEntries(payload.structuralHomes, {
-    registryLabel: 'structural-homes',
+  assertRegistryEntries(payload.structuralHomes, {
+    registryLabel: 'Tree structural-homes',
     listLabel: 'structuralHomes',
     keyField: 'structuralHome',
     requiredStringFields: ['definition'],

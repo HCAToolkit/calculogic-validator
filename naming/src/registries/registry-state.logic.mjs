@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { stableStringify, sha256Hex } from '../../../src/core/validator-report-meta.logic.mjs';
+import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
 import { loadSummaryBucketsFromFile } from './naming-summary-buckets-registry.logic.mjs';
 import { loadMissingRolePatternsFromFile } from './naming-missing-role-patterns-registry.logic.mjs';
 import { loadFindingPolicyFromFile } from './naming-finding-policy-registry.logic.mjs';
@@ -424,6 +425,19 @@ export const digestNamingRegistryPayload = (payload) => digestPayload(payload);
 
 const toNamingRegistryId = (name) => `${NAMING_REGISTRY_SLICE_ID}/${name}`;
 
+// Strict check of the categories registry records. Runtime loading only needs category names;
+// registry-set validation also checks status, definition and unique categories.
+const validateCategoriesRegistry = ({ registryRoot }) => {
+  loadCategorySet({ registryRoot });
+  assertRegistryEntries(loadJsonFile(path.join(registryRoot, 'categories.registry.json')).categories, {
+    registryLabel: 'categories',
+    listLabel: 'categories',
+    keyField: 'category',
+    requiredStringFields: ['definition'],
+    enumFields: { status: [...ALLOWED_ROLE_STATUSES] },
+  });
+};
+
 // Strict check of the canonical roles registry (`roles[]: { role, status, definition?, notes? }`)
 // and of the perspective → roles reference edge. Runtime loading stays tolerant of a malformed or
 // legacy-shaped roles file for older roots; registry-set validation does not.
@@ -454,8 +468,9 @@ const validateCanonicalRolesRegistry = ({ registryRoot }) => {
     }
 
     for (const optionalField of ['definition', 'notes']) {
-      if (roleEntry[optionalField] !== undefined && typeof roleEntry[optionalField] !== 'string') {
-        throw new Error(`Invalid roles registry: roles[${index}].${optionalField} must be a string when provided.`);
+      const value = roleEntry[optionalField];
+      if (value !== undefined && (typeof value !== 'string' || value.trim().length === 0)) {
+        throw new Error(`Invalid roles registry: roles[${index}].${optionalField} must be a non-empty string when provided.`);
       }
     }
 
@@ -474,14 +489,68 @@ const validateCanonicalRolesRegistry = ({ registryRoot }) => {
   }
 };
 
+const AGNOSTIC_CORE_MEANINGS_REGISTRY_FILENAME = 'agnostic-core-meanings.registry.json';
+const PERSPECTIVE_MEANING_FIELDS = Object.freeze(['agnosticCoreMeanings', 'baseMeanings', 'overlayMeanings']);
+
+// Reference edges of the category-role perspective beyond role membership: meaning lists name
+// agnostic core meanings, and `inheritsFrom` names a role in a perspective category.
+const validateCategoryRolePerspectiveReferences = ({ registryRoot }) => {
+  const perspective = loadJsonFile(path.join(registryRoot, CATEGORY_ROLE_PERSPECTIVE_REGISTRY_FILENAME));
+  const rolesByCategory = perspective?.rolesByCategory ?? {};
+  const meanings = new Set(
+    (loadJsonFile(path.join(registryRoot, AGNOSTIC_CORE_MEANINGS_REGISTRY_FILENAME))?.meanings ?? []).map(
+      (entry) => entry?.meaning,
+    ),
+  );
+  const fail = (message) => {
+    throw new Error(`Invalid category-role-perspective registry: ${message}`);
+  };
+
+  for (const [category, entries] of Object.entries(rolesByCategory)) {
+    (Array.isArray(entries) ? entries : []).forEach((entry, index) => {
+      const label = `rolesByCategory.${category}[${index}]`;
+      for (const field of PERSPECTIVE_MEANING_FIELDS) {
+        const values = entry?.[field];
+        if (values === undefined) {
+          continue;
+        }
+
+        if (!Array.isArray(values) || values.length === 0 || !values.every((value) => meanings.has(value))) {
+          fail(`${label}.${field} must be a non-empty array of agnostic core meanings.`);
+        }
+      }
+
+      const parent = entry?.inheritsFrom;
+      if (parent === undefined) {
+        return;
+      }
+
+      const parentExists =
+        parent !== null &&
+        typeof parent === 'object' &&
+        Array.isArray(rolesByCategory[parent.category]) &&
+        rolesByCategory[parent.category].some((candidate) => candidate?.role === parent.role);
+      if (!parentExists) {
+        fail(`${label}.inheritsFrom must name a { category, role } present in rolesByCategory.`);
+      }
+    });
+  }
+};
+
 // Naming's registry-set validation entry point (lifecycle spec §9.3). Runs Naming's own shape and
 // reference validation over one registry root, one registry at a time, and returns a
 // deterministic list of `{ registryId, detail }` failures. It builds no runtime state.
 export const validateNamingRegistrySet = (registryRoot) => {
   const checks = [
     ['agnostic-core-meanings', () => validateAgnosticCoreMeaningsRegistryFromRegistryRoot(registryRoot)],
-    ['categories', () => loadCategorySet({ registryRoot })],
-    ['category-role-perspective', () => loadRolesPayload({ registryRoot })],
+    ['categories', () => validateCategoriesRegistry({ registryRoot })],
+    [
+      'category-role-perspective',
+      () => {
+        loadRolesPayload({ registryRoot });
+        validateCategoryRolePerspectiveReferences({ registryRoot });
+      },
+    ],
     ['reportable-extensions', () => loadReportableExtensions({ registryRoot })],
     ['reportable-root-files', () => loadReportableRootFiles({ registryRoot })],
     ['roles', () => validateCanonicalRolesRegistry({ registryRoot })],

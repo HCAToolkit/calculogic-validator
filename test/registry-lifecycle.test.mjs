@@ -320,6 +320,87 @@ test('reordering keyed Tree vocabularies does not make Custom differ', () => {
   }, { copyBuiltin: true });
 });
 
+test('Naming validation rejects malformed folder-composition, category, special-case and perspective records', () => {
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'folder-composition-patterns.registry.json', (payload) => ({
+      ...payload,
+      folderCompositionPatterns: [null],
+    })),
+    ['naming/folder-composition-patterns'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'folder-composition-patterns.registry.json', (payload) => ({
+      ...payload,
+      folderSemanticContextPatterns: 'naming',
+    })),
+    ['naming/folder-composition-patterns'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'categories.registry.json', (payload) => ({
+      ...payload,
+      categories: payload.categories.map((entry, index) => (index === 0 ? { ...entry, status: 42 } : entry)),
+    })),
+    ['naming/categories'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'special-cases.registry.json', (payload) => ({
+      ...payload,
+      specialCases: [{ ...payload.specialCases[0], match: { suffixEquals: [null] } }, ...payload.specialCases.slice(1)],
+    })),
+    ['naming/special-cases'],
+  );
+
+  const updateFirstPerspectiveRole = (update) => (payload) => {
+    const [firstCategory] = Object.keys(payload.rolesByCategory);
+    const [firstRole, ...otherRoles] = payload.rolesByCategory[firstCategory];
+    return {
+      ...payload,
+      rolesByCategory: { ...payload.rolesByCategory, [firstCategory]: [update(firstRole), ...otherRoles] },
+    };
+  };
+  assert.deepEqual(
+    invalidIdsAfter(
+      'naming',
+      'category-role-perspective.registry.json',
+      updateFirstPerspectiveRole((entry) => ({ ...entry, agnosticCoreMeanings: ['not-a-meaning'] })),
+    ),
+    ['naming/category-role-perspective'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter(
+      'naming',
+      'category-role-perspective.registry.json',
+      updateFirstPerspectiveRole((entry) => ({ ...entry, inheritsFrom: { category: 'concern-core', role: 'nope' } })),
+    ),
+    ['naming/category-role-perspective'],
+  );
+});
+
+test('an unreadable inactive Custom directory is reported, never blocking', (t) => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    const realReaddirSync = fs.readdirSync;
+    t.mock.method(fs, 'readdirSync', (directoryPath, ...rest) => {
+      if (String(directoryPath).startsWith(paths.customRoot)) {
+        throw Object.assign(new Error(`EACCES: permission denied, scandir '${directoryPath}'`), { code: 'EACCES' });
+      }
+
+      return realReaddirSync(directoryPath, ...rest);
+    });
+
+    let resolution;
+    try {
+      resolution = resolveActiveRegistrySet({ targetRoot });
+    } finally {
+      t.mock.restoreAll();
+    }
+
+    assert.equal(resolution.activeSet, 'builtin');
+    assert.equal(resolution.registrySet.customExists, true);
+    assert.deepEqual(resolution.registrySet.orphanRegistries, []);
+  });
+});
+
 test('status reports a malformed Custom roles registry as invalid, not custom-modified', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });

@@ -35,6 +35,18 @@ const loadSpecialCaseRulesFromFile = (registryFilePath) => {
       throw new Error(`${entryPrefix}: missing match object.`);
     }
 
+    for (const listField of ['basenameEquals', 'suffixEquals']) {
+      const values = match[listField];
+      if (
+        values !== undefined &&
+        (!Array.isArray(values) ||
+          values.length === 0 ||
+          !values.every((value) => typeof value === 'string' && value.length > 0))
+      ) {
+        throw new Error(`${entryPrefix}: match.${listField} must be a non-empty array of non-empty strings.`);
+      }
+    }
+
     if (Array.isArray(match.basenameEquals)) {
       return {
         type: specialCase.type,

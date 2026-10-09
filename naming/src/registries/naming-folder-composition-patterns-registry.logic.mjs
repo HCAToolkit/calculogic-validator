@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -10,6 +11,10 @@ export const BUILTIN_NAMING_FOLDER_COMPOSITION_PATTERNS_REGISTRY_PATH = fileURLT
 
 let cachedBuiltinFolderCompositionPatternsRegistry = null;
 
+// Naming's registry status vocabulary; the projection reads only `active` patterns.
+const FOLDER_COMPOSITION_PATTERN_STATUSES = Object.freeze(['active', 'deprecated']);
+const REGISTRY_LABEL = 'Naming folder-composition patterns';
+
 const assertValidRegistry = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('Invalid Naming folder-composition patterns registry: expected object payload.');
@@ -17,6 +22,29 @@ const assertValidRegistry = (payload) => {
   if (!Array.isArray(payload.folderCompositionPatterns)) {
     throw new Error('Invalid Naming folder-composition patterns registry: folderCompositionPatterns must be an array.');
   }
+  assertRegistryEntries(payload.folderCompositionPatterns, {
+    registryLabel: REGISTRY_LABEL,
+    listLabel: 'folderCompositionPatterns',
+    keyField: 'patternId',
+    requiredStringFields: [
+      'compositionKind',
+      'semanticQualifier',
+      'structuralRoleToken',
+      'folderName',
+      'qualification',
+      'confidence',
+      'definition',
+    ],
+    stringArrayFields: ['tokenOrder'],
+    enumFields: { status: FOLDER_COMPOSITION_PATTERN_STATUSES },
+  });
+  assertRegistryEntries(payload.folderSemanticContextPatterns, {
+    registryLabel: REGISTRY_LABEL,
+    listLabel: 'folderSemanticContextPatterns',
+    keyField: 'patternId',
+    requiredStringFields: ['folderName', 'semanticContext', 'qualification', 'confidence', 'definition'],
+    enumFields: { status: FOLDER_COMPOSITION_PATTERN_STATUSES },
+  });
   return payload;
 };
 

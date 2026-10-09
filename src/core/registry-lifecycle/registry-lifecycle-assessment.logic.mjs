@@ -63,19 +63,29 @@ export const digestBuiltinRegistrySet = ({ slices = REGISTRY_LIFECYCLE_SLICES } 
 // depends on the host locale.
 const compareOrdinal = (left, right) => (left === right ? 0 : left < right ? -1 : 1);
 
+// Lists a Custom directory. An unreadable directory yields no entries: its registries then fail to
+// read and are reported per registry, so an inactive Custom set never blocks a run (spec §7.2).
+const listDirectoryEntries = (directoryPath) => {
+  try {
+    return fs.readdirSync(directoryPath).sort();
+  } catch {
+    return [];
+  }
+};
+
 const listOrphanRegistries = ({ customRoot, slices }) => {
   const knownRegistryIds = new Set(
     slices.flatMap((slice) => slice.inventory.map((entry) => entry.registryId)),
   );
   const orphans = [];
 
-  for (const sliceDirName of fs.readdirSync(customRoot).sort()) {
+  for (const sliceDirName of listDirectoryEntries(customRoot)) {
     const sliceDir = path.join(customRoot, sliceDirName);
     if (sliceDirName === BASELINE_DIRNAME || !isDirectory(sliceDir)) {
       continue;
     }
 
-    for (const fileName of fs.readdirSync(sliceDir).sort()) {
+    for (const fileName of listDirectoryEntries(sliceDir)) {
       if (!fileName.endsWith(REGISTRY_FILENAME_SUFFIX)) {
         continue;
       }
