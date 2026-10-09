@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import {
   NAMING_DECISION_OUTCOME_IDS,
+  NAMING_FINDING_CLASSIFICATIONS,
   NAMING_FINDING_SEVERITIES,
 } from '../naming-validator.contracts.mjs';
 
@@ -72,6 +73,12 @@ export const loadFindingPolicyFromFile = (registryFilePath) => {
     if (!NAMING_FINDING_SEVERITIES.includes(policy.severity)) {
       throw new Error(
         `Invalid finding-policy registry: ${outcomeId}.severity must be one of ${NAMING_FINDING_SEVERITIES.join(', ')}.`,
+      );
+    }
+
+    if (!NAMING_FINDING_CLASSIFICATIONS.includes(policy.classification)) {
+      throw new Error(
+        `Invalid finding-policy registry: ${outcomeId}.classification must be one of ${NAMING_FINDING_CLASSIFICATIONS.join(', ')}.`,
       );
     }
   }

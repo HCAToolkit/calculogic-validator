@@ -604,6 +604,26 @@ test('omittable empty role notes are valid and equal to no note', () => {
   );
 });
 
+test('finding classifications and shim vocabulary casing follow their runtime contracts', () => {
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'finding-policy.registry.json', (payload) => ({
+      ...payload,
+      outcomes: { ...payload.outcomes, canonical: { ...payload.outcomes.canonical, classification: 'bogus' } },
+    })),
+    ['naming/finding-policy'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('tree', 'shim-detection-signals.registry.json', (payload) => ({
+      ...payload,
+      shimDetectionSignals: {
+        ...payload.shimDetectionSignals,
+        folderSignals: payload.shimDetectionSignals.folderSignals.map((value, index) => (index === 0 ? value.toUpperCase() : value)),
+      },
+    })),
+    ['tree/shim-detection-signals'],
+  );
+});
+
 test('status reports a malformed Custom roles registry as invalid, not custom-modified', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });

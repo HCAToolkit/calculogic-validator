@@ -17,3 +17,11 @@ export const NAMING_FINDING_SEVERITIES = Object.freeze(['info', 'warn']);
 
 // Semantic-name styles the case-rules runtime can compile.
 export const NAMING_SUPPORTED_SEMANTIC_NAME_STYLES = Object.freeze(['kebab-case']);
+
+// Stable finding classifications (NamingValidatorSpec "Classification Outputs").
+export const NAMING_FINDING_CLASSIFICATIONS = Object.freeze([
+  'canonical',
+  'allowed-special-case',
+  'legacy-exception',
+  'invalid-ambiguous',
+]);

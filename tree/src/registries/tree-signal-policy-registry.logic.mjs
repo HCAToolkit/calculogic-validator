@@ -28,6 +28,12 @@ const assertStringList = ({ payload, keyPath }) => {
         `Invalid tree-signal registry: ${keyPath}[${index}] must be a non-empty string.`,
       );
     }
+
+    // Matching is case-insensitive, so the registry holds the lowercase form only; a cased
+    // spelling would mean the same as its lowercase twin while comparing as different.
+    if (value !== value.toLowerCase()) {
+      throw new Error(`Invalid tree-signal registry: ${keyPath}[${index}] must be lowercase.`);
+    }
   });
 
   return payload.map((value) => value.toLowerCase());
