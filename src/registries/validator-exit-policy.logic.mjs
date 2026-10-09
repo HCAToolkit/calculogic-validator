@@ -50,6 +50,14 @@ const validatePredicateShape = (predicate, { policyId }) => {
       );
     }
   }
+
+  // Matching treats a false condition as absent, so a predicate needs at least one true condition;
+  // otherwise it would match every run.
+  if (!predicateKeys.some((key) => predicate[key] === true)) {
+    throw new Error(
+      `Invalid exit policy registry: predicate for policy "${policyId}" must set at least one condition to true.`,
+    );
+  }
 };
 
 const canonicalizeExitPolicyEntry = (policyEntry) => {

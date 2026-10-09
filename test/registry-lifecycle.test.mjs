@@ -624,6 +624,23 @@ test('finding classifications and shim vocabulary casing follow their runtime co
   );
 });
 
+test('empty undeclared perspective categories and all-false exit predicates are invalid', () => {
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'category-role-perspective.registry.json', (payload) => ({
+      ...payload,
+      rolesByCategory: { ...payload.rolesByCategory, unknown: [] },
+    })),
+    ['naming/category-role-perspective'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('suite', 'exit-policy.registry.json', (payload) => ({
+      ...payload,
+      policies: [{ id: 'never-true', exitCode: 2, predicate: { anyWarnFindings: false } }, ...payload.policies],
+    })),
+    ['suite/exit-policy'],
+  );
+});
+
 test('status reports a malformed Custom roles registry as invalid, not custom-modified', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });

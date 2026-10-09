@@ -510,6 +510,13 @@ const validateCategoryRolePerspectiveReferences = ({ registryRoot }) => {
     throw new Error(`Invalid category-role-perspective registry: ${message}`);
   };
 
+  // Every rolesByCategory key names a declared category, including keys with no roles.
+  const declaredCategories = loadCategorySet({ registryRoot });
+  const undeclaredCategories = Object.keys(rolesByCategory).filter((category) => !declaredCategories.has(category));
+  if (undeclaredCategories.length > 0) {
+    fail(`rolesByCategory keys not declared in categories: ${undeclaredCategories.sort().join(', ')}.`);
+  }
+
   // A role belongs to exactly one category: runtime keeps the first membership it meets, so a role
   // listed twice would make category order (which comparison digests ignore) decide its category.
   const categoryByRole = new Map();
