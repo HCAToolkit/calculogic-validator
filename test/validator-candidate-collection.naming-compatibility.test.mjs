@@ -240,13 +240,12 @@ test('suite-core candidate helper reproduces current Naming scoped candidate col
   }
 });
 
-test('Naming candidate helper skips symlinked scoped roots to preserve legacy walk behavior', async () => {
+test('Naming candidate helper skips internal symlinked scoped roots to preserve legacy walk behavior', async () => {
   const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'naming-symlink-scope-'));
-  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'naming-symlink-outside-'));
 
   try {
-    await writeFixtureFile(outsideDir, 'outside.logic.ts', 'export const outside = true;\n');
-    await fs.symlink(outsideDir, path.join(fixtureDir, 'src'), 'dir');
+    await writeFixtureFile(fixtureDir, 'packages/app-src/inside.logic.ts', 'export const inside = true;\n');
+    await fs.symlink(path.join(fixtureDir, 'packages', 'app-src'), path.join(fixtureDir, 'src'), 'dir');
     await writeFixtureFile(fixtureDir, 'test/inside.test.js', 'export const inside = true;\n');
 
     const runtimeInputs = prepareNamingRuntimeInputs();
@@ -266,8 +265,20 @@ test('Naming candidate helper skips symlinked scoped roots to preserve legacy wa
     assert.deepEqual(legacyAppPaths, ['test/inside.test.js']);
     assert.deepEqual(namingAppPaths, legacyAppPaths);
     assert.deepEqual(directCandidatePaths.selectedPaths, legacyAppPaths);
-    assert.equal(namingAppPaths.includes('src/outside.logic.ts'), false);
-    assert.equal(namingAppPaths.some((selectedPath) => selectedPath.startsWith('src/')), false);
+  } finally {
+    await fs.rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+test('Naming candidate helper rejects a scoped root escaping the target instead of skipping it (#53)', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'naming-symlink-scope-escape-'));
+  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'naming-symlink-outside-'));
+
+  try {
+    await writeFixtureFile(outsideDir, 'outside.logic.ts', 'export const outside = true;\n');
+    await fs.symlink(outsideDir, path.join(fixtureDir, 'src'), 'dir');
+
+    assert.throws(() => collectNamingRepositoryPaths(fixtureDir, { scope: 'app' }), /Scope root escapes repository root: src/u);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
     await fs.rm(outsideDir, { recursive: true, force: true });

@@ -57,6 +57,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
   - scope-profile read
   - `includeRoots` walking
   - `includeRootFiles` inclusion
+  - scope-root containment: every declared `includeRoots` / `includeRootFiles` entry is checked against the target before traversal (see 3.9)
   - normalized path collection
   - optional target filtering
   - deterministic sort/dedupe for selected path sets
@@ -193,6 +194,21 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 - **When not to reuse:**
   - cross-registry reference edges, nested structures or slice meaning; the slice declares the shape and keeps those checks
 - **Reuse boundary type:** loader boundary reuse
+
+### 3.9 Entry: suite-core target-path containment
+
+- **Owner:** suite-core
+- **Path/area:**
+  - `src/core/target-path-containment.logic.mjs`
+- **Concern:** the one suite rule that a path the Validator treats as part of a validation target resolves by realpath inside the target. Internal symlinks are allowed; escaping, dangling or otherwise unresolvable ones are not.
+- **Reusable capability:**
+  - `classifyTargetPathContainment(targetRoot, candidatePath)` → `contained` / `escaping` / `unresolvable`
+  - `isPathInsideTarget(targetRoot, candidatePath)`
+  - `resolveRealPath(candidatePath)`, which resolves a not-yet-existing path through its nearest existing ancestor
+- **Current consumers:** the scoped snapshot/input helper (scope roots and root files, 3.2) and the registry lifecycle (lifecycle paths, 3.7).
+- **When to reuse:** any new place that reads or writes a target path a consumer can influence (a registry value, a profile entry, a lifecycle file).
+- **When not to reuse:** CLI `--target` resolution keeps its own existence-and-escape check in `scoped-target-paths.logic.mjs`, which also requires the target to exist.
+- **Reuse boundary type:** helper-area reuse
 
 ## 4) Guardrails
 
