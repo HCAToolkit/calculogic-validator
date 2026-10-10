@@ -159,3 +159,22 @@ test('scope containment: an entry that cannot be inspected is a scope error, not
     }
   });
 });
+
+test('scope containment: --target selects paths under an internal symlinked root and in a symlinked checkout', async () => {
+  await withContainmentFixture(async ({ targetRoot }) => {
+    await fs.mkdir(path.join(targetRoot, 'packages', 'app-src'), { recursive: true });
+    await fs.writeFile(path.join(targetRoot, 'packages', 'app-src', 'app.logic.ts'), 'export {};\n', 'utf8');
+    await fs.symlink(path.join(targetRoot, 'packages', 'app-src'), path.join(targetRoot, 'src'), 'dir');
+
+    // Targets resolve to real paths; collected paths must match them in the same form.
+    for (const target of ['src/app.logic.ts', 'src', 'packages/app-src/app.logic.ts']) {
+      const snapshot = collectSuiteScopedSnapshotInputs(targetRoot, { scope: 'app', targets: [target] });
+      assert.deepEqual(snapshot.selectedPaths, ['src/app.logic.ts'], `target ${target}`);
+    }
+
+    const checkoutLink = path.join(path.dirname(targetRoot), 'checkout-link');
+    await fs.symlink(targetRoot, checkoutLink, 'dir');
+    const linkedSnapshot = collectSuiteScopedSnapshotInputs(checkoutLink, { scope: 'app', targets: ['test/inside.test.js'] });
+    assert.deepEqual(linkedSnapshot.selectedPaths, ['test/inside.test.js']);
+  });
+});
