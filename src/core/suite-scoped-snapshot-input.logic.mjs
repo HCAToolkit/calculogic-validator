@@ -39,10 +39,8 @@ const assertScopeEntriesContained = (repositoryRoot, { includeRoots, includeRoot
 
   for (const [label, entry] of entries) {
     const absolutePath = path.resolve(repositoryRoot, entry);
-    if (!isPresent(absolutePath, label, entry)) {
-      continue;
-    }
-
+    // Classified first: an absent entry resolves through its nearest existing ancestor, so an entry
+    // under a dangling or escaping symlink is caught here rather than treated as absent.
     const containment = classifyTargetPathContainment(repositoryRoot, absolutePath);
     if (containment === 'escaping') {
       throw new Error(`${label} escapes repository root: ${entry}`);
@@ -51,6 +49,9 @@ const assertScopeEntriesContained = (repositoryRoot, { includeRoots, includeRoot
     if (containment === 'unresolvable') {
       throw new Error(`${label} cannot be resolved (dangling or unreadable symlink): ${entry}`);
     }
+
+    // Only a contained entry may be genuinely absent; any other inspection failure throws.
+    isPresent(absolutePath, label, entry);
   }
 };
 

@@ -178,3 +178,31 @@ test('scope containment: --target selects paths under an internal symlinked root
     assert.deepEqual(linkedSnapshot.selectedPaths, ['test/inside.test.js']);
   });
 });
+
+test('scope containment: an absent nested entry under a dangling or escaping symlink is not treated as absent', async () => {
+  await withContainmentFixture(async ({ targetRoot, outsideRoot }) => {
+    // A suite registry root whose `app` profile declares a nested root below `alias`.
+    const suiteRoot = path.join(path.dirname(targetRoot), 'suite-registries');
+    await fs.mkdir(suiteRoot, { recursive: true });
+    for (const fileName of await fs.readdir(new URL('../src/registries/_builtin/', import.meta.url))) {
+      await fs.copyFile(new URL(`../src/registries/_builtin/${fileName}`, import.meta.url), path.join(suiteRoot, fileName));
+    }
+    const profilesPath = path.join(suiteRoot, 'scope-profiles.registry.json');
+    const profiles = JSON.parse(await fs.readFile(profilesPath, 'utf8'));
+    profiles.profiles.app.includeRoots = ['alias/missing', 'test'];
+    await fs.writeFile(profilesPath, JSON.stringify(profiles), 'utf8');
+    const collect = () => collectSuiteScopedSnapshotInputs(targetRoot, { scope: 'app', registryRoots: { suite: suiteRoot } });
+
+    await fs.symlink(path.join(targetRoot, 'gone'), path.join(targetRoot, 'alias'), 'dir');
+    assert.throws(collect, /Scope root cannot be resolved \(dangling or unreadable symlink\): alias\/missing/u);
+
+    await fs.rm(path.join(targetRoot, 'alias'));
+    await fs.symlink(outsideRoot, path.join(targetRoot, 'alias'), 'dir');
+    assert.throws(collect, /Scope root escapes repository root: alias\/missing/u);
+
+    // A genuinely absent entry under a contained parent still contributes nothing.
+    await fs.rm(path.join(targetRoot, 'alias'));
+    await fs.mkdir(path.join(targetRoot, 'alias'));
+    assert.deepEqual(collect().inScopePaths, ['test/inside.test.js']);
+  });
+});
