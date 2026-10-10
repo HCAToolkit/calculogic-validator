@@ -1117,6 +1117,31 @@ test('values the runtime could never match are invalid', () => {
   }
 });
 
+test('summary bucket repeats are invalid, and folder-pattern order does not make Custom differ', () => {
+  for (const field of ['classificationBuckets', 'secondaryBucketFamilies']) {
+    assert.deepEqual(
+      invalidIdsAfter('naming', 'summary-buckets.registry.json', (payload) => ({
+        ...payload,
+        [field]: [...payload[field], payload[field][0]],
+      })),
+      ['naming/summary-buckets'],
+      `accepted a repeated ${field} entry`,
+    );
+  }
+
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    updateJson(customFile(paths, 'naming/folder-composition-patterns'), (payload) => ({
+      ...payload,
+      folderSemanticContextPatterns: [...payload.folderSemanticContextPatterns].reverse(),
+    }));
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.equal(classificationOf(assessment, 'naming/folder-composition-patterns'), 'unchanged');
+    assert.equal(assessment.customDiffers, false);
+  });
+});
+
 test('an orphan Baseline copy is verified with its retired descriptor, and is unverifiable without one', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });

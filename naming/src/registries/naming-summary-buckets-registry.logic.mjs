@@ -25,10 +25,13 @@ const ensureStringArray = (value, fieldName) => {
       );
     }
 
-    if (!seen.has(entry)) {
-      seen.add(entry);
-      normalized.push(entry);
+    // The lists are ordered, so comparison keeps a repeat that the summary would drop.
+    if (seen.has(entry)) {
+      throw new Error(`Invalid summary-buckets registry: ${fieldName}[${index}] "${entry}" is duplicated.`);
     }
+
+    seen.add(entry);
+    normalized.push(entry);
   });
 
   return normalized;

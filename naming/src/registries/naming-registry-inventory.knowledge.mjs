@@ -38,7 +38,14 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
     ],
   }),
   defineNamingRegistry('finding-policy'),
-  defineNamingRegistry('folder-composition-patterns'),
+  // The projection indexes active patterns by their unique folder name and sorts its observations,
+  // so pattern order carries no meaning; `tokenOrder` stays ordered.
+  defineNamingRegistry('folder-composition-patterns', {
+    setLike: [
+      { path: 'folderCompositionPatterns', key: 'patternId' },
+      { path: 'folderSemanticContextPatterns', key: 'patternId' },
+    ],
+  }),
   defineNamingRegistry('missing-role-patterns', {
     setLike: [{ path: 'missingRolePatterns[].extensionSegmentIndexes' }],
   }),
