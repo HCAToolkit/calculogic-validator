@@ -28,3 +28,9 @@ export const SUITE_REGISTRY_INVENTORY = Object.freeze([
   defineSuiteRegistry('exit-policy'),
   defineSuiteRegistry('scope-profiles', { setLike: [{ path: 'profiles.*.includeRootFiles' }] }),
 ]);
+
+// [6.1] cfg-registryLifecycle · Container · "Suite retired registry inventory"
+// Registries a release removed or renamed keep their id and canonical-form descriptor here, so an
+// orphan's Baseline copy from an earlier release can still be verified (lifecycle spec §12.1). Empty
+// until a suite registry is retired.
+export const SUITE_RETIRED_REGISTRY_INVENTORY = Object.freeze([]);

@@ -408,7 +408,7 @@ test('reportable extensions without a leading dot are rejected', () => {
     (registryRoot) => {
       assert.throws(
         () => resolveNamingRegistryInputs({ registryRoot }),
-        /each extension must start with "\."/u,
+        /"ts" must be a single extension starting with "\."/u,
       );
     },
   );

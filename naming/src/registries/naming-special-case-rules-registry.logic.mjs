@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assertAllowedFields } from '../../../src/core/registry-entry-shape.logic.mjs';
+import { assertAllowedFields, isPathSegmentName } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -49,6 +49,15 @@ const loadSpecialCaseRulesFromFile = (registryFilePath) => {
       throw new Error(
         `${entryPrefix}: match must declare exactly one of ${SPECIAL_CASE_MATCH_FORMS.join(', ')}.`,
       );
+    }
+
+    // Both list forms test the basename, so a value with a path separator would never match.
+    if (Array.isArray(match.basenameEquals) && !match.basenameEquals.every(isPathSegmentName)) {
+      throw new Error(`${entryPrefix}: match.basenameEquals values must be bare file names without a path.`);
+    }
+
+    if (Array.isArray(match.suffixEquals) && match.suffixEquals.some((suffix) => /[/\\]/u.test(suffix))) {
+      throw new Error(`${entryPrefix}: match.suffixEquals values must not contain a path separator.`);
     }
 
     if (match.regex !== undefined && (typeof match.regex !== 'string' || match.regex.length === 0)) {

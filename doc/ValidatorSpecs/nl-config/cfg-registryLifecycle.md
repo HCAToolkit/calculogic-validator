@@ -111,7 +111,7 @@ Compares Custom with the current Builtin inventory and the Baseline. Produces:
 - the per-registry status classification;
 - `customIssues` for an inactive Custom set, using each slice's registry-set validation entry point for `invalid` (spec §7.2, §9.3, §11.1);
 - Custom paths that escape the target (spec §4.1) as unreadable: a registry file is `invalid`, a `.baseline/` copy is a `baseline-mismatch`, the manifest is `manifest-malformed`; escaping files are never read, escaping directories are never listed, and a slice with an escaping registry file is not passed to its slice validation;
-- `baselineMismatch` for every registry the trusted manifest lists, orphans included (spec §4.4, §12.1). No current inventory descriptor describes an orphan, so its Custom file and Baseline copy are digested descriptor-free;
+- `baselineMismatch` for every registry the trusted manifest lists, orphans included (spec §4.4, §12.1). An orphan is canonicalized with its slice's retired descriptor; an orphan without one has a `null` digest and `baselineMismatch` (unverifiable, never a mismatch);
 - Baseline copy verification against manifest digests, giving `baseline-mismatch` (spec §4.4).
 
 #### 5.2.5 Workflow: `resolveActiveRegistrySet`
@@ -161,11 +161,11 @@ Slice 2 state: Naming and suite core read their resolved roots. Tree receives `r
 - `tree/src/registries/tree-registry-inventory.knowledge.mjs`
 - `src/registries/suite-registry-inventory.knowledge.mjs`
 
-Each is owned by its slice and lists only that slice's registries.
+Each is owned by its slice and lists only that slice's registries. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
 
 ### 6.2 Suite inventory aggregate
 
-`src/core/registry-lifecycle/registry-lifecycle-inventory.knowledge.mjs` lists the slice inventories in deterministic slice order (`naming`, `tree`, `suite`). It adds no registry entries of its own.
+`src/core/registry-lifecycle/registry-lifecycle-inventory.knowledge.mjs` lists the slice inventories and retired inventories in deterministic slice order (`naming`, `tree`, `suite`). It adds no registry entries of its own.
 
 ### 6.3 Constants
 

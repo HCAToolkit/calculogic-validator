@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { isPathSegmentName } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -20,6 +21,13 @@ const normalizeAllowedTopLevelDirectories = (allowedTopLevelDirectories) => {
     if (typeof directoryName !== 'string' || directoryName.length === 0) {
       throw new Error(
         `Invalid tree repo-shape policy registry: allowedTopLevelDirectories[${index}] must be a non-empty string.`,
+      );
+    }
+
+    // Compared with top-level folder names, so a value with a path separator would never match.
+    if (!isPathSegmentName(directoryName)) {
+      throw new Error(
+        `Invalid tree repo-shape policy registry: allowedTopLevelDirectories[${index}] must be a bare directory name without a path.`,
       );
     }
   });

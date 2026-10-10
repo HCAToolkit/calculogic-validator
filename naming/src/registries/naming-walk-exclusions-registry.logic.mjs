@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isPathSegmentName } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -42,6 +43,14 @@ const loadWalkExclusionsFromFile = (registryFilePath) => {
   };
 
   ensureNonEmptyStringArray(payload.excludedDirectories, 'excludedDirectories');
+  // The walk compares each directory entry name, so an excluded directory is one bare name.
+  payload.excludedDirectories.forEach((directoryName, index) => {
+    if (!isPathSegmentName(directoryName)) {
+      throw new Error(
+        `Invalid walk-exclusions registry: excludedDirectories[${index}] must be a bare directory name without a path.`,
+      );
+    }
+  });
   ensureNonEmptyStringArray(payload.allowDotFiles, 'allowDotFiles');
 
   return {

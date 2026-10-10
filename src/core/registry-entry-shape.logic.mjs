@@ -12,6 +12,19 @@ const isPlainObject = (value) => value !== null && typeof value === 'object' && 
 // Loaders trim registry strings, so whitespace-only is empty and keys compare trimmed.
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
 
+// A value the runtime compares with one path segment (a basename or a directory name): no separator,
+// and not `.` or `..`. A value with a separator could never match.
+export const isPathSegmentName = (value) =>
+  typeof value === 'string' &&
+  value.length > 0 &&
+  !value.includes('/') &&
+  !value.includes('\\') &&
+  value !== '.' &&
+  value !== '..';
+
+// A value the runtime compares with `path.extname`, which yields only the last extension.
+export const isSingleFileExtension = (value) => typeof value === 'string' && /^\.[^./\\]+$/u.test(value);
+
 // Rejects fields outside `allowedFields` on one object of a registry payload.
 export const assertAllowedFields = (value, allowedFields, { registryLabel, label }) => {
   const unsupportedFields = Object.keys(value)

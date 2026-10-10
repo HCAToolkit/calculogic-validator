@@ -282,16 +282,24 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
     registries.push(statusEntry);
   }
 
+  // An orphan is canonicalized with its slice's retired descriptor. Without one this release cannot
+  // reproduce its digests, so they are null and its Baseline copy is unverifiable, never a mismatch
+  // (lifecycle spec §12.1 "Retired descriptors").
+  const retiredDescriptorsById = new Map(
+    slices.flatMap((slice) => (slice.retiredInventory ?? []).map((retired) => [retired.registryId, retired.descriptor])),
+  );
   const orphanRegistries = listOrphanRegistries({ paths, slices });
   for (const orphan of orphanRegistries) {
-    const orphanFile = readCustomSetFile(paths, orphan.filePath, {});
+    const retiredDescriptor = retiredDescriptorsById.get(orphan.registryId);
+    const orphanFile = readCustomSetFile(paths, orphan.filePath, retiredDescriptor ?? {});
     const manifestEntry = trustedManifestEntries[orphan.registryId];
-    // An orphan's Baseline copy is verified like any other whenever the manifest has its entry
-    // (lifecycle spec §4.4, §12.1). No current inventory descriptor describes an orphan, so its
-    // copy is digested descriptor-free, as its Custom digest is.
     let baselineMismatch = null;
-    if (manifestEntry) {
-      const baseline = readCustomSetFile(paths, path.join(paths.baselineRoot, orphan.sliceId, orphan.fileName), {});
+    if (manifestEntry && retiredDescriptor) {
+      const baseline = readCustomSetFile(
+        paths,
+        path.join(paths.baselineRoot, orphan.sliceId, orphan.fileName),
+        retiredDescriptor,
+      );
       baselineMismatch = baseline.digest !== manifestEntry.digest;
       if (baselineMismatch) {
         customIssues.push({
@@ -305,7 +313,7 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
     registries.push({
       registryId: orphan.registryId,
       classification: 'orphan',
-      customDigest: orphanFile.digest,
+      customDigest: retiredDescriptor ? orphanFile.digest : null,
       builtinDigest: null,
       baselineDigest: manifestEntry ? manifestEntry.digest : null,
       baselineMismatch,

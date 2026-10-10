@@ -1,6 +1,21 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { assertAllowedFields } from '../../../src/core/registry-entry-shape.logic.mjs';
+import {
+  assertAllowedFields,
+  isPathSegmentName,
+  isSingleFileExtension,
+} from '../../../src/core/registry-entry-shape.logic.mjs';
+
+// How each shim list is matched, and so which values could ever match: directory segments, basename
+// tokens (the detector splits basenames on anything outside [a-z0-9]) and `path.extname` values.
+const isBasenameToken = (value) => /^[a-z0-9]+$/u.test(value);
+const SHIM_LIST_VALUE_RULES = Object.freeze({
+  'shimDetectionSignals.folderSignals': [isPathSegmentName, 'a bare directory name'],
+  'shimDetectionSignals.surfaceSegmentSignals': [isPathSegmentName, 'a bare directory name'],
+  'shimDetectionSignals.nameTokenSignals': [isBasenameToken, 'a basename token of letters and digits'],
+  'shimSuppressionVocabularies.detectorImplementationTokens': [isBasenameToken, 'a basename token of letters and digits'],
+  'shimExtensionAllowlist.relevantFileExtensions': [isSingleFileExtension, 'a single extension such as ".ts"'],
+});
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -34,6 +49,11 @@ const assertStringList = ({ payload, keyPath }) => {
     // spelling would mean the same as its lowercase twin while comparing as different.
     if (value !== value.toLowerCase()) {
       throw new Error(`Invalid tree-signal registry: ${keyPath}[${index}] must be lowercase.`);
+    }
+
+    const valueRule = SHIM_LIST_VALUE_RULES[keyPath];
+    if (valueRule && !valueRule[0](value)) {
+      throw new Error(`Invalid tree-signal registry: ${keyPath}[${index}] must be ${valueRule[1]}.`);
     }
   });
 

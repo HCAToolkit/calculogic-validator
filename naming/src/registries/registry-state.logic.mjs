@@ -14,6 +14,8 @@ import {
   assertAllowedFields,
   assertRegistryEntries,
   assertRegistryRootFields,
+  isPathSegmentName,
+  isSingleFileExtension,
 } from '../../../src/core/registry-entry-shape.logic.mjs';
 import { NAMING_SUPPORTED_SEMANTIC_NAME_STYLES } from '../naming-validator.contracts.mjs';
 import { loadSummaryBucketsFromFile } from './naming-summary-buckets-registry.logic.mjs';
@@ -151,9 +153,10 @@ const canonicalizeExtensions = (extensions) => {
       );
     }
 
-    if (!extension.startsWith('.')) {
+    // Candidates are matched by `path.extname`, which yields one extension, such as ".ts".
+    if (!isSingleFileExtension(extension)) {
       throw new Error(
-        'Invalid reportable extensions registry: each extension must start with ".".',
+        `Invalid reportable extensions registry: "${extension}" must be a single extension starting with ".", such as ".ts".`,
       );
     }
 
@@ -371,6 +374,13 @@ const canonicalizeRootFilenames = (rootFilenames) => {
     if (!rootFilename) {
       throw new Error(
         'Invalid reportable root files registry: each root filename must be a non-empty string.',
+      );
+    }
+
+    // Candidates are matched by basename, so a value with a path separator would never match.
+    if (!isPathSegmentName(rootFilename)) {
+      throw new Error(
+        `Invalid reportable root files registry: "${rootFilename}" must be a bare file name without a path.`,
       );
     }
 

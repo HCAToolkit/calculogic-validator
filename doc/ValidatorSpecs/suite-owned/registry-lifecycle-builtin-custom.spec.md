@@ -379,7 +379,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 
 - Classes 6–10 compare canonical digests against the manifest's Baseline digests.
 - **Nullable fields.** `customDigest`, `builtinDigest` and `baselineDigest` are always present, and are `null` exactly when there is no value:
-  - `customDigest` is `null` for `missing`, and for any unparseable registry, whether `invalid` or an `orphan` that also fails to parse;
+  - `customDigest` is `null` for `missing`, for any unparseable registry, whether `invalid` or an `orphan` that also fails to parse, and for an `orphan` without a retired descriptor;
   - `builtinDigest` is `null` for `orphan`;
   - `baselineDigest` is the manifest's Baseline digest whenever the manifest is readable and has an entry for the registry. That includes a `missing` registry the user deleted after initialization, so it stays distinguishable from one introduced after the Baseline. It is `null` only when there is no such entry (for example, a registry introduced after the Baseline), for `baseline-unavailable`, and whenever the manifest is malformed;
   - `detail` is present only for `invalid`, `version-incompatible`, and an `orphan` that fails to parse (carrying the parse error). An orphan is never validated by its slice, because no current inventory entry describes it.
@@ -387,7 +387,8 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 - When the manifest is malformed, `status` also prints a top-level `manifestError` with the parse detail. Every registry that is not class 1–4 is then `baseline-unavailable`, and `customDigest` and `builtinDigest` are still reported.
 - `baselineMismatch` is reported independently of `classification` (§4.4):
   - it is `true` or `false` when the manifest is readable and has an entry for the registry;
-  - it is `null` when there is no trusted manifest digest to check against (a malformed manifest, or no entry, such as for a registry introduced after the Baseline).
+  - it is `null` when there is no trusted manifest digest to check against (a malformed manifest, or no entry, such as for a registry introduced after the Baseline), and for an orphan whose canonical-form descriptor this release does not know.
+- **Retired descriptors.** The manifest digest of a registry is computed with its canonical-form descriptor (§5), so verifying a copy needs that descriptor. When a release removes or renames a registry, the slice keeps the registry's descriptor in a retired inventory. An orphan's Custom digest and Baseline copy are then canonicalized with it. An orphan without a retired descriptor, such as one from a newer release, has a `null` `customDigest` and `baselineMismatch`: the copy is unverifiable, which is never reported as a mismatch.
 
 **Activation rule:**
 - `init-custom` creates the set and its initial state (Custom exists and does not differ). It does **not** change the active set.

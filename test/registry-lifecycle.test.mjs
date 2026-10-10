@@ -1075,10 +1075,54 @@ test('values the runtime would never read are invalid', () => {
   );
 });
 
-test('an orphan Baseline copy is verified whenever the manifest has its entry', () => {
+test('values the runtime could never match are invalid', () => {
+  const appendTo = (field, value) => (payload) => ({ ...payload, [field]: [...payload[field], value] });
+  const cases = [
+    ['naming', 'reportable-root-files.registry.json', appendTo('reportableRootFiles', 'docs/README.md')],
+    ['naming', 'reportable-extensions.registry.json', appendTo('reportableExtensions', '.test.ts')],
+    ['naming', 'walk-exclusions.registry.json', appendTo('excludedDirectories', 'build/cache')],
+    [
+      'naming',
+      'special-cases.registry.json',
+      appendTo('specialCases', { type: 'conventional-doc', match: { basenameEquals: ['docs/README.md'] } }),
+    ],
+    ['naming', 'special-cases.registry.json', appendTo('specialCases', { type: 'barrel', match: { suffixEquals: ['/index.ts'] } })],
+    ['tree', 'repo-shape-policy.registry.json', appendTo('allowedTopLevelDirectories', 'src/lib')],
+    [
+      'tree',
+      'shim-detection-signals.registry.json',
+      (payload) => ({
+        ...payload,
+        shimDetectionSignals: { ...payload.shimDetectionSignals, nameTokenSignals: ['shim-layer'] },
+      }),
+    ],
+    [
+      'tree',
+      'shim-detection-signals.registry.json',
+      (payload) => ({
+        ...payload,
+        shimDetectionSignals: { ...payload.shimDetectionSignals, folderSignals: ['compat/legacy'] },
+      }),
+    ],
+    [
+      'tree',
+      'shim-detection-signals.registry.json',
+      (payload) => ({ ...payload, shimExtensionAllowlist: { relevantFileExtensions: ['.d.ts'] } }),
+    ],
+  ];
+
+  for (const [sliceId, fileName, mutate] of cases) {
+    const registryId = `${sliceId}/${fileName.replace('.registry.json', '')}`;
+    assert.deepEqual(invalidIdsAfter(sliceId, fileName, mutate), [registryId], `${registryId} accepted an unmatchable value`);
+  }
+});
+
+test('an orphan Baseline copy is verified with its retired descriptor, and is unverifiable without one', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });
+    // Out of canonical order: digested without the set-like descriptor, an intact copy would mismatch.
     const orphanPayload = { version: '1', retiredEntries: ['b', 'a'] };
+    const retiredDescriptor = { setLike: [{ path: 'retiredEntries' }] };
     const orphanBaselinePath = path.join(paths.baselineRoot, 'naming', 'retired.registry.json');
     writeJson(path.join(paths.customRoot, 'naming', 'retired.registry.json'), orphanPayload);
     writeJson(orphanBaselinePath, orphanPayload);
@@ -1086,26 +1130,38 @@ test('an orphan Baseline copy is verified whenever the manifest has its entry', 
       manifest.basedOn.registries['naming/retired'] = {
         validatorVersion: VALIDATOR_VERSION,
         version: '1',
-        digest: digestRegistryPayload(orphanPayload, {}),
+        digest: digestRegistryPayload(orphanPayload, retiredDescriptor),
       };
       return manifest;
     });
-    const orphanState = () => {
-      const assessment = assessCustomRegistrySet({ paths, slices });
+    const slicesWithRetired = slices.map((slice) =>
+      slice.sliceId === 'naming'
+        ? { ...slice, retiredInventory: [{ registryId: 'naming/retired', descriptor: retiredDescriptor }] }
+        : slice,
+    );
+    const orphanState = (assessedSlices) => {
+      const assessment = assessCustomRegistrySet({ paths, slices: assessedSlices });
       return {
         entry: assessment.registries.find((entry) => entry.registryId === 'naming/retired'),
         issues: assessment.customIssues.filter((issue) => issue.registryId === 'naming/retired'),
       };
     };
 
-    const intact = orphanState();
+    const intact = orphanState(slicesWithRetired);
     assert.equal(intact.entry.classification, 'orphan');
+    assert.equal(intact.entry.customDigest, digestRegistryPayload(orphanPayload, retiredDescriptor));
     assert.equal(intact.entry.baselineMismatch, false);
     assert.deepEqual(intact.issues, []);
 
+    // Without a retired descriptor the copy cannot be verified, which is never a mismatch.
+    const unknown = orphanState(slices);
+    assert.equal(unknown.entry.classification, 'orphan');
+    assert.equal(unknown.entry.customDigest, null);
+    assert.equal(unknown.entry.baselineMismatch, null);
+    assert.deepEqual(unknown.issues, []);
+
     writeJson(orphanBaselinePath, { ...orphanPayload, retiredEntries: ['c'] });
-    const tampered = orphanState();
-    assert.equal(tampered.entry.classification, 'orphan');
+    const tampered = orphanState(slicesWithRetired);
     assert.equal(tampered.entry.baselineMismatch, true);
     assert.deepEqual(
       tampered.issues.map((issue) => [issue.condition, issue.detail]),
@@ -1113,7 +1169,7 @@ test('an orphan Baseline copy is verified whenever the manifest has its entry', 
     );
 
     fs.rmSync(orphanBaselinePath);
-    const missing = orphanState();
+    const missing = orphanState(slicesWithRetired);
     assert.equal(missing.entry.baselineMismatch, true);
     assert.deepEqual(missing.issues.map((issue) => issue.detail), ['The .baseline copy is missing.']);
   }, { copyBuiltin: true });

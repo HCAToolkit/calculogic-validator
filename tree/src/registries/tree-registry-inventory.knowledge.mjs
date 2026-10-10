@@ -56,6 +56,12 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
   defineTreeRegistry('validator-owned-signals', { setLike: [{ path: 'validatorOwnedBasenameSignals', key: 'pattern' }] }),
 ]);
 
+// [6.1] cfg-registryLifecycle · Container · "Tree retired registry inventory"
+// Registries a release removed or renamed keep their id and canonical-form descriptor here, so an
+// orphan's Baseline copy from an earlier release can still be verified (lifecycle spec §12.1). Empty
+// until a tree registry is retired.
+export const TREE_RETIRED_REGISTRY_INVENTORY = Object.freeze([]);
+
 // [6.1] cfg-registryLifecycle · Primitive · "Tree reference edges" (spec §9.3; informative,
 // enforced by Tree's registry-set validation entry point)
 export const TREE_REGISTRY_REFERENCE_EDGES = Object.freeze([
