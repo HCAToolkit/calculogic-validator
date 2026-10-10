@@ -5,16 +5,23 @@ import {
   isPathSegmentName,
   isSingleFileExtension,
 } from '../../../src/core/registry-entry-shape.logic.mjs';
+import { TREE_ARTIFACT_SURFACES } from '../tree-structure-advisor.contracts.mjs';
 
 // How each shim list is matched, and so which values could ever match: directory segments, basename
 // tokens (the detector splits basenames on anything outside [a-z0-9]) and `path.extname` values.
 const isBasenameToken = (value) => /^[a-z0-9]+$/u.test(value);
+const isArtifactSurface = (value) => Object.values(TREE_ARTIFACT_SURFACES).includes(value);
 const SHIM_LIST_VALUE_RULES = Object.freeze({
   'shimDetectionSignals.folderSignals': [isPathSegmentName, 'a bare directory name'],
   'shimDetectionSignals.surfaceSegmentSignals': [isPathSegmentName, 'a bare directory name'],
   'shimDetectionSignals.nameTokenSignals': [isBasenameToken, 'a basename token of letters and digits'],
   'shimSuppressionVocabularies.detectorImplementationTokens': [isBasenameToken, 'a basename token of letters and digits'],
   'shimExtensionAllowlist.relevantFileExtensions': [isSingleFileExtension, 'a single extension such as ".ts"'],
+  // Compared with the surface the detector infers from a path.
+  'shimSuppressionVocabularies.nonRuntimeWeakSignalSurfaces': [
+    isArtifactSurface,
+    `one of the inferred artifact surfaces ${Object.values(TREE_ARTIFACT_SURFACES).join(', ')}`,
+  ],
 });
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);

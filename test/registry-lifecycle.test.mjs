@@ -1222,6 +1222,67 @@ test('padded strings, shadowed exit policies and shadowed special cases are inva
   assert.deepEqual(invalidIdsAfter('naming', 'special-cases.registry.json', appendSpecialCase({ basenameEquals: ['CHANGELOG.md'] })), []);
 });
 
+test('shadowed missing-role patterns, unmatchable folder names and unknown suppression surfaces are invalid', () => {
+  const appendPattern = (pattern) => (payload) => ({ ...payload, missingRolePatterns: [...payload.missingRolePatterns, pattern] });
+  for (const pattern of [
+    // Same segment count as "single-extension", which has no constraints: always shadowed.
+    { patternId: 'later-two-segment', dotSegments: 2, semanticSegmentIndex: 0, extensionSegmentIndexes: [1] },
+    // A superset of "module-css-compound-extension"'s constraints.
+    {
+      patternId: 'later-module-css',
+      dotSegments: 3,
+      semanticSegmentIndex: 0,
+      extensionSegmentIndexes: [1, 2],
+      literalSegmentConstraints: { 1: 'module', 2: 'css' },
+    },
+    // A constrained literal containing "." can never equal one dot segment.
+    {
+      patternId: 'dotted-literal',
+      dotSegments: 4,
+      semanticSegmentIndex: 0,
+      extensionSegmentIndexes: [1, 2, 3],
+      literalSegmentConstraints: { 1: 'module.css' },
+    },
+  ]) {
+    assert.deepEqual(
+      invalidIdsAfter('naming', 'missing-role-patterns.registry.json', appendPattern(pattern)),
+      ['naming/missing-role-patterns'],
+      `accepted ${pattern.patternId}`,
+    );
+  }
+  // A narrower pattern with the same segment count as an unconstrained earlier one is shadowed, but a
+  // new segment count is reachable.
+  assert.deepEqual(
+    invalidIdsAfter(
+      'naming',
+      'missing-role-patterns.registry.json',
+      appendPattern({ patternId: 'four-segment', dotSegments: 4, semanticSegmentIndex: 0, extensionSegmentIndexes: [3] }),
+    ),
+    [],
+  );
+
+  for (const folderName of ['naming/src', '.', '..']) {
+    assert.deepEqual(
+      invalidIdsAfter('naming', 'folder-composition-patterns.registry.json', (payload) => ({
+        ...payload,
+        folderSemanticContextPatterns: payload.folderSemanticContextPatterns.map((pattern, index) =>
+          index === 0 ? { ...pattern, folderName } : pattern,
+        ),
+      })),
+      ['naming/folder-composition-patterns'],
+      `accepted folderName ${folderName}`,
+    );
+  }
+
+  assert.deepEqual(
+    invalidIdsAfter('tree', 'shim-detection-signals.registry.json', (payload) => ({
+      ...payload,
+      shimSuppressionVocabularies: { ...payload.shimSuppressionVocabularies, nonRuntimeWeakSignalSurfaces: ['tests'] },
+    })),
+    ['tree/shim-detection-signals'],
+  );
+});
+
 test('an orphan Baseline copy is verified with its retired descriptor, and is unverifiable without one', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });

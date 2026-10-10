@@ -60,6 +60,13 @@ const canonicalizeLiteralSegmentConstraints = (literalSegmentConstraints = {}) =
           );
         }
 
+        // Basenames are split on ".", so a constrained segment never contains one.
+        if (literalValue.includes('.')) {
+          throw new Error(
+            `Invalid missing-role patterns registry: constrained literal value "${literalValue}" cannot contain "." because it is compared with one dot segment.`,
+          );
+        }
+
         return [segmentIndex, literalValue.trim()];
       })
       .sort(([left], [right]) => left - right),
@@ -152,6 +159,21 @@ export const loadMissingRolePatternsFromFile = (registryFilePath) => {
     if (patternsById.has(pattern.patternId)) {
       throw new Error(
         `Invalid missing-role patterns registry: patternId "${pattern.patternId}" is duplicated.`,
+      );
+    }
+
+    // Detection is first-match: an earlier pattern with the same segment count whose literal
+    // constraints are a subset of this one's matches every basename this one would.
+    const shadowingPattern = [...patternsById.values()].find(
+      (earlier) =>
+        earlier.dotSegments === pattern.dotSegments &&
+        Object.entries(earlier.literalSegmentConstraints).every(
+          ([segmentIndex, literalValue]) => pattern.literalSegmentConstraints[segmentIndex] === literalValue,
+        ),
+    );
+    if (shadowingPattern) {
+      throw new Error(
+        `Invalid missing-role patterns registry: pattern "${pattern.patternId}" can never match, because earlier pattern "${shadowingPattern.patternId}" matches every basename it would.`,
       );
     }
 

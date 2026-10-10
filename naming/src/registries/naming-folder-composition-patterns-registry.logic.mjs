@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
+import { assertRegistryEntries, isPathSegmentName } from '../../../src/core/registry-entry-shape.logic.mjs';
 import { NAMING_FOLDER_COMPOSITION_KINDS } from '../naming-validator.contracts.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
@@ -21,6 +21,13 @@ const REGISTRY_LABEL = 'Naming folder-composition patterns';
 const assertUniqueActiveFolderNames = (patterns, listLabel) => {
   const seenFolderNames = new Set();
   for (const pattern of patterns) {
+    // The projection looks a folder up by its single occurrence name.
+    if (!isPathSegmentName(pattern.folderName)) {
+      throw new Error(
+        `Invalid ${REGISTRY_LABEL} registry: ${listLabel} folderName "${pattern.folderName}" must be a bare folder name without a path.`,
+      );
+    }
+
     if (pattern.status !== 'active') {
       continue;
     }
