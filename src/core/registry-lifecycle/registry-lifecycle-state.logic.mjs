@@ -9,6 +9,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { isPathInsideTarget } from '../target-path-containment.logic.mjs';
 import {
   ACTIVE_SET_BUILTIN,
   ACTIVE_SET_VALUES,
@@ -58,45 +59,12 @@ export const resolveRegistryLifecyclePaths = ({ targetRoot, lifecycleRootOverrid
   };
 };
 
-// Resolves a path through symlinks. A path that does not exist yet resolves through its nearest
-// existing ancestor; a dangling symlink cannot be resolved and yields null.
-const resolveRealPath = (candidatePath) => {
-  try {
-    return fs.realpathSync(candidatePath);
-  } catch {
-    let isLink = false;
-    try {
-      isLink = fs.lstatSync(candidatePath).isSymbolicLink();
-    } catch {
-      // Absent: resolve through the parent below.
-    }
-
-    const parentPath = path.dirname(candidatePath);
-    if (isLink || parentPath === candidatePath) {
-      return null;
-    }
-
-    const realParent = resolveRealPath(parentPath);
-    return realParent === null ? null : path.join(realParent, path.basename(candidatePath));
-  }
-};
-
 // [5.2.1] cfg-registryLifecycle · Primitive · "isLifecyclePathContained"
 // True when `candidatePath` resolves by realpath inside the containment root: internal symlinks
-// are allowed, escaping or unresolvable ones are not (lifecycle spec §4.1 "Containment").
-export const isLifecyclePathContained = (paths, candidatePath) => {
-  const realRoot = resolveRealPath(paths.containmentRoot);
-  const realCandidate = resolveRealPath(candidatePath);
-  if (realRoot === null || realCandidate === null) {
-    return false;
-  }
-
-  const relativePath = path.relative(realRoot, realCandidate);
-  return (
-    relativePath === '' ||
-    (relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath))
-  );
-};
+// are allowed, escaping or unresolvable ones are not (lifecycle spec §4.1 "Containment"). The rule
+// itself is suite-owned (`target-path-containment.logic.mjs`).
+export const isLifecyclePathContained = (paths, candidatePath) =>
+  isPathInsideTarget(paths.containmentRoot, candidatePath);
 
 // [5.2.1] cfg-registryLifecycle · Primitive · "assertLifecycleStateContained"
 // An escaping lifecycle root or state file is unreadable state: it blocks every run and every
