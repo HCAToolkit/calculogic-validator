@@ -167,15 +167,29 @@ test('scope containment: --target selects paths under an internal symlinked root
     await fs.symlink(path.join(targetRoot, 'packages', 'app-src'), path.join(targetRoot, 'src'), 'dir');
 
     // Targets resolve to real paths; collected paths must match them in the same form.
-    for (const target of ['src/app.logic.ts', 'src', 'packages/app-src/app.logic.ts']) {
+    // Target descriptors take the selected paths' spelling, so consumers relating the two (Tree's
+    // structural addressing) never see a physical `packages/app-src` beside `src/...` paths.
+    const expectations = [
+      ['src/app.logic.ts', { kind: 'file', relPath: 'src/app.logic.ts' }],
+      ['src', { kind: 'dir', relPath: 'src' }],
+      ['packages/app-src', { kind: 'dir', relPath: 'src' }],
+      ['packages/app-src/app.logic.ts', { kind: 'file', relPath: 'src/app.logic.ts' }],
+    ];
+    for (const [target, descriptor] of expectations) {
       const snapshot = collectSuiteScopedSnapshotInputs(targetRoot, { scope: 'app', targets: [target] });
       assert.deepEqual(snapshot.selectedPaths, ['src/app.logic.ts'], `target ${target}`);
+      assert.deepEqual(snapshot.targetDescriptors, [descriptor], `target ${target}`);
+      assert.deepEqual(snapshot.targets, [descriptor.relPath], `target ${target}`);
     }
+
+    const rootSnapshot = collectSuiteScopedSnapshotInputs(targetRoot, { scope: 'app', targets: ['.'] });
+    assert.deepEqual(rootSnapshot.targetDescriptors, [{ kind: 'dir', relPath: '.' }]);
 
     const checkoutLink = path.join(path.dirname(targetRoot), 'checkout-link');
     await fs.symlink(targetRoot, checkoutLink, 'dir');
     const linkedSnapshot = collectSuiteScopedSnapshotInputs(checkoutLink, { scope: 'app', targets: ['test/inside.test.js'] });
     assert.deepEqual(linkedSnapshot.selectedPaths, ['test/inside.test.js']);
+    assert.deepEqual(linkedSnapshot.targets, ['test/inside.test.js']);
   });
 });
 

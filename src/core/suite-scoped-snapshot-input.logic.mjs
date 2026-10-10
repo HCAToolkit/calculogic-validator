@@ -3,6 +3,7 @@ import path from 'node:path';
 import { resolveContextualValidatorScopeProfile, DEFAULT_VALIDATOR_SCOPE } from './validator-scopes.logic.mjs';
 import {
   normalizePath,
+  describeTargetsForSelectedPaths,
   resolveScopedTargets,
   filterScopedPathsByTargets,
 } from './scoped-target-paths.logic.mjs';
@@ -202,18 +203,13 @@ export const collectSuiteScopedSnapshotInputs = (
     registryRoots,
   });
   const resolvedTargets = resolveScopedTargets(repositoryRoot, targets);
+  const selectedPaths = filterScopedPathsByTargets(repositoryRoot, scopedCollection.inScopePaths, resolvedTargets);
+  const targetDescriptors = describeTargetsForSelectedPaths(repositoryRoot, selectedPaths, resolvedTargets);
 
   return {
     ...scopedCollection,
-    selectedPaths: filterScopedPathsByTargets(
-      repositoryRoot,
-      scopedCollection.inScopePaths,
-      resolvedTargets,
-    ),
-    targetDescriptors: resolvedTargets.map((target) => ({
-      kind: target.kind,
-      relPath: target.relPath,
-    })),
-    targets: resolvedTargets.map((target) => target.relPath),
+    selectedPaths,
+    targetDescriptors,
+    targets: targetDescriptors.map((target) => target.relPath),
   };
 };
