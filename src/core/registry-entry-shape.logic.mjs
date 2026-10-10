@@ -2,13 +2,34 @@
 // One bounded check for list-of-records registries: the list exists and is non-empty, each entry is
 // an object, required fields are non-empty strings, string-list fields are non-empty arrays of
 // non-empty strings, optional string fields are non-empty strings when present, enumerated fields
-// use their declared vocabulary, and the key field is unique after trimming. Slices declare each
+// use their declared vocabulary, the key field is unique after trimming, and each entry carries only
+// declared fields. Shapes are closed because a loader ignores an undeclared field, so a misspelled
+// or unsupported field would pass validation and never reach runtime. Slices declare each
 // registry's shape and own its meaning; this module only checks a declared shape.
 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 // Loaders trim registry strings, so whitespace-only is empty and keys compare trimmed.
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0;
+
+// Rejects fields outside `allowedFields` on one object of a registry payload.
+export const assertAllowedFields = (value, allowedFields, { registryLabel, label }) => {
+  const unsupportedFields = Object.keys(value)
+    .filter((field) => !allowedFields.includes(field))
+    .sort();
+  if (unsupportedFields.length > 0) {
+    throw new Error(`Invalid ${registryLabel} registry: ${label} has unsupported field(s) ${unsupportedFields.join(', ')}.`);
+  }
+};
+
+// Every registry file is an object holding `version` and the registry's declared root fields.
+export const assertRegistryRootFields = (payload, rootFields, { registryLabel }) => {
+  if (!isPlainObject(payload)) {
+    throw new Error(`Invalid ${registryLabel} registry: expected an object payload.`);
+  }
+
+  assertAllowedFields(payload, ['version', ...rootFields], { registryLabel, label: 'the payload' });
+};
 
 export const assertRegistryEntries = (
   entries,
@@ -20,8 +41,18 @@ export const assertRegistryEntries = (
     stringArrayFields = [],
     optionalStringFields = [],
     enumFields = {},
+    // Declared fields of other types, checked by the caller.
+    otherFields = [],
   },
 ) => {
+  const allowedFields = [
+    keyField,
+    ...requiredStringFields,
+    ...stringArrayFields,
+    ...optionalStringFields,
+    ...Object.keys(enumFields),
+    ...otherFields,
+  ];
   const fail = (message) => {
     throw new Error(`Invalid ${registryLabel} registry: ${message}`);
   };
@@ -36,6 +67,8 @@ export const assertRegistryEntries = (
     if (!isPlainObject(entry)) {
       fail(`${label} must be an object.`);
     }
+
+    assertAllowedFields(entry, allowedFields, { registryLabel, label });
 
     for (const field of [keyField, ...requiredStringFields]) {
       if (!isNonEmptyString(entry[field])) {

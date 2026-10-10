@@ -6,11 +6,13 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { assertAllowedFields } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const AGNOSTIC_CORE_MEANINGS_REGISTRY_FILENAME = 'agnostic-core-meanings.registry.json';
 
 // Naming's registry status vocabulary, shared with roles.
 const ALLOWED_MEANING_STATUSES = new Set(['active', 'deprecated']);
+const MEANING_FIELDS = Object.freeze(['meaning', 'definition', 'status']);
 
 const fail = (message) => {
   throw new Error(`Invalid agnostic-core-meanings registry: ${message}`);
@@ -37,6 +39,7 @@ export const assertValidAgnosticCoreMeaningsRegistry = (payload) => {
       fail(`meanings[${index}] must be an object.`);
     }
 
+    assertAllowedFields(entry, MEANING_FIELDS, { registryLabel: 'agnostic-core-meanings', label: `meanings[${index}]` });
     assertNonEmptyString(entry.meaning, `meanings[${index}].meaning`);
     assertNonEmptyString(entry.definition, `meanings[${index}].definition`);
     if (!ALLOWED_MEANING_STATUSES.has(entry.status)) {

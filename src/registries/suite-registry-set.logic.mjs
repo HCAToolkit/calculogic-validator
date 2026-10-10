@@ -8,22 +8,31 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadExitPolicyRegistryFromPayload } from './validator-exit-policy.logic.mjs';
 import { loadScopeProfilesFromRegistryRoot } from '../core/validator-scopes.logic.mjs';
+import { assertRegistryRootFields } from '../core/registry-entry-shape.logic.mjs';
+
+// Root fields of each suite registry besides `version`. Payload roots are closed: a loader ignores
+// an undeclared root field, so it would pass validation and never reach runtime.
+const SUITE_REGISTRY_ROOT_FIELDS = Object.freeze({
+  'exit-policy': ['policies'],
+  'scope-profiles': ['profiles'],
+});
+
+const readRegistryPayload = (registryRoot, name) =>
+  JSON.parse(fs.readFileSync(path.join(registryRoot, `${name}.registry.json`), 'utf8'));
 
 export const validateSuiteRegistrySet = (registryRoot) => {
   const checks = [
-    [
-      'suite/exit-policy',
-      () =>
-        loadExitPolicyRegistryFromPayload(
-          JSON.parse(fs.readFileSync(path.join(registryRoot, 'exit-policy.registry.json'), 'utf8')),
-        ),
-    ],
-    ['suite/scope-profiles', () => loadScopeProfilesFromRegistryRoot(registryRoot)],
+    ['exit-policy', () => loadExitPolicyRegistryFromPayload(readRegistryPayload(registryRoot, 'exit-policy'))],
+    ['scope-profiles', () => loadScopeProfilesFromRegistryRoot(registryRoot)],
   ];
   const failures = [];
 
-  for (const [registryId, check] of checks) {
+  for (const [name, check] of checks) {
+    const registryId = `suite/${name}`;
     try {
+      assertRegistryRootFields(readRegistryPayload(registryRoot, name), SUITE_REGISTRY_ROOT_FIELDS[name], {
+        registryLabel: name,
+      });
       check();
     } catch (error) {
       failures.push({ registryId, detail: error.message });

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertAllowedFields } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -29,6 +30,7 @@ const loadSpecialCaseRulesFromFile = (registryFilePath) => {
       throw new Error(`${entryPrefix}: expected object.`);
     }
 
+    assertAllowedFields(specialCase, ['type', 'match'], { registryLabel: 'special-cases', label: `entry ${index}` });
     if (typeof specialCase.type !== 'string' || specialCase.type.length === 0) {
       throw new Error(`${entryPrefix}: expected non-empty string type.`);
     }
@@ -37,6 +39,8 @@ const loadSpecialCaseRulesFromFile = (registryFilePath) => {
     if (!match || typeof match !== 'object') {
       throw new Error(`${entryPrefix}: missing match object.`);
     }
+
+    assertAllowedFields(match, SPECIAL_CASE_MATCH_FORMS, { registryLabel: 'special-cases', label: `entry ${index} match` });
 
     // Each entry declares exactly one match form; runtime evaluates one, so a second form would be
     // silently ignored.

@@ -10,7 +10,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { stableStringify, sha256Hex } from '../../../src/core/validator-report-meta.logic.mjs';
-import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
+import {
+  assertAllowedFields,
+  assertRegistryEntries,
+  assertRegistryRootFields,
+} from '../../../src/core/registry-entry-shape.logic.mjs';
 import { NAMING_SUPPORTED_SEMANTIC_NAME_STYLES } from '../naming-validator.contracts.mjs';
 import { loadSummaryBucketsFromFile } from './naming-summary-buckets-registry.logic.mjs';
 import { loadMissingRolePatternsFromFile } from './naming-missing-role-patterns-registry.logic.mjs';
@@ -28,6 +32,17 @@ import {
 const ROLES_REGISTRY_FILENAME = 'roles.registry.json';
 const CATEGORY_ROLE_PERSPECTIVE_REGISTRY_FILENAME = 'category-role-perspective.registry.json';
 const ALLOWED_ROLE_STATUSES = new Set(['active', 'deprecated']);
+const ROLE_FIELDS = Object.freeze(['role', 'status', 'definition', 'notes']);
+// A perspective entry carries membership, notes and meanings. Role status lives in roles.registry.json,
+// which always covers a valid perspective, so a perspective `status` would never be read.
+const PERSPECTIVE_ENTRY_FIELDS = Object.freeze([
+  'role',
+  'notes',
+  'agnosticCoreMeanings',
+  'baseMeanings',
+  'overlayMeanings',
+  'inheritsFrom',
+]);
 
 const loadCategorySet = ({ registryRoot }) => {
   const parsed = loadJsonFile(path.join(registryRoot, 'categories.registry.json'));
@@ -157,6 +172,8 @@ const canonicalizeCaseRules = (caseRulesValue) => {
   if (!semanticName || typeof semanticName !== 'object' || Array.isArray(semanticName)) {
     throw new Error('Invalid case-rules registry: expected semanticName object.');
   }
+
+  assertAllowedFields(semanticName, ['style'], { registryLabel: 'case-rules', label: 'semanticName' });
 
   const style = typeof semanticName.style === 'string' ? semanticName.style.trim() : '';
   if (!NAMING_SUPPORTED_SEMANTIC_NAME_STYLES.includes(style)) {
@@ -455,6 +472,8 @@ const validateCanonicalRolesRegistry = ({ registryRoot }) => {
       throw new Error(`Invalid roles registry: roles[${index}] must be an object.`);
     }
 
+    assertAllowedFields(roleEntry, ROLE_FIELDS, { registryLabel: 'roles', label: `roles[${index}]` });
+
     const role = typeof roleEntry.role === 'string' ? roleEntry.role.trim() : '';
     if (!role) {
       throw new Error(`Invalid roles registry: roles[${index}].role must be a non-empty string.`);
@@ -538,6 +557,10 @@ const validateCategoryRolePerspectiveReferences = ({ registryRoot }) => {
   for (const [category, entries] of Object.entries(rolesByCategory)) {
     (Array.isArray(entries) ? entries : []).forEach((entry, index) => {
       const label = `rolesByCategory.${category}[${index}]`;
+      if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+        assertAllowedFields(entry, PERSPECTIVE_ENTRY_FIELDS, { registryLabel: 'category-role-perspective', label });
+      }
+
       for (const field of PERSPECTIVE_MEANING_FIELDS) {
         const values = entry?.[field];
         if (values === undefined) {
@@ -554,6 +577,13 @@ const validateCategoryRolePerspectiveReferences = ({ registryRoot }) => {
         return;
       }
 
+      if (parent !== null && typeof parent === 'object' && !Array.isArray(parent)) {
+        assertAllowedFields(parent, ['category', 'role'], {
+          registryLabel: 'category-role-perspective',
+          label: `${label}.inheritsFrom`,
+        });
+      }
+
       const parentExists =
         parent !== null &&
         typeof parent === 'object' &&
@@ -565,6 +595,24 @@ const validateCategoryRolePerspectiveReferences = ({ registryRoot }) => {
     });
   }
 };
+
+// Root fields of each Naming registry besides `version`. Payload roots are closed: a loader ignores
+// an undeclared root field, so it would pass validation and never reach runtime.
+const NAMING_REGISTRY_ROOT_FIELDS = Object.freeze({
+  'agnostic-core-meanings': ['meanings'],
+  'case-rules': ['semanticName'],
+  categories: ['categories'],
+  'category-role-perspective': ['rolesByCategory'],
+  'finding-policy': ['outcomes'],
+  'folder-composition-patterns': ['folderCompositionPatterns', 'folderSemanticContextPatterns'],
+  'missing-role-patterns': ['missingRolePatterns'],
+  'reportable-extensions': ['reportableExtensions'],
+  'reportable-root-files': ['reportableRootFiles'],
+  roles: ['roles'],
+  'special-cases': ['specialCases'],
+  'summary-buckets': ['classificationBuckets', 'secondaryBucketFamilies'],
+  'walk-exclusions': ['excludedDirectories', 'skipDotDirectories', 'allowDotFiles'],
+});
 
 // Naming's registry-set validation entry point (lifecycle spec §9.3). Runs Naming's own shape and
 // reference validation over one registry root, one registry at a time, and returns a
@@ -597,7 +645,11 @@ export const validateNamingRegistrySet = (registryRoot) => {
   // Every inventory registry has exactly one check; a gap is a programming error, never a pass.
   const inventoryNames = NAMING_REGISTRY_INVENTORY.map((entry) => entry.name).sort();
   const checkedNames = checks.map(([name]) => name).sort();
-  if (JSON.stringify(inventoryNames) !== JSON.stringify(checkedNames)) {
+  const rootFieldNames = Object.keys(NAMING_REGISTRY_ROOT_FIELDS).sort();
+  if (
+    JSON.stringify(inventoryNames) !== JSON.stringify(checkedNames) ||
+    JSON.stringify(inventoryNames) !== JSON.stringify(rootFieldNames)
+  ) {
     throw new Error('Naming registry-set validation must check every Naming inventory registry exactly once.');
   }
 
@@ -605,6 +657,11 @@ export const validateNamingRegistrySet = (registryRoot) => {
 
   for (const [name, check] of checks) {
     try {
+      assertRegistryRootFields(
+        loadJsonFile(path.join(registryRoot, `${name}.registry.json`)),
+        NAMING_REGISTRY_ROOT_FIELDS[name],
+        { registryLabel: name },
+      );
       check();
     } catch (error) {
       failures.push({ registryId: toNamingRegistryId(name), detail: error.message });

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT_APP_FILES } from './validator-root-files.knowledge.mjs';
+import { assertAllowedFields } from './registry-entry-shape.logic.mjs';
 import { resolveValidatorDevelopmentContext } from './validator-development-context.logic.mjs';
 import { SUITE_BUILTIN_REGISTRY_ROOT } from '../registries/suite-registry-inventory.knowledge.mjs';
 
@@ -133,6 +134,12 @@ const assertValidScopeProfilesRegistry = (parsedRegistry) => {
     if (!isPlainObject(profile)) {
       throw new Error(`Invalid scope profiles registry: profiles.${scope} must be an object.`);
     }
+
+    // Descriptions come from suite core, so a profile carries only its include lists.
+    assertAllowedFields(profile, ['includeRoots', 'includeRootFiles'], {
+      registryLabel: 'scope profiles',
+      label: `profiles.${scope}`,
+    });
 
     assertNonEmptyStringArray(profile.includeRoots, `profiles.${scope}.includeRoots`);
     assertNonEmptyStringArray(profile.includeRootFiles, `profiles.${scope}.includeRootFiles`);

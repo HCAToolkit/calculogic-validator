@@ -24,6 +24,7 @@ import {
   assertSurfaceStructuralHomePerspectiveReferences,
   assertValidSurfaceStructuralHomePerspectiveRegistry,
 } from './tree-surface-structural-home-perspective-registry.logic.mjs';
+import { assertRegistryRootFields } from '../../../src/core/registry-entry-shape.logic.mjs';
 import { TREE_REGISTRY_INVENTORY } from './tree-registry-inventory.knowledge.mjs';
 
 const readRegistryPayload = (registryRoot, fileName) =>
@@ -47,6 +48,22 @@ const TREE_REGISTRY_PAYLOAD_VALIDATORS = Object.freeze({
   'surface-structural-home-perspective': assertValidSurfaceStructuralHomePerspectiveRegistry,
 });
 
+// Root fields of each Tree registry besides `version`. Payload roots are closed: a loader ignores
+// an undeclared root field, so it would pass validation and never reach runtime.
+const TREE_REGISTRY_ROOT_FIELDS = Object.freeze({
+  'folder-kinds': ['folderKinds'],
+  'repo-shape-policy': ['allowedTopLevelDirectories'],
+  'semantic-home-policy': ['semanticHomePolicy'],
+  'semantic-naming-folder-type-relationships': ['semanticNamingFolderTypeRelationships'],
+  'shim-detection-signals': ['shimDetectionSignals', 'shimExtensionAllowlist', 'shimSuppressionVocabularies'],
+  'structural-context-assessment-policies': ['policies'],
+  'structural-home-signal-policy': ['structuralHomeSignalPolicy'],
+  'structural-homes': ['structuralHomes'],
+  'structural-role-tokens': ['structuralRoleTokens'],
+  'surface-structural-home-perspective': ['structuralHomesBySurface'],
+  'validator-owned-signals': ['validatorOwnedBasenameSignals'],
+});
+
 // Same-slice reference edges, checked against the resolved root once the referring registry's shape
 // passed. Each check reads its registries and throws on a failed edge (lifecycle spec §9.3).
 const TREE_REGISTRY_REFERENCE_CHECKS = Object.freeze({
@@ -64,7 +81,11 @@ const assertTreeValidatorCoverage = () => {
     ...Object.keys(TREE_REGISTRY_FILE_VALIDATORS),
     ...Object.keys(TREE_REGISTRY_PAYLOAD_VALIDATORS),
   ].sort();
-  if (JSON.stringify(inventoryNames) !== JSON.stringify(validatedNames)) {
+  const rootFieldNames = Object.keys(TREE_REGISTRY_ROOT_FIELDS).sort();
+  if (
+    JSON.stringify(inventoryNames) !== JSON.stringify(validatedNames) ||
+    JSON.stringify(inventoryNames) !== JSON.stringify(rootFieldNames)
+  ) {
     throw new Error('Tree registry-set validation must check every Tree inventory registry exactly once.');
   }
 };
@@ -75,6 +96,9 @@ export const validateTreeRegistrySet = (registryRoot) => {
 
   for (const entry of TREE_REGISTRY_INVENTORY) {
     try {
+      assertRegistryRootFields(readRegistryPayload(registryRoot, entry.fileName), TREE_REGISTRY_ROOT_FIELDS[entry.name], {
+        registryLabel: `Tree ${entry.name}`,
+      });
       const validateFile = TREE_REGISTRY_FILE_VALIDATORS[entry.name];
       if (validateFile) {
         validateFile(path.join(registryRoot, entry.fileName));

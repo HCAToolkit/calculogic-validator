@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { NAMING_CONFIGURABLE_SECONDARY_BUCKET_FAMILIES } from '../naming-validator.contracts.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -40,12 +41,19 @@ export const loadSummaryBucketsFromFile = (registryPath) => {
     throw new Error('Invalid summary-buckets registry: expected object payload.');
   }
 
+  const secondaryBucketFamilies = ensureStringArray(payload.secondaryBucketFamilies, 'secondaryBucketFamilies');
+  // The summary reports only the families it knows how to count; another family would be ignored.
+  const configurableFamilies = Object.values(NAMING_CONFIGURABLE_SECONDARY_BUCKET_FAMILIES);
+  const unknownFamilies = secondaryBucketFamilies.filter((family) => !configurableFamilies.includes(family)).sort();
+  if (unknownFamilies.length > 0) {
+    throw new Error(
+      `Invalid summary-buckets registry: unsupported secondaryBucketFamilies ${unknownFamilies.join(', ')}; supported: ${configurableFamilies.join(', ')}.`,
+    );
+  }
+
   return {
     classificationBuckets: ensureStringArray(payload.classificationBuckets, 'classificationBuckets'),
-    secondaryBucketFamilies: ensureStringArray(
-      payload.secondaryBucketFamilies,
-      'secondaryBucketFamilies',
-    ),
+    secondaryBucketFamilies,
   };
 };
 

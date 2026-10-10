@@ -816,10 +816,18 @@ test('classifies custom-modified, builtin-changed, both-changed and aligned agai
 
     updateJson(customFile(paths, 'naming/reportable-extensions'), addExtension('.py'));
     updateJson(builtinFile(slices, 'naming/reportable-root-files'), addRootFile('builtin-only.json'));
-    updateJson(customFile(paths, 'tree/repo-shape-policy'), (payload) => ({ ...payload, customOnly: true }));
-    updateJson(builtinFile(slices, 'tree/repo-shape-policy'), (payload) => ({ ...payload, builtinOnly: true }));
-    updateJson(customFile(paths, 'suite/exit-policy'), (payload) => ({ ...payload, both: true }));
-    updateJson(builtinFile(slices, 'suite/exit-policy'), (payload) => ({ ...payload, both: true }));
+    const addTopLevelDirectory = (directoryName) => (payload) => ({
+      ...payload,
+      allowedTopLevelDirectories: [...payload.allowedTopLevelDirectories, directoryName],
+    });
+    const setFallbackExitCode = (exitCode) => (payload) => ({
+      ...payload,
+      policies: payload.policies.map((policy) => (policy.predicate.always ? { ...policy, exitCode } : policy)),
+    });
+    updateJson(customFile(paths, 'tree/repo-shape-policy'), addTopLevelDirectory('custom-only'));
+    updateJson(builtinFile(slices, 'tree/repo-shape-policy'), addTopLevelDirectory('builtin-only'));
+    updateJson(customFile(paths, 'suite/exit-policy'), setFallbackExitCode(3));
+    updateJson(builtinFile(slices, 'suite/exit-policy'), setFallbackExitCode(3));
 
     const assessment = assessCustomRegistrySet({ paths, slices });
 
@@ -927,6 +935,143 @@ test('keys and conditions that collapse at load time are invalid', () => {
       ),
     })),
     [],
+  );
+});
+
+// One location per distinct object shape in a payload: the first object found at each path, with
+// array indexes normalized, so every record and nested object of every registry is probed once.
+const objectLocations = (payload) => {
+  const locations = new Map();
+  const visit = (value, location, shapePath) => {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => visit(item, [...location, index], `${shapePath}[]`));
+      return;
+    }
+
+    if (value === null || typeof value !== 'object') {
+      return;
+    }
+
+    if (!locations.has(shapePath)) {
+      locations.set(shapePath, location);
+    }
+
+    for (const [key, child] of Object.entries(value)) {
+      visit(child, [...location, key], `${shapePath}.${key}`);
+    }
+  };
+  visit(payload, [], '');
+  return [...locations.entries()];
+};
+
+const withFieldAt = (payload, location, field) => {
+  const copy = structuredClone(payload);
+  const target = location.reduce((node, key) => node[key], copy);
+  target[field] = true;
+  return copy;
+};
+
+test('every registry rejects an undeclared field on its root and on every record and nested object', () => {
+  for (const slice of REGISTRY_LIFECYCLE_SLICES) {
+    for (const entry of slice.inventory) {
+      const payload = readJson(path.join(slice.builtinRoot, entry.fileName));
+      for (const [shapePath, location] of objectLocations(payload)) {
+        const invalidIds = invalidIdsAfter(slice.sliceId, entry.fileName, withFieldAt(payload, location, 'unexpectedField'));
+        assert.ok(
+          invalidIds.includes(entry.registryId),
+          `${entry.registryId} accepted an undeclared field at "${shapePath || '<root>'}"`,
+        );
+      }
+    }
+  }
+});
+
+test('values the runtime would never read are invalid', () => {
+  // A finding-policy outcome the runtime never emits.
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'finding-policy.registry.json', (payload) => ({
+      ...payload,
+      outcomes: { ...payload.outcomes, 'not-an-outcome': payload.outcomes.canonical },
+    })),
+    ['naming/finding-policy'],
+  );
+
+  // A summary family the summary does not count.
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'summary-buckets.registry.json', (payload) => ({
+      ...payload,
+      secondaryBucketFamilies: [...payload.secondaryBucketFamilies, 'codeCount'],
+    })),
+    ['naming/summary-buckets'],
+  );
+
+  // A perspective status, which roles.registry.json always overrides; perspective notes are read.
+  const firstCategory = (payload) => Object.keys(payload.rolesByCategory)[0];
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'category-role-perspective.registry.json', (payload) => {
+      const category = firstCategory(payload);
+      const [first, ...rest] = payload.rolesByCategory[category];
+      return { ...payload, rolesByCategory: { ...payload.rolesByCategory, [category]: [{ ...first, status: 'active' }, ...rest] } };
+    }),
+    ['naming/category-role-perspective'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'category-role-perspective.registry.json', (payload) => {
+      const category = firstCategory(payload);
+      const [first, ...rest] = payload.rolesByCategory[category];
+      return { ...payload, rolesByCategory: { ...payload.rolesByCategory, [category]: [{ ...first, notes: 'kept' }, ...rest] } };
+    }),
+    [],
+  );
+
+  // A folder-composition kind the projection does not interpret, and a second active pattern for one
+  // folder, which the projection would skip.
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'folder-composition-patterns.registry.json', (payload) => ({
+      ...payload,
+      folderCompositionPatterns: payload.folderCompositionPatterns.map((pattern) => ({ ...pattern, compositionKind: 'other-kind' })),
+    })),
+    ['naming/folder-composition-patterns'],
+  );
+  for (const listField of ['folderCompositionPatterns', 'folderSemanticContextPatterns']) {
+    assert.deepEqual(
+      invalidIdsAfter('naming', 'folder-composition-patterns.registry.json', (payload) => ({
+        ...payload,
+        [listField]: [...payload[listField], { ...payload[listField][0], patternId: 'second-active' }],
+      })),
+      ['naming/folder-composition-patterns'],
+      `accepted a second active ${listField} pattern for one folder`,
+    );
+    assert.deepEqual(
+      invalidIdsAfter('naming', 'folder-composition-patterns.registry.json', (payload) => ({
+        ...payload,
+        [listField]: [...payload[listField], { ...payload[listField][0], patternId: 'retired', status: 'deprecated' }],
+      })),
+      [],
+    );
+  }
+
+  // A validator-owned signal pattern listed twice.
+  assert.deepEqual(
+    invalidIdsAfter('tree', 'validator-owned-signals.registry.json', (payload) => ({
+      ...payload,
+      validatorOwnedBasenameSignals: [...payload.validatorOwnedBasenameSignals, payload.validatorOwnedBasenameSignals[0]],
+    })),
+    ['tree/validator-owned-signals'],
+  );
+
+  // An exit policy after the always=true fallback, or a second fallback, is never evaluated.
+  const fallbackFirst = (payload) => ({
+    ...payload,
+    policies: [...payload.policies.filter((policy) => policy.predicate.always), ...payload.policies.filter((policy) => !policy.predicate.always)],
+  });
+  assert.deepEqual(invalidIdsAfter('suite', 'exit-policy.registry.json', fallbackFirst), ['suite/exit-policy']);
+  assert.deepEqual(
+    invalidIdsAfter('suite', 'exit-policy.registry.json', (payload) => ({
+      ...payload,
+      policies: [{ id: 'early-fallback', exitCode: 0, predicate: { always: true } }, ...payload.policies],
+    })),
+    ['suite/exit-policy'],
   );
 });
 

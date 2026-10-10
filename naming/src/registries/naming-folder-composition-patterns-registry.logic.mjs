@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
+import { NAMING_FOLDER_COMPOSITION_KINDS } from '../naming-validator.contracts.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -15,6 +16,25 @@ let cachedBuiltinFolderCompositionPatternsRegistry = null;
 const FOLDER_COMPOSITION_PATTERN_STATUSES = Object.freeze(['active', 'deprecated']);
 const REGISTRY_LABEL = 'Naming folder-composition patterns';
 
+// The projection keeps the first active pattern per folder name, so a second active pattern for the
+// same folder would never be read.
+const assertUniqueActiveFolderNames = (patterns, listLabel) => {
+  const seenFolderNames = new Set();
+  for (const pattern of patterns) {
+    if (pattern.status !== 'active') {
+      continue;
+    }
+
+    if (seenFolderNames.has(pattern.folderName)) {
+      throw new Error(
+        `Invalid ${REGISTRY_LABEL} registry: ${listLabel} has more than one active pattern for folder "${pattern.folderName}".`,
+      );
+    }
+
+    seenFolderNames.add(pattern.folderName);
+  }
+};
+
 const assertValidRegistry = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('Invalid Naming folder-composition patterns registry: expected object payload.');
@@ -27,7 +47,6 @@ const assertValidRegistry = (payload) => {
     listLabel: 'folderCompositionPatterns',
     keyField: 'patternId',
     requiredStringFields: [
-      'compositionKind',
       'semanticQualifier',
       'structuralRoleToken',
       'folderName',
@@ -36,8 +55,13 @@ const assertValidRegistry = (payload) => {
       'definition',
     ],
     stringArrayFields: ['tokenOrder'],
-    enumFields: { status: FOLDER_COMPOSITION_PATTERN_STATUSES },
+    enumFields: {
+      status: FOLDER_COMPOSITION_PATTERN_STATUSES,
+      // The projection interprets only these kinds; another kind would be skipped.
+      compositionKind: Object.values(NAMING_FOLDER_COMPOSITION_KINDS),
+    },
   });
+  assertUniqueActiveFolderNames(payload.folderCompositionPatterns, 'folderCompositionPatterns');
   assertRegistryEntries(payload.folderSemanticContextPatterns, {
     registryLabel: REGISTRY_LABEL,
     listLabel: 'folderSemanticContextPatterns',
@@ -45,6 +69,7 @@ const assertValidRegistry = (payload) => {
     requiredStringFields: ['folderName', 'semanticContext', 'qualification', 'confidence', 'definition'],
     enumFields: { status: FOLDER_COMPOSITION_PATTERN_STATUSES },
   });
+  assertUniqueActiveFolderNames(payload.folderSemanticContextPatterns, 'folderSemanticContextPatterns');
   return payload;
 };
 

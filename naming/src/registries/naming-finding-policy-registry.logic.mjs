@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { assertAllowedFields } from '../../../src/core/registry-entry-shape.logic.mjs';
 import {
   NAMING_DECISION_OUTCOME_IDS,
   NAMING_FINDING_CLASSIFICATIONS,
@@ -6,6 +7,7 @@ import {
 } from '../naming-validator.contracts.mjs';
 
 const REQUIRED_KEYS = ['code', 'severity', 'classification', 'message', 'ruleRef'];
+const ENTRY_FIELDS = Object.freeze([...REQUIRED_KEYS, 'suggestedFix']);
 
 const assertNonEmptyString = (value, fieldName) => {
   if (typeof value !== 'string' || !value.trim()) {
@@ -21,6 +23,8 @@ const canonicalizeEntry = (entry, outcomeId) => {
       `Invalid finding-policy registry: outcome "${outcomeId}" must map to an object.`,
     );
   }
+
+  assertAllowedFields(entry, ENTRY_FIELDS, { registryLabel: 'finding-policy', label: `outcome "${outcomeId}"` });
 
   const canonicalEntry = Object.fromEntries(
     REQUIRED_KEYS.map((key) => [key, assertNonEmptyString(entry[key], `${outcomeId}.${key}`)]),
@@ -68,6 +72,15 @@ export const loadFindingPolicyFromFile = (registryFilePath) => {
       })
       .sort(([left], [right]) => left.localeCompare(right)),
   );
+
+  // The runtime looks policies up by the outcomes it emits, so any other outcome id is never read.
+  const knownOutcomeIds = Object.values(NAMING_DECISION_OUTCOME_IDS);
+  const unknownOutcomeIds = Object.keys(findingPolicy)
+    .filter((outcomeId) => !knownOutcomeIds.includes(outcomeId))
+    .sort();
+  if (unknownOutcomeIds.length > 0) {
+    throw new Error(`Invalid finding-policy registry: unknown outcomes ${unknownOutcomeIds.join(', ')}.`);
+  }
 
   // Every outcome the runtime emits needs a policy, and severities follow the report schema.
   const missingOutcomeIds = Object.values(NAMING_DECISION_OUTCOME_IDS)

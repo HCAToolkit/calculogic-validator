@@ -182,9 +182,11 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 - **Owner:** suite-core
 - **Path/area:**
   - `src/core/registry-entry-shape.logic.mjs`
-- **Concern:** one bounded check for list-of-records registries: a non-empty list of objects with declared required string fields, string-list fields, optional string fields, enumerated fields and a unique key field.
+- **Concern:** one bounded check for list-of-records registries: a non-empty list of objects with declared required string fields, string-list fields, optional string fields, enumerated fields and a key field unique after trimming. Shapes are closed: an undeclared field is rejected.
 - **Reusable capability:**
   - `assertRegistryEntries(entries, shape)` called from slice registry loaders and registry-set validation entry points
+  - `assertAllowedFields(value, allowedFields, labels)` for objects that are not list records
+  - `assertRegistryRootFields(payload, rootFields, labels)` called by each slice's registry-set validation entry point with that slice's declared root fields
 - **When to reuse:**
   - a slice registry whose records need a declared shape check, so malformed Custom records are reported `invalid` (lifecycle spec §9.3)
 - **When not to reuse:**

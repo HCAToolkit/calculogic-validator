@@ -1,6 +1,15 @@
 import fs from 'node:fs';
+import { assertAllowedFields } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const CANONICAL_SEGMENT_INDEX_KEY = /^(0|[1-9][0-9]*)$/u;
+const MISSING_ROLE_PATTERN_FIELDS = Object.freeze([
+  'patternId',
+  'dotSegments',
+  'semanticSegmentIndex',
+  'extensionSegmentIndexes',
+  'literalSegmentConstraints',
+  'compoundExtension',
+]);
 
 const toPositiveInteger = (value, label) => {
   if (!Number.isInteger(value) || value < 0) {
@@ -62,6 +71,10 @@ const canonicalizeMissingRolePattern = (patternEntry) => {
     throw new Error('Invalid missing-role patterns registry: each pattern must be an object.');
   }
 
+  assertAllowedFields(patternEntry, MISSING_ROLE_PATTERN_FIELDS, {
+    registryLabel: 'missing-role patterns',
+    label: 'each pattern',
+  });
   const patternId = typeof patternEntry.patternId === 'string' ? patternEntry.patternId.trim() : '';
   const dotSegments = toPositiveInteger(patternEntry.dotSegments, 'dotSegments');
   const semanticSegmentIndex = toPositiveInteger(

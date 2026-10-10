@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { assertAllowedFields } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -52,6 +53,8 @@ export const loadValidatorOwnedSignalsRegistryPayload = (registryPath) => {
     );
   }
 
+  // The registry is keyed by pattern (lifecycle descriptor), so a pattern appears once.
+  const seenPatterns = new Set();
   const validatorOwnedBasenameSignalMatchers = payload.validatorOwnedBasenameSignals.map(
     (signal, index) => {
       if (!signal || typeof signal !== 'object') {
@@ -59,6 +62,11 @@ export const loadValidatorOwnedSignalsRegistryPayload = (registryPath) => {
           `Invalid tree-signal registry: validatorOwnedBasenameSignals[${index}] must be an object.`,
         );
       }
+
+      assertAllowedFields(signal, ['signalClass', 'matchType', 'pattern'], {
+        registryLabel: 'tree-signal',
+        label: `validatorOwnedBasenameSignals[${index}]`,
+      });
 
       if (!VALIDATOR_OWNED_SIGNAL_CLASSES.has(signal.signalClass)) {
         throw new Error(
@@ -77,6 +85,14 @@ export const loadValidatorOwnedSignalsRegistryPayload = (registryPath) => {
           `Invalid tree-signal registry: validatorOwnedBasenameSignals[${index}].pattern must be a non-empty string.`,
         );
       }
+
+      if (seenPatterns.has(signal.pattern)) {
+        throw new Error(
+          `Invalid tree-signal registry: validatorOwnedBasenameSignals[${index}].pattern "${signal.pattern}" is duplicated.`,
+        );
+      }
+
+      seenPatterns.add(signal.pattern);
 
       let pattern;
       try {
@@ -122,6 +138,14 @@ export const loadShimDetectionSignalsRegistryPayload = (registryPath) => {
 
   if (!shimExtensionAllowlist || typeof shimExtensionAllowlist !== 'object') {
     throw new Error('Invalid tree-signal registry: shimExtensionAllowlist must be an object.');
+  }
+
+  for (const [label, value, fields] of [
+    ['shimDetectionSignals', shimDetectionSignals, ['folderSignals', 'nameTokenSignals', 'surfaceSegmentSignals']],
+    ['shimSuppressionVocabularies', shimSuppressionVocabularies, ['detectorImplementationTokens', 'nonRuntimeWeakSignalSurfaces']],
+    ['shimExtensionAllowlist', shimExtensionAllowlist, ['relevantFileExtensions']],
+  ]) {
+    assertAllowedFields(value, fields, { registryLabel: 'tree-signal', label });
   }
 
   return {

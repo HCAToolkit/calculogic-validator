@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { assertAllowedFields } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -37,6 +38,11 @@ export const normalizeStructuralContextAssessmentPoliciesRegistryPayload = (payl
       throw new Error(`Invalid structural-context assessment policies registry: policies[${index}] must be an object.`);
     }
 
+    assertAllowedFields(policy, ['policyId', 'match', 'assessment'], {
+      registryLabel: 'structural-context assessment policies',
+      label: `policies[${index}]`,
+    });
+
     if (!isNonEmptyString(policy.policyId)) {
       throw new Error(`Invalid structural-context assessment policies registry: policies[${index}].policyId must be a non-empty string.`);
     }
@@ -49,6 +55,11 @@ export const normalizeStructuralContextAssessmentPoliciesRegistryPayload = (payl
     if (!policy.match || typeof policy.match !== 'object' || Array.isArray(policy.match)) {
       throw new Error(`Invalid structural-context assessment policies registry: policies[${index}].match must be an object.`);
     }
+
+    assertAllowedFields(policy.match, REQUIRED_MATCH_SELECTORS, {
+      registryLabel: 'structural-context assessment policies',
+      label: `policies[${index}].match`,
+    });
 
     for (const selector of REQUIRED_MATCH_SELECTORS) {
       if (!Object.hasOwn(policy.match, selector)) {
@@ -77,6 +88,11 @@ export const normalizeStructuralContextAssessmentPoliciesRegistryPayload = (payl
     if (!policy.assessment || typeof policy.assessment !== 'object' || Array.isArray(policy.assessment)) {
       throw new Error(`Invalid structural-context assessment policies registry: policies[${index}].assessment must be an object.`);
     }
+
+    assertAllowedFields(policy.assessment, ['outcome', 'kind', 'reportable', 'rationale'], {
+      registryLabel: 'structural-context assessment policies',
+      label: `policies[${index}].assessment`,
+    });
 
     if (!isNonEmptyString(policy.assessment.outcome)) {
       throw new Error(`Invalid structural-context assessment policies registry: policies[${index}].assessment.outcome must be a non-empty string.`);

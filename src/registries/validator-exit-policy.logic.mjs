@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertAllowedFields } from '../core/registry-entry-shape.logic.mjs';
 
 const MAX_PROCESS_EXIT_CODE = 255;
 
@@ -74,6 +75,10 @@ const canonicalizeExitPolicyEntry = (policyEntry) => {
     throw new Error('Invalid exit policy registry: each policy entry must be an object.');
   }
 
+  assertAllowedFields(policyEntry, ['id', 'exitCode', 'predicate'], {
+    registryLabel: 'exit policy',
+    label: 'a policy entry',
+  });
   const id = typeof policyEntry.id === 'string' ? policyEntry.id.trim() : '';
   if (!id) {
     throw new Error('Invalid exit policy registry: each policy entry requires a non-empty id.');
@@ -133,6 +138,17 @@ export const loadExitPolicyRegistryFromPayload = (payload) => {
   if (!canonicalPolicies.some((policy) => policy.predicate.always)) {
     throw new Error(
       'Invalid exit policy registry: policies must include a deterministic fallback predicate with always=true.',
+    );
+  }
+
+  // Policies match first-to-last and always=true matches every run, so the fallback is the single
+  // last policy; a policy after it would never be evaluated.
+  const fallbackIndexes = canonicalPolicies
+    .map((policy, index) => (policy.predicate.always ? index : -1))
+    .filter((index) => index >= 0);
+  if (fallbackIndexes.length !== 1 || fallbackIndexes[0] !== canonicalPolicies.length - 1) {
+    throw new Error(
+      'Invalid exit policy registry: exactly one always=true fallback policy is allowed, and it must be last.',
     );
   }
 
