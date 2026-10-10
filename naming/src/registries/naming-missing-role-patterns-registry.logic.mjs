@@ -127,6 +127,15 @@ const canonicalizeMissingRolePattern = (patternEntry) => {
     );
   }
 
+  // When every extension segment is a constrained literal the compound extension is fixed, and it is
+  // written out so a pattern has one spelling; otherwise it is taken from the basename at runtime.
+  const extensionIsConstant = extensionSegmentIndexes.every((index) => literalSegmentConstraints[index] !== undefined);
+  if (extensionIsConstant && patternEntry.compoundExtension === undefined) {
+    throw new Error(
+      `Invalid missing-role patterns registry: pattern "${patternId}" constrains every extension segment, so compoundExtension must be given.`,
+    );
+  }
+
   const compoundExtension =
     typeof patternEntry.compoundExtension === 'string'
       ? patternEntry.compoundExtension.trim()

@@ -157,6 +157,20 @@ const assertValidScopeProfilesRegistry = (parsedRegistry) => {
         `Invalid scope profiles registry: profiles.${scope}.includeRootFiles must be literal file names at the repository root or a supported compatibility pattern (rejected: ${nonRootFiles.join(', ')}).`,
       );
     }
+
+    // A compatibility pattern expands to fixed file names, so also listing one of them is a second
+    // spelling of the same profile.
+    const listedPatterns = profile.includeRootFiles.filter(isKnownSystemScopeCompatibilityPattern);
+    const redundantFiles = profile.includeRootFiles.filter(
+      (fileName) =>
+        !isKnownSystemScopeCompatibilityPattern(fileName) &&
+        listedPatterns.some((pattern) => SYSTEM_SCOPE_COMPATIBILITY_PATTERN_EXPANSIONS[pattern].includes(fileName)),
+    );
+    if (redundantFiles.length > 0) {
+      throw new Error(
+        `Invalid scope profiles registry: profiles.${scope}.includeRootFiles lists ${redundantFiles.join(', ')}, already covered by a listed compatibility pattern.`,
+      );
+    }
   }
 };
 

@@ -911,7 +911,7 @@ test('keys and conditions that collapse at load time are invalid', () => {
     invalidIdsAfter('naming', 'missing-role-patterns.registry.json', (payload) => ({
       ...payload,
       missingRolePatterns: payload.missingRolePatterns.map((pattern, index) =>
-        index === 0 ? { ...pattern, literalSegmentConstraints: { 1: 'ts' } } : pattern,
+        index === 0 ? { ...pattern, literalSegmentConstraints: { 1: 'ts' }, compoundExtension: 'ts' } : pattern,
       ),
     })),
     [],
@@ -934,7 +934,8 @@ test('keys and conditions that collapse at load time are invalid', () => {
         policy.predicate.always ? { ...policy, predicate: { always: true, anyWarnFindings: false } } : policy,
       ),
     })),
-    [],
+    // A false condition means the same as an omitted one, so it is rejected as a second spelling.
+    ['suite/exit-policy'],
   );
 });
 
@@ -1281,6 +1282,35 @@ test('shadowed missing-role patterns, unmatchable folder names and unknown suppr
     })),
     ['tree/shim-detection-signals'],
   );
+});
+
+test('second spellings of the same runtime policy are invalid', () => {
+  assert.deepEqual(
+    invalidIdsAfter('suite', 'exit-policy.registry.json', (payload) => ({
+      ...payload,
+      policies: payload.policies.map((policy) =>
+        policy.predicate.anyWarnFindings ? { ...policy, predicate: { ...policy.predicate, strictMode: false } } : policy,
+      ),
+    })),
+    ['suite/exit-policy'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'missing-role-patterns.registry.json', (payload) => ({
+      ...payload,
+      missingRolePatterns: payload.missingRolePatterns.map(({ compoundExtension, ...pattern }) =>
+        pattern.literalSegmentConstraints ? pattern : { ...pattern, ...(compoundExtension ? { compoundExtension } : {}) },
+      ),
+    })),
+    ['naming/missing-role-patterns'],
+  );
+  const systemWithExpansion = (payload) => ({
+    ...payload,
+    profiles: {
+      ...payload.profiles,
+      system: { ...payload.profiles.system, includeRootFiles: [...payload.profiles.system.includeRootFiles, 'eslint.config.js'] },
+    },
+  });
+  assert.deepEqual(invalidIdsAfter('suite', 'scope-profiles.registry.json', systemWithExpansion), ['suite/scope-profiles']);
 });
 
 test('an orphan Baseline copy is verified with its retired descriptor, and is unverifiable without one', () => {

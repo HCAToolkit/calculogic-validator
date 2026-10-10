@@ -47,9 +47,10 @@ const validatePredicateShape = (predicate, { policyId }) => {
       );
     }
 
-    if (typeof predicate[key] !== 'boolean') {
+    // Matching treats a false condition as absent, so `false` is a second spelling of omission.
+    if (predicate[key] !== true) {
       throw new Error(
-        `Invalid exit policy registry: predicate key "${key}" in policy "${policyId}" must be boolean.`,
+        `Invalid exit policy registry: predicate key "${key}" in policy "${policyId}" must be true; omit a condition instead of setting it false.`,
       );
     }
   }
