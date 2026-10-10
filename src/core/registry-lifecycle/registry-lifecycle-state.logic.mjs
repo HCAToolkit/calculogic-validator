@@ -155,10 +155,14 @@ export const customSetExists = (paths) => {
   }
 };
 
+// Provenance strings are reported as authoritative Baseline metadata, so they must be non-empty and
+// carry no surrounding whitespace.
+const isProvenanceString = (value) => typeof value === 'string' && value.length > 0 && value === value.trim();
+
 const isValidManifestEntry = (entry) =>
   isPlainObject(entry) &&
-  typeof entry.validatorVersion === 'string' &&
-  typeof entry.version === 'string' &&
+  isProvenanceString(entry.validatorVersion) &&
+  isProvenanceString(entry.version) &&
   typeof entry.digest === 'string' &&
   /^[a-f0-9]{64}$/u.test(entry.digest);
 

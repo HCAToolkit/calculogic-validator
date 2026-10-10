@@ -1313,6 +1313,26 @@ test('a malformed manifest makes Baseline comparison unavailable and sorts its i
   }, { copyBuiltin: true });
 });
 
+test('empty or padded manifest provenance makes the manifest malformed', () => {
+  for (const [field, value] of [
+    ['validatorVersion', ''],
+    ['version', ''],
+    ['validatorVersion', ' 0.1.0'],
+  ]) {
+    withLifecycleFixture(({ targetRoot, paths, slices }) => {
+      initFixture({ targetRoot, slices });
+      updateJson(paths.manifestPath, (manifest) => {
+        manifest.basedOn.registries['naming/roles'][field] = value;
+        return manifest;
+      });
+
+      const assessment = assessCustomRegistrySet({ paths, slices });
+      assert.equal(assessment.customIssues[0].condition, 'manifest-malformed', `${field}=${JSON.stringify(value)}`);
+      assert.equal(assessment.basedOn, undefined);
+    });
+  }
+});
+
 test('a manifest without an entry for a present Custom registry is malformed', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });
