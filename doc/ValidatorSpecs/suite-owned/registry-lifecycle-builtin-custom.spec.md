@@ -2,7 +2,7 @@
 
 - **Classification:** Normative target contract for the suite-level registry lifecycle. Sections marked *Current implementation reality* or *Historical* are Informative.
 - **Ownership:** suite-owned lifecycle mechanics; slice-owned registry meaning (§9).
-- **Status:** accepted contract, not yet implemented. Runtime behavior on `main` is unchanged until the implementation slices in §13 land. Do not describe anything in §2–§12 as current runtime behavior before its slice lands.
+- **Status:** accepted contract, partially implemented. Slice 2 (§13) has landed: suite lifecycle mechanics, `init-custom` and `status`, Naming and suite-core adoption, report provenance and the config retirement. Slice 3 (Tree adoption, `use` and active-Custom resolution) has not; until it lands the activation gate (§6) stays closed. §14 records current reality.
 - **Report-only note:** the lifecycle selects registry inputs and discloses them in report metadata. It adds no enforcement mode and no fix execution.
 - **Issue lineage:** Refs #41; parent Refs #39. Decision record: #41 comments "Decision record (before the spec PR)", "Decision record: section 9 resolved" and "Decision record: activation, and the earlier customization draft".
 
@@ -75,6 +75,11 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 - A root override exists only as an internal API parameter for tests and package development. It is never consumer configuration.
 - The root is a dot-directory, so default suite traversal does not collect it as validation candidates (Naming `walk-exclusions` `skipDotDirectories`). A Custom set that disables that rule makes its own files visible to validation, which is harmless.
 
+**Containment.** Every lifecycle path the Validator reads or writes must resolve, after following symlinks (realpath), inside the validation target root. A symlink that stays inside the target is allowed. One that escapes it is not, and a symlink that cannot be resolved counts as escaping. Reads and writes follow the same rule:
+- An escaping lifecycle root or `registry-state.json` is unreadable state (§7.1 item 5). It blocks every run and every lifecycle command, and `init-custom` refuses before writing anything.
+- Inside `custom/`, an escaping path is unreadable and is reported through the existing conditions. It never blocks an inactive set (§7.2). An escaping Custom registry file is `invalid`, an escaping `.baseline/` copy is a `baseline-mismatch`, and an escaping manifest is `manifest-malformed`. The Validator does not read through an escaping path.
+- Sharing one Custom set between repositories through a symlink is not supported. A portable set is copied (or, later, imported) and becomes owned by the consuming repository (§4.3), so Baseline updates never act on a directory another repository also owns.
+
 ### 4.2 Layout
 
 ```text
@@ -140,11 +145,11 @@ Comparison decides whether Custom *differs* from Builtin rather than being merel
 - **Plain JSON only:** objects, arrays, strings, numbers, booleans and `null`.
 - **Object keys** are sorted lexicographically at every depth (`stableStringify`, `src/core/validator-report-meta.logic.mjs`).
 - **Ordered arrays** (meaningful sequences, such as priority lists or rule pipelines) keep their order.
-- **Set-like arrays** (membership is the meaning) are sorted by their declared entry key, or by value for scalar arrays, with the stable-stringified item as the tie-breaker.
+- **Set-like arrays** (membership is the meaning) are sorted by their declared entry key, or by value for scalar arrays, with the stable-stringified item as the tie-breaker. Identical members collapse to one, since a repeated member does not change membership; keyed records that differ in any field stay distinct. Collapsing applies only to arrays the descriptor declares set-like: ordered arrays keep repetition, and keyed-record uniqueness is checked by slice validation (§9.3), never repaired by comparison.
 - **Empty optional values** that a registry declares as omittable (for example an empty `notes` string) are normalized out.
 - Arrays are **ordered by default**. A registry's descriptor (§9.1) declares which array paths are set-like, their entry keys and which optional fields are omittable.
 
-Digests are computed over canonical forms only. File formatting, key order and the order of set-like arrays never make Custom "differ".
+Digests are computed over canonical forms only. File formatting, key order, and the order or repetition of set-like array members never make Custom "differ".
 
 ## 6) Resolution: whole-set loading
 
@@ -255,6 +260,7 @@ Each slice keeps:
   - Suite core calls it on the active root before validation (failures block, §7.1 item 4).
   - It also calls it on an existing **inactive** Custom root (failures are reported as `invalid` in `customIssues`, §7.2) and from `status`.
   - Suite core only calls the entry point. The validation rules stay with the slice;
+  - A registry that passes must mean exactly what the runtime will do. The entry point therefore rejects input the runtime would silently drop, merge or reinterpret: an undeclared field on a payload root, record or nested object; a string or key with surrounding whitespace, which loaders trim; two keys that are equal in the runtime's normalized form; a value outside the vocabulary the engine interprets; a value the runtime's comparison could never match; and an entry the runtime can never reach, such as one an earlier first-match entry already covers wherever that coverage is decidable. Otherwise `status` could report a Custom edit as valid that never takes effect;
 - interpretation.
 
 Naming keeps a registry-state owner for its loader responsibilities, reading from the resolved root. Tree keeps its direct builtin loaders, pointed at the resolved root.
@@ -373,7 +379,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 
 - Classes 6–10 compare canonical digests against the manifest's Baseline digests.
 - **Nullable fields.** `customDigest`, `builtinDigest` and `baselineDigest` are always present, and are `null` exactly when there is no value:
-  - `customDigest` is `null` for `missing`, and for any unparseable registry, whether `invalid` or an `orphan` that also fails to parse;
+  - `customDigest` is `null` for `missing`, for any unparseable registry, whether `invalid` or an `orphan` that also fails to parse, and for an `orphan` without a retired descriptor;
   - `builtinDigest` is `null` for `orphan`;
   - `baselineDigest` is the manifest's Baseline digest whenever the manifest is readable and has an entry for the registry. That includes a `missing` registry the user deleted after initialization, so it stays distinguishable from one introduced after the Baseline. It is `null` only when there is no such entry (for example, a registry introduced after the Baseline), for `baseline-unavailable`, and whenever the manifest is malformed;
   - `detail` is present only for `invalid`, `version-incompatible`, and an `orphan` that fails to parse (carrying the parse error). An orphan is never validated by its slice, because no current inventory entry describes it.
@@ -381,7 +387,8 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 - When the manifest is malformed, `status` also prints a top-level `manifestError` with the parse detail. Every registry that is not class 1–4 is then `baseline-unavailable`, and `customDigest` and `builtinDigest` are still reported.
 - `baselineMismatch` is reported independently of `classification` (§4.4):
   - it is `true` or `false` when the manifest is readable and has an entry for the registry;
-  - it is `null` when there is no trusted manifest digest to check against (a malformed manifest, or no entry, such as for a registry introduced after the Baseline).
+  - it is `null` when there is no trusted manifest digest to check against (a malformed manifest, or no entry, such as for a registry introduced after the Baseline), and for an orphan whose canonical-form descriptor this release does not know.
+- **Retired descriptors.** The manifest digest of a registry is computed with its canonical-form descriptor (§5), so verifying a copy needs that descriptor. When a release removes or renames a registry, the slice keeps the registry's descriptor in a retired inventory. An orphan's Custom digest and Baseline copy are then canonicalized with it. An orphan without a retired descriptor, such as one from a newer release, has a `null` `customDigest` and `baselineMismatch`: the copy is unverifiable, which is never reported as a mismatch.
 
 **Activation rule:**
 - `init-custom` creates the set and its initial state (Custom exists and does not differ). It does **not** change the active set.
@@ -422,16 +429,15 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
 
 ## 14) Current implementation reality (Informative)
 
-Until slice 2 lands:
+After slice 2:
 
-- **Naming** resolves from three non-stacking sources (`naming/src/registries/registry-state.logic.mjs`):
-  - Builtin;
-  - a partial in-package `_custom/` set (`roles.registry.custom.json`, `reportable-extensions.registry.custom.json`, optional `case-rules.registry.custom.json`) selected by in-package `registry-state.json`;
-  - the `--config` overlay. A supplied config is applied on top of Builtin, and the custom state is then ignored.
-- **Custom roles** are validated against Builtin categories.
-- **Naming emits** `registryState`, `registrySource` (`builtin | custom | config`) and `registryDigests`.
-- **Tree and suite core** load Builtin only and emit no registry provenance.
-- **Five Builtin registries have no `version` field:** `naming/finding-policy`, `naming/missing-role-patterns`, `naming/summary-buckets`, `tree/shim-detection-signals` and `tree/validator-owned-signals`.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, canonical digests, state and manifest reading, Custom assessment and status classification, one resolution per run, `init-custom` and `status` (bin `calculogic-validator-registry`; scripts `registry:init-custom`, `registry:status`).
+- **Activation gate closed:** `use` is not offered, and a state file selecting `custom` is a lifecycle error that stops every validation run. The active set is always Builtin.
+- **Naming and suite core** read every registry from their resolved roots. An existing inactive Custom set is assessed and reported in `registrySet.customIssues`, never resolved.
+- **Tree** still loads its own registries from Builtin and emits no `registryProvenance`; it receives resolved roots only for suite scope profiles. Tree's registry-set validation entry point covers Custom shape checks for `status` and `customIssues`.
+- **Reports** carry `registrySet` (runner envelope and Naming report) and `registryProvenance` (Naming report and runner Naming entry `meta`; suite-core registries on the runner envelope). Naming's transitional fields are derived (§11.3); `registryDigests.custom` equals `builtin` unless a Custom set exists and resolves validly, meaning its only `customIssues`, if any, are `baseline-mismatch`.
+- **Retired:** Naming's config record surfaces (`naming.*` in config), the `overlay-capabilities` registry, and the in-package `_custom/` set and `registry-state.json`, which are now test fixtures under `naming/test/fixtures/registry-lifecycle/legacy-in-package-custom-set/`.
+- **Before slice 2:** Naming resolved from Builtin, a partial in-package `_custom/` set selected by in-package `registry-state.json`, or the `--config` overlay. It emitted `registrySource` values `builtin | custom | config`. Tree and suite core loaded Builtin only and emitted no provenance. Five Builtin registries had no `version` field.
 
 ## 15) Non-goals
 

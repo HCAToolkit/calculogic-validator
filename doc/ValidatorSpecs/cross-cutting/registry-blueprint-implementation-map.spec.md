@@ -44,7 +44,6 @@ Current registry payloads include:
 - `summary-buckets.registry.json`
 - `missing-role-patterns.registry.json`
 - `finding-policy.registry.json`
-- `overlay-capabilities.registry.json`
 - `case-rules.registry.json`
 
 ### Naming registry-state
@@ -55,14 +54,14 @@ Current owner:
 
 Current behavior:
 
-- loads builtin registry payloads
-- supports custom registry state
-- supports config overlay state where implemented
+- loads the Naming registry payload from one resolved registry root (the suite registry lifecycle chooses Builtin or the consumer's complete Custom set, #41)
+- keeps no source selection, merge or config overlay of its own
 - validates category/status shape for role entries
 - normalizes grouped `rolesByCategory` storage into flat runtime role entries
-- returns deterministic registry source and digest metadata
+- returns derived, deprecated transitional source and digest metadata (`registryState`, `registrySource`, `registryDigests`)
+- exposes Naming's registry-set validation entry point (`validateNamingRegistrySet`)
 
-Planned change (Issue #41, accepted, not yet implemented): the suite registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`) replaces the in-package custom state and the config overlay with complete Builtin/Custom registry sets selected per run. Naming's registry-state owner then reads registries from the resolved set root.
+#41 slice 2 replaced the in-package custom state (`_custom/`, `registry-state.json`, now test fixtures) and the config overlay with the suite registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`, implemented in `src/core/registry-lifecycle/`). The lifecycle's inventories, descriptors and digests are described there.
 
 ### Tree advisor
 

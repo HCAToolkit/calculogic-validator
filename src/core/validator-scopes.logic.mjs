@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT_APP_FILES } from './validator-root-files.knowledge.mjs';
+import { assertAllowedFields } from './registry-entry-shape.logic.mjs';
 import { resolveValidatorDevelopmentContext } from './validator-development-context.logic.mjs';
+import { SUITE_BUILTIN_REGISTRY_ROOT } from '../registries/suite-registry-inventory.knowledge.mjs';
 
 // Ownership decision (2026-03 narrow audit slice):
 // - Keep this module as the canonical validator-owned runtime owner for builtin scope profiles.
@@ -13,12 +15,14 @@ import { resolveValidatorDevelopmentContext } from './validator-development-cont
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_VALIDATOR_SCOPE = 'repo';
 
+const SCOPE_PROFILES_REGISTRY_FILENAME = 'scope-profiles.registry.json';
+
 const BUILTIN_SCOPE_PROFILES_REGISTRY_PATH = path.join(
   MODULE_DIR,
   '..',
   'registries',
   '_builtin',
-  'scope-profiles.registry.json',
+  SCOPE_PROFILES_REGISTRY_FILENAME,
 );
 
 const LEGACY_SCOPE_DESCRIPTIONS = {
@@ -82,14 +86,99 @@ const canonicalizeScopeProfile = (scope, profile) => {
   };
 };
 
-// Canonical runtime-owner behavior in this module:
-// validates + normalizes builtin scope-profile registry payload at load time.
-const loadBuiltinScopeProfiles = () => {
-  const parsedRegistry = loadJsonFile(BUILTIN_SCOPE_PROFILES_REGISTRY_PATH);
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-  if (!parsedRegistry?.profiles || typeof parsedRegistry.profiles !== 'object') {
-    throw new Error('Invalid builtin scope profiles registry: expected profiles object.');
+const assertNonEmptyStringArray = (value, label) => {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.length === 0)) {
+    throw new Error(`Invalid scope profiles registry: ${label} must be an array of non-empty strings.`);
   }
+};
+
+// Scope roots are repository-relative POSIX paths that cannot leave the validation target: no
+// absolute or drive paths, no backslashes, no `..` or empty segments, and `.` only on its own.
+// Root files are bare file names at the repository root: a literal name, or one of the system-scope
+// compatibility patterns, which are the only patterns collection expands.
+const isContainedScopeRoot = (root) =>
+  root === '.' ||
+  (!root.startsWith('/') &&
+    !/^[A-Za-z]:/u.test(root) &&
+    !root.includes('\\') &&
+    root.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..'));
+
+const GLOB_SYNTAX_PATTERN = /[*?[\]{}]/u;
+
+const isRootFileName = (fileName) =>
+  isKnownSystemScopeCompatibilityPattern(fileName) ||
+  (!fileName.includes('/') &&
+    !fileName.includes('\\') &&
+    fileName !== '.' &&
+    fileName !== '..' &&
+    !GLOB_SYNTAX_PATTERN.test(fileName));
+
+// The scope contract: a registry defines exactly the scopes suite core describes and runs
+// (`LEGACY_SCOPE_DESCRIPTIONS`, including the default scope), each with both include lists.
+const assertValidScopeProfilesRegistry = (parsedRegistry) => {
+  if (!isPlainObject(parsedRegistry?.profiles)) {
+    throw new Error('Invalid scope profiles registry: expected profiles object.');
+  }
+
+  const expectedScopes = Object.keys(LEGACY_SCOPE_DESCRIPTIONS).sort();
+  const actualScopes = Object.keys(parsedRegistry.profiles).sort();
+  if (JSON.stringify(actualScopes) !== JSON.stringify(expectedScopes)) {
+    throw new Error(
+      `Invalid scope profiles registry: profiles must define exactly the scopes ${expectedScopes.join(', ')}.`,
+    );
+  }
+
+  for (const [scope, profile] of Object.entries(parsedRegistry.profiles)) {
+    if (!isPlainObject(profile)) {
+      throw new Error(`Invalid scope profiles registry: profiles.${scope} must be an object.`);
+    }
+
+    // Descriptions come from suite core, so a profile carries only its include lists.
+    assertAllowedFields(profile, ['includeRoots', 'includeRootFiles'], {
+      registryLabel: 'scope profiles',
+      label: `profiles.${scope}`,
+    });
+
+    assertNonEmptyStringArray(profile.includeRoots, `profiles.${scope}.includeRoots`);
+    assertNonEmptyStringArray(profile.includeRootFiles, `profiles.${scope}.includeRootFiles`);
+
+    const escapingRoots = profile.includeRoots.filter((root) => !isContainedScopeRoot(root));
+    if (escapingRoots.length > 0) {
+      throw new Error(
+        `Invalid scope profiles registry: profiles.${scope}.includeRoots must be repository-relative paths inside the target (rejected: ${escapingRoots.join(', ')}).`,
+      );
+    }
+
+    const nonRootFiles = profile.includeRootFiles.filter((fileName) => !isRootFileName(fileName));
+    if (nonRootFiles.length > 0) {
+      throw new Error(
+        `Invalid scope profiles registry: profiles.${scope}.includeRootFiles must be literal file names at the repository root or a supported compatibility pattern (rejected: ${nonRootFiles.join(', ')}).`,
+      );
+    }
+
+    // A compatibility pattern expands to fixed file names, so also listing one of them is a second
+    // spelling of the same profile.
+    const listedPatterns = profile.includeRootFiles.filter(isKnownSystemScopeCompatibilityPattern);
+    const redundantFiles = profile.includeRootFiles.filter(
+      (fileName) =>
+        !isKnownSystemScopeCompatibilityPattern(fileName) &&
+        listedPatterns.some((pattern) => SYSTEM_SCOPE_COMPATIBILITY_PATTERN_EXPANSIONS[pattern].includes(fileName)),
+    );
+    if (redundantFiles.length > 0) {
+      throw new Error(
+        `Invalid scope profiles registry: profiles.${scope}.includeRootFiles lists ${redundantFiles.join(', ')}, already covered by a listed compatibility pattern.`,
+      );
+    }
+  }
+};
+
+// Canonical runtime-owner behavior in this module:
+// validates + normalizes a scope-profile registry payload at load time.
+const loadScopeProfilesFromFile = (registryFilePath) => {
+  const parsedRegistry = loadJsonFile(registryFilePath);
+  assertValidScopeProfilesRegistry(parsedRegistry);
 
   return Object.fromEntries(
     Object.entries(parsedRegistry.profiles).map(([scope, profile]) => [
@@ -104,10 +193,25 @@ let cachedBuiltinScopeProfiles = null;
 // Primary runtime path: getter-backed scope profile access for validator runtime.
 export const getBuiltinScopeProfiles = () => {
   if (!cachedBuiltinScopeProfiles) {
-    cachedBuiltinScopeProfiles = loadBuiltinScopeProfiles();
+    cachedBuiltinScopeProfiles = loadScopeProfilesFromFile(BUILTIN_SCOPE_PROFILES_REGISTRY_PATH);
   }
 
   return cachedBuiltinScopeProfiles;
+};
+
+// Loads scope profiles from a resolved suite registry root (#41 registry lifecycle).
+export const loadScopeProfilesFromRegistryRoot = (registryRoot) =>
+  loadScopeProfilesFromFile(path.join(registryRoot, SCOPE_PROFILES_REGISTRY_FILENAME));
+
+// Scope profiles for a run: the resolved suite registry root when the lifecycle supplied one
+// (`registryRoots.suite`), otherwise Builtin.
+const getScopeProfiles = ({ registryRoots } = {}) => {
+  const suiteRegistryRoot = registryRoots?.suite;
+  if (!suiteRegistryRoot || path.resolve(suiteRegistryRoot) === path.resolve(SUITE_BUILTIN_REGISTRY_ROOT)) {
+    return getBuiltinScopeProfiles();
+  }
+
+  return loadScopeProfilesFromRegistryRoot(suiteRegistryRoot);
 };
 
 // Primary runtime path helper: immutable copy for callers and compatibility shims.
@@ -118,12 +222,15 @@ export const cloneScopeProfile = (profile) => ({
 });
 
 
-export const listValidatorScopes = () =>
-  Array.from(new Set(Object.keys(getBuiltinScopeProfiles()))).sort((a, b) => a.localeCompare(b));
+export const listValidatorScopes = ({ registryRoots } = {}) =>
+  Array.from(new Set(Object.keys(getScopeProfiles({ registryRoots })))).sort((a, b) => a.localeCompare(b));
 
-export const resolveContextualValidatorScopeProfile = (scope, { targetRepositoryRoot = process.cwd(), packageRoot } = {}) => {
+export const resolveContextualValidatorScopeProfile = (
+  scope,
+  { targetRepositoryRoot = process.cwd(), packageRoot, registryRoots } = {},
+) => {
   const normalizedScope = scope ?? DEFAULT_VALIDATOR_SCOPE;
-  const profile = getBuiltinScopeProfiles()[normalizedScope];
+  const profile = getScopeProfiles({ registryRoots })[normalizedScope];
 
   if (!profile) {
     return { status: 'invalid-scope', scope: normalizedScope, profile: null };
@@ -164,12 +271,12 @@ export const getContextualValidatorScopeProfile = (scope, options = {}) => {
 };
 
 export const listAvailableValidatorScopes = (options = {}) =>
-  listValidatorScopes().filter(
+  listValidatorScopes(options).filter(
     (scope) => resolveContextualValidatorScopeProfile(scope, options).status === 'available',
   );
 
-export const getValidatorScopeProfile = (scope) => {
+export const getValidatorScopeProfile = (scope, { registryRoots } = {}) => {
   const normalizedScope = scope ?? DEFAULT_VALIDATOR_SCOPE;
-  const profile = getBuiltinScopeProfiles()[normalizedScope];
+  const profile = getScopeProfiles({ registryRoots })[normalizedScope];
   return profile ? cloneScopeProfile(profile) : null;
 };

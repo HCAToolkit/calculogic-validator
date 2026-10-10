@@ -4,8 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadValidatorConfigFromFile } from '../src/core/config/validator-config.logic.mjs';
 
-const fixturePath = 'test/fixtures/validator-config.roles.contracts.json';
-
 const writeTempConfig = (filename, payload) => {
   const tempPath = path.join(process.cwd(), `test/fixtures/${filename}`);
   fs.writeFileSync(tempPath, JSON.stringify(payload));
@@ -44,51 +42,18 @@ test('allows optional root $schema editor hint key and normalizes deterministica
   }
 });
 
-test('fails when naming contains unknown key', () => {
-  const tempPath = writeTempConfig('tmp-config-unknown-naming-key.json', {
-    version: '0.1',
-    naming: {
-      foo: {},
-    },
-  });
+test('fails when version is not supported', () => {
+  const tempPath = writeTempConfig('tmp-config-invalid-version.json', { version: '9.9' });
 
   try {
     assert.throws(
       () => loadValidatorConfigFromFile(tempPath, { cwd: '/' }),
-      /Invalid validator config: naming contains unknown key "foo"\./u,
+      /Invalid validator config: version must be "0.1"\./u,
     );
   } finally {
     fs.rmSync(tempPath, { force: true });
   }
 });
-
-test('fails when role entry contains unknown key', () => {
-  const tempPath = writeTempConfig('tmp-config-unknown-role-entry-key.json', {
-    version: '0.1',
-    naming: {
-      roles: {
-        add: [{ role: 'x', category: 'documentation', status: 'active', extra: 1 }],
-      },
-    },
-  });
-
-  try {
-    assert.throws(
-      () => loadValidatorConfigFromFile(tempPath, { cwd: '/' }),
-      /Invalid validator config: naming\.roles\.add\[0\] contains unknown key "extra"\./u,
-    );
-  } finally {
-    fs.rmSync(tempPath, { force: true });
-  }
-});
-
-test('still loads existing roles fixture under strict validation', () => {
-  const config = loadValidatorConfigFromFile(fixturePath, { cwd: process.cwd() });
-
-  assert.equal(config.version, '0.1');
-  assert.equal(config.naming?.roles?.add?.[0]?.role, 'provider');
-});
-
 
 test('accepts strictExit at root and preserves normalized value', () => {
   const tempPath = writeTempConfig('tmp-config-strict-exit-true.json', {

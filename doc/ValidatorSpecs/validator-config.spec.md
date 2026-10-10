@@ -4,20 +4,22 @@ Status: **Canonical**
 
 ## Report-only note (current behavior)
 
-The naming validator remains **report-first** for detection and findings emission. Supplying validator config changes report inputs/metadata and may additionally enable strict exit semantics via `strictExit`. It does **not** enable fix execution or broader mode selection.
+The naming validator remains **report-first** for detection and findings emission. Supplying validator config adds report metadata (`configDigest`) and may enable strict exit semantics via `strictExit`. It does **not** enable fix execution or broader mode selection.
 
-## Planned change (Issue #41)
+## Registry records are not configuration (Issue #41)
 
-The suite registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`, accepted, not yet implemented) moves registry customization out of configuration:
-- `naming.roles.add` and `naming.reportableExtensions.add` are removed, and the customization path is the consumer's Custom registry set;
-- the hard-coded role `category` enum is removed, and categories are validated against the resolved registry set;
-- `naming.caseRules` is retired in favor of Naming's case-rules registry in the Custom set.
+Configuration never carries registry records (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` §10). Registry customization lives in the consumer's complete Custom registry set (`calculogic-validator-registry init-custom`, then edit `.calculogic/registries/custom/`).
 
-`version` and `strictExit` are unaffected. Until that slice lands, this spec describes current behavior.
+#41 slice 2 retired Naming's record-carrying config surfaces. There is no overlay compatibility bridge:
+- `naming.roles.add` and `naming.reportableExtensions.add`: edit Naming's roles, category-role-perspective and reportable-extensions registries in the Custom set instead;
+- the hard-coded role `category` enum: categories are validated against the resolved registry set;
+- `naming.caseRules`: edit Naming's case-rules registry in the Custom set instead.
+
+A config that still contains a `naming` key is rejected (§8).
 
 ## 1) Purpose
 
-This spec defines the canonical validator config contract for current suite runtime behavior. The config provides strict, deterministic input for naming registry shaping (reportable extension additions, role metadata additions, case-rules style) and reproducible report metadata.
+This spec defines the canonical validator config contract for current suite runtime behavior: a strict, deterministic run input that controls strict exit semantics and makes reports reproducible through `configDigest`.
 
 ## 2) Versioning
 
@@ -35,77 +37,22 @@ Canonical JSON Schema file:
 
 Schema and runtime validation are aligned:
 
-- Unknown keys are rejected at all documented strictness points.
+- Unknown keys are rejected.
 - Root `$schema` is allowed as an editor/tooling hint and is ignored by runtime normalization.
 
 ## 4) Allowed keys (current)
-
-### 4.1 Root object
 
 Allowed root keys:
 
 - `version` (required, const `"0.1"`)
 - `$schema` (optional string hint)
-- `strictExit` (optional boolean; enables strict exit semantics for naming CLI)
-- `naming` (optional object)
-
-### 4.2 `naming`
-
-Allowed keys:
-
-- `reportableExtensions` (optional object)
-- `roles` (optional object)
-- `caseRules` (optional object)
-
-### 4.3 `naming.reportableExtensions`
-
-Allowed keys:
-
-- `add` (optional array of strings)
-
-Rules for each `add[]` entry:
-
-- Must be a string.
-- String is trimmed by normalization.
-- Trimmed value must start with `.`.
-
-### 4.4 `naming.roles`
-
-Allowed keys:
-
-- `add` (optional array of role metadata objects)
-
-Rules for each `add[]` entry object:
-
-- `role`: required non-empty string (trimmed by normalization)
-- `category`: required enum
-  - `concern-core`
-  - `architecture-support`
-  - `documentation`
-  - `deprecated`
-- `status`: required enum
-  - `active`
-  - `deprecated`
-- `notes`: optional string
-
-No other keys are allowed on role entries.
+- `strictExit` (optional boolean; enables strict exit semantics)
 
 ## 5) Strictness rules
 
-Unknown keys are rejected at:
-
-- root
-- `naming`
-- `naming.reportableExtensions`
-- `naming.roles`
-- `naming.caseRules`
-- `naming.caseRules.semanticName`
-- each `naming.roles.add[]` object
-
-Special case:
-
-- root `$schema` is explicitly allowed as a hint key.
-- `$schema` is not retained in normalized config output.
+- Unknown root keys are rejected.
+- A `naming` key is rejected with a notice naming the Custom registry set as the customization path (§ "Registry records are not configuration").
+- Root `$schema` is explicitly allowed as a hint key and is not retained in normalized config output.
 
 ## 6) Normalization rules (deterministic)
 
@@ -113,21 +60,10 @@ Runtime loading returns normalized config with deterministic shaping:
 
 - Output always sets `version: "0.1"`.
 - `strictExit` is retained only when provided.
-- `role` strings are trimmed.
-- extension strings are trimmed.
-- extension additions are de-duplicated after trim (`Set` semantics).
-- `roles.add` entries are de-duplicated by trimmed `role` value; **first occurrence wins**.
-- `naming` is included in normalized output only when at least one supported naming surface is present.
-- `naming.caseRules.semanticName.style` is retained (trimmed) when provided and valid.
 
-## 7) Merge semantics in naming runtime
+## 7) Registry inputs
 
-Current naming wiring applies normalized config additively:
-
-- `reportableExtensions` runtime set = defaults ∪ config additions.
-- role metadata runtime map = default metadata map + config additions **only when role key does not already exist**.
-- active roles are derived from merged metadata where `status === "active"`.
-- role suffix list is derived from merged role keys sorted by descending string length.
+Config does not shape registry inputs. Each run resolves the active registry set once through the suite registry lifecycle and every slice reads that resolved set (lifecycle spec §6, §10).
 
 ## 8) CLI consumption (current implementation policy)
 
@@ -135,22 +71,21 @@ Config flag (exact form):
 
 - `--config=<path>`
 
-Current failure modes when config is supplied:
+Current failure modes when config is supplied (each stops the run with no report, stderr output and exit code 1):
 
 - cannot read file → error
 - cannot parse JSON → error
-- invalid config shape/content → error
+- invalid config shape/content, including a retired `naming` surface → error
 
 Current runtime support boundaries:
 
-- `validate:naming` and `validate:all` load/validate/normalize config and forward naming-supported surfaces.
-- `validate:tree` currently accepts `--config` and computes `configDigest` but does not apply tree-specific config semantics yet (deferred/planning for tree config surfaces).
+- `validate:naming`, `validate:all` and `validate:tree` load, validate and normalize config through the same contract.
 
 When a valid config is supplied, emitted reports may include:
 
 - `configDigest`
 
-Strict-exit resolution for naming CLI uses existing exit-policy semantics:
+Strict-exit resolution uses existing exit-policy semantics:
 
 - Effective strictness is `true` when CLI `--strict` is present.
 - Otherwise, effective strictness is `true` when `config.strictExit === true`.
@@ -169,83 +104,11 @@ The examples show a config file at the root of a consuming repository that has i
 }
 ```
 
-### 9.2 Add one role
+### 9.2 Strict exit via config
 
 ```json
 {
   "$schema": "./node_modules/@calculogic/validator/src/validator-config.schema.json",
-  "version": "0.1",
-  "naming": {
-    "roles": {
-      "add": [
-        {
-          "role": "provider",
-          "category": "architecture-support",
-          "status": "active",
-          "notes": "Custom runtime architecture role"
-        }
-      ]
-    }
-  }
-}
-```
-
-### 9.3 Add one extension
-
-```json
-{
-  "$schema": "./node_modules/@calculogic/validator/src/validator-config.schema.json",
-  "version": "0.1",
-  "naming": {
-    "reportableExtensions": {
-      "add": [".mdx"]
-    }
-  }
-}
-```
-
-### 9.4 Combined (add role + extension)
-
-```json
-{
-  "$schema": "./node_modules/@calculogic/validator/src/validator-config.schema.json",
-  "version": "0.1",
-  "naming": {
-    "reportableExtensions": {
-      "add": [".mdx"]
-    },
-    "roles": {
-      "add": [
-        {
-          "role": "provider",
-          "category": "architecture-support",
-          "status": "active"
-        }
-      ]
-    }
-  }
-}
-```
-
-### 9.5 Case rules style override (current supported value)
-
-```json
-{
-  "version": "0.1",
-  "naming": {
-    "caseRules": {
-      "semanticName": {
-        "style": "kebab-case"
-      }
-    }
-  }
-}
-```
-
-### 9.6 Strict exit via config
-
-```json
-{
   "version": "0.1",
   "strictExit": true
 }

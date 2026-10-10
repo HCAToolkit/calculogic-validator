@@ -1,4 +1,4 @@
-import { runNamingValidator, summarizeFindings } from '../../naming/src/naming-validator.host.mjs';
+import { runNamingValidator } from '../../naming/src/naming-validator.host.mjs';
 import {
   runTreeStructureAdvisor,
   summarizeFindings as summarizeTreeStructureAdvisorFindings,
@@ -6,10 +6,10 @@ import {
 
 const runNamingValidatorHook = (repositoryRoot, options = {}) => {
   const scope = options.scope;
-  const config = options.config;
   const targets = options.targets;
-  const namingResult = runNamingValidator(repositoryRoot, { scope, config, targets });
-  const summary = summarizeFindings(namingResult.findings);
+  const registryResolution = options.registryResolution;
+  const namingResult = runNamingValidator(repositoryRoot, { scope, targets, registryResolution });
+  const summary = namingResult.summary;
   const meta = {};
 
   if (namingResult.filters?.isFiltered) {
@@ -23,6 +23,10 @@ const runNamingValidatorHook = (repositoryRoot, options = {}) => {
     meta.registry = namingResult.registry;
   }
 
+  if (namingResult.registryProvenance) {
+    meta.registryProvenance = namingResult.registryProvenance;
+  }
+
   return {
     scope: namingResult.scope,
     totalFilesScanned: namingResult.totalFilesScanned,
@@ -34,14 +38,13 @@ const runNamingValidatorHook = (repositoryRoot, options = {}) => {
 
 const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
   const scope = options.scope;
-  const config = options.config;
   const targets = options.targets;
   const namingSemanticFamilyBridge = options.namingSemanticFamilyBridge;
   const treeStructureAdvisorResult = runTreeStructureAdvisor(repositoryRoot, {
     scope,
-    config,
     targets,
     namingSemanticFamilyBridge,
+    registryRoots: options.registryResolution?.registryRoots,
   });
   const summary = summarizeTreeStructureAdvisorFindings(treeStructureAdvisorResult.findings);
   const meta = {};

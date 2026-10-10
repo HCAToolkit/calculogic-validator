@@ -14,6 +14,8 @@ import {
 import { runNamingValidator as runNamingValidatorRuntime } from '../naming/src/naming-validator.logic.mjs';
 import { createValidatorCandidatePolicyFromValues } from '../src/core/validator-candidate-policy.logic.mjs';
 import { collectValidatorCandidatePaths } from '../src/core/validator-candidate-collection.logic.mjs';
+import { resolveActiveRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
+import { NAMING_BUILTIN_REGISTRY_ROOT } from '../naming/src/registries/naming-registry-inventory.knowledge.mjs';
 import {
   DEFAULT_VALIDATOR_SCOPE,
   getValidatorScopeProfile,
@@ -352,33 +354,43 @@ test('suite-core candidate helper preserves current Naming root-file and sorting
   }
 });
 
-test('Naming candidate helper migration preserves config overlay extension additions', async () => {
+test('Naming candidate selection reads reportable extensions from the resolved Naming registry root', async () => {
   const fixtureDir = await createCandidateFixture();
+  const resolvedNamingRoot = fsSync.mkdtempSync(path.join(os.tmpdir(), 'resolved-naming-root-'));
 
   try {
-    await writeFixtureFile(fixtureDir, 'src/overlay.customext', 'overlay\n');
+    await writeFixtureFile(fixtureDir, 'src/resolved.customext', 'resolved\n');
+    fsSync.cpSync(NAMING_BUILTIN_REGISTRY_ROOT, resolvedNamingRoot, { recursive: true });
+    const extensionsPath = path.join(resolvedNamingRoot, 'reportable-extensions.registry.json');
+    const extensionsRegistry = JSON.parse(fsSync.readFileSync(extensionsPath, 'utf8'));
+    extensionsRegistry.reportableExtensions.push('.customext');
+    fsSync.writeFileSync(extensionsPath, JSON.stringify(extensionsRegistry, null, 2));
 
+    const builtinResolution = resolveActiveRegistrySet({ targetRoot: fixtureDir });
     const defaultPrepared = prepareNamingValidatorInputs(fixtureDir, { scope: 'app' });
-    const overlayPrepared = prepareNamingValidatorInputs(fixtureDir, {
+    const resolvedPrepared = prepareNamingValidatorInputs(fixtureDir, {
       scope: 'app',
-      config: { naming: { reportableExtensions: { add: ['.customext'] } } },
+      registryResolution: {
+        ...builtinResolution,
+        registryRoots: { ...builtinResolution.registryRoots, naming: resolvedNamingRoot },
+      },
     });
 
-    assert.equal(defaultPrepared.selectedPaths.includes('src/overlay.customext'), false);
-    assert.equal(overlayPrepared.selectedPaths.includes('src/overlay.customext'), true);
+    assert.equal(defaultPrepared.selectedPaths.includes('src/resolved.customext'), false);
     assert.deepEqual(
-      overlayPrepared.selectedPaths,
+      resolvedPrepared.selectedPaths,
       [
         'src/app.logic.ts',
         'src/App.tsx',
         'src/data.json',
-        'src/overlay.customext',
+        'src/resolved.customext',
         'src/style.css',
         'test/app.test.js',
       ],
     );
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
+    fsSync.rmSync(resolvedNamingRoot, { recursive: true, force: true });
   }
 });
 

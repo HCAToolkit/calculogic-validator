@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -7,16 +8,27 @@ export const BUILTIN_FOLDER_KINDS_REGISTRY_PATH = fileURLToPath(
   new URL('folder-kinds.registry.json', BUILTIN_REGISTRY_ROOT),
 );
 
+// Tree runtime consumers read only `active` entries; `deprecated` keeps an entry declared but unused.
+const FOLDER_KIND_STATUSES = Object.freeze(['active', 'deprecated']);
+
 let cachedBuiltinFolderKindsRegistry = null;
 
-const normalizeFolderKindsRegistryPayload = (payload) => {
+export const normalizeFolderKindsRegistryPayload = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('Invalid builtin folder-kinds registry: expected object payload.');
+    throw new Error('Invalid folder-kinds registry: expected object payload.');
   }
 
   if (!Array.isArray(payload.folderKinds)) {
-    throw new Error('Invalid builtin folder-kinds registry: folderKinds must be an array.');
+    throw new Error('Invalid folder-kinds registry: folderKinds must be an array.');
   }
+
+  assertRegistryEntries(payload.folderKinds, {
+    registryLabel: 'Tree folder-kinds',
+    listLabel: 'folderKinds',
+    keyField: 'folderKind',
+    requiredStringFields: ['definition'],
+    enumFields: { status: FOLDER_KIND_STATUSES },
+  });
 
   return payload;
 };

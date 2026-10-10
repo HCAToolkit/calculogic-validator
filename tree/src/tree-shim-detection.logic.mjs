@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { getBuiltinTreeSignalPolicy } from './registries/tree-signal-policy-registry.logic.mjs';
 import { toValidatorDevelopmentPathPrefix } from './tree-validator-development-root.logic.mjs';
+import { TREE_ARTIFACT_SURFACES } from './tree-structure-advisor.contracts.mjs';
 
 const TREE_SIGNAL_POLICY = getBuiltinTreeSignalPolicy();
 
@@ -49,15 +50,15 @@ export const inferArtifactSurface = (relativePath) => {
     segments.includes('__tests__') ||
     /\.(?:test|spec)\.[^.]+$/u.test(basename)
   ) {
-    return 'quality';
+    return TREE_ARTIFACT_SURFACES.QUALITY;
   }
 
   if (segments.includes('doc') || segments.includes('docs') || basename.endsWith('.md')) {
-    return 'docs';
+    return TREE_ARTIFACT_SURFACES.DOCS;
   }
 
   if (segments.includes('examples') || segments.includes('demo')) {
-    return 'examples';
+    return TREE_ARTIFACT_SURFACES.EXAMPLES;
   }
 
   if (
@@ -65,10 +66,10 @@ export const inferArtifactSurface = (relativePath) => {
     segments.includes('mocks') ||
     segments.includes('benchmarks')
   ) {
-    return 'fixtures';
+    return TREE_ARTIFACT_SURFACES.FIXTURES;
   }
 
-  return 'runtimeish';
+  return TREE_ARTIFACT_SURFACES.RUNTIMEISH;
 };
 
 export const collectPathShimSignals = (relativePath) => {

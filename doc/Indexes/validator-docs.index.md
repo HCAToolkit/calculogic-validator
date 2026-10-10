@@ -31,7 +31,7 @@ Authority labels used in this index:
 ## 2) Canonical contract (config)
 
 - `doc/ValidatorSpecs/validator-config.spec.md`
-  **Authority:** canonical contract. **Intended use:** normative config semantics (report-only input, strict schema/validation, normalization + merge semantics, CLI `--config` behavior).
+  **Authority:** canonical contract. **Intended use:** normative config semantics (report-only input, strict schema/validation, normalization, retired registry-record surfaces, CLI `--config` behavior).
 
 ## 3) Canonical slice specs
 
@@ -67,7 +67,7 @@ Authority labels used in this index:
   **Authority:** bounded normative supporting spec. **Intended use:** suite-level registry model/interaction constraints for implementation design and ownership boundaries; defer primary runtime authority to canonical contracts/slice specs.
 
 - `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`
-  **Authority:** bounded normative supporting spec (accepted, not yet implemented). **Intended use:** suite-level Builtin/Custom registry lifecycle contract (#41): complete registry sets, active-set selection, Baseline and user-controlled inheritance, whole-set resolution, provenance and lifecycle commands. Evolved from the former registry customization draft. Not current runtime truth until its implementation slices land.
+  **Authority:** bounded normative supporting spec (accepted; slice 2 implemented, slice 3 pending). **Intended use:** suite-level Builtin/Custom registry lifecycle contract (#41): complete registry sets, active-set selection, Baseline and user-controlled inheritance, whole-set resolution, provenance and lifecycle commands. Evolved from the former registry customization draft. §14 records current runtime reality; slice 3 behavior (Tree adoption, `use`, active Custom) is not current runtime truth yet.
 
 - `doc/ConventionRoutines/ValidatorSliceAndReportFormula.md`
   **Authority:** bounded normative supporting spec. **Intended use:** concise normative formula/checklist for validator slice integration, suite-core usage, report behavior, bridge relationships, evidence-vs-policy separation, registry metadata, and command/docs/test expectations; defer primary runtime authority to suite contract + slice specs.
@@ -102,7 +102,7 @@ Authority labels used in this index:
   **Authority:** supporting implementation guidance. **Intended use:** runner and `validate-all` CLI implementation context; defer normative behavior to the suite contract.
 
 - `doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md`
-  **Authority:** supporting implementation guidance (planned). **Intended use:** NL/config implementation plan for the suite registry lifecycle (#41); defer normative behavior to the registry lifecycle spec.
+  **Authority:** supporting implementation guidance (partially implemented). **Intended use:** NL/config implementation guidance for the suite registry lifecycle (#41); defer normative behavior to the registry lifecycle spec.
 
 ## 5) Transitional inventories / migration routing
 

@@ -161,6 +161,39 @@ Only currently real, discoverable suite-owned surfaces are listed here.
   - creating a universal plugin architecture or generic shared bucket.
 - **Reuse boundary type:** data-only registration metadata boundary
 
+### 3.7 Entry: suite-core registry lifecycle
+
+- **Owner:** suite-core
+- **Path/area:**
+  - `src/core/registry-lifecycle/`
+- **Concern:** Builtin/Custom registry set selection (#41): lifecycle state, Custom set initialization and assessment, comparison digests, one resolution per run into resolved registry roots, and report provenance.
+- **Reusable capability:**
+  - `resolveActiveRegistrySet` for validator CLIs and the runner (one call per run, passed to slices as `registryResolution`)
+  - slice inventories (registry ids, descriptors, readable versions) aggregated in deterministic slice order
+- **When to reuse:**
+  - any validation entry point that loads registries; slices read their resolved root instead of package `_builtin/` constants
+- **When not to reuse:**
+  - interpreting registry content, shape validation or runtime-form canonicalization, which stay slice-owned
+- **Reuse boundary type:** runtime boundary reuse
+- **Contract:** `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`
+
+### 3.8 Entry: suite-core registry entry-shape assertion
+
+- **Owner:** suite-core
+- **Path/area:**
+  - `src/core/registry-entry-shape.logic.mjs`
+- **Concern:** one bounded check for list-of-records registries: a non-empty list of objects with declared required string fields, string-list fields, optional string fields, enumerated fields and a key field unique after trimming. Shapes are closed: an undeclared field is rejected.
+- **Reusable capability:**
+  - `assertRegistryEntries(entries, shape)` called from slice registry loaders and registry-set validation entry points
+  - `assertAllowedFields(value, allowedFields, labels)` for objects that are not list records
+  - `assertRegistryRootFields(payload, rootFields, labels)` and `assertNoPaddedStrings(payload, labels)` called by each slice's registry-set validation entry point
+  - `isPathSegmentName(value)` and `isSingleFileExtension(value)` for registry values the runtime compares as one path segment or with `path.extname`
+- **When to reuse:**
+  - a slice registry whose records need a declared shape check, so malformed Custom records are reported `invalid` (lifecycle spec §9.3)
+- **When not to reuse:**
+  - cross-registry reference edges, nested structures or slice meaning; the slice declares the shape and keeps those checks
+- **Reuse boundary type:** loader boundary reuse
+
 ## 4) Guardrails
 
 - Do **not** invent shared helpers in this inventory that do not currently exist.

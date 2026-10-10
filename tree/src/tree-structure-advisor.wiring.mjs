@@ -66,9 +66,19 @@ const collectTopLevelDirectoryNames = (repositoryRoot) =>
     .filter((directoryName) => !directoryName.startsWith('.'))
     .sort((left, right) => left.localeCompare(right));
 
+// `registryRoots` carries the resolved suite registry root for scope profiles (#41 registry
+// lifecycle). Tree's own registries keep loading from Builtin until Tree adopts resolved roots.
 export const prepareTreeStructureAdvisorInputs = (
   repositoryRoot,
-  { scope, targets, packageRoot, namingSemanticFamilyBridge, namingOccurrenceBridge, preparedAddressKeyedJoinEvidence } = {},
+  {
+    scope,
+    targets,
+    packageRoot,
+    namingSemanticFamilyBridge,
+    namingOccurrenceBridge,
+    preparedAddressKeyedJoinEvidence,
+    registryRoots,
+  } = {},
 ) => {
   const scopedSnapshotInputs = collectSuiteScopedSnapshotInputs(repositoryRoot, {
     scope,
@@ -76,6 +86,7 @@ export const prepareTreeStructureAdvisorInputs = (
     walkExcludedDirectories: WALK_EXCLUDED_DIRECTORIES,
     skipDotDirectories: true,
     packageRoot,
+    registryRoots,
   });
   const developmentContext = resolveValidatorDevelopmentContext({
     targetRepositoryRoot: repositoryRoot,
@@ -255,7 +266,15 @@ export const prepareTreeStructureAdvisorInputs = (
 
 export const runTreeStructureAdvisor = (
   repositoryRoot,
-  { scope, targets, packageRoot, namingSemanticFamilyBridge, namingOccurrenceBridge, preparedAddressKeyedJoinEvidence } = {},
+  {
+    scope,
+    targets,
+    packageRoot,
+    namingSemanticFamilyBridge,
+    namingOccurrenceBridge,
+    preparedAddressKeyedJoinEvidence,
+    registryRoots,
+  } = {},
 ) => {
   const preparedInputs = prepareTreeStructureAdvisorInputs(repositoryRoot, {
     scope,
@@ -264,6 +283,7 @@ export const runTreeStructureAdvisor = (
     namingSemanticFamilyBridge,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
+    registryRoots,
   });
   return runTreeStructureAdvisorRuntime(preparedInputs);
 };

@@ -57,7 +57,7 @@ The goal is ownership clarity and hardening ROI for the next naming-first pass, 
 | Explicit role-slot authority rule text | **Suite-shared contract only** (consumed by naming slice) |
 | Naming disambiguation behavior for semantic/folder role-like tokens | **Naming-slice implementation** |
 | Ambiguity findings and naming-slice disambiguation diagnostics | **Naming-slice implementation** |
-| Semantic-name case style policy currently in `caseRules` payload | **Registry payload (implemented baseline: builtin, optional custom, or bounded config overlay)** |
+| Semantic-name case style policy currently in `caseRules` payload | **Registry payload (implemented baseline: the resolved Builtin or Custom set's `naming/case-rules`; the config overlay was retired in #41 slice 2)** |
 | Bounded optional registry integration for semantic-name `caseRules` | **Naming-slice implementation + registry-state preparation (implemented, bounded)** |
 | Potential broader lane-aware case-policy expansion metadata (future) | **Registry payload candidate** (only after behavior lock + ownership clarity) |
 | Registry-state selection, normalization, digesting, converter prep | **Code-owned loader/converter mechanism (registry-state + runtime preparation)** |
@@ -80,7 +80,7 @@ The goal is ownership clarity and hardening ROI for the next naming-first pass, 
 - Traversal and scoped path-collection mechanics.
 - Runtime normalization/converter mechanics that compile payload shapes into executable runtime state.
 
-Guardrail: do not push parser/disambiguation/traversal engines into registries; registry payloads may originate from builtin, optional custom, or bounded config-overlay sources for supported surfaces, converter/runtime preparation owns normalization and style-to-pattern compilation, and naming rule/helper code consumes prepared runtime state for deterministic enforcement.
+Guardrail: do not push parser/disambiguation/traversal engines into registries; registry payloads come from the resolved Builtin or Custom registry set (#41), converter/runtime preparation owns normalization and style-to-pattern compilation, and naming rule/helper code consumes prepared runtime state for deterministic enforcement.
 
 ## 5) Recommended bounded implementation order (naming interpretation hardening tranche)
 

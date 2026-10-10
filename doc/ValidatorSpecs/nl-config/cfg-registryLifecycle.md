@@ -7,7 +7,11 @@
 
 ## 0.0 Version
 
-Status: **planned (Issue #41)**. Nothing in this file is implemented yet. Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
+Status: **partially implemented (Issue #41)**.
+- Slice 2 implemented: inventories (6.1, 6.2), constants (6.3), 5.2.1–5.2.6, `init-custom` and `status` (5.3), the runner/Naming/suite-core wiring (5.4) and report provenance (7.1, 7.2).
+- Slice 3 pending: `useRegistrySet` (5.2.7), the `use` command, Tree's resolved-root wiring and Tree `registryProvenance`. Until then the activation gate is closed (`CUSTOM_ACTIVATION_AVAILABLE = false`).
+
+Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
 
 ## 1.0 Purpose and Scope
 
@@ -66,6 +70,7 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 - The active set is loaded whole. No registry is read from the non-active set during a run.
 - An active Custom set that is missing, incomplete, version-incompatible or invalid stops the run before validation. There is no Builtin fallback.
 - Only `use` changes `activeSet`. `init-custom` never does.
+- Every lifecycle path read or written resolves by realpath inside the validation target root (spec §4.1).
 
 ## 3.0 Build Concern (Structure)
 
@@ -81,7 +86,12 @@ Not applicable (see 1.4).
 
 #### 5.2.1 State management: `readRegistryLifecycleState`
 
-Reads `registry-state.json` and the manifest, if present. Returns `{ activeSet, customExists, manifest }`. An absent state file means `builtin`. A malformed state file is a lifecycle error.
+Reads `registry-state.json`, the existence of `custom/` and the manifest, if present (`registry-lifecycle-state.logic.mjs`):
+- `resolveRegistryLifecyclePaths` derives every lifecycle path from the validation target root (or the internal root override);
+- `readRegistryLifecycleState` returns `{ activeSet, stateFileExists }`. An absent state file means `builtin`. A malformed state file is a lifecycle error (`RegistryLifecycleError`);
+- `customSetExists` reports whether `custom/` exists;
+- `readRegistrySetManifest` returns `{ manifest }` or `{ manifestError }`; manifest problems are returned, not thrown, so the caller decides whether they block.
+- `isLifecyclePathContained` checks that a lifecycle path resolves by realpath inside the containment root (the validation target root, or the internal root override). A path that does not exist yet resolves through its nearest existing ancestor; a symlink that cannot be resolved does not count as contained. An escaping lifecycle root or state file is a lifecycle error; escaping paths under `custom/` are reported by 5.2.4 (spec §4.1 "Containment").
 
 #### 5.2.2 Derived value: `canonicalizeRegistryPayload`
 
@@ -100,6 +110,8 @@ Compares Custom with the current Builtin inventory and the Baseline. Produces:
 - `builtinDriftSinceBaseline`;
 - the per-registry status classification;
 - `customIssues` for an inactive Custom set, using each slice's registry-set validation entry point for `invalid` (spec §7.2, §9.3, §11.1);
+- Custom paths that escape the target (spec §4.1) as unreadable: a registry file is `invalid`, a `.baseline/` copy is a `baseline-mismatch`, the manifest is `manifest-malformed`; escaping files are never read, escaping directories are never listed, and a slice with an escaping registry file is not passed to its slice validation;
+- `baselineMismatch` for every registry the trusted manifest lists, orphans included (spec §4.4, §12.1). An orphan is canonicalized with its slice's retired descriptor; an orphan without one has a `null` digest and `baselineMismatch` (unverifiable, never a mismatch);
 - Baseline copy verification against manifest digests, giving `baseline-mismatch` (spec §4.4).
 
 #### 5.2.5 Workflow: `resolveActiveRegistrySet`
@@ -131,11 +143,15 @@ Gated: available only once every inventory slice's registry consumers read resol
 - `use <builtin|custom>` → 5.2.7 (spec §13 slice 3).
 - `status` → 5.2.1 + 5.2.4. Read-only.
 
-Usage errors and lifecycle errors go to stderr with a non-zero exit.
+Usage errors and lifecycle errors go to stderr with a non-zero exit. Until slice 3, `use` is answered with a notice that Custom activation is not available yet.
+
+Repository scripts: `npm run registry:init-custom` and `npm run registry:status` (`scripts/registry-lifecycle.host.mjs`).
 
 ### 5.4 Wiring into validation runs
 
 The runner and direct slice CLIs call 5.2.5 once per run, before slice execution. Slice wiring passes each slice its resolved root. Naming's registry-state owner, the suite-core scope-profile and exit-policy loaders, and Tree's direct loaders read from that root instead of their package-relative `_builtin/` constants.
+
+Slice 2 state: Naming and suite core read their resolved roots. Tree receives `registryRoots` for candidate collection (suite scope profiles) but its own loaders still read Builtin; they move in slice 3, which is why the activation gate stays closed.
 
 ## 6.0 Knowledge Concern (Reference Data)
 
@@ -145,11 +161,11 @@ The runner and direct slice CLIs call 5.2.5 once per run, before slice execution
 - `tree/src/registries/tree-registry-inventory.knowledge.mjs`
 - `src/registries/suite-registry-inventory.knowledge.mjs`
 
-Each is owned by its slice and lists only that slice's registries.
+Each is owned by its slice and lists only that slice's registries. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
 
 ### 6.2 Suite inventory aggregate
 
-`src/core/registry-lifecycle/registry-lifecycle-inventory.knowledge.mjs` lists the slice inventories in deterministic slice order (`naming`, `tree`, `suite`). It adds no registry entries of its own.
+`src/core/registry-lifecycle/registry-lifecycle-inventory.knowledge.mjs` lists the slice inventories and retired inventories in deterministic slice order (`naming`, `tree`, `suite`). It adds no registry entries of its own.
 
 ### 6.3 Constants
 
@@ -182,21 +198,29 @@ Not applicable: outputs are JSON report fields, JSON status output and plain-tex
 
 ## 9.0 Assembly Pattern
 
-### 9.1 File structure (planned)
+### 9.1 File structure
 
 ```text
 src/core/registry-lifecycle/
-  registry-lifecycle.contracts.mjs
-  registry-lifecycle-inventory.knowledge.mjs
-  registry-lifecycle-state.logic.mjs
-  registry-lifecycle-canonical-digest.logic.mjs
-  registry-lifecycle-assessment.logic.mjs
-  registry-lifecycle-resolution.logic.mjs
-  registry-lifecycle-init.logic.mjs
-bin/calculogic-validator-registry.host.mjs
+  registry-lifecycle.contracts.mjs                 6.3
+  registry-lifecycle-inventory.knowledge.mjs       6.2
+  registry-lifecycle-state.logic.mjs               5.2.1
+  registry-lifecycle-canonical-digest.logic.mjs    5.2.2, 5.2.3
+  registry-lifecycle-slice-validation.logic.mjs    5.2.4 (calls each slice's entry point)
+  registry-lifecycle-assessment.logic.mjs          5.2.4
+  registry-lifecycle-resolution.logic.mjs          5.2.5
+  registry-lifecycle-init.logic.mjs                5.2.6
+  registry-lifecycle-status.logic.mjs              7.2
+  registry-lifecycle-cli.logic.mjs                 5.3
+bin/calculogic-validator-registry.host.mjs         5.3 (package bin)
+scripts/registry-lifecycle.host.mjs                5.3 (repository scripts)
+naming/src/registries/naming-registry-inventory.knowledge.mjs   6.1
+tree/src/registries/tree-registry-inventory.knowledge.mjs       6.1
+src/registries/suite-registry-inventory.knowledge.mjs           6.1
+naming/src/registries/registry-state.logic.mjs     Naming entry point (validateNamingRegistrySet)
+tree/src/registries/tree-registry-set.logic.mjs    Tree entry point (validateTreeRegistrySet)
+src/registries/suite-registry-set.logic.mjs        suite entry point (validateSuiteRegistrySet)
 ```
-
-Final file names are confirmed against `FileNamingMasterList-V1_1.md` in the implementation PR.
 
 ### 9.2 Assembly logic
 

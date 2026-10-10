@@ -5,6 +5,24 @@
   "validatorId": "runner",
   "toolVersion": "0.1.0",
   "validatorVersion": "0.1.0",
+  "registrySet": {
+    "activeSet": "builtin",
+    "customExists": false,
+    "customDiffers": false,
+    "orphanRegistries": [],
+    "customIssues": [],
+    "resolvedSetDigest": "e95886044da2a2e0799e401755354e47ec883c448898e986db2a31bf2163f82b"
+  },
+  "registryProvenance": {
+    "suite/exit-policy": {
+      "source": "builtin",
+      "digest": "67adf78c0578f974da9e0933dc2ee8f521141ab67899073fa65f76b2fee589c0"
+    },
+    "suite/scope-profiles": {
+      "source": "builtin",
+      "digest": "0663730300e339618e2158308fe7bc794d577f4343fa779352f0f1aa7539058c"
+    }
+  },
   "sourceSnapshot": {
     "source": "fs",
     "repositoryRoot": "<repository-root>",
@@ -73,8 +91,62 @@
           "registrySource": "builtin",
           "registryDigests": {
             "builtin": "603befb271f58265771b5106d85c3b593e956a73f2c768352aa4a305a4a2b0fd",
-            "custom": "8d5ccfbe4cc90cf86d4b03abcc68e003d7f6f05b7508eb241c9b8d49ac29dd8f",
+            "custom": "603befb271f58265771b5106d85c3b593e956a73f2c768352aa4a305a4a2b0fd",
             "resolved": "603befb271f58265771b5106d85c3b593e956a73f2c768352aa4a305a4a2b0fd"
+          }
+        },
+        "registryProvenance": {
+          "naming/agnostic-core-meanings": {
+            "source": "builtin",
+            "digest": "f5a5480d4103823a1f4a8b6fecfe94f25b52e102e93c21c8012637d71950e524"
+          },
+          "naming/case-rules": {
+            "source": "builtin",
+            "digest": "e834c4126bc3ceb0244274ee203ec4e0f288bb3ee160a9d39bc6ca8386e994b1"
+          },
+          "naming/categories": {
+            "source": "builtin",
+            "digest": "62a53ad5c7b3728b2fb5cea672322c287c72339c12bfb2be19ac6d1f3f6ab587"
+          },
+          "naming/category-role-perspective": {
+            "source": "builtin",
+            "digest": "9e21f18fb48faa0382d2474f9f9309ca0e58772c346cff8c2239c331cc3b4965"
+          },
+          "naming/finding-policy": {
+            "source": "builtin",
+            "digest": "18b5e55829eb2f6cdd7dc48b389236a79089940cb505ced641ed3353a37a4459"
+          },
+          "naming/folder-composition-patterns": {
+            "source": "builtin",
+            "digest": "7b349290e755d9b4971a1d7efded9c5476228e8181c07825a90044ba7dd52228"
+          },
+          "naming/missing-role-patterns": {
+            "source": "builtin",
+            "digest": "24874c401e61178cba1f9cab560bfa248619d3463f41a004c0e1691a075ec40a"
+          },
+          "naming/reportable-extensions": {
+            "source": "builtin",
+            "digest": "b6260f1f7f867b89a25596e8683df7ba25cca22d63e1b29e195b9e2bb3ac5ad0"
+          },
+          "naming/reportable-root-files": {
+            "source": "builtin",
+            "digest": "eb0a9a6595bc6c7ff38dec6f455aed7df6df951d1c5d22a9cd9f312cdbcd40c8"
+          },
+          "naming/roles": {
+            "source": "builtin",
+            "digest": "c3643e56950c3b49f773ef38392f1c38eeca4fefc9ca85d4a74aca3fdf193dd3"
+          },
+          "naming/special-cases": {
+            "source": "builtin",
+            "digest": "a0cee0b01d2a4280c1492070c434856db387909db06fb03be23e9987cc07d35b"
+          },
+          "naming/summary-buckets": {
+            "source": "builtin",
+            "digest": "9624acbc65dcf713436ec8a6856f73220125530ec85a1dfbfbacb7153c60d94d"
+          },
+          "naming/walk-exclusions": {
+            "source": "builtin",
+            "digest": "94f9f3caf8541dffdfe4636ce38473c09928ac17f0229600e8acbc959703de85"
           }
         }
       }

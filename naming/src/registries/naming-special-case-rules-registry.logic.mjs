@@ -1,5 +1,7 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertAllowedFields, isPathSegmentName } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
@@ -9,20 +11,56 @@ export const BUILTIN_SPECIAL_CASES_REGISTRY_PATH = fileURLToPath(
 
 let cachedBuiltinSpecialCaseRules = null;
 
-const loadBuiltinSpecialCases = () => {
-  const payload = JSON.parse(fs.readFileSync(BUILTIN_SPECIAL_CASES_REGISTRY_PATH, 'utf8'));
+const SPECIAL_CASES_REGISTRY_FILENAME = 'special-cases.registry.json';
+
+// Supported match forms (cfg-namingValidator: basenameEquals, suffixEquals, regex).
+const SPECIAL_CASE_MATCH_FORMS = Object.freeze(['basenameEquals', 'suffixEquals', 'regex']);
+
+const loadSpecialCaseRulesFromFile = (registryFilePath) => {
+  const payload = JSON.parse(fs.readFileSync(registryFilePath, 'utf8'));
 
   if (!payload || typeof payload !== 'object' || !Array.isArray(payload.specialCases)) {
-    throw new Error('Invalid builtin special-cases registry: missing specialCases array.');
+    throw new Error('Invalid special-cases registry: missing specialCases array.');
   }
 
+  // Rules are first-match, so a match an earlier rule already covers can never take effect. Shadowing
+  // is decided exactly for the list forms; for `regex`, only a repeated pattern is decidable.
+  const earlierBasenames = new Set();
+  const earlierSuffixes = [];
+  const earlierRegexes = new Set();
+  const assertReachable = (match, entryPrefix) => {
+    for (const basename of Array.isArray(match.basenameEquals) ? match.basenameEquals : []) {
+      const coveringSuffix = earlierSuffixes.find((suffix) => basename.endsWith(suffix));
+      if (earlierBasenames.has(basename) || coveringSuffix !== undefined) {
+        throw new Error(`${entryPrefix}: match.basenameEquals "${basename}" is already matched by an earlier rule.`);
+      }
+    }
+
+    for (const suffix of Array.isArray(match.suffixEquals) ? match.suffixEquals : []) {
+      if (earlierSuffixes.some((earlierSuffix) => suffix.endsWith(earlierSuffix))) {
+        throw new Error(`${entryPrefix}: match.suffixEquals "${suffix}" is already matched by an earlier rule.`);
+      }
+    }
+
+    if (typeof match.regex === 'string' && earlierRegexes.has(match.regex)) {
+      throw new Error(`${entryPrefix}: match.regex repeats an earlier rule.`);
+    }
+
+    (match.basenameEquals ?? []).forEach((basename) => earlierBasenames.add(basename));
+    earlierSuffixes.push(...(match.suffixEquals ?? []));
+    if (typeof match.regex === 'string') {
+      earlierRegexes.add(match.regex);
+    }
+  };
+
   return payload.specialCases.map((specialCase, index) => {
-    const entryPrefix = `Invalid builtin special-cases registry entry at index ${index}`;
+    const entryPrefix = `Invalid special-cases registry entry at index ${index}`;
 
     if (!specialCase || typeof specialCase !== 'object') {
       throw new Error(`${entryPrefix}: expected object.`);
     }
 
+    assertAllowedFields(specialCase, ['type', 'match'], { registryLabel: 'special-cases', label: `entry ${index}` });
     if (typeof specialCase.type !== 'string' || specialCase.type.length === 0) {
       throw new Error(`${entryPrefix}: expected non-empty string type.`);
     }
@@ -31,6 +69,44 @@ const loadBuiltinSpecialCases = () => {
     if (!match || typeof match !== 'object') {
       throw new Error(`${entryPrefix}: missing match object.`);
     }
+
+    assertAllowedFields(match, SPECIAL_CASE_MATCH_FORMS, { registryLabel: 'special-cases', label: `entry ${index} match` });
+
+    // Each entry declares exactly one match form; runtime evaluates one, so a second form would be
+    // silently ignored.
+    const declaredForms = SPECIAL_CASE_MATCH_FORMS.filter((form) => match[form] !== undefined);
+    if (declaredForms.length !== 1) {
+      throw new Error(
+        `${entryPrefix}: match must declare exactly one of ${SPECIAL_CASE_MATCH_FORMS.join(', ')}.`,
+      );
+    }
+
+    // Both list forms test the basename, so a value with a path separator would never match.
+    if (Array.isArray(match.basenameEquals) && !match.basenameEquals.every(isPathSegmentName)) {
+      throw new Error(`${entryPrefix}: match.basenameEquals values must be bare file names without a path.`);
+    }
+
+    if (Array.isArray(match.suffixEquals) && match.suffixEquals.some((suffix) => /[/\\]/u.test(suffix))) {
+      throw new Error(`${entryPrefix}: match.suffixEquals values must not contain a path separator.`);
+    }
+
+    if (match.regex !== undefined && (typeof match.regex !== 'string' || match.regex.length === 0)) {
+      throw new Error(`${entryPrefix}: match.regex must be a non-empty string.`);
+    }
+
+    for (const listField of ['basenameEquals', 'suffixEquals']) {
+      const values = match[listField];
+      if (
+        values !== undefined &&
+        (!Array.isArray(values) ||
+          values.length === 0 ||
+          !values.every((value) => typeof value === 'string' && value.length > 0))
+      ) {
+        throw new Error(`${entryPrefix}: match.${listField} must be a non-empty array of non-empty strings.`);
+      }
+    }
+
+    assertReachable(match, entryPrefix);
 
     if (Array.isArray(match.basenameEquals)) {
       return {
@@ -58,9 +134,13 @@ const loadBuiltinSpecialCases = () => {
   });
 };
 
+// Loads special-case rules from a resolved Naming registry root (#41 registry lifecycle).
+export const loadNamingSpecialCaseRulesFromRegistryRoot = (registryRoot) =>
+  loadSpecialCaseRulesFromFile(path.join(registryRoot, SPECIAL_CASES_REGISTRY_FILENAME));
+
 export const getBuiltinSpecialCaseRules = () => {
   if (cachedBuiltinSpecialCaseRules === null) {
-    cachedBuiltinSpecialCaseRules = loadBuiltinSpecialCases();
+    cachedBuiltinSpecialCaseRules = loadSpecialCaseRulesFromFile(BUILTIN_SPECIAL_CASES_REGISTRY_PATH);
   }
 
   return cachedBuiltinSpecialCaseRules;

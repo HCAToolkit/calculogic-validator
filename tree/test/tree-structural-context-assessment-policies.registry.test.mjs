@@ -57,6 +57,17 @@ test('structural-context assessment registry rejects duplicate policy id', () =>
   assert.throws(() => normalizeStructuralContextAssessmentPoliciesRegistryPayload(payload), /duplicate policyId/u);
 });
 
+test('structural-context assessment registry rejects a repeated match selector tuple under another policy id', () => {
+  const payload = validPayload();
+  const [firstPolicy] = payload.policies;
+  payload.policies.push({ ...firstPolicy, policyId: `${firstPolicy.policyId}-copy`, match: { ...firstPolicy.match } });
+
+  assert.throws(
+    () => normalizeStructuralContextAssessmentPoliciesRegistryPayload(payload),
+    new RegExp(`match duplicates the selectors of policyId "${firstPolicy.policyId}"`, 'u'),
+  );
+});
+
 test('structural-context assessment registry rejects missing required classification selector', () => {
   const payload = validPayload();
   delete payload.policies[0].match.relationshipInterpretation;

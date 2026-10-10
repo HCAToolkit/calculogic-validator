@@ -1,3 +1,5 @@
+import { NAMING_FOLDER_COMPOSITION_KINDS } from './naming-validator.contracts.mjs';
+
 const SOURCE_ID = 'naming-folder-composition-projection';
 
 const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -66,7 +68,7 @@ const toFolderSemanticContextObservation = ({ occurrenceRecord, pattern }) => {
 export const projectNamingFolderCompositionBridge = ({ folderOccurrenceRecords = [], folderCompositionPatternsRegistry = {} } = {}) => {
   const compositionPatternsByFolderName = toActivePatternsByFolderName(
     folderCompositionPatternsRegistry.folderCompositionPatterns,
-    { expectedKind: 'semantic-qualified-structural-container' },
+    { expectedKind: NAMING_FOLDER_COMPOSITION_KINDS.SEMANTIC_QUALIFIED_STRUCTURAL_CONTAINER },
   );
   const semanticContextPatternsByFolderName = toActivePatternsByFolderName(
     folderCompositionPatternsRegistry.folderSemanticContextPatterns,

@@ -272,7 +272,7 @@ test('validate-tree rejects unsupported tree-specific config surfaces', async ()
 test('validate-tree accepts --config and includes configDigest in runner report envelope', () => {
   const result = runValidateTree(repositoryRoot, [
     '--scope=system',
-    '--config=test/fixtures/validator-config.extensions.contracts.json',
+    '--config=test/fixtures/validator-config.contracts.json',
   ]);
 
   assert.ok([0, 1, 2].includes(result.status));

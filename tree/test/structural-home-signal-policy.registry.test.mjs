@@ -1,17 +1,23 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
+import {
+  STRUCTURAL_HOME_SIGNAL_CATEGORIES,
+  STRUCTURAL_HOME_SIGNAL_STATUSES,
+  assertValidStructuralHomeSignalPolicyRegistry,
+} from '../src/registries/tree-structural-home-signal-policy-registry.logic.mjs';
 
 const STRUCTURAL_HOME_SIGNAL_POLICY_REGISTRY_PATH = new URL(
   '../src/registries/_builtin/structural-home-signal-policy.registry.json',
   import.meta.url,
 );
 
-const ALLOWED_SIGNAL_CATEGORIES = new Set(['strong', 'contextual', 'weak', 'anti-pattern']);
-const ALLOWED_STATUSES = new Set(['active']);
+const ALLOWED_SIGNAL_CATEGORIES = new Set(STRUCTURAL_HOME_SIGNAL_CATEGORIES);
+const ALLOWED_STATUSES = new Set(STRUCTURAL_HOME_SIGNAL_STATUSES);
 
 test('structural-home-signal-policy registry has deterministic shape and coverage', () => {
   const payload = JSON.parse(fs.readFileSync(STRUCTURAL_HOME_SIGNAL_POLICY_REGISTRY_PATH, 'utf8'));
+  assertValidStructuralHomeSignalPolicyRegistry(payload);
 
   assert.equal(typeof payload.version, 'string');
   assert.equal(payload.version.length > 0, true);

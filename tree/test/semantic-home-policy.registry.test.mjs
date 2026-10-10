@@ -1,24 +1,23 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
+import {
+  SEMANTIC_HOME_POLICY_INPUT_LANES,
+  SEMANTIC_HOME_POLICY_STATUSES,
+  assertValidSemanticHomePolicyRegistry,
+} from '../src/registries/tree-semantic-home-policy-registry.logic.mjs';
 
 const SEMANTIC_HOME_POLICY_REGISTRY_PATH = new URL(
   '../src/registries/_builtin/semantic-home-policy.registry.json',
   import.meta.url,
 );
 
-const ALLOWED_INPUT_LANES = new Set([
-  'folder-context',
-  'parent-lineage',
-  'naming-bridge',
-  'structural-home-boundary',
-  'structural-signal-boundary',
-  'repo-top-structural-boundary',
-]);
-const ALLOWED_STATUSES = new Set(['active']);
+const ALLOWED_INPUT_LANES = new Set(SEMANTIC_HOME_POLICY_INPUT_LANES);
+const ALLOWED_STATUSES = new Set(SEMANTIC_HOME_POLICY_STATUSES);
 
 test('semantic-home-policy registry has deterministic shape and boundary coverage', () => {
   const payload = JSON.parse(fs.readFileSync(SEMANTIC_HOME_POLICY_REGISTRY_PATH, 'utf8'));
+  assertValidSemanticHomePolicyRegistry(payload);
 
   assert.equal(typeof payload.version, 'string');
   assert.equal(payload.version.length > 0, true);

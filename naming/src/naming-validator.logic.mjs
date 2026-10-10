@@ -1,5 +1,9 @@
 import path from 'node:path';
 import {
+  NAMING_CONFIGURABLE_SECONDARY_BUCKET_FAMILIES,
+  NAMING_DECISION_OUTCOME_IDS,
+} from './naming-validator.contracts.mjs';
+import {
   DEFAULT_VALIDATOR_SCOPE,
   listValidatorScopes,
   getValidatorScopeProfile,
@@ -99,16 +103,6 @@ const assertPreparedCaseRulesRuntime = (caseRulesRuntime) => {
   );
 };
 
-const NAMING_DECISION_OUTCOME_IDS = Object.freeze({
-  ALLOWED_SPECIAL_CASE: 'allowed-special-case',
-  DEPRECATED_ROLE: 'deprecated-role',
-  UNKNOWN_ROLE: 'unknown-role',
-  BAD_SEMANTIC_CASE: 'bad-semantic-case',
-  CANONICAL: 'canonical',
-  ROLE_HYPHEN_AMBIGUITY: 'role-hyphen-ambiguity',
-  MISSING_ROLE: 'missing-role',
-  LEGACY_EXCEPTION: 'legacy-exception',
-});
 
 const interpolateMessageTemplate = (template, values = {}) =>
   template.replace(/\{([a-zA-Z0-9_]+)\}/gu, (token, key) =>
@@ -235,6 +229,7 @@ export const classifyPath = (
   missingRolePatternsRuntime,
   findingPolicyRuntime,
   caseRulesRuntime,
+  specialCaseRulesRuntime,
 ) => {
   const runtime = assertPreparedNamingRolesRuntime(namingRolesRuntime);
   const missingRolePatterns = assertPreparedMissingRolePatternsRuntime(missingRolePatternsRuntime);
@@ -243,7 +238,7 @@ export const classifyPath = (
   const normalizedPath = normalizePath(relativePath);
   const basename = path.posix.basename(normalizedPath);
 
-  const specialCaseType = getSpecialCaseType(normalizedPath);
+  const specialCaseType = getSpecialCaseType(normalizedPath, specialCaseRulesRuntime);
   if (specialCaseType) {
     return createFindingFromOutcome({
       outcomeId: NAMING_DECISION_OUTCOME_IDS.ALLOWED_SPECIAL_CASE,
@@ -375,6 +370,7 @@ export const runNamingValidator = (preparedInputs = {}) => {
         missingRolePatternsRuntime,
         findingPolicyRuntime,
         caseRulesRuntime,
+        preparedInputs.specialCaseRulesRuntime,
       ),
     ),
   );
@@ -433,18 +429,27 @@ export const summarizeFindings = (findings, summaryBucketsRuntime) => {
 
   for (const finding of findings) {
     incrementCounter(counts, finding.classification);
-    incrementSecondaryFamilyCounter('codeCounts', finding.code);
+    incrementSecondaryFamilyCounter(NAMING_CONFIGURABLE_SECONDARY_BUCKET_FAMILIES.CODE_COUNTS, finding.code);
 
     if (finding.details?.specialCaseType) {
-      incrementSecondaryFamilyCounter('specialCaseTypeCounts', finding.details.specialCaseType);
+      incrementSecondaryFamilyCounter(
+        NAMING_CONFIGURABLE_SECONDARY_BUCKET_FAMILIES.SPECIAL_CASE_TYPE_COUNTS,
+        finding.details.specialCaseType,
+      );
     }
 
     if (finding.severity === 'warn' && finding.details?.roleStatus) {
-      incrementSecondaryFamilyCounter('warningRoleStatusCounts', finding.details.roleStatus);
+      incrementSecondaryFamilyCounter(
+        NAMING_CONFIGURABLE_SECONDARY_BUCKET_FAMILIES.WARNING_ROLE_STATUS_COUNTS,
+        finding.details.roleStatus,
+      );
     }
 
     if (finding.severity === 'warn' && finding.details?.roleCategory) {
-      incrementSecondaryFamilyCounter('warningRoleCategoryCounts', finding.details.roleCategory);
+      incrementSecondaryFamilyCounter(
+        NAMING_CONFIGURABLE_SECONDARY_BUCKET_FAMILIES.WARNING_ROLE_CATEGORY_COUNTS,
+        finding.details.roleCategory,
+      );
     }
 
     if (isSemanticFamilyRootEvidenceFinding(finding)) {

@@ -61,7 +61,7 @@ Registries may describe bounded policy vocabulary and lookup content, but mechan
 
 ### 6.1 Naming slice
 
-- Loader ownership appears in `naming/src/registries/registry-state.logic.mjs` via builtin/custom registry resolution, payload checks, canonicalization, and registry digest/state handling.
+- Loader ownership appears in `naming/src/registries/registry-state.logic.mjs` via loading from the resolved Naming registry root, payload and reference checks, canonicalization, the registry-set validation entry point, and registry digest/state handling.
 - Converter ownership appears in `naming/src/naming-runtime-converters.logic.mjs` via runtime set/map/runtime-shape conversion helpers.
 - Runtime/wiring/logic ownership appears in:
   - `naming/src/naming-validator.wiring.mjs` for prepared runtime input assembly and scope-target runtime preparation.
@@ -90,15 +90,15 @@ Suite core composes slice runners and shared runtime contracts; it does not repl
 Use this decision rule to keep ownership deterministic and avoid generic loader sprawl:
 
 1. **Choose a registry-state owner** (for example `naming/src/registries/registry-state.logic.mjs`) when a slice requires:
-   - multi-source policy composition (builtin + custom/overlay),
-   - explicit precedence/merge/canonicalization contracts,
+   - several related registries loaded and cross-validated together (for example roles against categories),
+   - explicit precedence/canonicalization contracts,
    - digest/cache/state lifecycle as part of the slice runtime contract.
 2. **Choose a direct builtin loader** (for example tree slice local registry logic) when policy payloads are intentionally slice-local and bounded, and no cross-slice generic state host is required.
 3. **Keep suite-core surfaces locally owned** for composition/runtime mechanics (`src/core/**`) instead of promoting them into a generic registry-state aggregator.
 
 Why this is normative:
 
-- Naming centralization through a registry-state owner is intentional because naming has broader extracted policy surfaces and overlay precedence needs.
+- Naming centralization through a registry-state owner is intentional because naming has broader extracted policy surfaces with reference edges between them.
 - Tree direct builtin loading is intentional because tree policy vocabularies are bounded and locally consumed.
 - Suite-core local ownership is intentional because runner/registry/scopes modules are composition mechanics, not slice-policy canonicalization hosts.
 
@@ -106,14 +106,14 @@ Anti-pattern to avoid:
 
 - Do **not** flatten every registry surface behind one universal state layer; that pattern obscures ownership, increases coupling, and weakens clear extraction paths.
 
-Planned registry lifecycle (Issue #41, accepted, not yet implemented):
+Registry lifecycle (Issue #41; slice 2 implemented for Naming and suite core, Tree in slice 3):
 
 - The suite-level Builtin/Custom registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`) is suite-owned **set selection**. It chooses the whole Builtin or Custom set, checks completeness and versions, and hands each slice a resolved registry root.
 - Two kinds of canonicalization stay separate:
   - **Comparison canonicalization** is suite-owned. It is driven by the descriptors each slice declares (set-like array paths, entry keys, omittable fields) and produces only digests and equality.
   - **Runtime-form canonicalization** is slice-owned: trimming, normalizing, deduplicating and converting into runtime structures. It stays in slice loaders.
 - The lifecycle does not validate slice shapes, produce runtime forms or interpret payloads, so it is not the universal state layer this section rules out.
-- Under it, loaders keep the responsibilities in §2, except that "builtin/custom source resolution" becomes reading from the resolved root. Runtime merging of builtin, custom and overlay sources is retired.
+- Under it, loaders keep the responsibilities in §2, except that "builtin/custom source resolution" becomes reading from the resolved root. Runtime merging of builtin, custom and overlay sources is retired (slice 2).
 
 ## 7. Canonical usage rule
 

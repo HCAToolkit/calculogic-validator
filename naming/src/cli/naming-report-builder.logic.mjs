@@ -3,10 +3,13 @@ import { summarizeFindings } from '../naming-validator.host.mjs';
 
 export const buildNamingValidatorReport = ({
   findings,
+  summary: resolvedSummary,
   totalFilesScanned,
   scope,
   filters,
   registry,
+  registrySet,
+  registryProvenance,
   toolVersion,
   configDigest,
   sourceSnapshot,
@@ -15,7 +18,7 @@ export const buildNamingValidatorReport = ({
   endedAtDate,
   registryEntry,
 }) => {
-  const summary = summarizeFindings(findings);
+  const summary = resolvedSummary ?? summarizeFindings(findings);
 
   return {
     ...buildDirectValidatorReportEnvelope({
@@ -34,6 +37,8 @@ export const buildNamingValidatorReport = ({
           registryDigests: registry.registryDigests,
         }
       : {}),
+    ...(registrySet ? { registrySet } : {}),
+    ...(registryProvenance ? { registryProvenance } : {}),
     scope,
     totalFilesScanned,
     filters,

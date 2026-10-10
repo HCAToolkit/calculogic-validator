@@ -97,12 +97,14 @@ export const collectSuiteScopedPaths = (
     skipDotDirectories = true,
     skipSymlinkedCandidateScopeRoots = false,
     packageRoot,
+    registryRoots,
   } = {},
 ) => {
   const selectedScope = scope ?? DEFAULT_VALIDATOR_SCOPE;
   const scopeResolution = resolveContextualValidatorScopeProfile(selectedScope, {
     targetRepositoryRoot: repositoryRoot,
     packageRoot,
+    registryRoots,
   });
 
   if (scopeResolution.status === 'invalid-scope') {
@@ -141,6 +143,7 @@ export const collectSuiteScopedSnapshotInputs = (
     skipDotDirectories = true,
     skipSymlinkedCandidateScopeRoots = false,
     packageRoot,
+    registryRoots,
   } = {},
 ) => {
   const scopedCollection = collectSuiteScopedPaths(repositoryRoot, {
@@ -149,6 +152,7 @@ export const collectSuiteScopedSnapshotInputs = (
     skipDotDirectories,
     skipSymlinkedCandidateScopeRoots,
     packageRoot,
+    registryRoots,
   });
   const resolvedTargets = resolveScopedTargets(repositoryRoot, targets);
 

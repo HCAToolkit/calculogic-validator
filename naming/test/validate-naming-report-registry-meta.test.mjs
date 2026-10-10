@@ -28,7 +28,7 @@ test('validate-naming script report includes registry metadata fields', () => {
   assert.equal(report.validatorId, 'naming');
   assert.ok(report.sourceSnapshot);
   assert.match(report.registryState, /^(builtin|custom)$/u);
-  assert.match(report.registrySource, /^(builtin|custom|config)$/u);
+  assert.match(report.registrySource, /^(builtin|custom)$/u);
   assertRegistryDigestShape(report.registryDigests);
 });
 
@@ -51,18 +51,18 @@ test('validate-naming bin report aligns envelope and includes registry metadata 
   }
 
   assert.match(report.registryState, /^(builtin|custom)$/u);
-  assert.match(report.registrySource, /^(builtin|custom|config)$/u);
+  assert.match(report.registrySource, /^(builtin|custom)$/u);
   assertRegistryDigestShape(report.registryDigests);
 });
 
-test('validate-naming with config includes configDigest and config-backed registry source metadata', () => {
+test('validate-naming with config includes configDigest and keeps lifecycle-derived registry source metadata', () => {
   const result = spawnSync(
     process.execPath,
     [
       '--experimental-strip-types',
       'scripts/validate-naming.host.mjs',
       '--scope=system',
-      '--config=test/fixtures/validator-config.roles.contracts.json',
+      '--config=test/fixtures/validator-config.contracts.json',
     ],
     { cwd: process.cwd(), encoding: 'utf8' },
   );
@@ -76,7 +76,8 @@ test('validate-naming with config includes configDigest and config-backed regist
   assert.equal(report.scopeSummary?.findingsGenerated, report.findings.length);
   assert.equal(typeof report.scopeContract?.description, 'string');
 
-  if (report.registrySource === 'config') {
-    assert.match(report.registryState, /^(builtin|custom)$/u);
-  }
+  // Config no longer selects or overlays registries (#41); the transitional fields mirror the
+  // lifecycle's active set.
+  assert.equal(report.registrySource, report.registrySet.activeSet);
+  assert.equal(report.registryState, report.registrySet.activeSet);
 });

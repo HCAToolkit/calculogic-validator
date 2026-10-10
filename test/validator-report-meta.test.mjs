@@ -23,7 +23,7 @@ test('getValidatorToolVersion matches package.json version', () => {
 
 test('validate-naming report includes stable configDigest when config is supplied', () => {
   const config = loadValidatorConfigFromFile(
-    'test/fixtures/validator-config.extensions.contracts.json',
+    'test/fixtures/validator-config.contracts.json',
     { cwd: process.cwd() },
   );
   const expectedDigest = computeConfigDigest(config);
@@ -35,7 +35,7 @@ test('validate-naming report includes stable configDigest when config is supplie
         '--experimental-strip-types',
         'scripts/validate-naming.host.mjs',
         '--scope=docs',
-        '--config=test/fixtures/validator-config.extensions.contracts.json',
+        '--config=test/fixtures/validator-config.contracts.json',
       ],
       { cwd: process.cwd(), encoding: 'utf8' },
     );
