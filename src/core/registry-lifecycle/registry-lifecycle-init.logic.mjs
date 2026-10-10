@@ -5,7 +5,8 @@
  * Responsibility: Creates a complete Custom set, its Baseline copy and its manifest from Builtin.
  * Invariants: refuses when `custom/` exists; copies every inventory registry byte for byte; never
  *   changes the active set (writes the state file only when absent, with `builtin`); builds the
- *   set in a temporary directory and renames it into place (lifecycle spec §4, §12.1).
+ *   set in a temporary directory and renames it into place; writes only inside the validation
+ *   target (lifecycle spec §4, §4.1 "Containment", §12.1).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,6 +15,7 @@ import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowle
 import {
   RegistryLifecycleError,
   customSetExists,
+  isLifecyclePathContained,
   readRegistryLifecycleState,
   resolveRegistryLifecyclePaths,
 } from './registry-lifecycle-state.logic.mjs';
@@ -41,14 +43,19 @@ export const initCustomRegistrySet = ({
   }
 
   const paths = resolveRegistryLifecyclePaths({ targetRoot, lifecycleRootOverride });
+  // Validates containment and an existing state file before writing anything (spec §4.1).
+  const { stateFileExists } = readRegistryLifecycleState(paths);
+  if (!isLifecyclePathContained(paths, paths.customRoot)) {
+    throw new RegistryLifecycleError(
+      `The Custom set path resolves outside the validation target (${paths.customRoot}). init-custom writes only inside the target repository.`,
+    );
+  }
+
   if (customSetExists(paths)) {
     throw new RegistryLifecycleError(
       `A Custom registry set already exists (${paths.customRoot}). init-custom never overwrites it.`,
     );
   }
-
-  // Validates an existing state file before writing anything.
-  const { stateFileExists } = readRegistryLifecycleState(paths);
 
   fs.mkdirSync(paths.lifecycleRoot, { recursive: true });
   const stagingRoot = fs.mkdtempSync(path.join(paths.lifecycleRoot, '.custom-init-'));

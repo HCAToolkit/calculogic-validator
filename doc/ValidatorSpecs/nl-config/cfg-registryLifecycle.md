@@ -70,6 +70,7 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 - The active set is loaded whole. No registry is read from the non-active set during a run.
 - An active Custom set that is missing, incomplete, version-incompatible or invalid stops the run before validation. There is no Builtin fallback.
 - Only `use` changes `activeSet`. `init-custom` never does.
+- Every lifecycle path read or written resolves by realpath inside the validation target root (spec §4.1).
 
 ## 3.0 Build Concern (Structure)
 
@@ -90,6 +91,7 @@ Reads `registry-state.json`, the existence of `custom/` and the manifest, if pre
 - `readRegistryLifecycleState` returns `{ activeSet, stateFileExists }`. An absent state file means `builtin`. A malformed state file is a lifecycle error (`RegistryLifecycleError`);
 - `customSetExists` reports whether `custom/` exists;
 - `readRegistrySetManifest` returns `{ manifest }` or `{ manifestError }`; manifest problems are returned, not thrown, so the caller decides whether they block.
+- `isLifecyclePathContained` checks that a lifecycle path resolves by realpath inside the containment root (the validation target root, or the internal root override). A path that does not exist yet resolves through its nearest existing ancestor; a symlink that cannot be resolved does not count as contained. An escaping lifecycle root or state file is a lifecycle error; escaping paths under `custom/` are reported by 5.2.4 (spec §4.1 "Containment").
 
 #### 5.2.2 Derived value: `canonicalizeRegistryPayload`
 
@@ -108,6 +110,7 @@ Compares Custom with the current Builtin inventory and the Baseline. Produces:
 - `builtinDriftSinceBaseline`;
 - the per-registry status classification;
 - `customIssues` for an inactive Custom set, using each slice's registry-set validation entry point for `invalid` (spec §7.2, §9.3, §11.1);
+- Custom paths that escape the target (spec §4.1) as unreadable: a registry file is `invalid`, a `.baseline/` copy is a `baseline-mismatch`, the manifest is `manifest-malformed`; escaping files are never read, escaping directories are never listed, and a slice with an escaping registry file is not passed to its slice validation;
 - `baselineMismatch` for every registry the trusted manifest lists, orphans included (spec §4.4, §12.1). No current inventory descriptor describes an orphan, so its Custom file and Baseline copy are digested descriptor-free;
 - Baseline copy verification against manifest digests, giving `baseline-mismatch` (spec §4.4).
 

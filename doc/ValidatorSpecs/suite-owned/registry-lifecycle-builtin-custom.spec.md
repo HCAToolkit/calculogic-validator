@@ -75,6 +75,11 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 - A root override exists only as an internal API parameter for tests and package development. It is never consumer configuration.
 - The root is a dot-directory, so default suite traversal does not collect it as validation candidates (Naming `walk-exclusions` `skipDotDirectories`). A Custom set that disables that rule makes its own files visible to validation, which is harmless.
 
+**Containment.** Every lifecycle path the Validator reads or writes must resolve, after following symlinks (realpath), inside the validation target root. A symlink that stays inside the target is allowed. One that escapes it is not, and a symlink that cannot be resolved counts as escaping. Reads and writes follow the same rule:
+- An escaping lifecycle root or `registry-state.json` is unreadable state (§7.1 item 5). It blocks every run and every lifecycle command, and `init-custom` refuses before writing anything.
+- Inside `custom/`, an escaping path is unreadable and is reported through the existing conditions. It never blocks an inactive set (§7.2). An escaping Custom registry file is `invalid`, an escaping `.baseline/` copy is a `baseline-mismatch`, and an escaping manifest is `manifest-malformed`. The Validator does not read through an escaping path.
+- Sharing one Custom set between repositories through a symlink is not supported. A portable set is copied (or, later, imported) and becomes owned by the consuming repository (§4.3), so Baseline updates never act on a directory another repository also owns.
+
 ### 4.2 Layout
 
 ```text
@@ -140,7 +145,7 @@ Comparison decides whether Custom *differs* from Builtin rather than being merel
 - **Plain JSON only:** objects, arrays, strings, numbers, booleans and `null`.
 - **Object keys** are sorted lexicographically at every depth (`stableStringify`, `src/core/validator-report-meta.logic.mjs`).
 - **Ordered arrays** (meaningful sequences, such as priority lists or rule pipelines) keep their order.
-- **Set-like arrays** (membership is the meaning) are sorted by their declared entry key, or by value for scalar arrays, with the stable-stringified item as the tie-breaker. Identical members collapse to one, since a repeated member does not change membership; keyed records that differ in any field stay distinct.
+- **Set-like arrays** (membership is the meaning) are sorted by their declared entry key, or by value for scalar arrays, with the stable-stringified item as the tie-breaker. Identical members collapse to one, since a repeated member does not change membership; keyed records that differ in any field stay distinct. Collapsing applies only to arrays the descriptor declares set-like: ordered arrays keep repetition, and keyed-record uniqueness is checked by slice validation (§9.3), never repaired by comparison.
 - **Empty optional values** that a registry declares as omittable (for example an empty `notes` string) are normalized out.
 - Arrays are **ordered by default**. A registry's descriptor (§9.1) declares which array paths are set-like, their entry keys and which optional fields are omittable.
 

@@ -1061,6 +1061,121 @@ test('status reports the state file active set with the assessment, deterministi
   });
 });
 
+// ---- containment (spec §4.1) ------------------------------------------------------------------
+
+// A directory beside the target, so a symlink into it escapes the validation target.
+const outsideDir = (targetRoot) => {
+  const outsideRoot = path.join(path.dirname(targetRoot), 'outside');
+  fs.mkdirSync(outsideRoot, { recursive: true });
+  return outsideRoot;
+};
+
+const symlinkDir = (linkTarget, linkPath) => {
+  fs.mkdirSync(path.dirname(linkPath), { recursive: true });
+  fs.symlinkSync(linkTarget, linkPath, 'dir');
+};
+
+const isLifecycleError = (error) => error instanceof RegistryLifecycleError && /resolves outside/u.test(error.message);
+
+test('an escaping lifecycle root blocks init-custom, status and resolution, and nothing is written outside', () => {
+  withLifecycleFixture(({ targetRoot, slices }) => {
+    const outsideRoot = outsideDir(targetRoot);
+    symlinkDir(outsideRoot, path.join(targetRoot, '.calculogic'));
+
+    assert.throws(() => initFixture({ targetRoot, slices }), isLifecycleError);
+    assert.deepEqual(fs.readdirSync(outsideRoot), []);
+    assert.throws(() => buildRegistryLifecycleStatus({ targetRoot, slices }), isLifecycleError);
+    assert.throws(() => resolveActiveRegistrySet({ targetRoot, slices }), isLifecycleError);
+  });
+});
+
+test('an escaping or dangling state file and an escaping custom/ path are refused before writing', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    const outsideRoot = outsideDir(targetRoot);
+    fs.mkdirSync(paths.lifecycleRoot, { recursive: true });
+
+    fs.symlinkSync(path.join(outsideRoot, 'registry-state.json'), paths.statePath);
+    assert.throws(() => readRegistryLifecycleState(paths), isLifecycleError);
+    assert.throws(() => initFixture({ targetRoot, slices }), isLifecycleError);
+    fs.rmSync(paths.statePath);
+
+    symlinkDir(path.join(outsideRoot, 'custom'), paths.customRoot);
+    assert.throws(() => initFixture({ targetRoot, slices }), isLifecycleError);
+    assert.deepEqual(fs.readdirSync(outsideRoot), []);
+  });
+});
+
+test('a symlink that stays inside the target is allowed', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    const internalRoot = path.join(targetRoot, 'config', 'calculogic');
+    fs.mkdirSync(internalRoot, { recursive: true });
+    symlinkDir(internalRoot, path.join(targetRoot, '.calculogic'));
+
+    initFixture({ targetRoot, slices });
+    assert.ok(fs.existsSync(path.join(internalRoot, 'registries', 'custom', 'registry-set.manifest.json')));
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.deepEqual(assessment.customIssues, []);
+    assert.equal(assessment.customDiffers, false);
+  });
+});
+
+test('escaping paths inside custom/ are reported unreadable, never read and never blocking', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    const outsideRoot = outsideDir(targetRoot);
+
+    // A Custom registry file that escapes is invalid, and its slice is not validated through it.
+    const rolesPath = customFile(paths, 'naming/roles');
+    fs.copyFileSync(rolesPath, path.join(outsideRoot, 'roles.registry.json'));
+    fs.rmSync(rolesPath);
+    fs.symlinkSync(path.join(outsideRoot, 'roles.registry.json'), rolesPath);
+
+    // An escaping .baseline copy is a baseline mismatch.
+    const baselineExitPolicy = path.join(paths.baselineRoot, 'suite', 'exit-policy.registry.json');
+    fs.copyFileSync(baselineExitPolicy, path.join(outsideRoot, 'exit-policy.registry.json'));
+    fs.rmSync(baselineExitPolicy);
+    fs.symlinkSync(path.join(outsideRoot, 'exit-policy.registry.json'), baselineExitPolicy);
+
+    // An escaping slice-like directory is never listed for orphans.
+    writeJson(path.join(outsideRoot, 'extra', 'other.registry.json'), { version: '1' });
+    symlinkDir(path.join(outsideRoot, 'extra'), path.join(paths.customRoot, 'extra'));
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    const roles = assessment.registries.find((entry) => entry.registryId === 'naming/roles');
+    assert.equal(roles.classification, 'invalid');
+    assert.match(roles.detail, /outside the validation target/u);
+    assert.equal(roles.customDigest, null);
+    assert.equal(classificationOf(assessment, 'naming/categories'), 'unchanged');
+    assert.deepEqual(assessment.orphanRegistries, []);
+    assert.deepEqual(
+      assessment.customIssues.map((issue) => `${issue.registryId}:${issue.condition}:${issue.detail}`),
+      [
+        `naming/roles:invalid:${roles.detail}`,
+        'suite/exit-policy:baseline-mismatch:The .baseline copy resolves outside the validation target.',
+      ],
+    );
+
+    // Builtin runs still resolve; the escaping Custom set is reported, not exposed.
+    const resolution = resolveActiveRegistrySet({ targetRoot, slices });
+    assert.equal(resolution.customRegistryRoots, undefined);
+    assert.equal(resolution.registrySet.customIssues.length, 2);
+  }, { copyBuiltin: true });
+});
+
+test('an escaping manifest is manifest-malformed', () => {
+  withLifecycleFixture(({ targetRoot, paths, slices }) => {
+    initFixture({ targetRoot, slices });
+    const outsideRoot = outsideDir(targetRoot);
+    fs.copyFileSync(paths.manifestPath, path.join(outsideRoot, 'registry-set.manifest.json'));
+    fs.rmSync(paths.manifestPath);
+    fs.symlinkSync(path.join(outsideRoot, 'registry-set.manifest.json'), paths.manifestPath);
+
+    const assessment = assessCustomRegistrySet({ paths, slices });
+    assert.equal(assessment.customIssues[0].condition, 'manifest-malformed');
+    assert.match(assessment.manifestError, /resolves outside the validation target/u);
+  });
+});
+
 // ---- resolution -------------------------------------------------------------------------------
 
 test('without a Custom set, resolution returns Builtin roots and builtin provenance and writes nothing', () => {

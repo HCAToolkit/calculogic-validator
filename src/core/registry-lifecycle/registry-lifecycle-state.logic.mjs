@@ -48,6 +48,8 @@ export const resolveRegistryLifecyclePaths = ({ targetRoot, lifecycleRootOverrid
   const customRoot = path.join(lifecycleRoot, CUSTOM_SET_DIRNAME);
 
   return {
+    // Every lifecycle path must resolve inside this root (lifecycle spec §4.1 "Containment").
+    containmentRoot: lifecycleRootOverride ? lifecycleRoot : path.resolve(targetRoot),
     lifecycleRoot,
     statePath: path.join(lifecycleRoot, REGISTRY_STATE_FILENAME),
     customRoot,
@@ -56,8 +58,66 @@ export const resolveRegistryLifecyclePaths = ({ targetRoot, lifecycleRootOverrid
   };
 };
 
+// Resolves a path through symlinks. A path that does not exist yet resolves through its nearest
+// existing ancestor; a dangling symlink cannot be resolved and yields null.
+const resolveRealPath = (candidatePath) => {
+  try {
+    return fs.realpathSync(candidatePath);
+  } catch {
+    let isLink = false;
+    try {
+      isLink = fs.lstatSync(candidatePath).isSymbolicLink();
+    } catch {
+      // Absent: resolve through the parent below.
+    }
+
+    const parentPath = path.dirname(candidatePath);
+    if (isLink || parentPath === candidatePath) {
+      return null;
+    }
+
+    const realParent = resolveRealPath(parentPath);
+    return realParent === null ? null : path.join(realParent, path.basename(candidatePath));
+  }
+};
+
+// [5.2.1] cfg-registryLifecycle · Primitive · "isLifecyclePathContained"
+// True when `candidatePath` resolves by realpath inside the containment root: internal symlinks
+// are allowed, escaping or unresolvable ones are not (lifecycle spec §4.1 "Containment").
+export const isLifecyclePathContained = (paths, candidatePath) => {
+  const realRoot = resolveRealPath(paths.containmentRoot);
+  const realCandidate = resolveRealPath(candidatePath);
+  if (realRoot === null || realCandidate === null) {
+    return false;
+  }
+
+  const relativePath = path.relative(realRoot, realCandidate);
+  return (
+    relativePath === '' ||
+    (relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath))
+  );
+};
+
+// [5.2.1] cfg-registryLifecycle · Primitive · "assertLifecycleStateContained"
+// An escaping lifecycle root or state file is unreadable state: it blocks every run and every
+// lifecycle command (lifecycle spec §4.1, §7.1 item 5).
+export const assertLifecycleStateContained = (paths) => {
+  for (const lifecyclePath of [paths.lifecycleRoot, paths.statePath]) {
+    if (!isLifecyclePathContained(paths, lifecyclePath)) {
+      throw new RegistryLifecycleError(
+        [
+          `Registry lifecycle path resolves outside the validation target (${lifecyclePath}).`,
+          'Lifecycle files must live inside the target repository; a symlink may not lead outside it.',
+          'Replace the symlink with a copy of the registry set owned by this repository.',
+        ].join(' '),
+      );
+    }
+  }
+};
+
 // [5.2.1] cfg-registryLifecycle · Primitive · "readRegistryLifecycleState"
 export const readRegistryLifecycleState = (paths) => {
+  assertLifecycleStateContained(paths);
   if (!fs.existsSync(paths.statePath)) {
     return { activeSet: ACTIVE_SET_BUILTIN, stateFileExists: false };
   }
@@ -106,6 +166,10 @@ const isValidManifestEntry = (entry) =>
 // Returns `{ manifest }` or `{ manifestError }`. Completeness against the Custom files present is
 // checked by the assessment, which knows the inventory (lifecycle spec §7.1 item 5).
 export const readRegistrySetManifest = (paths) => {
+  if (!isLifecyclePathContained(paths, paths.manifestPath)) {
+    return { manifestError: `Registry set manifest resolves outside the validation target: ${paths.manifestPath}` };
+  }
+
   if (!fs.existsSync(paths.manifestPath)) {
     return { manifestError: `Registry set manifest is missing: ${paths.manifestPath}` };
   }

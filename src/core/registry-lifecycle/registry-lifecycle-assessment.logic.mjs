@@ -11,7 +11,11 @@ import path from 'node:path';
 import { digestRegistryPayload, digestRegistrySet } from './registry-lifecycle-canonical-digest.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
 import { validateSliceRegistrySet } from './registry-lifecycle-slice-validation.logic.mjs';
-import { customSetExists, readRegistrySetManifest } from './registry-lifecycle-state.logic.mjs';
+import {
+  customSetExists,
+  isLifecyclePathContained,
+  readRegistrySetManifest,
+} from './registry-lifecycle-state.logic.mjs';
 import {
   BASELINE_DIRNAME,
   CUSTOM_ISSUE_CONDITIONS,
@@ -41,6 +45,15 @@ const readRegistryFile = (filePath, descriptor) => {
     return { present: true, digest: null, parseError: error.message };
   }
 };
+
+const ESCAPING_PATH_DETAIL = 'Resolves outside the validation target; the Validator does not read through it.';
+
+// Reads one Custom-set file. A path that resolves outside the validation target is never read: it
+// is reported as present but unreadable (lifecycle spec §4.1 "Containment").
+const readCustomSetFile = (paths, filePath, descriptor) =>
+  isLifecyclePathContained(paths, filePath)
+    ? readRegistryFile(filePath, descriptor)
+    : { present: true, digest: null, parseError: ESCAPING_PATH_DETAIL, escapes: true };
 
 // [5.2.4] cfg-registryLifecycle · Primitive · "digestBuiltinRegistrySet"
 export const digestBuiltinRegistrySet = ({ slices = REGISTRY_LIFECYCLE_SLICES } = {}) => {
@@ -73,15 +86,20 @@ const listDirectoryEntries = (directoryPath) => {
   }
 };
 
-const listOrphanRegistries = ({ customRoot, slices }) => {
+// Escaping directories are never listed (lifecycle spec §4.1 "Containment").
+const listOrphanRegistries = ({ paths, slices }) => {
   const knownRegistryIds = new Set(
     slices.flatMap((slice) => slice.inventory.map((entry) => entry.registryId)),
   );
   const orphans = [];
+  const customRoot = paths.customRoot;
+  if (!isLifecyclePathContained(paths, customRoot)) {
+    return orphans;
+  }
 
   for (const sliceDirName of listDirectoryEntries(customRoot)) {
     const sliceDir = path.join(customRoot, sliceDirName);
-    if (sliceDirName === BASELINE_DIRNAME || !isDirectory(sliceDir)) {
+    if (sliceDirName === BASELINE_DIRNAME || !isLifecyclePathContained(paths, sliceDir) || !isDirectory(sliceDir)) {
       continue;
     }
 
@@ -98,6 +116,14 @@ const listOrphanRegistries = ({ customRoot, slices }) => {
   }
 
   return orphans.sort((left, right) => compareOrdinal(left.registryId, right.registryId));
+};
+
+const describeBaselineMismatch = (baseline) => {
+  if (baseline.escapes) {
+    return 'The .baseline copy resolves outside the validation target.';
+  }
+
+  return baseline.present ? 'The .baseline copy does not match its manifest digest.' : 'The .baseline copy is missing.';
 };
 
 const compareIssues = (left, right) => {
@@ -152,14 +178,14 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
     slice.inventory.map((entry) => ({
       slice,
       entry,
-      custom: readRegistryFile(path.join(paths.customRoot, slice.sliceId, entry.fileName), entry.descriptor),
+      custom: readCustomSetFile(paths, path.join(paths.customRoot, slice.sliceId, entry.fileName), entry.descriptor),
     })),
   );
 
   // A readable manifest must cover every Custom registry the engine reads (spec §7.1 item 5).
   const uncoveredRegistryIds = manifest
     ? currentEntries
-        .filter(({ entry, custom }) => custom.present && !manifestEntries[entry.registryId])
+        .filter(({ entry, custom }) => custom.present && !custom.escapes && !manifestEntries[entry.registryId])
         .map(({ entry }) => entry.registryId)
     : [];
   const manifestError =
@@ -172,7 +198,12 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
   const sliceFailuresById = new Map();
   for (const slice of slices) {
     const customSliceRoot = path.join(paths.customRoot, slice.sliceId);
-    if (!isDirectory(customSliceRoot)) {
+    // A slice with an escaping registry file is not validated: that file is already reported
+    // unreadable, and slice validation would read through it.
+    const sliceHasEscapingFile = currentEntries.some(
+      (current) => current.slice.sliceId === slice.sliceId && current.custom.escapes,
+    );
+    if (sliceHasEscapingFile || !isDirectory(customSliceRoot)) {
       continue;
     }
 
@@ -195,7 +226,8 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
     let baselineMismatch = null;
 
     if (manifestEntry) {
-      const baseline = readRegistryFile(
+      const baseline = readCustomSetFile(
+        paths,
         path.join(paths.baselineRoot, slice.sliceId, entry.fileName),
         entry.descriptor,
       );
@@ -204,9 +236,7 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
         customIssues.push({
           registryId,
           condition: CUSTOM_ISSUE_CONDITIONS.baselineMismatch,
-          detail: baseline.present
-            ? 'The .baseline copy does not match its manifest digest.'
-            : 'The .baseline copy is missing.',
+          detail: describeBaselineMismatch(baseline),
         });
       }
     }
@@ -252,24 +282,22 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
     registries.push(statusEntry);
   }
 
-  const orphanRegistries = listOrphanRegistries({ customRoot: paths.customRoot, slices });
+  const orphanRegistries = listOrphanRegistries({ paths, slices });
   for (const orphan of orphanRegistries) {
-    const orphanFile = readRegistryFile(orphan.filePath, {});
+    const orphanFile = readCustomSetFile(paths, orphan.filePath, {});
     const manifestEntry = trustedManifestEntries[orphan.registryId];
     // An orphan's Baseline copy is verified like any other whenever the manifest has its entry
     // (lifecycle spec §4.4, §12.1). No current inventory descriptor describes an orphan, so its
     // copy is digested descriptor-free, as its Custom digest is.
     let baselineMismatch = null;
     if (manifestEntry) {
-      const baseline = readRegistryFile(path.join(paths.baselineRoot, orphan.sliceId, orphan.fileName), {});
+      const baseline = readCustomSetFile(paths, path.join(paths.baselineRoot, orphan.sliceId, orphan.fileName), {});
       baselineMismatch = baseline.digest !== manifestEntry.digest;
       if (baselineMismatch) {
         customIssues.push({
           registryId: orphan.registryId,
           condition: CUSTOM_ISSUE_CONDITIONS.baselineMismatch,
-          detail: baseline.present
-            ? 'The .baseline copy does not match its manifest digest.'
-            : 'The .baseline copy is missing.',
+          detail: describeBaselineMismatch(baseline),
         });
       }
     }
