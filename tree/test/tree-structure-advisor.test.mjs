@@ -2241,26 +2241,31 @@ test('tree-structure-advisor scope collection follows suite profiles uniformly, 
   }
 });
 
-test('tree-structure-advisor keeps current symlinked scope-root traversal behavior', async () => {
-  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-scope-symlink-'));
-  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-scope-symlink-outside-'));
+test('tree-structure-advisor traverses an internal symlinked scope root and rejects an escaping one (#53)', async () => {
+  const fixtureParent = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-scope-symlink-'));
+  const fixtureDir = path.join(fixtureParent, 'target');
+  const outsideDir = path.join(fixtureParent, 'outside');
 
   try {
     await fs.mkdir(path.join(fixtureDir, 'test'), { recursive: true });
+    await fs.mkdir(path.join(fixtureDir, 'packages', 'app-src'), { recursive: true });
+    await fs.mkdir(outsideDir, { recursive: true });
     await fs.writeFile(path.join(fixtureDir, 'test', 'inside.test.js'), 'export const inside = true;\n', 'utf8');
-    await fs.writeFile(
-      path.join(outsideDir, 'outside.logic.ts'),
-      'export const outside = true;\n',
-      'utf8',
-    );
-    await fs.symlink(outsideDir, path.join(fixtureDir, 'src'), 'dir');
+    await fs.writeFile(path.join(fixtureDir, 'packages', 'app-src', 'app.logic.ts'), 'export const app = true;\n', 'utf8');
+    await fs.writeFile(path.join(outsideDir, 'outside.logic.ts'), 'export const outside = true;\n', 'utf8');
 
+    await fs.symlink(path.join(fixtureDir, 'packages', 'app-src'), path.join(fixtureDir, 'src'), 'dir');
     const prepared = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'app' });
+    assert.deepEqual(prepared.selectedPaths, ['src/app.logic.ts', 'test/inside.test.js']);
 
-    assert.deepEqual(prepared.selectedPaths, ['src/outside.logic.ts', 'test/inside.test.js']);
+    await fs.rm(path.join(fixtureDir, 'src'));
+    await fs.symlink(outsideDir, path.join(fixtureDir, 'src'), 'dir');
+    assert.throws(
+      () => prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'app' }),
+      /Scope root escapes repository root: src/u,
+    );
   } finally {
-    await fs.rm(fixtureDir, { recursive: true, force: true });
-    await fs.rm(outsideDir, { recursive: true, force: true });
+    await fs.rm(fixtureParent, { recursive: true, force: true });
   }
 });
 

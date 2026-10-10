@@ -131,6 +131,7 @@ Helper ownership includes:
 - reading suite scope profiles
 - applying `includeRoots`
 - applying `includeRootFiles`
+- scope-root containment before traversal: every declared `includeRoots` and `includeRootFiles` entry must resolve by realpath inside the validation target. An entry that does not exist contributes no paths. An entry that is a symlink resolving inside the target is allowed. An entry that escapes the target, dangles, cannot be resolved or cannot be inspected (any error other than not-found) is a scope error that stops the run before any traversal, like an invalid or unavailable scope; it is never silently dropped and never yields a partial result. Naming additionally skips symlinked scope roots that stay inside the target, as its legacy walk does
 - normalized path collection
 - optional target filtering
 - deterministic sort/dedupe for selected path sets

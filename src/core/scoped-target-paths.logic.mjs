@@ -69,8 +69,19 @@ export const filterScopedPathsByTargets = (
     return sortPaths(new Set(relativePaths));
   }
 
+  // Targets are resolved to real paths, so collected paths are compared in the same real-path form;
+  // otherwise a path reached through an internal symlinked scope root or a symlinked checkout would
+  // never match its own target.
+  const toRealPath = (absolutePath) => {
+    try {
+      return fs.realpathSync(absolutePath);
+    } catch {
+      return absolutePath;
+    }
+  };
+
   const selectedPaths = relativePaths.filter((relativePath) => {
-    const absolutePath = path.resolve(repositoryRoot, relativePath);
+    const absolutePath = toRealPath(path.resolve(repositoryRoot, relativePath));
 
     return resolvedTargets.some((target) => {
       if (target.kind === 'file') {

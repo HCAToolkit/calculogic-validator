@@ -6,8 +6,54 @@ import {
   resolveScopedTargets,
   filterScopedPathsByTargets,
 } from './scoped-target-paths.logic.mjs';
+import { classifyTargetPathContainment } from './target-path-containment.logic.mjs';
 
 const sortPaths = (paths) => Array.from(paths).sort((left, right) => left.localeCompare(right));
+
+// Only a missing path is absent. Any other failure (for example EACCES on a parent) is a scope
+// error, so an entry the Validator cannot inspect never silently narrows the scope.
+const ABSENT_PATH_ERROR_CODES = new Set(['ENOENT', 'ENOTDIR']);
+
+const isPresent = (absolutePath, label, entry) => {
+  try {
+    fs.lstatSync(absolutePath);
+    return true;
+  } catch (error) {
+    if (ABSENT_PATH_ERROR_CODES.has(error?.code)) {
+      return false;
+    }
+
+    throw new Error(`${label} cannot be accessed (${error?.code ?? error?.message}): ${entry}`);
+  }
+};
+
+// Scope-root containment (#53): before any traversal, every declared scope root and root file must
+// resolve by realpath inside the target. An absent entry contributes nothing; an internal symlink is
+// allowed; an escaping, dangling or unresolvable entry stops the run like an invalid scope, so a
+// requested scope is never silently narrowed.
+const assertScopeEntriesContained = (repositoryRoot, { includeRoots, includeRootFiles }) => {
+  const entries = [
+    ...includeRoots.map((entry) => ['Scope root', entry]),
+    ...includeRootFiles.map((entry) => ['Scope root file', entry]),
+  ];
+
+  for (const [label, entry] of entries) {
+    const absolutePath = path.resolve(repositoryRoot, entry);
+    // Classified first: an absent entry resolves through its nearest existing ancestor, so an entry
+    // under a dangling or escaping symlink is caught here rather than treated as absent.
+    const containment = classifyTargetPathContainment(repositoryRoot, absolutePath);
+    if (containment === 'escaping') {
+      throw new Error(`${label} escapes repository root: ${entry}`);
+    }
+
+    if (containment === 'unresolvable') {
+      throw new Error(`${label} cannot be resolved (dangling or unreadable symlink): ${entry}`);
+    }
+
+    // Only a contained entry may be genuinely absent; any other inspection failure throws.
+    isPresent(absolutePath, label, entry);
+  }
+};
 
 const collectPathsFromScopeRoot = (
   repositoryRoot,
@@ -116,6 +162,7 @@ export const collectSuiteScopedPaths = (
   }
 
   const profile = scopeResolution.profile;
+  assertScopeEntriesContained(repositoryRoot, profile);
 
   const scopedPaths = profile.includeRoots.flatMap((scopeRoot) =>
     collectPathsFromScopeRoot(repositoryRoot, scopeRoot, {
