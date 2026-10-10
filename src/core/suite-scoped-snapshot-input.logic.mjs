@@ -10,12 +10,20 @@ import { classifyTargetPathContainment } from './target-path-containment.logic.m
 
 const sortPaths = (paths) => Array.from(paths).sort((left, right) => left.localeCompare(right));
 
-const isPresent = (absolutePath) => {
+// Only a missing path is absent. Any other failure (for example EACCES on a parent) is a scope
+// error, so an entry the Validator cannot inspect never silently narrows the scope.
+const ABSENT_PATH_ERROR_CODES = new Set(['ENOENT', 'ENOTDIR']);
+
+const isPresent = (absolutePath, label, entry) => {
   try {
     fs.lstatSync(absolutePath);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (ABSENT_PATH_ERROR_CODES.has(error?.code)) {
+      return false;
+    }
+
+    throw new Error(`${label} cannot be accessed (${error?.code ?? error?.message}): ${entry}`);
   }
 };
 
@@ -31,7 +39,7 @@ const assertScopeEntriesContained = (repositoryRoot, { includeRoots, includeRoot
 
   for (const [label, entry] of entries) {
     const absolutePath = path.resolve(repositoryRoot, entry);
-    if (!isPresent(absolutePath)) {
+    if (!isPresent(absolutePath, label, entry)) {
       continue;
     }
 

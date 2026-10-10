@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -133,5 +134,28 @@ test('scope containment: escaping or dangling root files are rejected; an intern
     await fs.writeFile(path.join(targetRoot, 'config', 'package.json'), '{}\n', 'utf8');
     await fs.symlink(path.join(targetRoot, 'config', 'package.json'), path.join(targetRoot, 'package.json'));
     assert.deepEqual(collectSuiteScopedSnapshotInputs(targetRoot, { scope: 'system' }).inScopePaths, ['package.json']);
+  });
+});
+
+test('scope containment: an entry that cannot be inspected is a scope error, not an absent one', async () => {
+  await withContainmentFixture(async ({ targetRoot }) => {
+    // Root bypasses permission bits, so the EACCES a non-root user would hit is simulated.
+    const originalLstat = fsSync.lstatSync;
+    fsSync.lstatSync = (candidatePath, ...rest) => {
+      if (String(candidatePath).endsWith(`${path.sep}src`)) {
+        throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
+      }
+
+      return originalLstat(candidatePath, ...rest);
+    };
+
+    try {
+      assert.throws(
+        () => collectSuiteScopedSnapshotInputs(targetRoot, { scope: 'app' }),
+        /Scope root cannot be accessed \(EACCES\): src/u,
+      );
+    } finally {
+      fsSync.lstatSync = originalLstat;
+    }
   });
 });
