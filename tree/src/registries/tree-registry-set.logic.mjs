@@ -24,7 +24,7 @@ import {
   assertSurfaceStructuralHomePerspectiveReferences,
   assertValidSurfaceStructuralHomePerspectiveRegistry,
 } from './tree-surface-structural-home-perspective-registry.logic.mjs';
-import { assertRegistryRootFields } from '../../../src/core/registry-entry-shape.logic.mjs';
+import { assertNoPaddedStrings, assertRegistryRootFields } from '../../../src/core/registry-entry-shape.logic.mjs';
 import { TREE_REGISTRY_INVENTORY } from './tree-registry-inventory.knowledge.mjs';
 
 const readRegistryPayload = (registryRoot, fileName) =>
@@ -96,9 +96,9 @@ export const validateTreeRegistrySet = (registryRoot) => {
 
   for (const entry of TREE_REGISTRY_INVENTORY) {
     try {
-      assertRegistryRootFields(readRegistryPayload(registryRoot, entry.fileName), TREE_REGISTRY_ROOT_FIELDS[entry.name], {
-        registryLabel: `Tree ${entry.name}`,
-      });
+      const rootPayload = readRegistryPayload(registryRoot, entry.fileName);
+      assertRegistryRootFields(rootPayload, TREE_REGISTRY_ROOT_FIELDS[entry.name], { registryLabel: `Tree ${entry.name}` });
+      assertNoPaddedStrings(rootPayload, { registryLabel: `Tree ${entry.name}` });
       const validateFile = TREE_REGISTRY_FILE_VALIDATORS[entry.name];
       if (validateFile) {
         validateFile(path.join(registryRoot, entry.fileName));

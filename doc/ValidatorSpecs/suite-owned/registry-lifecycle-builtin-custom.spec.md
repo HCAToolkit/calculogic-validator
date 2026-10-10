@@ -260,7 +260,7 @@ Each slice keeps:
   - Suite core calls it on the active root before validation (failures block, §7.1 item 4).
   - It also calls it on an existing **inactive** Custom root (failures are reported as `invalid` in `customIssues`, §7.2) and from `status`.
   - Suite core only calls the entry point. The validation rules stay with the slice;
-  - A registry that passes must mean exactly what the runtime will do. The entry point therefore rejects input the runtime would silently drop, merge or reinterpret: an undeclared field on a payload root, record or nested object; two keys that are equal in the runtime's normalized form; a value outside the vocabulary the engine interprets; and an entry the runtime can never reach, such as one shadowed by an earlier first-match entry with the same key. Otherwise `status` could report a Custom edit as valid that never takes effect;
+  - A registry that passes must mean exactly what the runtime will do. The entry point therefore rejects input the runtime would silently drop, merge or reinterpret: an undeclared field on a payload root, record or nested object; a string or key with surrounding whitespace, which loaders trim; two keys that are equal in the runtime's normalized form; a value outside the vocabulary the engine interprets; a value the runtime's comparison could never match; and an entry the runtime can never reach, such as one an earlier first-match entry already covers wherever that coverage is decidable. Otherwise `status` could report a Custom edit as valid that never takes effect;
 - interpretation.
 
 Naming keeps a registry-state owner for its loader responsibilities, reading from the resolved root. Tree keeps its direct builtin loaders, pointed at the resolved root.

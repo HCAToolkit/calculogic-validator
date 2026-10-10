@@ -186,7 +186,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 - **Reusable capability:**
   - `assertRegistryEntries(entries, shape)` called from slice registry loaders and registry-set validation entry points
   - `assertAllowedFields(value, allowedFields, labels)` for objects that are not list records
-  - `assertRegistryRootFields(payload, rootFields, labels)` called by each slice's registry-set validation entry point with that slice's declared root fields
+  - `assertRegistryRootFields(payload, rootFields, labels)` and `assertNoPaddedStrings(payload, labels)` called by each slice's registry-set validation entry point
   - `isPathSegmentName(value)` and `isSingleFileExtension(value)` for registry values the runtime compares as one path segment or with `path.extname`
 - **When to reuse:**
   - a slice registry whose records need a declared shape check, so malformed Custom records are reported `invalid` (lifecycle spec §9.3)

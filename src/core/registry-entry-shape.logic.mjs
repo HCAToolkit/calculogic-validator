@@ -35,6 +35,37 @@ export const assertAllowedFields = (value, allowedFields, { registryLabel, label
   }
 };
 
+// Loaders trim registry strings, so a padded string would mean the same as its trimmed form while
+// comparing as different. No string in a payload, object keys included, may carry surrounding
+// whitespace; the first offending location is reported.
+export const assertNoPaddedStrings = (payload, { registryLabel }) => {
+  const visit = (value, location) => {
+    if (typeof value === 'string') {
+      if (value !== value.trim()) {
+        throw new Error(`Invalid ${registryLabel} registry: ${location} has leading or trailing whitespace.`);
+      }
+
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => visit(item, `${location}[${index}]`));
+      return;
+    }
+
+    if (isPlainObject(value)) {
+      for (const [key, child] of Object.entries(value)) {
+        if (key !== key.trim()) {
+          throw new Error(`Invalid ${registryLabel} registry: key ${JSON.stringify(key)} in ${location} has leading or trailing whitespace.`);
+        }
+
+        visit(child, `${location}.${key}`);
+      }
+    }
+  };
+  visit(payload, 'the payload');
+};
+
 // Every registry file is an object holding `version` and the registry's declared root fields.
 export const assertRegistryRootFields = (payload, rootFields, { registryLabel }) => {
   if (!isPlainObject(payload)) {

@@ -513,7 +513,8 @@ test('validateNamingRegistrySet rejects categories that differ only by surroundi
       const failures = validateNamingRegistrySet(registryRoot);
 
       assert.deepEqual(failures.map((failure) => failure.registryId), ['naming/categories']);
-      assert.match(failures[0].detail, new RegExp(`category "${firstCategory.category}" is duplicated`, 'u'));
+      // Padding is rejected before trimmed keys could collide.
+      assert.match(failures[0].detail, /leading or trailing whitespace/u);
     },
   );
 });
@@ -528,7 +529,7 @@ test('validateNamingRegistrySet rejects duplicate missing-role patternIds instea
         version: '1',
         missingRolePatterns: [
           ...missingRolePatterns,
-          { ...firstPattern, patternId: ` ${firstPattern.patternId} `, dotSegments: firstPattern.dotSegments + 1 },
+          { ...firstPattern, dotSegments: firstPattern.dotSegments + 1 },
         ],
       },
     },

@@ -1142,6 +1142,86 @@ test('summary bucket repeats are invalid, and folder-pattern order does not make
   });
 });
 
+test('padded strings, shadowed exit policies and shadowed special cases are invalid', () => {
+  // Loaders trim strings, so padding would compare as different while meaning the same.
+  assert.deepEqual(
+    invalidIdsAfter('naming', 'reportable-extensions.registry.json', (payload) => ({
+      ...payload,
+      reportableExtensions: payload.reportableExtensions.map((extension, index) => (index === 0 ? ` ${extension} ` : extension)),
+    })),
+    ['naming/reportable-extensions'],
+  );
+  assert.deepEqual(
+    invalidIdsAfter('tree', 'structural-homes.registry.json', (payload) => ({
+      ...payload,
+      structuralHomes: payload.structuralHomes.map((entry, index) => (index === 0 ? { ...entry, definition: `${entry.definition} ` } : entry)),
+    })),
+    ['tree/structural-homes'],
+  );
+  const firstScope = (payload) => Object.keys(payload.profiles)[0];
+  assert.deepEqual(
+    invalidIdsAfter('suite', 'scope-profiles.registry.json', (payload) => {
+      const scope = firstScope(payload);
+      const { [scope]: profile, ...rest } = payload.profiles;
+      return { ...payload, profiles: { ...rest, [` ${scope}`]: profile } };
+    }),
+    ['suite/scope-profiles'],
+  );
+
+  // Exit policies: a policy whose matches an earlier policy already takes, or that can never match.
+  const withPolicies = (extraPolicies) => (payload) => ({
+    ...payload,
+    policies: [...extraPolicies, ...payload.policies],
+  });
+  for (const extraPolicies of [
+    [
+      { id: 'warn', exitCode: 1, predicate: { anyWarnFindings: true } },
+      { id: 'warn-strict', exitCode: 2, predicate: { anyWarnFindings: true, strictMode: true } },
+    ],
+    [{ id: 'never', exitCode: 3, predicate: { anyWarnFindings: true, noWarnFindings: true } }],
+  ]) {
+    assert.deepEqual(
+      invalidIdsAfter('suite', 'exit-policy.registry.json', withPolicies(extraPolicies)),
+      ['suite/exit-policy'],
+      `accepted unreachable policies ${extraPolicies.map((policy) => policy.id).join(', ')}`,
+    );
+  }
+  // The narrower policy first is reachable.
+  assert.deepEqual(
+    invalidIdsAfter(
+      'suite',
+      'exit-policy.registry.json',
+      (payload) => ({
+        ...payload,
+        policies: [
+          { id: 'warn-strict', exitCode: 2, predicate: { anyWarnFindings: true, strictMode: true } },
+          ...payload.policies,
+        ],
+      }),
+    ),
+    [],
+  );
+
+  // Special cases: a match an earlier first-match rule already covers.
+  const appendSpecialCase = (match) => (payload) => ({
+    ...payload,
+    specialCases: [...payload.specialCases, { type: 'later-rule', match }],
+  });
+  for (const match of [
+    { basenameEquals: ['README.md'] },
+    { basenameEquals: ['types.d.ts'] },
+    { suffixEquals: ['.global.d.ts'] },
+    { regex: '^tsconfig(\\..+)?\\.json$' },
+  ]) {
+    assert.deepEqual(
+      invalidIdsAfter('naming', 'special-cases.registry.json', appendSpecialCase(match)),
+      ['naming/special-cases'],
+      `accepted a shadowed special case ${JSON.stringify(match)}`,
+    );
+  }
+  assert.deepEqual(invalidIdsAfter('naming', 'special-cases.registry.json', appendSpecialCase({ basenameEquals: ['CHANGELOG.md'] })), []);
+});
+
 test('an orphan Baseline copy is verified with its retired descriptor, and is unverifiable without one', () => {
   withLifecycleFixture(({ targetRoot, paths, slices }) => {
     initFixture({ targetRoot, slices });

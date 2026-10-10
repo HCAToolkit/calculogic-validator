@@ -23,6 +23,36 @@ const loadSpecialCaseRulesFromFile = (registryFilePath) => {
     throw new Error('Invalid special-cases registry: missing specialCases array.');
   }
 
+  // Rules are first-match, so a match an earlier rule already covers can never take effect. Shadowing
+  // is decided exactly for the list forms; for `regex`, only a repeated pattern is decidable.
+  const earlierBasenames = new Set();
+  const earlierSuffixes = [];
+  const earlierRegexes = new Set();
+  const assertReachable = (match, entryPrefix) => {
+    for (const basename of Array.isArray(match.basenameEquals) ? match.basenameEquals : []) {
+      const coveringSuffix = earlierSuffixes.find((suffix) => basename.endsWith(suffix));
+      if (earlierBasenames.has(basename) || coveringSuffix !== undefined) {
+        throw new Error(`${entryPrefix}: match.basenameEquals "${basename}" is already matched by an earlier rule.`);
+      }
+    }
+
+    for (const suffix of Array.isArray(match.suffixEquals) ? match.suffixEquals : []) {
+      if (earlierSuffixes.some((earlierSuffix) => suffix.endsWith(earlierSuffix))) {
+        throw new Error(`${entryPrefix}: match.suffixEquals "${suffix}" is already matched by an earlier rule.`);
+      }
+    }
+
+    if (typeof match.regex === 'string' && earlierRegexes.has(match.regex)) {
+      throw new Error(`${entryPrefix}: match.regex repeats an earlier rule.`);
+    }
+
+    (match.basenameEquals ?? []).forEach((basename) => earlierBasenames.add(basename));
+    earlierSuffixes.push(...(match.suffixEquals ?? []));
+    if (typeof match.regex === 'string') {
+      earlierRegexes.add(match.regex);
+    }
+  };
+
   return payload.specialCases.map((specialCase, index) => {
     const entryPrefix = `Invalid special-cases registry entry at index ${index}`;
 
@@ -75,6 +105,8 @@ const loadSpecialCaseRulesFromFile = (registryFilePath) => {
         throw new Error(`${entryPrefix}: match.${listField} must be a non-empty array of non-empty strings.`);
       }
     }
+
+    assertReachable(match, entryPrefix);
 
     if (Array.isArray(match.basenameEquals)) {
       return {

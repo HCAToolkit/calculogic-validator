@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadExitPolicyRegistryFromPayload } from './validator-exit-policy.logic.mjs';
 import { loadScopeProfilesFromRegistryRoot } from '../core/validator-scopes.logic.mjs';
-import { assertRegistryRootFields } from '../core/registry-entry-shape.logic.mjs';
+import { assertNoPaddedStrings, assertRegistryRootFields } from '../core/registry-entry-shape.logic.mjs';
 
 // Root fields of each suite registry besides `version`. Payload roots are closed: a loader ignores
 // an undeclared root field, so it would pass validation and never reach runtime.
@@ -30,9 +30,9 @@ export const validateSuiteRegistrySet = (registryRoot) => {
   for (const [name, check] of checks) {
     const registryId = `suite/${name}`;
     try {
-      assertRegistryRootFields(readRegistryPayload(registryRoot, name), SUITE_REGISTRY_ROOT_FIELDS[name], {
-        registryLabel: name,
-      });
+      const payload = readRegistryPayload(registryRoot, name);
+      assertRegistryRootFields(payload, SUITE_REGISTRY_ROOT_FIELDS[name], { registryLabel: name });
+      assertNoPaddedStrings(payload, { registryLabel: name });
       check();
     } catch (error) {
       failures.push({ registryId, detail: error.message });

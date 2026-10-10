@@ -12,6 +12,7 @@ import path from 'node:path';
 import { stableStringify, sha256Hex } from '../../../src/core/validator-report-meta.logic.mjs';
 import {
   assertAllowedFields,
+  assertNoPaddedStrings,
   assertRegistryEntries,
   assertRegistryRootFields,
   isPathSegmentName,
@@ -667,11 +668,9 @@ export const validateNamingRegistrySet = (registryRoot) => {
 
   for (const [name, check] of checks) {
     try {
-      assertRegistryRootFields(
-        loadJsonFile(path.join(registryRoot, `${name}.registry.json`)),
-        NAMING_REGISTRY_ROOT_FIELDS[name],
-        { registryLabel: name },
-      );
+      const payload = loadJsonFile(path.join(registryRoot, `${name}.registry.json`));
+      assertRegistryRootFields(payload, NAMING_REGISTRY_ROOT_FIELDS[name], { registryLabel: name });
+      assertNoPaddedStrings(payload, { registryLabel: name });
       check();
     } catch (error) {
       failures.push({ registryId: toNamingRegistryId(name), detail: error.message });

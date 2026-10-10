@@ -141,6 +141,33 @@ export const loadExitPolicyRegistryFromPayload = (payload) => {
     );
   }
 
+  // Matching is a conjunction of the true conditions, evaluated first-to-last. A policy can never
+  // match when it needs both anyWarnFindings and noWarnFindings, or when an earlier policy's true
+  // conditions are a subset of its own (the earlier one matches every run this one would).
+  const trueConditions = (policy) =>
+    Object.keys(policy.predicate).filter((key) => key !== 'always' && policy.predicate[key] === true);
+  canonicalPolicies.forEach((policy, index) => {
+    if (policy.predicate.anyWarnFindings && policy.predicate.noWarnFindings) {
+      throw new Error(
+        `Invalid exit policy registry: policy "${policy.id}" requires both anyWarnFindings and noWarnFindings and can never match.`,
+      );
+    }
+
+    if (policy.predicate.always) {
+      return;
+    }
+
+    const conditions = trueConditions(policy);
+    const shadowingPolicy = canonicalPolicies
+      .slice(0, index)
+      .find((earlier) => !earlier.predicate.always && trueConditions(earlier).every((key) => conditions.includes(key)));
+    if (shadowingPolicy) {
+      throw new Error(
+        `Invalid exit policy registry: policy "${policy.id}" can never match, because earlier policy "${shadowingPolicy.id}" matches every run it would.`,
+      );
+    }
+  });
+
   // Policies match first-to-last and always=true matches every run, so the fallback is the single
   // last policy; a policy after it would never be evaluated.
   const fallbackIndexes = canonicalPolicies
