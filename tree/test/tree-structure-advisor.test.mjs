@@ -2260,7 +2260,7 @@ test('tree-structure-advisor traverses an internal symlinked scope root and reje
 
     // A target through (or behind) the symlinked root addresses the selected `src` records under a
     // `src` scope root, not an empty physical `packages/app-src` root.
-    for (const target of ['src', 'packages/app-src']) {
+    for (const target of ['src', 'packages/app-src', 'packages']) {
       const targeted = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'app', targets: [target] });
       assert.deepEqual(targeted.selectedPaths, ['src/app.logic.ts'], `target ${target}`);
       assert.deepEqual(targeted.targets, ['src'], `target ${target}`);

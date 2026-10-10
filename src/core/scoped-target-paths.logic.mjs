@@ -85,19 +85,9 @@ export const resolveScopedTargets = (repositoryRoot, targets = []) => {
 
 // Targets are resolved to real paths, so collected paths are compared in the same real-path form;
 // otherwise a path reached through an internal symlinked scope root or a symlinked checkout would
-// never match its own target. Returns the real path's remainder below the target ('' for the target
-// itself), or null when it is not under the target.
-const matchTargetRemainder = (realPath, target) => {
-  if (realPath === target.absPath) {
-    return '';
-  }
-
-  if (target.kind === 'dir' && realPath.startsWith(`${target.absPath}${path.sep}`)) {
-    return normalizePath(realPath.slice(target.absPath.length + 1));
-  }
-
-  return null;
-};
+// never match its own target.
+const isRealPathUnderTarget = (realPath, target) =>
+  realPath === target.absPath || (target.kind === 'dir' && realPath.startsWith(`${target.absPath}${path.sep}`));
 
 export const filterScopedPathsByTargets = (
   repositoryRoot,
@@ -110,7 +100,7 @@ export const filterScopedPathsByTargets = (
 
   const selectedPaths = relativePaths.filter((relativePath) => {
     const realPath = toRealPath(path.resolve(repositoryRoot, relativePath));
-    return resolvedTargets.some((target) => matchTargetRemainder(realPath, target) !== null);
+    return resolvedTargets.some((target) => isRealPathUnderTarget(realPath, target));
   });
 
   return sortPaths(new Set(selectedPaths));
@@ -138,41 +128,42 @@ export const filterScopedPathsByProfile = (relativePaths, scopeProfile) => {
 };
 
 // Target descriptors in the selected paths' own spelling. Selection matches real paths, so a target
-// written through a symlink (or as the physical path behind a symlinked scope root) selects paths
-// spelled differently from it; consumers that relate targets to selected paths (Tree's structural
-// addressing) need both in one spelling. Each target is described by the lexical prefix of every
-// selected path it matched; a target that matched nothing keeps its written spelling.
+// written through a symlink, or as the physical path behind one, selects paths spelled differently
+// from it; consumers that relate targets to selected paths (Tree's structural addressing) need both
+// in one spelling. A target is described, for each selected path it matched, by that path's shortest
+// lexical ancestor (`.` first, the path itself last) that resolves inside the target, so every
+// selected path sits under a descriptor. A target that matched nothing keeps its written spelling.
 export const describeTargetsForSelectedPaths = (repositoryRoot, selectedPaths, resolvedTargets = []) => {
-  const descriptorsByRelPath = new Map();
-  const addDescriptor = (relPath, kind) => {
-    if (!descriptorsByRelPath.has(relPath)) {
-      descriptorsByRelPath.set(relPath, { kind, relPath });
+  const realPathsByRelPath = new Map();
+  const realPathOf = (relPath) => {
+    if (!realPathsByRelPath.has(relPath)) {
+      realPathsByRelPath.set(relPath, toRealPath(path.resolve(repositoryRoot, relPath)));
     }
+
+    return realPathsByRelPath.get(relPath);
   };
 
+  const descriptorsByRelPath = new Map();
   for (const target of resolvedTargets) {
     let matchedAny = false;
-    for (const selectedPath of selectedPaths) {
-      const remainder = matchTargetRemainder(toRealPath(path.resolve(repositoryRoot, selectedPath)), target);
-      if (remainder === null) {
+    for (const selectedPath of selectedPaths.map(normalizePath)) {
+      if (!isRealPathUnderTarget(realPathOf(selectedPath), target)) {
         continue;
       }
 
-      const normalizedSelectedPath = normalizePath(selectedPath);
-      if (remainder === '') {
-        matchedAny = true;
-        addDescriptor(normalizedSelectedPath, target.kind);
-      } else if (normalizedSelectedPath === remainder) {
-        matchedAny = true;
-        addDescriptor('.', target.kind);
-      } else if (normalizedSelectedPath.endsWith(`/${remainder}`)) {
-        matchedAny = true;
-        addDescriptor(normalizedSelectedPath.slice(0, -(remainder.length + 1)), target.kind);
+      matchedAny = true;
+      const segments = selectedPath.split('/');
+      const ancestors = ['.', ...segments.map((_, index) => segments.slice(0, index + 1).join('/'))];
+      const relPath = ancestors.find((ancestor) => isRealPathUnderTarget(realPathOf(ancestor), target));
+      // The target itself keeps its kind; anything strictly inside it is a folder, or the file itself.
+      const kind = realPathOf(relPath) === target.absPath ? target.kind : relPath === selectedPath ? 'file' : 'dir';
+      if (!descriptorsByRelPath.has(relPath)) {
+        descriptorsByRelPath.set(relPath, { kind, relPath });
       }
     }
 
-    if (!matchedAny) {
-      addDescriptor(target.writtenRelPath, target.kind);
+    if (!matchedAny && !descriptorsByRelPath.has(target.writtenRelPath)) {
+      descriptorsByRelPath.set(target.writtenRelPath, { kind: target.kind, relPath: target.writtenRelPath });
     }
   }
 

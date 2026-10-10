@@ -185,11 +185,33 @@ test('scope containment: --target selects paths under an internal symlinked root
     const rootSnapshot = collectSuiteScopedSnapshotInputs(targetRoot, { scope: 'app', targets: ['.'] });
     assert.deepEqual(rootSnapshot.targetDescriptors, [{ kind: 'dir', relPath: '.' }]);
 
+    // A target that contains the symlinked root's real directory without being reached through it is
+    // described by the symlinked root, the shortest lexical ancestor that resolves inside it.
+    const containingSnapshot = collectSuiteScopedSnapshotInputs(targetRoot, { scope: 'app', targets: ['packages'] });
+    assert.deepEqual(containingSnapshot.selectedPaths, ['src/app.logic.ts']);
+    assert.deepEqual(containingSnapshot.targetDescriptors, [{ kind: 'dir', relPath: 'src' }]);
+
     const checkoutLink = path.join(path.dirname(targetRoot), 'checkout-link');
     await fs.symlink(targetRoot, checkoutLink, 'dir');
     const linkedSnapshot = collectSuiteScopedSnapshotInputs(checkoutLink, { scope: 'app', targets: ['test/inside.test.js'] });
     assert.deepEqual(linkedSnapshot.selectedPaths, ['test/inside.test.js']);
     assert.deepEqual(linkedSnapshot.targets, ['test/inside.test.js']);
+  });
+});
+
+test('scope containment: a target matched only through a renamed file symlink is described by that file', async () => {
+  await withContainmentFixture(async ({ targetRoot }) => {
+    await fs.mkdir(path.join(targetRoot, 'packages', 'private'), { recursive: true });
+    await fs.mkdir(path.join(targetRoot, 'src'), { recursive: true });
+    await fs.writeFile(path.join(targetRoot, 'packages', 'private', 'actual.logic.ts'), 'export {};\n', 'utf8');
+    await fs.symlink(
+      path.join(targetRoot, 'packages', 'private', 'actual.logic.ts'),
+      path.join(targetRoot, 'src', 'alias.logic.ts'),
+    );
+
+    const snapshot = collectSuiteScopedSnapshotInputs(targetRoot, { scope: 'app', targets: ['packages/private'] });
+    assert.deepEqual(snapshot.selectedPaths, ['src/alias.logic.ts']);
+    assert.deepEqual(snapshot.targetDescriptors, [{ kind: 'file', relPath: 'src/alias.logic.ts' }]);
   });
 });
 
