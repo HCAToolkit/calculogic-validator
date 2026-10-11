@@ -125,8 +125,10 @@ const diffRegistry = ({ paths, slice, entry, statusEntry, manifestEntry, manifes
 };
 
 // [5.2.9] cfg-registryLifecycle · Workflow · "compareRegistryLifecycle"
-// The diff together with the assessment's per-registry status entries (digests), so a consumer that
-// binds to the compared inputs (spec §12.4) reads them from the same assessment as the diff.
+// The comparison together with the assessment's per-registry status entries (digests), so a consumer
+// that binds to the compared inputs (spec §12.4) reads them from the same assessment. It never reads
+// `registry-state.json`: the comparison does not depend on the active set, and a malformed state file
+// does not stop it. Only `diff` adds `activeSet` (spec §12.3).
 // `registryIds` restricts the output; an id that is neither an inventory registry nor an orphan of
 // this Custom set throws.
 export const compareRegistryLifecycle = ({
@@ -136,7 +138,6 @@ export const compareRegistryLifecycle = ({
   slices = REGISTRY_LIFECYCLE_SLICES,
 } = {}) => {
   const paths = resolveRegistryLifecyclePaths({ targetRoot, lifecycleRootOverride });
-  const { activeSet } = readRegistryLifecycleState(paths);
   const assessment = assessCustomRegistrySet({ paths, slices });
 
   const knownIds = new Set([
@@ -150,7 +151,7 @@ export const compareRegistryLifecycle = ({
 
   const statusById = new Map(assessment.registries.map((statusEntry) => [statusEntry.registryId, statusEntry]));
   if (!assessment.customExists) {
-    return { diff: { activeSet, customExists: false, counts: {}, registries: [] }, statusById };
+    return { comparison: { customExists: false, counts: {}, registries: [] }, statusById };
   }
 
   const isSelected = (registryId) => !registryIds?.length || registryIds.includes(registryId);
@@ -175,8 +176,7 @@ export const compareRegistryLifecycle = ({
     ...assessment.orphanRegistries.filter(isSelected).map((registryId) => ({ registryId, class: 'orphan' })),
   ].sort((left, right) => compareOrdinal(left.registryId, right.registryId));
 
-  const diff = {
-    activeSet,
+  const comparison = {
     customExists: true,
     ...(assessment.manifestError ? { manifestError: assessment.manifestError } : {}),
     counts: {
@@ -185,8 +185,13 @@ export const compareRegistryLifecycle = ({
     },
     registries,
   };
-  return { diff, statusById };
+  return { comparison, statusById };
 };
 
 // [5.2.9] cfg-registryLifecycle · Workflow · "buildRegistryLifecycleDiff"
-export const buildRegistryLifecycleDiff = (options = {}) => compareRegistryLifecycle(options).diff;
+export const buildRegistryLifecycleDiff = (options = {}) => {
+  const { activeSet } = readRegistryLifecycleState(
+    resolveRegistryLifecyclePaths({ targetRoot: options.targetRoot, lifecycleRootOverride: options.lifecycleRootOverride }),
+  );
+  return { activeSet, ...compareRegistryLifecycle(options).comparison };
+};

@@ -162,11 +162,11 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 
 #### 5.2.10 Workflow: update decisions document (read-only)
 
-`registry-lifecycle-decisions.logic.mjs` (spec §12.4). Both functions take the comparison from `compareRegistryLifecycle` (5.2.9), which returns the diff together with the assessment's per-registry status entries, so the bound digests and the diff come from one assessment.
+`registry-lifecycle-decisions.logic.mjs` (spec §12.4). Both functions take the comparison from `compareRegistryLifecycle` (5.2.9), which returns the comparison together with the assessment's per-registry status entries, so the bound digests and the classes come from one assessment. It never reads `registry-state.json`; only `buildRegistryLifecycleDiff` reads it, to add `activeSet`.
 - **Decidable registries:** `registry-added`, and `differs` with at least one entry that is not `custom-only`. A `registry-added` record has a registry-level `decision`; a `differs` record lists its entries whose class is in `ENTRY_DECISIONS_BY_CLASS` (6.3).
 - **`buildRegistryUpdateDecisionsTemplate`:** the document with every decision `null` and `basedOn` set from the status digests.
 - **`checkRegistryUpdateDecisions`:** strict shape check, then per registry: known id, no duplicate, decidable now, same class and `basedOn` digests (otherwise `stale`), then per entry: known decidable address, no duplicate, same class, a decision the class accepts or `null`, and no decidable entry missing. Problems are collected, never thrown, and sorted ordinally. Only records without a problem are summarized.
-- Neither reads nor writes `activeSet`, and nothing is written.
+- Neither reads nor writes `activeSet`, so a malformed state file does not stop them, and nothing is written.
 
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 

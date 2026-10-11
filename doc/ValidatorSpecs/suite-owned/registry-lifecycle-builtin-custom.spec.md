@@ -488,7 +488,7 @@ Both need a Custom set and write nothing.
   `null` is the only spelling of "no decision". `keep-custom` is an explicit choice, recorded the same way as `take-builtin`. The other §8.2 choices (merge selected fields, add the Builtin form alongside) are later additions to this vocabulary.
 - **Identity.** Registries are named by id and entries by their §8.4 comparison address, never by array position or file layout. Document order carries no meaning; the template and every check result are in ordinal order.
 - **Binding.** `basedOn` records the canonical digests of the three inputs the record was made against: the Baseline digest from the manifest, the current Builtin digest and the Custom digest, as `status` reports them (`null` where there is none). The binding is per registry: a record whose digests no longer match is `stale`, while other registries' records stay usable.
-- **Independence of the active set.** The document has no `activeSet`, and neither command reads or changes it (§12.1 activation rule).
+- **Independence of the active set.** The document has no `activeSet`, and neither command reads or changes it (§12.1 activation rule). Neither reads `registry-state.json`, so a malformed state file does not stop them; `diff` and `status`, which print `activeSet`, still report it.
 
 **Check result:** `{ valid, complete, problems, registries }`.
 - `problems` holds `{ registryId, address?, problem, detail }`, sorted by registry id (`null`, for the document itself, first), then address and problem. `problem` is one of:

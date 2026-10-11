@@ -8,6 +8,7 @@ import {
   buildRegistryUpdateDecisionsTemplate,
   checkRegistryUpdateDecisions,
 } from '../src/core/registry-lifecycle/registry-lifecycle-decisions.logic.mjs';
+import { buildRegistryLifecycleDiff } from '../src/core/registry-lifecycle/registry-lifecycle-diff.logic.mjs';
 import { buildRegistryLifecycleStatus } from '../src/core/registry-lifecycle/registry-lifecycle-status.logic.mjs';
 import { initCustomRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-init.logic.mjs';
 import { useRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-use.logic.mjs';
@@ -371,6 +372,24 @@ test('the document and its check are independent of the active set', () => {
     assert.equal(JSON.stringify(template()), JSON.stringify(underBuiltin));
     assert.deepEqual(check(underBuiltin), checkUnderBuiltin);
     assert.equal(JSON.stringify(underBuiltin).includes('activeSet'), false);
+  });
+});
+
+test('a malformed registry-state.json does not stop the decisions commands; diff still reports it', () => {
+  withDecisionsFixture(({ targetRoot, slices, paths, builtinFile, template, check }) => {
+    updateJson(builtinFile('naming/roles'), (payload) => ({
+      ...payload,
+      roles: [...payload.roles, { role: 'zz-new-role', status: 'active', definition: 'Added by Builtin.' }],
+    }));
+    const document = template();
+    const result = check(document);
+
+    for (const contents of ['{ broken', '{"schemaVersion":"1","activeSet":"elsewhere"}']) {
+      fs.writeFileSync(paths.statePath, contents);
+      assert.equal(JSON.stringify(template()), JSON.stringify(document));
+      assert.deepEqual(check(document), result);
+      assert.throws(() => buildRegistryLifecycleDiff({ targetRoot, slices }), /Registry lifecycle state is (unreadable|malformed)/u);
+    }
   });
 });
 

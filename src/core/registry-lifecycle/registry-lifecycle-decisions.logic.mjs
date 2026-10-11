@@ -45,8 +45,8 @@ const toBasedOn = (statusEntry) => ({
 // every decision `null`. A `registry-added` registry takes one registry-level decision. A `differs`
 // registry is decidable when Builtin changed any of its entries; its record lists the entries whose
 // class takes a decision, and may list none when every Builtin change is `aligned`.
-const decidableRegistries = ({ diff, statusById }) =>
-  diff.registries.flatMap((registry) => {
+const decidableRegistries = ({ comparison, statusById }) =>
+  comparison.registries.flatMap((registry) => {
     const statusEntry = statusById.get(registry.registryId);
     if (registry.class === 'registry-added') {
       return [{ registryId: registry.registryId, class: registry.class, basedOn: toBasedOn(statusEntry), decision: null }];
@@ -69,8 +69,8 @@ const decidableRegistries = ({ diff, statusById }) =>
     ];
   });
 
-const requireCustomSet = (diff) => {
-  if (!diff.customExists) {
+const requireCustomSet = ({ comparison }) => {
+  if (!comparison.customExists) {
     throw new Error('No Custom registry set exists. Run registry:init-custom first.');
   }
 };
@@ -83,12 +83,12 @@ export const buildRegistryUpdateDecisionsTemplate = ({
   registryIds,
   slices = REGISTRY_LIFECYCLE_SLICES,
 } = {}) => {
-  const comparison = compareRegistryLifecycle({ targetRoot, lifecycleRootOverride, registryIds, slices });
-  requireCustomSet(comparison.diff);
+  const compared = compareRegistryLifecycle({ targetRoot, lifecycleRootOverride, registryIds, slices });
+  requireCustomSet(compared);
   return {
     kind: UPDATE_DECISIONS_KIND,
     schemaVersion: UPDATE_DECISIONS_SCHEMA_VERSION,
-    registries: decidableRegistries(comparison),
+    registries: decidableRegistries(compared),
   };
 };
 
@@ -278,8 +278,8 @@ export const checkRegistryUpdateDecisions = ({
   lifecycleRootOverride,
   slices = REGISTRY_LIFECYCLE_SLICES,
 } = {}) => {
-  const comparison = compareRegistryLifecycle({ targetRoot, lifecycleRootOverride, slices });
-  requireCustomSet(comparison.diff);
+  const compared = compareRegistryLifecycle({ targetRoot, lifecycleRootOverride, slices });
+  requireCustomSet(compared);
 
   const problems = [];
   const problem = (code, detail, { registryId = null, address } = {}) => {
@@ -313,8 +313,8 @@ export const checkRegistryUpdateDecisions = ({
     return finish([]);
   }
 
-  const expectedById = new Map(decidableRegistries(comparison).map((record) => [record.registryId, record]));
-  const currentById = new Map(comparison.diff.registries.map((registry) => [registry.registryId, registry]));
+  const expectedById = new Map(decidableRegistries(compared).map((record) => [record.registryId, record]));
+  const currentById = new Map(compared.comparison.registries.map((registry) => [registry.registryId, registry]));
   const seenIds = new Set();
   const summaries = [];
 
