@@ -156,13 +156,15 @@ const rollBack = (paths, transactionRoot, journal) => {
   const backupRoot = path.join(transactionRoot, BACKUP_DIRNAME);
   assertOwnedDirectory(paths, backupRoot);
 
-  // A step that replaced an existing entry moved it to `backup/<i>` before consuming `staged/<i>`,
-  // so at least one of the two is present. Neither means the transaction was altered: the original
-  // is gone, and rolling back would claim a restore it cannot make. Checked for every step first.
+  // A step that replaced an existing entry is in one of three states: not started (the original
+  // target and `staged/<i>` present), backed up (`backup/<i>` present) or applied (`backup/<i>`
+  // present). So without its backup it must be unstarted. Anything else has lost the original, and
+  // rolling back would claim a restore it cannot make. Checked for every step first.
   journal.steps.forEach((step, index) => {
     const backupEntry = path.join(backupRoot, String(index));
     const stagedEntry = path.join(transactionRoot, STAGED_DIRNAME, String(index));
-    if (step.existed && !entryPresent(backupEntry) && !entryPresent(stagedEntry)) {
+    const unstarted = entryPresent(targets[index]) && entryPresent(stagedEntry);
+    if (step.existed && !entryPresent(backupEntry) && !unstarted) {
       throw new RegistryLifecycleError(
         `The lifecycle transaction lost the backup of ${step.target}; it cannot be rolled back. Nothing was changed; inspect ${transactionRoot} by hand.`,
       );

@@ -316,3 +316,24 @@ test('a step whose backup entry is gone after it was applied is refused, never r
     assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-old');
   });
 });
+
+test('a step whose backup entry is gone after it was backed up, but before it was applied, is refused', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const first = path.join(paths.customRoot, 'first.json');
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(first, 'first-old');
+    fs.writeFileSync(commit, 'commit-old');
+    const writes = [
+      { targetPath: first, contents: 'first-new' },
+      { targetPath: commit, contents: 'commit-new' },
+    ];
+
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-0:backed-up', { crash: true }) }));
+    assert.equal(fs.existsSync(first), false, 'the original is in the backup at this point');
+    fs.rmSync(path.join(transactionRoot, 'backup', '0'));
+
+    assert.throws(() => recoverLifecycleTransaction(paths), /lost the backup of custom\/first\.json/u);
+    assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, 'the evidence is kept');
+    assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-old');
+  });
+});
