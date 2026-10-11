@@ -5,7 +5,8 @@
  * Responsibility: Naming's registry inventory for the Builtin/Custom registry lifecycle.
  * Invariants: lists only Naming-owned registries; descriptors declare comparison canonicalization
  *   only (spec §5), and set-like paths are declared only where Naming's loaders already treat
- *   order as insignificant.
+ *   order as insignificant; comparison declarations state entry identity separately (spec §8.4)
+ *   and cover every root field except `version`.
  */
 import { fileURLToPath } from 'node:url';
 
@@ -15,20 +16,27 @@ export const NAMING_BUILTIN_REGISTRY_ROOT = fileURLToPath(new URL('./_builtin/',
 
 const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 
-const defineNamingRegistry = (name, descriptor = {}) =>
+// `comparison` is the registry's entry identity for three-way comparison (spec §8.4).
+const defineNamingRegistry = (name, descriptor, comparison) =>
   Object.freeze({
     registryId: `${NAMING_REGISTRY_SLICE_ID}/${name}`,
     name,
     fileName: `${name}.registry.json`,
     readableVersions: READABLE_VERSIONS_V1,
     descriptor: Object.freeze(descriptor),
+    comparison: Object.freeze(comparison.map((collection) => Object.freeze(collection))),
   });
 
 // [6.1] cfg-registryLifecycle · Container · "Naming registry inventory"
 export const NAMING_REGISTRY_INVENTORY = Object.freeze([
-  defineNamingRegistry('agnostic-core-meanings', { setLike: [{ path: 'meanings', key: 'meaning' }] }),
-  defineNamingRegistry('case-rules'),
-  defineNamingRegistry('categories', { setLike: [{ path: 'categories', key: 'category' }] }),
+  defineNamingRegistry('agnostic-core-meanings', { setLike: [{ path: 'meanings', key: 'meaning' }] }, [
+    { kind: 'keyed', path: 'meanings', key: 'meaning' },
+  ]),
+  // One case policy for semantic names.
+  defineNamingRegistry('case-rules', {}, [{ kind: 'value', path: 'semanticName' }]),
+  defineNamingRegistry('categories', { setLike: [{ path: 'categories', key: 'category' }] }, [
+    { kind: 'keyed', path: 'categories', key: 'category' },
+  ]),
   defineNamingRegistry('category-role-perspective', {
     setLike: [
       { path: 'rolesByCategory.*', key: 'role' },
@@ -36,8 +44,11 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
       { path: 'rolesByCategory.*[].baseMeanings' },
       { path: 'rolesByCategory.*[].overlayMeanings' },
     ],
-  }),
-  defineNamingRegistry('finding-policy'),
+  }, [
+    // A declared category may have no roles, so each category is also a group-presence entry.
+    { kind: 'keyed', path: 'rolesByCategory.*', key: 'role' },
+  ]),
+  defineNamingRegistry('finding-policy', {}, [{ kind: 'value', path: 'outcomes.*' }]),
   // The projection indexes active patterns by their unique folder name and sorts its observations,
   // so pattern order carries no meaning; `tokenOrder` stays ordered.
   defineNamingRegistry('folder-composition-patterns', {
@@ -45,24 +56,41 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
       { path: 'folderCompositionPatterns', key: 'patternId' },
       { path: 'folderSemanticContextPatterns', key: 'patternId' },
     ],
-  }),
+  }, [
+    { kind: 'keyed', path: 'folderCompositionPatterns', key: 'patternId' },
+    { kind: 'keyed', path: 'folderSemanticContextPatterns', key: 'patternId' },
+  ]),
+  // Detection is first-match, so pattern order is part of the policy.
   defineNamingRegistry('missing-role-patterns', {
     setLike: [{ path: 'missingRolePatterns[].extensionSegmentIndexes' }],
-  }),
-  defineNamingRegistry('reportable-extensions', { setLike: [{ path: 'reportableExtensions' }] }),
-  defineNamingRegistry('reportable-root-files', { setLike: [{ path: 'reportableRootFiles' }] }),
+  }, [{ kind: 'keyed', path: 'missingRolePatterns', key: 'patternId', ordered: true }]),
+  defineNamingRegistry('reportable-extensions', { setLike: [{ path: 'reportableExtensions' }] }, [
+    { kind: 'members', path: 'reportableExtensions' },
+  ]),
+  defineNamingRegistry('reportable-root-files', { setLike: [{ path: 'reportableRootFiles' }] }, [
+    { kind: 'members', path: 'reportableRootFiles' },
+  ]),
   defineNamingRegistry('roles', {
     setLike: [{ path: 'roles', key: 'role' }],
     omitEmpty: ['roles[].notes'],
-  }),
+  }, [{ kind: 'keyed', path: 'roles', key: 'role' }]),
   // `specialCases` is first-match ordered; its match lists are membership tests.
+  // Its records have no stable key, so the ordered list is compared as one value.
   defineNamingRegistry('special-cases', {
     setLike: [{ path: 'specialCases[].match.suffixEquals' }, { path: 'specialCases[].match.basenameEquals' }],
-  }),
-  defineNamingRegistry('summary-buckets'),
+  }, [{ kind: 'value', path: 'specialCases' }]),
+  // Bucket lists are ordered: their order is the summary order.
+  defineNamingRegistry('summary-buckets', {}, [
+    { kind: 'value', path: 'classificationBuckets' },
+    { kind: 'value', path: 'secondaryBucketFamilies' },
+  ]),
   defineNamingRegistry('walk-exclusions', {
     setLike: [{ path: 'excludedDirectories' }, { path: 'allowDotFiles' }],
-  }),
+  }, [
+    { kind: 'members', path: 'excludedDirectories' },
+    { kind: 'members', path: 'allowDotFiles' },
+    { kind: 'value', path: 'skipDotDirectories' },
+  ]),
 ]);
 
 // [6.1] cfg-registryLifecycle · Container · "Naming retired registry inventory"

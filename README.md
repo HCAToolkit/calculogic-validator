@@ -136,6 +136,7 @@ npx --no-install calculogic-validator-registry --help
 
 - `init-custom` creates a complete Custom registry set, with its Baseline copy and manifest, in `.calculogic/registries/custom/` of the repository it runs in. It refuses when a Custom set exists and never changes the active set.
 - `status` prints the Builtin/Custom state as JSON: the active set, whether Custom exists and differs, Baseline drift, orphans, issues, and a per-registry classification.
+- `diff [registryId…]` prints a read-only three-way comparison of Custom with its Baseline and the current Builtin, per registry and per entry (for example `builtin-added`, `custom-only`, `both-changed`). It writes nothing; acting on the differences (`update`) is a later #60 slice.
 - `use custom` activates the Custom set after checking it is complete, version-compatible and valid; it refuses otherwise and names each failing registry. `use builtin` switches back and always works; it never changes the Custom set.
 - While Custom is active, every validation run checks it first. A Custom set that has become incomplete, incompatible or invalid stops the run with no report, naming each failing registry and the two ways forward (reconcile Custom, or `use builtin`).
 
@@ -324,7 +325,7 @@ npm run health:validator
 - `npm run validate:all`: shared-runner validation that stages naming before tree and reports all configured validators.
 - `npm run validate:tree`: tree-structure-advisor validation through the shared runner path (tree only in report output).
 - `npm run health:validator`: validator environment/health diagnostics.
-- `npm run registry:init-custom` / `npm run registry:use -- <builtin|custom>` / `npm run registry:status`: registry lifecycle commands (`calculogic-validator-registry init-custom` / `use` / `status`) for this repository.
+- `npm run registry:init-custom` / `npm run registry:use -- <builtin|custom>` / `npm run registry:status` / `npm run registry:diff`: registry lifecycle commands (`calculogic-validator-registry init-custom` / `use` / `status` / `diff`) for this repository.
 
 Bridge behavior note (normal runs):
 

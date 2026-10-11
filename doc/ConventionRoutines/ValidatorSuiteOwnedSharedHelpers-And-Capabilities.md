@@ -173,6 +173,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 - **Reusable capability:**
   - `resolveActiveRegistrySet` for validator CLIs and the runner (one call per run, passed to slices as `registryResolution`); an active Custom set with a blocking condition raises one lifecycle error naming each failing registry
   - `useRegistrySet` for changing the active set (the only operation that does)
+  - `extractComparisonEntries` and `classifyEntry` (`registry-lifecycle-comparison.logic.mjs`): addressed entries from a registry's slice-owned comparison identity declaration, and the three-way entry class (spec §8.2, §8.4); `buildRegistryLifecycleDiff` for the read-only `diff`
   - slice inventories (registry ids, descriptors, readable versions) aggregated in deterministic slice order
 - **When to reuse:**
   - any validation entry point that loads registries; slices read their resolved root instead of package `_builtin/` constants

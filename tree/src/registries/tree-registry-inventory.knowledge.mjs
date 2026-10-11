@@ -5,7 +5,7 @@
  * Responsibility: Tree's registry inventory for the Builtin/Custom registry lifecycle.
  * Invariants: lists only Tree-owned registries; descriptors declare comparison canonicalization
  *   only (spec §5), and set-like paths are declared only where Tree's loaders already treat
- *   order as insignificant.
+ *   order as insignificant; comparison declarations state entry identity separately (spec §8.4).
  */
 import { fileURLToPath } from 'node:url';
 
@@ -15,24 +15,32 @@ export const TREE_BUILTIN_REGISTRY_ROOT = fileURLToPath(new URL('./_builtin/', i
 
 const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 
-const defineTreeRegistry = (name, descriptor = {}) =>
+// `comparison` is the registry's entry identity for three-way comparison (spec §8.4).
+const defineTreeRegistry = (name, descriptor, comparison) =>
   Object.freeze({
     registryId: `${TREE_REGISTRY_SLICE_ID}/${name}`,
     name,
     fileName: `${name}.registry.json`,
     readableVersions: READABLE_VERSIONS_V1,
     descriptor: Object.freeze(descriptor),
+    comparison: Object.freeze(comparison.map((collection) => Object.freeze(collection))),
   });
 
 // [6.1] cfg-registryLifecycle · Container · "Tree registry inventory"
 export const TREE_REGISTRY_INVENTORY = Object.freeze([
-  defineTreeRegistry('folder-kinds', { setLike: [{ path: 'folderKinds', key: 'folderKind' }] }),
-  defineTreeRegistry('repo-shape-policy', { setLike: [{ path: 'allowedTopLevelDirectories' }] }),
-  defineTreeRegistry('semantic-home-policy', { setLike: [{ path: 'semanticHomePolicy', key: 'policyId' }] }),
+  defineTreeRegistry('folder-kinds', { setLike: [{ path: 'folderKinds', key: 'folderKind' }] }, [
+    { kind: 'keyed', path: 'folderKinds', key: 'folderKind' },
+  ]),
+  defineTreeRegistry('repo-shape-policy', { setLike: [{ path: 'allowedTopLevelDirectories' }] }, [
+    { kind: 'members', path: 'allowedTopLevelDirectories' },
+  ]),
+  defineTreeRegistry('semantic-home-policy', { setLike: [{ path: 'semanticHomePolicy', key: 'policyId' }] }, [
+    { kind: 'keyed', path: 'semanticHomePolicy', key: 'policyId' },
+  ]),
   // At most one rule can match (relationshipPerspective is unique), so order carries no meaning.
   defineTreeRegistry('semantic-naming-folder-type-relationships', {
     setLike: [{ path: 'semanticNamingFolderTypeRelationships', key: 'relationshipPerspective' }],
-  }),
+  }, [{ kind: 'keyed', path: 'semanticNamingFolderTypeRelationships', key: 'relationshipPerspective' }]),
   // The loader converts all six vocabularies to Sets.
   defineTreeRegistry('shim-detection-signals', {
     setLike: [
@@ -43,17 +51,34 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
       { path: 'shimSuppressionVocabularies.detectorImplementationTokens' },
       { path: 'shimExtensionAllowlist.relevantFileExtensions' },
     ],
-  }),
+  }, [
+    { kind: 'members', path: 'shimDetectionSignals.folderSignals' },
+    { kind: 'members', path: 'shimDetectionSignals.nameTokenSignals' },
+    { kind: 'members', path: 'shimDetectionSignals.surfaceSegmentSignals' },
+    { kind: 'members', path: 'shimSuppressionVocabularies.nonRuntimeWeakSignalSurfaces' },
+    { kind: 'members', path: 'shimSuppressionVocabularies.detectorImplementationTokens' },
+    { kind: 'members', path: 'shimExtensionAllowlist.relevantFileExtensions' },
+  ]),
   // policyId is unique, a second match is an ambiguity error, and results are sorted.
-  defineTreeRegistry('structural-context-assessment-policies', { setLike: [{ path: 'policies', key: 'policyId' }] }),
-  defineTreeRegistry('structural-home-signal-policy', { setLike: [{ path: 'structuralHomeSignalPolicy', key: 'token' }] }),
-  defineTreeRegistry('structural-homes', { setLike: [{ path: 'structuralHomes', key: 'structuralHome' }] }),
-  defineTreeRegistry('structural-role-tokens', { setLike: [{ path: 'structuralRoleTokens', key: 'token' }] }),
+  defineTreeRegistry('structural-context-assessment-policies', { setLike: [{ path: 'policies', key: 'policyId' }] }, [
+    { kind: 'keyed', path: 'policies', key: 'policyId' },
+  ]),
+  defineTreeRegistry('structural-home-signal-policy', { setLike: [{ path: 'structuralHomeSignalPolicy', key: 'token' }] }, [
+    { kind: 'keyed', path: 'structuralHomeSignalPolicy', key: 'token' },
+  ]),
+  defineTreeRegistry('structural-homes', { setLike: [{ path: 'structuralHomes', key: 'structuralHome' }] }, [
+    { kind: 'keyed', path: 'structuralHomes', key: 'structuralHome' },
+  ]),
+  defineTreeRegistry('structural-role-tokens', { setLike: [{ path: 'structuralRoleTokens', key: 'token' }] }, [
+    { kind: 'keyed', path: 'structuralRoleTokens', key: 'token' },
+  ]),
   defineTreeRegistry('surface-structural-home-perspective', {
     setLike: [{ path: 'structuralHomesBySurface.*', key: 'structuralHome' }],
-  }),
+  }, [{ kind: 'keyed', path: 'structuralHomesBySurface.*', key: 'structuralHome' }]),
   // Both consumers test the matchers with .some(), so order and repetition carry no meaning.
-  defineTreeRegistry('validator-owned-signals', { setLike: [{ path: 'validatorOwnedBasenameSignals', key: 'pattern' }] }),
+  defineTreeRegistry('validator-owned-signals', { setLike: [{ path: 'validatorOwnedBasenameSignals', key: 'pattern' }] }, [
+    { kind: 'keyed', path: 'validatorOwnedBasenameSignals', key: 'pattern' },
+  ]),
 ]);
 
 // [6.1] cfg-registryLifecycle · Container · "Tree retired registry inventory"
