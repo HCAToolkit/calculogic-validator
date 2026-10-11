@@ -425,3 +425,20 @@ test('recovery refuses a transaction directory with any entry the transaction di
     });
   }
 });
+
+test('an altered transaction directory is refused even when the commit point was installed', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const commit = path.join(paths.customRoot, 'commit.json');
+    assert.throws(() =>
+      runLifecycleTransaction({ paths, writes: [{ targetPath: commit, contents: 'new' }], onStep: failAt('committed', { crash: true }) }),
+    );
+    fs.writeFileSync(path.join(transactionRoot, 'extra'), 'injected');
+
+    assert.throws(() => recoverLifecycleTransaction(paths), /was altered/u);
+    assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, 'the evidence is kept');
+
+    fs.rmSync(path.join(transactionRoot, 'extra'));
+    assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'committed' });
+    assert.equal(fs.readFileSync(commit, 'utf8'), 'new');
+  });
+});

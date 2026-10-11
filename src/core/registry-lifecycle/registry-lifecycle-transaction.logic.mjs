@@ -319,7 +319,10 @@ export const recoverLifecycleTransaction = (paths) => {
     return { outcome: LIFECYCLE_TRANSACTION_OUTCOMES.rolledBack };
   }
 
+  // Journal paths, then the directory's shape, are checked before the commit point is read, for
+  // both outcomes (spec §4.6 item 5).
   const commitTarget = resolveJournalPaths(paths, journal).targets.at(-1);
+  assertTransactionShape(paths, transactionRoot, journal);
   if (isFile(commitTarget) && sha256Hex(fs.readFileSync(commitTarget)) === journal.commitSha256) {
     retireTransactionDirectory(paths, transactionRoot);
     return { outcome: LIFECYCLE_TRANSACTION_OUTCOMES.committed };
