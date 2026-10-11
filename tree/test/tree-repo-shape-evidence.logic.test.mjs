@@ -9,6 +9,7 @@ import {
 } from '../src/tree-structure-advisor.wiring.mjs';
 import { getBuiltinTreeRepoShapePolicy } from '../src/registries/tree-repo-shape-policy-registry.logic.mjs';
 import { prepareTreeRepoShapeEvidence } from '../src/tree-repo-shape-evidence.logic.mjs';
+import { prepareContextualTreeRepoShapePolicy } from '../src/tree-contextual-repo-shape-policy.logic.mjs';
 
 const writeJson = (filePath, value) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -140,4 +141,22 @@ test('prepared repo-shape evidence keeps each declaration and rejects a malforme
   assert.ok(Object.isFrozen(evidence.evidenceRecords[0].declarations[0]));
   assert.deepEqual(prepareTreeRepoShapeEvidence().evidenceRecords, []);
   assert.throws(() => prepareTreeRepoShapeEvidence({ localPackageEvidence: {} }), /localPackageEvidence\[\]/u);
+});
+
+test('the effective policy orders evidence folders ordinally, independent of the host locale', () => {
+  const repoShapeEvidence = prepareTreeRepoShapeEvidence({
+    localPackageEvidence: ['äpkg', 'Zeta', 'zeta'].map((folder) => ({
+      folder,
+      manifestPath: `${folder}/package.json`,
+      declarations: [{ field: 'workspaces', value: folder }],
+    })),
+  });
+  const { allowedTopLevelDirectories } = prepareContextualTreeRepoShapePolicy({
+    registryPolicy: { version: '1', allowedTopLevelDirectories: ['src', 'bin'] },
+    validatorDevelopmentRoot: null,
+    repoShapeEvidence,
+  });
+
+  // Code-unit order: uppercase before lowercase, and `ä` (U+00E4) after every ASCII letter.
+  assert.deepEqual(allowedTopLevelDirectories, ['Zeta', 'bin', 'src', 'zeta', 'äpkg']);
 });

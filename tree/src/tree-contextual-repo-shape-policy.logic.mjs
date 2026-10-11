@@ -28,10 +28,12 @@ export const prepareContextualTreeRepoShapePolicy = ({
     ...evidenceFolders,
   ];
 
+  // Ordinal order: evidence folder names come from the repository, so the order must not depend on
+  // the host locale.
   return {
     version: registryPolicy.version,
     allowedTopLevelDirectories: [...new Set(allowedTopLevelDirectories)].sort((left, right) =>
-      left.localeCompare(right),
+      left === right ? 0 : left < right ? -1 : 1,
     ),
   };
 };
