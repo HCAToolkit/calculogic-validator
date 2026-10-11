@@ -33,6 +33,38 @@ const isPlainObject = (value) => value !== null && typeof value === 'object' && 
 
 const transactionRootOf = (paths) => path.join(paths.lifecycleRoot, LIFECYCLE_TRANSACTION_DIRNAME);
 
+const RETIRED_PREFIX = `${LIFECYCLE_TRANSACTION_DIRNAME}-retired-`;
+
+// Retires the transaction directory: one atomic rename takes it out of recovery's view, then the
+// retired copy is deleted. Recursive deletion is not atomic, so deleting in place could remove the
+// journal and fail on another entry, leaving a directory recovery would misread as uncommitted.
+// A retired copy that cannot be deleted is harmless and is swept by the next recovery.
+const retireTransactionDirectory = (paths, transactionRoot) => {
+  const retiredRoot = fs.mkdtempSync(path.join(paths.lifecycleRoot, RETIRED_PREFIX));
+  fs.renameSync(transactionRoot, path.join(retiredRoot, LIFECYCLE_TRANSACTION_DIRNAME));
+  try {
+    fs.rmSync(retiredRoot, { recursive: true, force: true });
+  } catch {
+    // Left for the next sweep.
+  }
+};
+
+const sweepRetiredTransactionDirectories = (paths) => {
+  let names = [];
+  try {
+    names = fs.readdirSync(paths.lifecycleRoot);
+  } catch {
+    return;
+  }
+  for (const name of names.filter((entry) => entry.startsWith(RETIRED_PREFIX))) {
+    try {
+      fs.rmSync(path.join(paths.lifecycleRoot, name), { recursive: true, force: true });
+    } catch {
+      // Left for a later sweep.
+    }
+  }
+};
+
 // A journal path is relative to the lifecycle root and must stay inside it.
 const toJournalPath = (paths, absolutePath) => {
   const relativePath = path.relative(paths.lifecycleRoot, absolutePath);
@@ -192,7 +224,7 @@ const rollBack = (paths, transactionRoot, journal) => {
     }
   }
 
-  fs.rmSync(transactionRoot, { recursive: true, force: true });
+  retireTransactionDirectory(paths, transactionRoot);
 };
 
 const readJournal = (transactionRoot) => {
@@ -236,6 +268,7 @@ const readJournal = (transactionRoot) => {
 // [5.2.11] cfg-registryLifecycle · Workflow · "recoverLifecycleTransaction"
 // Returns null when no transaction directory exists, otherwise `{ outcome }` (spec §4.6 item 5).
 export const recoverLifecycleTransaction = (paths) => {
+  sweepRetiredTransactionDirectories(paths);
   const transactionRoot = transactionRootOf(paths);
   if (!entryPresent(transactionRoot)) {
     return null;
@@ -246,13 +279,13 @@ export const recoverLifecycleTransaction = (paths) => {
   // it nothing was committed.
   const journal = readJournal(transactionRoot);
   if (!journal) {
-    fs.rmSync(transactionRoot, { recursive: true, force: true });
+    retireTransactionDirectory(paths, transactionRoot);
     return { outcome: LIFECYCLE_TRANSACTION_OUTCOMES.rolledBack };
   }
 
   const commitTarget = resolveJournalPaths(paths, journal).targets.at(-1);
   if (isFile(commitTarget) && sha256Hex(fs.readFileSync(commitTarget)) === journal.commitSha256) {
-    fs.rmSync(transactionRoot, { recursive: true, force: true });
+    retireTransactionDirectory(paths, transactionRoot);
     return { outcome: LIFECYCLE_TRANSACTION_OUTCOMES.committed };
   }
 
@@ -308,7 +341,7 @@ export const runLifecycleTransaction = ({ paths, writes, onStep = () => {} }) =>
     onStep('journaled');
   } catch (error) {
     if (!error?.[LIFECYCLE_TRANSACTION_SIMULATED_CRASH]) {
-      fs.rmSync(transactionRoot, { recursive: true, force: true });
+      retireTransactionDirectory(paths, transactionRoot);
     }
     throw error;
   }
@@ -347,11 +380,11 @@ export const runLifecycleTransaction = ({ paths, writes, onStep = () => {} }) =>
     throw error;
   }
 
-  // Committed: nothing after this point reports a failure. A directory that cannot be removed is a
-  // committed transaction, which recovery recognizes by the commit point's bytes and only removes.
+  // Committed: nothing after this point reports a failure. A directory that cannot be retired is a
+  // committed transaction, which recovery recognizes by the commit point's bytes and only retires.
   try {
     onStep('committed');
-    fs.rmSync(transactionRoot, { recursive: true, force: true });
+    retireTransactionDirectory(paths, transactionRoot);
   } catch (error) {
     if (error?.[LIFECYCLE_TRANSACTION_SIMULATED_CRASH]) {
       throw error;

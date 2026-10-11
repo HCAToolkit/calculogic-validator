@@ -337,3 +337,51 @@ test('a step whose backup entry is gone after it was backed up, but before it wa
     assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-old');
   });
 });
+
+test('a cleanup that deletes the journal and then fails never makes a committed transaction read as uncommitted', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const first = path.join(paths.customRoot, 'first.json');
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(first, 'first-old');
+    fs.writeFileSync(commit, 'commit-old');
+
+    // The first recursive removal deletes any journal under it, then fails, as a partial
+    // recursive deletion would.
+    const originalRmSync = fs.rmSync;
+    let failed = false;
+    fs.rmSync = (target, options) => {
+      if (!failed && options?.recursive) {
+        failed = true;
+        for (const relativePath of fs.readdirSync(target, { recursive: true })) {
+          if (path.basename(relativePath) === 'journal.json') {
+            fs.unlinkSync(path.join(target, relativePath));
+          }
+        }
+        throw new Error('partial removal');
+      }
+      return originalRmSync(target, options);
+    };
+    try {
+      runLifecycleTransaction({
+        paths,
+        writes: [
+          { targetPath: first, contents: 'first-new' },
+          { targetPath: commit, contents: 'commit-new' },
+        ],
+      });
+    } finally {
+      fs.rmSync = originalRmSync;
+    }
+
+    assert.equal(failed, true);
+    assert.equal(fs.existsSync(transactionRoot), false, 'the transaction left the view of recovery atomically');
+    assert.equal(recoverLifecycleTransaction(paths), null);
+    assert.deepEqual(
+      fs.readdirSync(paths.lifecycleRoot).filter((name) => name.startsWith('.lifecycle-transaction')),
+      [],
+      'the retired copy is swept by recovery',
+    );
+    assert.equal(fs.readFileSync(first, 'utf8'), 'first-new');
+    assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-new');
+  });
+});
