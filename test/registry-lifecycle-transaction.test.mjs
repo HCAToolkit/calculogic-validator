@@ -291,3 +291,28 @@ test('a journaled transaction whose backup directory is gone is refused, and its
     assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-old');
   });
 });
+
+test('a step whose backup entry is gone after it was applied is refused, never reported as rolled back', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const first = path.join(paths.customRoot, 'first.json');
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(first, 'first-old');
+    fs.writeFileSync(commit, 'commit-old');
+    const writes = [
+      { targetPath: first, contents: 'first-new' },
+      { targetPath: commit, contents: 'commit-new' },
+    ];
+
+    // Not yet applied: the backup is legitimately absent while the staged copy remains.
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('journaled', { crash: true }) }));
+    assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'rolled-back' });
+    assert.equal(fs.readFileSync(first, 'utf8'), 'first-old');
+
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-0:applied', { crash: true }) }));
+    fs.rmSync(path.join(transactionRoot, 'backup', '0'));
+    assert.throws(() => recoverLifecycleTransaction(paths), /lost the backup of custom\/first\.json/u);
+    assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, 'the evidence is kept');
+    assert.equal(fs.readFileSync(first, 'utf8'), 'first-new', 'nothing was rolled back');
+    assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-old');
+  });
+});
