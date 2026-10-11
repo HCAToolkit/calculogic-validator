@@ -12,7 +12,8 @@ Status: **implemented through slice 3 (Issue #41)**.
 - Slice 3: active-Custom resolution (5.2.5), `useRegistrySet` (5.2.7) and the `use` command (5.3), Tree's resolved-root wiring and Tree `registryProvenance` (5.4, 7.1), and usage-text scope lists from the resolved set (5.4). The activation gate holds.
 - #60 slice 1: comparison identity declarations in every slice inventory (6.1) and the read-only `diff` (5.2.9, 5.3).
 - #60 slice 2: the update decisions document, its template and its check (5.2.10, 5.3, 6.3). Read-only.
-- Follow-ons: the rest of the advanced management surface (#60), starting with `update` for `registry-added`, and the cross-slice compatibility check (#61).
+- #60 slice 3: the lifecycle transaction (5.2.11) and `update` for `registry-added` inheritance (5.2.12, 5.3). The first command that changes an existing Custom set.
+- Follow-ons: the rest of the advanced management surface (#60), starting with entry decisions in `update`, and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
 
@@ -32,7 +33,7 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- Edit, inherit/update, trace, import/export, preview and migrate commands (advanced management surface, follow-on). `diff` and the update decisions document are in scope.
+- Edit, inherit/update, trace, import/export, preview and migrate commands (advanced management surface, follow-on). `diff`, the update decisions document and `update` for `registry-added` are in scope.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present
@@ -73,7 +74,8 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 - Validation runs never write Custom, the manifest or the state file.
 - The active set is loaded whole. No registry is read from the non-active set during a run.
 - An active Custom set that is missing, incomplete, version-incompatible or invalid stops the run before validation. There is no Builtin fallback.
-- Only `use` changes `activeSet`. `init-custom` never does.
+- Only `use` changes `activeSet`. `init-custom` and `update` never do; `update` never even reads `registry-state.json`.
+- Only `update` changes an existing Custom set, and only through a lifecycle transaction (5.2.11): one registry advances completely or not at all.
 - Every lifecycle path read or written resolves by realpath inside the validation target root (spec §4.1).
 
 ## 3.0 Build Concern (Structure)
@@ -168,6 +170,46 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 - **`checkRegistryUpdateDecisions`:** strict shape check, then per registry: known id, no duplicate, decidable now, same class and `basedOn` digests (otherwise `stale`), then per entry: known decidable address, no duplicate, same class, a decision the class accepts or `null`, and no decidable entry missing. Problems are collected, never thrown, and sorted ordinally. Only records without a problem are summarized.
 - Neither reads nor writes `activeSet`, so a malformed state file does not stop them, and nothing is written.
 
+#### 5.2.11 Workflow: lifecycle transaction
+
+`registry-lifecycle-transaction.logic.mjs` (spec §4.6). `runLifecycleTransaction({ paths, writes })` replaces `writes` (`[{ targetPath, contents }]`) in order; the last is the commit point.
+- **Stage:** create `.calculogic/registries/.lifecycle-transaction/` exclusively (an existing one is an interrupted transaction). Write `staged/<i>` for every write, then the journal (`journal.json`, written to a temporary name and renamed):
+  - `steps: [{ target, existed }]`, with targets relative to the lifecycle root;
+  - `createdDirectories`;
+  - `commitSha256`, the SHA-256 of the commit point's new bytes.
+- **Commit:** create the missing directories. For each step: if the target exists, rename it to `backup/<i>`, then rename `staged/<i>` onto it.
+- **Rollback**, on any failure before the last rename, in reverse order:
+  - restore each backup;
+  - remove each target that did not exist;
+  - remove each created directory that is empty;
+  - remove the transaction directory.
+
+  If the rollback itself fails, the directory is kept for recovery.
+- **After the commit point** nothing reports a failure. A transaction directory that cannot be removed is a committed transaction.
+- **`recoverLifecycleTransaction(paths)`** returns `null` when there is no transaction directory. Otherwise:
+  - no journal → nothing was committed, so the directory is removed (`rolled-back`);
+  - the commit point holds the journaled bytes → `committed`, and the directory is removed;
+  - otherwise → rollback (`rolled-back`).
+
+  A malformed journal, or one naming a path outside the lifecycle root or outside the target, is a lifecycle error, and nothing is touched.
+- Every target, created directory and the transaction directory must be contained (spec §4.1).
+- **Test seam:** an `onStep(name)` hook is called at each boundary (`staged`, `journaled`, `directories-created`, `step-<i>:backed-up`, `step-<i>:applied`, `committed`). An error carrying `LIFECYCLE_TRANSACTION_SIMULATED_CRASH` stops the transaction without rollback, as a killed process would. Neither is consumer-facing.
+
+#### 5.2.12 Workflow: `applyRegistryUpdateDecisions` (`update`)
+
+`registry-lifecycle-update.logic.mjs` (spec §12.5).
+1. Check that the lifecycle root and `custom/` are contained, then recover (5.2.11).
+2. Check the document (5.2.10). If it is not valid, return its problems.
+3. Select records:
+   - `registry-added` + `inherit` → apply;
+   - any `null` → skipped as `undecided`;
+   - a complete `differs` record → skipped as `not-yet-supported`.
+4. For each applied registry, in ordinal order:
+   - prepare: Builtin file contained in its slice's Builtin root, parsed, its digest equal to `basedOn.builtinDigest`, and a readable `version`; Custom file and manifest entry still absent; slice validation over a scratch copy of the Custom slice, before and after adding the file, reports no new failure;
+   - then one transaction: `.baseline/` copy, Custom file, manifest. The manifest entry is built like `init-custom` builds it, from the current Validator version and `digestRegistryPayload`.
+
+   The first failure stops the command; the registries applied before it stay applied.
+
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
 - `init-custom` → 5.2.6.
@@ -176,10 +218,11 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 - `diff [registryId…]` → 5.2.9. Read-only. An unknown registry id is a usage error.
 - `decisions-template [registryId…]` → 5.2.10. Read-only; prints the document on stdout. An unknown registry id is a usage error; no Custom set is a lifecycle error.
 - `decisions-check <file>` → 5.2.10. Read-only. The path is resolved from the working directory. Prints the check result on stdout and exits 1 when it has problems; an unreadable or unparseable file is an error on stderr.
+- `update <file>` → 5.2.12. Prints `{ command, recovered?, applied, skipped }`, or with `problems` or `failed` and exit 1. The path is resolved from the working directory.
 
 Usage errors and lifecycle errors go to stderr with a non-zero exit.
 
-Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status`, `npm run registry:diff`, `npm run registry:decisions-template` and `npm run registry:decisions-check` (`scripts/registry-lifecycle.host.mjs`).
+Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status`, `npm run registry:diff`, `npm run registry:decisions-template`, `npm run registry:decisions-check` and `npm run registry:update` (`scripts/registry-lifecycle.host.mjs`).
 
 ### 5.4 Wiring into validation runs
 
@@ -205,7 +248,7 @@ Each is owned by its slice and lists only that slice's registries. Every entry c
 
 ### 6.3 Constants
 
-Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary; the comparison kinds and entry and `diff` registry classes; and the update decisions document's `kind`, `schemaVersion`, decisions by class (`REGISTRY_DECISIONS_BY_CLASS`, `ENTRY_DECISIONS_BY_CLASS`) and problem codes.
+Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary; the comparison kinds and entry and `diff` registry classes; and the update decisions document's `kind`, `schemaVersion`, decisions by class (`REGISTRY_DECISIONS_BY_CLASS`, `ENTRY_DECISIONS_BY_CLASS`) and problem codes; the lifecycle transaction's directory, journal name, schema version and outcomes; and the `update` skip reasons.
 
 ## 7.0 Results Concern (Outputs)
 
@@ -250,6 +293,8 @@ src/core/registry-lifecycle/
   registry-lifecycle-comparison.logic.mjs          5.2.9 (entry extraction and classification)
   registry-lifecycle-diff.logic.mjs                5.2.9
   registry-lifecycle-decisions.logic.mjs           5.2.10
+  registry-lifecycle-transaction.logic.mjs         5.2.11
+  registry-lifecycle-update.logic.mjs              5.2.12
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)

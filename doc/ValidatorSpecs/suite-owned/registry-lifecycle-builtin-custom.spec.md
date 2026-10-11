@@ -85,6 +85,7 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 ```text
 .calculogic/registries/
   registry-state.json                 # local active selection; not part of the portable set
+  .lifecycle-transaction/             # present only during, or after an interrupted, write (§4.6)
   custom/                             # the portable Custom set
     registry-set.manifest.json
     naming/<registry>.registry.json   # same filenames as Builtin
@@ -137,6 +138,35 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 
 - `activeSet` is `builtin` or `custom`. Any other value is a lifecycle error.
 - An absent file means `activeSet: builtin`.
+
+### 4.6 Write protocol: lifecycle transactions
+
+Commands that change an existing Custom set write through one suite-owned **lifecycle transaction**. That is `update` (§12.5) now, and later `migrate`, `edit` and `import`. `init-custom` keeps its own protocol, because it creates `custom/` whole: it stages the set and renames the directory into place (§12.1).
+
+A transaction replaces an ordered list of files. Its last file is the **commit point**, which is always `registry-set.manifest.json`: until the manifest names a file's digest, no lifecycle check trusts that file as Baseline.
+
+1. **Prepare.** Every new file content is computed and checked before anything is written (for `update`, §12.5). Every target, every directory the transaction creates, and the transaction directory itself must be contained (§4.1).
+2. **Stage.** The transaction directory `.calculogic/registries/.lifecycle-transaction/` is created exclusively. It sits outside `custom/`, so it is never part of the portable set.
+   - The new contents are written into it.
+   - So is a journal. The journal lists, in commit order, each target and whether it existed, the directories to create, and the SHA-256 of the commit point's new bytes.
+   - The journal is written last and renamed into place, so a transaction directory without a journal has committed nothing.
+3. **Commit, in order.** For each target, an existing file is first moved into the transaction directory as a backup, then the staged file is renamed into place. Both stay on one file system, so each rename is atomic.
+   - For one registry the order is: the `.baseline/` copy, the Custom file, the manifest.
+   - The manifest rename is the commit point. Before it, nothing trusts the new files; after it, the registry is fully advanced.
+   - The transaction directory is then removed.
+4. **Rollback.** Any failure before the commit point undoes every completed step in reverse:
+   - a backup is restored;
+   - a file that did not exist before is removed;
+   - a created directory is removed when empty.
+
+   The transaction directory is then removed and the command reports the failure. The registry is exactly as it was before the command.
+5. **Recovery.** A process that stops between steps (killed, crashed) leaves the transaction directory behind.
+   - Every partial state is already visible. A Custom file without a manifest entry makes the manifest malformed: `status` reports it, and it blocks activation and active-Custom runs (§7.1 item 5). A `.baseline/` copy without a manifest entry is never read.
+   - The next writing lifecycle command recovers first, from the journal. If the commit point holds the journaled bytes, the transaction committed and only its directory is removed. Otherwise it is rolled back as in item 4.
+   - Recovery never reads or writes `registry-state.json`.
+   - Lifecycle commands are not run concurrently against one target.
+6. **Scope.** One transaction advances one registry (§8.2). A command that advances several registries runs one transaction per registry, in ordinal registry-id order. A failure stops the command: earlier registries stay advanced and later ones are untouched.
+7. **Durability** against power loss (fsync) is outside this guarantee.
 
 ## 5) Canonical comparison and digests
 
@@ -421,7 +451,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices:
 1. `diff` (§12.3);
 2. the update decisions document (§12.4);
-3. `update`, which consumes that document as its only authority for choices. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
+3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance first; entry decisions, migration and the other commands follow. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
 
 ### 12.3 `diff` (read-only)
 
@@ -509,11 +539,44 @@ Both need a Custom set and write nothing.
 - `registries` summarizes each record without a problem: `{ registryId, class, decided, undecided, complete }`. A record with a problem is never summarized, so it never reads as complete.
 - `valid` is true when there is no problem. `complete` is true when the document is valid and nothing in it is undecided.
 
-**How `update` will use it (contract for the next slices):**
+**How `update` uses it (§12.5):**
 - `update` refuses a document that is not `valid`, before writing anything.
 - It applies only registries whose record is complete; a registry with any `null` decision keeps its Baseline and its Custom content (§8.2 atomic advancement).
 - Whether a combination of entry choices yields a valid registry (for example an order entry against the records it orders) is checked when the choices are applied, and a combination that cannot is refused before writing.
 - It never changes `activeSet`.
+
+### 12.5 `update`
+
+`calculogic-validator-registry update <file>` applies a decisions document (§12.4). The path is resolved from the working directory. **This slice applies `registry-added` records only**; entry decisions on `differs` records are a later #60 slice.
+
+1. **Recover** an interrupted transaction (§4.6 item 5). A Custom set must exist.
+2. **Check** the document exactly as `decisions-check` does, against the current comparison. A document that is not `valid` is refused before anything is written, and its problems are printed.
+3. **Select.**
+   - Records with `class: "registry-added"` and `decision: "inherit"` are applied, in ordinal registry-id order.
+   - Every other record is listed under `skipped` with a reason:
+     - `undecided`: its decision, or one of its entry decisions, is still `null`;
+     - `not-yet-supported`: a complete `differs` record.
+
+     Nothing is ever inferred from `null`.
+4. **Prepare each registry** (§4.6 item 1). The registry is refused, before its transaction, unless all of these hold:
+   - **Builtin source:** the Builtin file resolves inside its slice's Builtin root and parses. Its canonical digest (§5) equals the record's `basedOn.builtinDigest`, so the copied bytes are exactly the ones the document authorized. Its `version` is one this engine reads.
+   - **Still added:** Custom still lacks the registry, and the manifest still lacks its entry. Otherwise the record is stale.
+   - **Valid in Custom:** the slice's registry-set validation (§9.3), run over the Custom slice with the new file added, reports no failure it does not already report without it. That covers the new registry and its references to Custom's other registries.
+5. **Transaction** (§4.6), in this order:
+   1. `custom/.baseline/<slice>/<file>`;
+   2. `custom/<slice>/<file>`. This and the `.baseline/` copy are the same Builtin bytes.
+   3. The manifest, with `basedOn.registries[<id>]` set to `{ validatorVersion, version, digest }`: the current Validator version, the Builtin `version` and the canonical digest (§5), computed exactly as `init-custom` computes them. Every other entry and field is unchanged, and entries are sorted by id.
+6. **Result.** After a successful `update`:
+   - `diff` reports the registry `unchanged`, and `status` reports it `unchanged`;
+   - no other registry, Baseline copy or manifest entry has changed;
+   - `registry-state.json` is never read or written.
+
+**Output** is JSON on stdout:
+- `{ command, recovered?, applied, skipped }`. Exit 0.
+- A refused document: `{ command, applied: [], problems }`. Exit 1.
+- A failed registry: `{ command, recovered?, applied, skipped, failed: { registryId, detail } }`. Exit 1. `applied` lists the registries advanced before the failure; the failed registry is rolled back (§4.6 item 4).
+
+`recovered` is present only when a transaction was found: `{ outcome: "committed" | "rolled-back" }`.
 
 ## 13) Implementation slices
 
@@ -552,7 +615,7 @@ Both need a Custom set and write nothing.
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template` and `registry:decisions-check`. The rest of §12.2 (`update`, `migrate`, `edit`, `trace`, `import`/`export`, preview) is not implemented yet (#60): no command changes an existing Custom set's content or advances its Baseline.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), and `update` for `registry-added` records (§12.5) through the lifecycle transaction (§4.6). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check` and `registry:update`. Not implemented yet (#60): entry decisions in `update`, `migrate`, `edit`, `trace`, `import`/`export` and preview.
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.
