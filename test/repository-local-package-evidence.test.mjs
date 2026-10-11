@@ -222,3 +222,60 @@ test('containment applies before any manifest is read', () => {
     { rootManifest: declaringEngine, packageFolders: ['packages/engine'] },
   );
 });
+
+// Simulates a case-insensitive filesystem (default macOS and Windows): every path lookup ignores
+// case, while directory listings keep each entry's real spelling.
+const withCaseInsensitivePaths = (targetRoot, run) => {
+  const realEntryPath = (candidatePath) => {
+    const relativePath = path.relative(targetRoot, candidatePath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath) || relativePath === '') {
+      return candidatePath;
+    }
+
+    let resolved = targetRoot;
+    for (const segment of relativePath.split(path.sep)) {
+      const entries = fs.existsSync(resolved) && fs.statSync(resolved).isDirectory() ? fs.readdirSync(resolved) : [];
+      resolved = path.join(resolved, entries.find((entry) => entry.toLowerCase() === segment.toLowerCase()) ?? segment);
+    }
+    return resolved;
+  };
+  const originals = { statSync: fs.statSync, readFileSync: fs.readFileSync, realpathSync: fs.realpathSync };
+  fs.statSync = (candidatePath, ...rest) => originals.statSync(realEntryPath(candidatePath), ...rest);
+  fs.readFileSync = (candidatePath, ...rest) =>
+    originals.readFileSync(typeof candidatePath === 'string' ? realEntryPath(candidatePath) : candidatePath, ...rest);
+  fs.realpathSync = Object.assign((candidatePath, ...rest) => originals.realpathSync(realEntryPath(candidatePath), ...rest), {
+    native: originals.realpathSync.native,
+  });
+
+  try {
+    return run();
+  } finally {
+    Object.assign(fs, originals);
+  }
+};
+
+test('on a case-insensitive filesystem only the exact folder and manifest spelling qualify', () => {
+  withTarget(
+    ({ targetRoot }) => {
+      withCaseInsensitivePaths(targetRoot, () => {
+        // The simulated lookup does resolve the other spelling, so only the spelling rule rejects it.
+        assert.equal(fs.statSync(path.join(targetRoot, 'Engine')).isDirectory(), true);
+        assert.deepEqual(foldersOf(targetRoot), [], 'file:Engine for engine/');
+      });
+    },
+    { rootManifest: { dependencies: { engine: 'file:Engine' } }, packageFolders: ['engine'] },
+  );
+
+  withTarget(
+    ({ targetRoot }) => {
+      fs.renameSync(path.join(targetRoot, 'engine', 'package.json'), path.join(targetRoot, 'engine', 'Package.json'));
+      withCaseInsensitivePaths(targetRoot, () => assert.deepEqual(foldersOf(targetRoot), [], 'Package.json'));
+    },
+    { rootManifest: { dependencies: { engine: 'file:engine' } }, packageFolders: ['engine'] },
+  );
+
+  withTarget(
+    ({ targetRoot }) => withCaseInsensitivePaths(targetRoot, () => assert.deepEqual(foldersOf(targetRoot), ['engine'])),
+    { rootManifest: { dependencies: { engine: 'file:engine' } }, packageFolders: ['engine'] },
+  );
+});

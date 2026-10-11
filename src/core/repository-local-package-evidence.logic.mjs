@@ -101,6 +101,16 @@ const isContainedDirectory = (targetRoot, directoryPath) => {
   }
 };
 
+// True when `name` is spelled exactly as an entry of `directoryPath`. Existence checks alone accept
+// another spelling on a case-insensitive filesystem, so evidence would differ between hosts.
+const hasExactEntry = (directoryPath, name) => {
+  try {
+    return fs.readdirSync(directoryPath).includes(name);
+  } catch {
+    return false;
+  }
+};
+
 const compareDeclarations = (left, right) =>
   compareOrdinal(left.field, right.field) ||
   compareOrdinal(left.key ?? '', right.key ?? '') ||
@@ -126,7 +136,9 @@ export const collectDeclaredLocalPackageEvidence = (targetRoot) => {
     .filter((folder) => {
       const folderPath = path.join(targetRoot, folder);
       return (
+        hasExactEntry(targetRoot, folder) &&
         isContainedDirectory(targetRoot, folderPath) &&
+        hasExactEntry(folderPath, MANIFEST_FILENAME) &&
         readContainedJsonObject(targetRoot, path.join(folderPath, MANIFEST_FILENAME)) !== null
       );
     })
