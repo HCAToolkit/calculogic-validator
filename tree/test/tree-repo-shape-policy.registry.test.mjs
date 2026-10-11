@@ -7,13 +7,12 @@ const TREE_REPO_SHAPE_POLICY_REGISTRY_PATH = new URL(
   import.meta.url,
 );
 
-// Generic structural peers, plus `calculogic-doc-engine` as a temporary compatibility exception that
-// preserves current React-app behavior (not a generic repository root; see the Tree spec).
-// `calculogic-validator` is not a builtin entry: it is allowed only through explicit embedded
-// development context (tree-contextual-repo-shape-policy.logic.mjs).
+// Generic structural peers only. Repository-specific folders come from context
+// (tree-contextual-repo-shape-policy.logic.mjs): `calculogic-validator` through explicit embedded
+// development context, and declared local packages such as `calculogic-doc-engine` through
+// local-package evidence (#37).
 const EXPECTED_ALLOWED_TOP_LEVEL_DIRECTORIES = [
   'bin',
-  'calculogic-doc-engine',
   'doc',
   'docs',
   'public',
@@ -33,4 +32,5 @@ test('tree repo-shape policy preserves bounded top-level directory allow policy'
   assert.equal(payload.allowedTopLevelDirectories.includes('assets'), false);
   assert.equal(payload.allowedTopLevelDirectories.includes('ops'), false);
   assert.equal(payload.allowedTopLevelDirectories.includes('calculogic-validator'), false);
+  assert.equal(payload.allowedTopLevelDirectories.includes('calculogic-doc-engine'), false);
 });

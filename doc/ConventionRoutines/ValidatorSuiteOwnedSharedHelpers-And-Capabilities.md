@@ -213,6 +213,28 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 - **When not to reuse:** CLI `--target` resolution keeps its own existence-and-escape check in `scoped-target-paths.logic.mjs`, which also requires the target to exist.
 - **Reuse boundary type:** helper-area reuse
 
+### 3.10 Entry: suite-core repository local-package evidence
+
+- **Owner:** suite-core
+- **Path/area:**
+  - `src/core/repository-local-package-evidence.logic.mjs`
+- **Concern:** one neutral repository fact (#37): which top-level folders the validation target's root manifest explicitly declares as local packages, where each folder also has its own contained package manifest. It reports the fact only. Deciding what the fact allows (for example a top-level folder in Tree's repo shape) belongs to the consuming slice.
+- **Qualifying rule (both sides required):**
+  - **Root declaration.** `<target>/package.json` is contained (3.9) and parses as a JSON object. It declares `<folder>` in one of these supported forms:
+    - in `dependencies`, `devDependencies`, `optionalDependencies` or `peerDependencies` (each a JSON object), a string value that is exactly `file:<folder>` or `link:<folder>`;
+    - in `workspaces`, given as an array of strings or as an object whose `packages` is an array of strings, an entry that is exactly `<folder>`.
+
+    In both forms, `<folder>` may be written with a leading `./` and one trailing `/`.
+  - **Folder manifest.** `<target>/<folder>` resolves inside the target and is a directory, and `<target>/<folder>/package.json` resolves inside the target and parses as a JSON object. Containment is checked before the manifest is read.
+  - **Folder name.** `<folder>` is one path segment: not empty, no `/` or `\`, not `.` or `..`, and no glob character (`*`, `?`, `[`, `]`, `{`, `}`, `!`).
+  - **Everything else does not qualify, and is never reinterpreted.** That includes nested paths (`file:packages/x`), parent or absolute paths, globs, other protocols, and external workspace formats such as `pnpm-workspace.yaml`. A missing or malformed root manifest yields no evidence; it is not an error, because the Validator does not validate manifests.
+- **Reusable capability:**
+  - `collectDeclaredLocalPackageEvidence(targetRoot)` returns records sorted by folder: `{ folder, manifestPath, declarations }`. Each declaration is sorted and is `{ field, key, value }` for a dependency or `{ field, value }` for a workspace entry.
+- **Current consumers:** Tree's effective repo-shape policy (`tree/src/tree-contextual-repo-shape-policy.logic.mjs`).
+- **When to reuse:** a slice that needs to know which top-level folders the repository itself declares as its own packages.
+- **When not to reuse:** dependency resolution, version checks or any manifest validation. This is a fact extractor, not a package manager.
+- **Reuse boundary type:** helper-area reuse
+
 ## 4) Guardrails
 
 - Do **not** invent shared helpers in this inventory that do not currently exist.
