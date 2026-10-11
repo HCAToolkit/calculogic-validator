@@ -59,6 +59,22 @@ const assertContained = (paths, candidatePath) => {
   }
 };
 
+// Whether a directory entry exists at `targetPath`, of any kind but a directory. A symlink counts
+// as itself: it is moved to the backup and restored as a link, never followed. A directory cannot
+// be replaced by a file, so it is refused.
+const targetExists = (targetPath) => {
+  let stats;
+  try {
+    stats = fs.lstatSync(targetPath);
+  } catch {
+    return false;
+  }
+  if (stats.isDirectory()) {
+    throw new RegistryLifecycleError(`A lifecycle write target is a directory (${targetPath}); nothing was written.`);
+  }
+  return true;
+};
+
 const isFile = (filePath) => {
   try {
     return fs.lstatSync(filePath).isFile();
@@ -188,7 +204,7 @@ export const runLifecycleTransaction = ({ paths, writes, onStep = () => {} }) =>
   }
   const journal = {
     schemaVersion: LIFECYCLE_TRANSACTION_SCHEMA_VERSION,
-    steps: writes.map(({ targetPath }) => ({ target: toJournalPath(paths, targetPath), existed: isFile(targetPath) })),
+    steps: writes.map(({ targetPath }) => ({ target: toJournalPath(paths, targetPath), existed: targetExists(targetPath) })),
     createdDirectories: createdDirectories.map((directory) => toJournalPath(paths, directory)),
     commitSha256: sha256Hex(Buffer.from(writes.at(-1).contents)),
   };

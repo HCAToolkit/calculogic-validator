@@ -177,7 +177,7 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
   - `steps: [{ target, existed }]`, with targets relative to the lifecycle root;
   - `createdDirectories`;
   - `commitSha256`, the SHA-256 of the commit point's new bytes.
-- **Commit:** create the missing directories. For each step: if the target exists, rename it to `backup/<i>`, then rename `staged/<i>` onto it.
+- **Commit:** create the missing directories. For each step: if an entry exists at the target (a file, or a symlink, which is moved as the link itself), rename it to `backup/<i>`, then rename `staged/<i>` onto it. A directory at a target is refused before staging.
 - **Rollback**, on any failure before the last rename, in reverse order:
   - restore each backup;
   - remove each target that did not exist;

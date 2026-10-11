@@ -150,7 +150,7 @@ A transaction replaces an ordered list of files. Its last file is the **commit p
    - The new contents are written into it.
    - So is a journal. The journal lists, in commit order, each target and whether it existed, the directories to create, and the SHA-256 of the commit point's new bytes.
    - The journal is written last and renamed into place, so a transaction directory without a journal has committed nothing.
-3. **Commit, in order.** For each target, an existing file is first moved into the transaction directory as a backup, then the staged file is renamed into place. Both stay on one file system, so each rename is atomic.
+3. **Commit, in order.** For each target, an existing entry is first moved into the transaction directory as a backup, then the staged file is renamed into place. Both stay on one file system, so each rename is atomic. An existing entry is a file or a symlink; a symlink is moved, and restored, as the link itself and is never followed. A directory at a target is refused before anything is written.
    - For one registry the order is: the `.baseline/` copy, the Custom file, the manifest.
    - The manifest rename is the commit point. Before it, nothing trusts the new files; after it, the registry is fully advanced.
    - The transaction directory is then removed.

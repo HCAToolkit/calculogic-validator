@@ -126,3 +126,36 @@ test('a journal naming a path outside the lifecycle root is refused, and nothing
     assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true);
   });
 });
+
+test('an existing symlink at a target is backed up and restored as a link, and a directory is refused', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const linkTarget = path.join(paths.customRoot, 'real.json');
+    fs.writeFileSync(linkTarget, 'real');
+    const link = path.join(paths.customRoot, 'link.json');
+    fs.symlinkSync(linkTarget, link);
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(commit, 'old');
+    const writes = [
+      { targetPath: link, contents: 'replacement' },
+      { targetPath: commit, contents: 'new' },
+    ];
+
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-1:backed-up') }));
+    assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
+    assert.equal(fs.readlinkSync(link), linkTarget);
+    assert.equal(fs.readFileSync(linkTarget, 'utf8'), 'real');
+
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-0:applied', { crash: true }) }));
+    assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'rolled-back' });
+    assert.equal(fs.readlinkSync(link), linkTarget);
+    assert.equal(fs.readFileSync(linkTarget, 'utf8'), 'real');
+
+    const directoryTarget = path.join(paths.customRoot, 'a-directory');
+    fs.mkdirSync(directoryTarget);
+    assert.throws(
+      () => runLifecycleTransaction({ paths, writes: [{ targetPath: directoryTarget, contents: 'x' }] }),
+      /is a directory/u,
+    );
+    assert.equal(fs.existsSync(transactionRoot), false);
+  });
+});
