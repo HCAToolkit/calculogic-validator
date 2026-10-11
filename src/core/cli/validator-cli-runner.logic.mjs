@@ -7,7 +7,7 @@ import {
 } from '../validator-report-meta.logic.mjs';
 import { deriveExitCodeFromRunnerReport } from '../validator-exit-code.logic.mjs';
 import { detectNpmArgForwardingFootgun } from '../npm-arg-forwarding-guard.logic.mjs';
-import { resolveActiveRegistrySet } from '../registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
+import { resolveCliRegistrySet } from './validator-cli-registry-resolution.logic.mjs';
 import {
   writeValidatorReportToStdout,
   setValidatorReportExitCode,
@@ -26,6 +26,8 @@ export const runValidatorRunnerCli = ({
   parseCliArgs,
   buildRunnerOptions,
   buildExitCodeOptions,
+  // From `resolveCliRegistrySet`, when the host already resolved for its usage text.
+  cliRegistrySet = resolveCliRegistrySet(repositoryRoot),
 }) => {
   const npmArgForwardingMessage = detectNpmArgForwardingFootgun({
     argv,
@@ -54,13 +56,11 @@ export const runValidatorRunnerCli = ({
   }
 
   // One lifecycle resolution per run; a lifecycle error stops the run before any report.
-  let registryResolution;
-  try {
-    registryResolution = resolveActiveRegistrySet({ targetRoot: repositoryRoot });
-  } catch (error) {
-    printValidatorUsageErrorToStderr(error.message, usageLines);
+  if (cliRegistrySet.registryResolutionError) {
+    printValidatorUsageErrorToStderr(cliRegistrySet.registryResolutionError.message, usageLines);
     return { shouldExit: true, exitCode: 1 };
   }
+  const { registryResolution } = cliRegistrySet;
 
   if (parsed.selectedScope) {
     const scopeResolution = resolveContextualValidatorScopeProfile(parsed.selectedScope, {

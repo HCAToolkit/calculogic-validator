@@ -1,11 +1,14 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
+const STRUCTURAL_ROLE_TOKENS_REGISTRY_FILENAME = 'structural-role-tokens.registry.json';
+
 export const BUILTIN_STRUCTURAL_ROLE_TOKENS_REGISTRY_PATH = fileURLToPath(
-  new URL('structural-role-tokens.registry.json', BUILTIN_REGISTRY_ROOT),
+  new URL(STRUCTURAL_ROLE_TOKENS_REGISTRY_FILENAME, BUILTIN_REGISTRY_ROOT),
 );
 
 // Tree runtime consumers read only `active` entries; `deprecated` keeps an entry declared but unused.
@@ -31,10 +34,16 @@ export const assertValidStructuralRoleTokensRegistry = (payload) => {
   return payload;
 };
 
+// Loads from one resolved Tree registry root, Builtin or Custom (#41 registry lifecycle, spec §9.3).
+export const loadStructuralRoleTokensRegistryFromRegistryRoot = (registryRoot) =>
+  assertValidStructuralRoleTokensRegistry(
+    JSON.parse(fs.readFileSync(path.join(registryRoot, STRUCTURAL_ROLE_TOKENS_REGISTRY_FILENAME), 'utf8')),
+  );
+
 export const getBuiltinStructuralRoleTokensRegistry = () => {
   if (!cachedBuiltinStructuralRoleTokensRegistry) {
-    cachedBuiltinStructuralRoleTokensRegistry = assertValidStructuralRoleTokensRegistry(
-      JSON.parse(fs.readFileSync(BUILTIN_STRUCTURAL_ROLE_TOKENS_REGISTRY_PATH, 'utf8')),
+    cachedBuiltinStructuralRoleTokensRegistry = loadStructuralRoleTokensRegistryFromRegistryRoot(
+      fileURLToPath(BUILTIN_REGISTRY_ROOT),
     );
   }
   return cachedBuiltinStructuralRoleTokensRegistry;

@@ -3,7 +3,9 @@ import { getBuiltinTreeSignalPolicy } from './registries/tree-signal-policy-regi
 import { toValidatorDevelopmentPathPrefix } from './tree-validator-development-root.logic.mjs';
 import { TREE_ARTIFACT_SURFACES } from './tree-structure-advisor.contracts.mjs';
 
-const TREE_SIGNAL_POLICY = getBuiltinTreeSignalPolicy();
+// The signal policy comes from the run's resolved Tree registry root (#41 registry lifecycle) and
+// travels on the shim context. Direct callers that pass no policy get the Builtin one.
+const resolveSignalPolicy = (shimContext) => shimContext?.signalPolicy ?? getBuiltinTreeSignalPolicy();
 
 // Validator-development self-exemptions (Refs #34): the public package entrypoint barrel and the shim
 // detector's own implementation modules exist only where the Validator is being developed. Their
@@ -30,7 +32,7 @@ const isShimDetectorImplementationModule = (relativePath, basenameTokens, shimCo
   shimContext.shimDetectorImplementationRoot !== null &&
   relativePath.startsWith(shimContext.shimDetectorImplementationRoot) &&
   basenameTokens.includes('shim') &&
-  basenameTokens.some((token) => TREE_SIGNAL_POLICY.shimDetectorImplementationTokens.has(token));
+  basenameTokens.some((token) => resolveSignalPolicy(shimContext).shimDetectorImplementationTokens.has(token));
 
 const tokenizeBasename = (basename) =>
   basename
@@ -72,19 +74,19 @@ export const inferArtifactSurface = (relativePath) => {
   return TREE_ARTIFACT_SURFACES.RUNTIMEISH;
 };
 
-export const collectPathShimSignals = (relativePath) => {
+export const collectPathShimSignals = (relativePath, signalPolicy = getBuiltinTreeSignalPolicy()) => {
   const segments = relativePath.split('/').filter(Boolean);
   const directorySegments = segments.slice(0, -1);
   const basename = segments.at(-1) ?? '';
   const normalizedDirectories = directorySegments.map((segment) => segment.toLowerCase());
 
-  const folderSignals = normalizedDirectories.filter((segment) => TREE_SIGNAL_POLICY.shimFolderSignals.has(segment));
-  const basenameTokens = tokenizeBasename(basename).filter((token) => TREE_SIGNAL_POLICY.shimNameTokenSignals.has(token));
+  const folderSignals = normalizedDirectories.filter((segment) => signalPolicy.shimFolderSignals.has(segment));
+  const basenameTokens = tokenizeBasename(basename).filter((token) => signalPolicy.shimNameTokenSignals.has(token));
 
   return {
     folderSignals,
     basenameTokens,
-    insideCompatSurface: normalizedDirectories.some((segment) => TREE_SIGNAL_POLICY.shimSurfaceSegmentSignals.has(segment)),
+    insideCompatSurface: normalizedDirectories.some((segment) => signalPolicy.shimSurfaceSegmentSignals.has(segment)),
   };
 };
 
@@ -102,7 +104,7 @@ const isDeterministicShimContentCandidate = (relativePath, pathSignals, shimCont
     return true;
   }
 
-  if (TREE_SIGNAL_POLICY.validatorOwnedBasenameSignalMatchers.some(({ matcher }) => matcher.test(basename))) {
+  if (resolveSignalPolicy(shimContext).validatorOwnedBasenameSignalMatchers.some(({ matcher }) => matcher.test(basename))) {
     return true;
   }
 
@@ -214,7 +216,7 @@ export const detectPublicEntrypointPassThrough = (
 ) => parsePublicEntrypointBarrelPassThrough(relativePath, rawContent, shimContext) !== null;
 
 export const collectShimEvidence = (relativePath, rawContent, shimContext = NO_VALIDATOR_DEVELOPMENT_SHIM_CONTEXT) => {
-  const shimSignals = collectPathShimSignals(relativePath);
+  const shimSignals = collectPathShimSignals(relativePath, resolveSignalPolicy(shimContext));
   const thinReexportSignal = parseThinReexportShim(rawContent);
   const surface = inferArtifactSurface(relativePath);
   const basenameTokens = tokenizeBasename(path.posix.basename(relativePath));
@@ -236,7 +238,7 @@ export const collectShimEvidence = (relativePath, rawContent, shimContext = NO_V
 };
 
 const collectPathOnlyShimEvidence = (relativePath, shimContext) => {
-  const shimSignals = collectPathShimSignals(relativePath);
+  const shimSignals = collectPathShimSignals(relativePath, shimContext.signalPolicy);
   const basenameTokens = tokenizeBasename(path.posix.basename(relativePath));
 
   return {
@@ -261,13 +263,17 @@ const collectContentBackedShimEvidence = (relativePath, rawContent, shimContext)
   };
 };
 
-export const collectShimCompatFindings = (paths, getFileContent, { validatorDevelopmentRoot = null } = {}) => {
-  const shimContext = prepareShimValidatorDevelopmentContext(validatorDevelopmentRoot);
+export const collectShimCompatFindings = (
+  paths,
+  getFileContent,
+  { validatorDevelopmentRoot = null, signalPolicy = getBuiltinTreeSignalPolicy() } = {},
+) => {
+  const shimContext = { ...prepareShimValidatorDevelopmentContext(validatorDevelopmentRoot), signalPolicy };
   const findings = [];
 
   for (const relativePath of paths) {
     const extension = path.posix.extname(relativePath).toLowerCase();
-    if (!TREE_SIGNAL_POLICY.shimRelevantFileExtensions.has(extension)) {
+    if (!signalPolicy.shimRelevantFileExtensions.has(extension)) {
       continue;
     }
 
@@ -305,7 +311,7 @@ export const collectShimCompatFindings = (paths, getFileContent, { validatorDeve
       continue;
     }
 
-    if (hasWeakSignalOnly && TREE_SIGNAL_POLICY.nonRuntimeWeakSignalSuppressedSurfaces.has(evidence.surface)) {
+    if (hasWeakSignalOnly && signalPolicy.nonRuntimeWeakSignalSuppressedSurfaces.has(evidence.surface)) {
       continue;
     }
 

@@ -218,7 +218,7 @@ Naming registry inputs come from the run's resolved registry set (`doc/Validator
 - case rules, missing-role patterns, finding policy and summary buckets
 - walk exclusions, special cases and folder-composition patterns
 
-Custom activation is not available yet (#41 slice 3); until then the resolved Naming root is always Builtin.
+The resolved Naming root is the active set's: the package Builtin root, or `.calculogic/registries/custom/naming/` once a valid Custom set is activated with `registry:use custom` (#41 slice 3).
 
 Config does not change detection mode/scope semantics and does not introduce enforcement/fix execution. Current exit policy remains policy-driven as documented in this spec.
 

@@ -6,12 +6,15 @@ import {
   parseDirectValidatorRunnerCliArgs,
 } from '../src/core/cli/validator-cli-direct.logic.mjs';
 import { runValidatorRunnerCli } from '../src/core/cli/validator-cli-runner.logic.mjs';
+import { resolveCliRegistrySet } from '../src/core/cli/validator-cli-registry-resolution.logic.mjs';
 
 const repositoryRoot = resolveRepositoryRoot();
+const cliRegistrySet = resolveCliRegistrySet(repositoryRoot);
 
 const usageLines = buildDirectValidatorRunnerUsageLines({
   validatorId: 'tree-structure-advisor',
   defaultScopeLine: 'Default scope: validator default (repo for tree-structure-advisor)',
+  registryRoots: cliRegistrySet.usageRegistryRoots,
   repositoryRoot,
   examples: [
     '  ✅ calculogic-validate-tree --scope=repo',
@@ -25,6 +28,7 @@ const result = runValidatorRunnerCli({
   argv: process.argv.slice(2),
   usageLines,
   repositoryRoot,
+  cliRegistrySet,
   expectedLifecycleEvent: 'validate:tree',
   supportedFlagNames: ['scope', 'target', 'config'],
   parseCliArgs: parseDirectValidatorRunnerCliArgs,

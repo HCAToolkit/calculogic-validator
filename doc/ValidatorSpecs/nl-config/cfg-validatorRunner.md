@@ -56,7 +56,7 @@ Runner accepts optional host-provided report metadata:
 - optional `validatorVersion` (canonical alias of tool version when provided)
 - optional `configDigest`
 - `registrySet` (set-level registry lifecycle facts for the run, #41)
-- `registryProvenance` (suite-core registries: `suite/exit-policy`, `suite/scope-profiles`)
+- `registryProvenance` (suite-core registries: `suite/exit-policy`, `suite/scope-profiles`); each slice entry carries its own registries in `validators[n].meta.registryProvenance` (Naming, and Tree from #41 slice 3)
 - optional `sourceSnapshot` (`source = "fs"` plus optional git metadata/diagnostics)
 - `startedAt`, `endedAt`, `durationMs`
 - `validators` (deterministic execution order)

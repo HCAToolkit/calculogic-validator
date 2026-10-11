@@ -106,7 +106,7 @@ Anti-pattern to avoid:
 
 - Do **not** flatten every registry surface behind one universal state layer; that pattern obscures ownership, increases coupling, and weakens clear extraction paths.
 
-Registry lifecycle (Issue #41; slice 2 implemented for Naming and suite core, Tree in slice 3):
+Registry lifecycle (Issue #41; implemented for Naming and suite core in slice 2 and for Tree in slice 3):
 
 - The suite-level Builtin/Custom registry lifecycle (`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`) is suite-owned **set selection**. It chooses the whole Builtin or Custom set, checks completeness and versions, and hands each slice a resolved registry root.
 - Two kinds of canonicalization stay separate:
@@ -114,6 +114,7 @@ Registry lifecycle (Issue #41; slice 2 implemented for Naming and suite core, Tr
   - **Runtime-form canonicalization** is slice-owned: trimming, normalizing, deduplicating and converting into runtime structures. It stays in slice loaders.
 - The lifecycle does not validate slice shapes, produce runtime forms or interpret payloads, so it is not the universal state layer this section rules out.
 - Under it, loaders keep the responsibilities in §2, except that "builtin/custom source resolution" becomes reading from the resolved root. Runtime merging of builtin, custom and overlay sources is retired (slice 2).
+- Tree keeps its direct builtin loaders, each with a from-root variant (`load…FromRegistryRoot`), and composes the registries a run reads in one slice-owned module (`tree/src/registries/tree-runtime-registries.logic.mjs`). The Tree runtime receives them as prepared dependencies and holds no module-level registry state (slice 3).
 
 ## 7. Canonical usage rule
 

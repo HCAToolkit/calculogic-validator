@@ -1,11 +1,14 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertAllowedFields } from '../../../src/core/registry-entry-shape.logic.mjs';
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
+const STRUCTURAL_CONTEXT_ASSESSMENT_POLICIES_REGISTRY_FILENAME = 'structural-context-assessment-policies.registry.json';
+
 export const BUILTIN_STRUCTURAL_CONTEXT_ASSESSMENT_POLICIES_REGISTRY_PATH = fileURLToPath(
-  new URL('structural-context-assessment-policies.registry.json', BUILTIN_REGISTRY_ROOT),
+  new URL(STRUCTURAL_CONTEXT_ASSESSMENT_POLICIES_REGISTRY_FILENAME, BUILTIN_REGISTRY_ROOT),
 );
 
 const REQUIRED_MATCH_SELECTORS = [
@@ -114,14 +117,17 @@ export const normalizeStructuralContextAssessmentPoliciesRegistryPayload = (payl
   return payload;
 };
 
-const loadBuiltinStructuralContextAssessmentPoliciesRegistry = () => {
-  const payload = JSON.parse(fs.readFileSync(BUILTIN_STRUCTURAL_CONTEXT_ASSESSMENT_POLICIES_REGISTRY_PATH, 'utf8'));
-  return normalizeStructuralContextAssessmentPoliciesRegistryPayload(payload);
-};
+// Loads from one resolved Tree registry root, Builtin or Custom (#41 registry lifecycle, spec §9.3).
+export const loadStructuralContextAssessmentPoliciesRegistryFromRegistryRoot = (registryRoot) =>
+  normalizeStructuralContextAssessmentPoliciesRegistryPayload(
+    JSON.parse(fs.readFileSync(path.join(registryRoot, STRUCTURAL_CONTEXT_ASSESSMENT_POLICIES_REGISTRY_FILENAME), 'utf8')),
+  );
 
 export const getBuiltinStructuralContextAssessmentPoliciesRegistry = () => {
   if (cachedBuiltinStructuralContextAssessmentPoliciesRegistry === null) {
-    cachedBuiltinStructuralContextAssessmentPoliciesRegistry = loadBuiltinStructuralContextAssessmentPoliciesRegistry();
+    cachedBuiltinStructuralContextAssessmentPoliciesRegistry = loadStructuralContextAssessmentPoliciesRegistryFromRegistryRoot(
+      fileURLToPath(BUILTIN_REGISTRY_ROOT),
+    );
   }
 
   return cachedBuiltinStructuralContextAssessmentPoliciesRegistry;

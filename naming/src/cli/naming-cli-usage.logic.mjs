@@ -11,8 +11,10 @@ export const buildNamingCliUsageLines = ({
   commandPrefix,
   strictExampleCommand,
   repositoryRoot,
+  // The run's resolved registry roots (#41), so scope lists match the active set; Builtin without.
+  registryRoots,
 } = {}) => {
-  const supportedScopes = listAvailableValidatorScopes({ targetRepositoryRoot: repositoryRoot });
+  const supportedScopes = listAvailableValidatorScopes({ targetRepositoryRoot: repositoryRoot, registryRoots });
   const supportedScopesToken = buildScopeToken(supportedScopes);
   const validator = getValidatorById(validatorId);
   if (!validator) {
@@ -32,7 +34,7 @@ export const buildNamingCliUsageLines = ({
     `Usage: ${effectiveCommandPrefix} [--scope=<${supportedScopesToken}>] [--target=<path>]... [--config=<path>] [--strict]`,
     'Scopes:',
     ...supportedScopes.map((scope) => {
-      const profile = getContextualValidatorScopeProfile(scope, { targetRepositoryRoot: repositoryRoot });
+      const profile = getContextualValidatorScopeProfile(scope, { targetRepositoryRoot: repositoryRoot, registryRoots });
       return `  - ${scope}: ${profile?.description ?? ''}`;
     }),
     'Default scope: repo',

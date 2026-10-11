@@ -3,6 +3,7 @@ import {
   runTreeStructureAdvisor,
   summarizeFindings as summarizeTreeStructureAdvisorFindings,
 } from '../../tree/src/tree-structure-advisor.host.mjs';
+import { TREE_REGISTRY_SLICE_ID } from '../../tree/src/registries/tree-registry-inventory.knowledge.mjs';
 
 const runNamingValidatorHook = (repositoryRoot, options = {}) => {
   const scope = options.scope;
@@ -54,6 +55,12 @@ const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
       isFiltered: true,
       targets: treeStructureAdvisorResult.filters.targets,
     };
+  }
+
+  // Tree's own registries, from the run's one lifecycle resolution (lifecycle spec §11.2).
+  const treeRegistryProvenance = options.registryResolution?.registryProvenance?.[TREE_REGISTRY_SLICE_ID];
+  if (treeRegistryProvenance) {
+    meta.registryProvenance = treeRegistryProvenance;
   }
 
   return {

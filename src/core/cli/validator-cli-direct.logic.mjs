@@ -50,7 +50,9 @@ export const buildDirectValidatorRunnerUsageLines = ({
   defaultScopeLine,
   examples,
   repositoryRoot,
-  supportedScopes = listAvailableValidatorScopes({ targetRepositoryRoot: repositoryRoot }),
+  // The run's resolved registry roots (#41), so scope lists match the active set; Builtin without.
+  registryRoots,
+  supportedScopes = listAvailableValidatorScopes({ targetRepositoryRoot: repositoryRoot, registryRoots }),
 }) => {
   const validator = getValidatorById(validatorId);
   if (!validator) {
@@ -67,7 +69,7 @@ export const buildDirectValidatorRunnerUsageLines = ({
   return [
     `Usage: ${repoLocalNpmInvocation} [--scope=<${supportedScopesToken}>] [--target=<path>]... [--config=<path>]`,
     'Scopes:',
-    ...buildValidatorScopeUsageLinesFromRuntimeProfiles(supportedScopes, { targetRepositoryRoot: repositoryRoot }),
+    ...buildValidatorScopeUsageLinesFromRuntimeProfiles(supportedScopes, { targetRepositoryRoot: repositoryRoot, registryRoots }),
     defaultScopeLine,
     `Validator: ${validator.id}`,
     'Examples:',
