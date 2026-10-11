@@ -180,13 +180,49 @@ const assertOwnedDirectory = (paths, directoryPath) => {
 
 // Undoes the journaled steps in reverse (spec §4.6 item 4). A step whose backup is present is
 // restored; a target that did not exist is removed; created directories are removed when empty.
+// The transaction directory holds exactly what the transaction wrote: `staged/` with one regular
+// file per step not yet applied, `backup/` with the moved original (a file or a symlink, never a
+// directory) of steps that replaced an existing entry, and `journal.json`. Any other entry, type
+// or name means the directory was altered, so nothing in it is trusted for a rollback.
+const assertTransactionShape = (paths, transactionRoot, journal) => {
+  const altered = (detail) => {
+    throw new RegistryLifecycleError(
+      `The lifecycle transaction directory was altered (${detail}). Nothing was changed; inspect ${transactionRoot} by hand.`,
+    );
+  };
+  const stagedRoot = path.join(transactionRoot, STAGED_DIRNAME);
+  const backupRoot = path.join(transactionRoot, BACKUP_DIRNAME);
+  // Both are created before the journal is published, so a journaled transaction lacks neither.
+  assertOwnedDirectory(paths, stagedRoot);
+  assertOwnedDirectory(paths, backupRoot);
+
+  const allowedTopLevel = new Set([STAGED_DIRNAME, BACKUP_DIRNAME, LIFECYCLE_TRANSACTION_JOURNAL_FILENAME]);
+  for (const name of fs.readdirSync(transactionRoot)) {
+    if (!allowedTopLevel.has(name)) {
+      altered(`unexpected entry ${name}`);
+    }
+  }
+
+  const stepIndex = (name) => (/^(0|[1-9][0-9]*)$/u.test(name) && Number(name) < journal.steps.length ? Number(name) : null);
+  for (const name of fs.readdirSync(stagedRoot)) {
+    if (stepIndex(name) === null || !fs.lstatSync(path.join(stagedRoot, name)).isFile()) {
+      altered(`staged/${name}`);
+    }
+  }
+  for (const name of fs.readdirSync(backupRoot)) {
+    const index = stepIndex(name);
+    const stats = fs.lstatSync(path.join(backupRoot, name));
+    if (index === null || !journal.steps[index].existed || !(stats.isFile() || stats.isSymbolicLink())) {
+      altered(`backup/${name}`);
+    }
+  }
+};
+
 const rollBack = (paths, transactionRoot, journal) => {
   const { targets, directories } = resolveJournalPaths(paths, journal);
   assertOwnedDirectory(paths, transactionRoot);
-  // `backup/` is created before the journal is published, so a journaled transaction without it
-  // has been altered: every backup would read as absent, so it is refused, never rolled back.
+  assertTransactionShape(paths, transactionRoot, journal);
   const backupRoot = path.join(transactionRoot, BACKUP_DIRNAME);
-  assertOwnedDirectory(paths, backupRoot);
 
   // A step that replaced an existing entry is in one of three states: not started (the original
   // target and `staged/<i>` present), backed up (`backup/<i>` present) or applied (`backup/<i>`

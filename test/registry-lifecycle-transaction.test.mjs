@@ -385,3 +385,43 @@ test('a cleanup that deletes the journal and then fails never makes a committed 
     assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-new');
   });
 });
+
+test('recovery refuses a transaction directory with any entry the transaction did not write', () => {
+  const alterations = {
+    'a backup entry replaced by a directory': (transactionRoot) => {
+      fs.rmSync(path.join(transactionRoot, 'backup', '0'));
+      fs.mkdirSync(path.join(transactionRoot, 'backup', '0'));
+    },
+    'a staged entry replaced by a directory': (transactionRoot) => {
+      fs.mkdirSync(path.join(transactionRoot, 'staged', '1x'));
+    },
+    'a backup entry for a step that did not replace anything': (transactionRoot) => {
+      fs.writeFileSync(path.join(transactionRoot, 'backup', '1'), 'injected');
+    },
+    'an unexpected top-level entry': (transactionRoot) => {
+      fs.writeFileSync(path.join(transactionRoot, 'extra'), 'injected');
+    },
+    'a missing staged directory': (transactionRoot) => {
+      fs.rmSync(path.join(transactionRoot, 'staged'), { recursive: true });
+    },
+  };
+
+  for (const [label, alter] of Object.entries(alterations)) {
+    withLifecycleRoot(({ paths, transactionRoot }) => {
+      const first = path.join(paths.customRoot, 'first.json');
+      const commit = path.join(paths.customRoot, 'commit.json');
+      fs.writeFileSync(first, 'first-old');
+      const writes = [
+        { targetPath: first, contents: 'first-new' },
+        { targetPath: commit, contents: 'commit-new' },
+      ];
+      assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-0:backed-up', { crash: true }) }), label);
+      alter(transactionRoot);
+
+      assert.throws(() => recoverLifecycleTransaction(paths), /was altered|not an ordinary directory/u, label);
+      assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, label);
+      assert.equal(fs.existsSync(first), false, `${label}: nothing was moved onto the target`);
+      assert.equal(fs.existsSync(commit), false, label);
+    });
+  }
+});
