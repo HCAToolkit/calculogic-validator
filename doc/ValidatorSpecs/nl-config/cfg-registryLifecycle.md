@@ -191,7 +191,7 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
   - the commit point holds the journaled bytes → `committed`, and the directory is removed;
   - otherwise → rollback (`rolled-back`).
 
-  Every journal path is resolved and checked, lexically and by realpath, before the commit point is read. A malformed journal, or one naming a path outside the lifecycle root or outside the target, is a lifecycle error, and nothing is touched.
+  Every journal path is resolved and checked, lexically and by realpath, before the commit point is read. The transaction directory and `backup/` must be ordinary contained directories, not symlinks; a backup entry itself may be a link, which is moved and never followed. A malformed journal, or one naming a path outside the lifecycle root or outside the target, is a lifecycle error, and nothing is touched.
 - Every target, created directory and the transaction directory must be contained (spec §4.1).
 - **Test seam:** an `onStep(name)` hook is called at each boundary (`staged`, `journaled`, `directories-created`, `step-<i>:backed-up`, `step-<i>:applied`, `committed`). An error carrying `LIFECYCLE_TRANSACTION_SIMULATED_CRASH` stops the transaction without rollback, as a killed process would. Neither is consumer-facing.
 

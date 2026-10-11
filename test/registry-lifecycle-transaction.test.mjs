@@ -182,3 +182,40 @@ test('a relative symlink target, which dangles once moved to the backup, is stil
     assert.equal(fs.readFileSync(commit, 'utf8'), 'old');
   });
 });
+
+test('recovery refuses a transaction or backup directory replaced by a symlink, and moves nothing', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const first = path.join(paths.customRoot, 'first.json');
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(first, 'first-old');
+    fs.writeFileSync(commit, 'commit-old');
+    const writes = [
+      { targetPath: first, contents: 'first-new' },
+      { targetPath: commit, contents: 'commit-new' },
+    ];
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-0:applied', { crash: true }) }));
+
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-lifecycle-transaction-backup-'));
+    try {
+      fs.writeFileSync(path.join(outside, '0'), 'outside');
+      const backupRoot = path.join(transactionRoot, 'backup');
+      fs.renameSync(backupRoot, `${backupRoot}.moved`);
+      fs.symlinkSync(outside, backupRoot);
+      assert.throws(() => recoverLifecycleTransaction(paths), /not an ordinary directory/u);
+      assert.equal(fs.readFileSync(path.join(outside, '0'), 'utf8'), 'outside');
+      assert.equal(fs.readFileSync(first, 'utf8'), 'first-new', 'nothing was rolled back');
+
+      // An in-target symlink is refused too: only the transaction's own directory is trusted.
+      fs.rmSync(backupRoot);
+      fs.symlinkSync(`${backupRoot}.moved`, backupRoot);
+      assert.throws(() => recoverLifecycleTransaction(paths), /not an ordinary directory/u);
+
+      fs.rmSync(backupRoot);
+      fs.renameSync(`${backupRoot}.moved`, backupRoot);
+      assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'rolled-back' });
+      assert.equal(fs.readFileSync(first, 'utf8'), 'first-old');
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});

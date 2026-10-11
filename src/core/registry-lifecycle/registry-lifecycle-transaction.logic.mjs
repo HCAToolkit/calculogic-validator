@@ -117,15 +117,36 @@ const resolveJournalPaths = (paths, journal) => {
   return { targets, directories };
 };
 
+// The transaction directory and its `backup/` must be ordinary directories the transaction created:
+// a symlink there would make a restore move a file from wherever it points (spec §4.1, §4.6).
+const assertOwnedDirectory = (paths, directoryPath) => {
+  let stats;
+  try {
+    stats = fs.lstatSync(directoryPath);
+  } catch {
+    stats = null;
+  }
+  if (!stats?.isDirectory() || stats.isSymbolicLink() || !isLifecyclePathContained(paths, directoryPath)) {
+    throw new RegistryLifecycleError(
+      `The lifecycle transaction directory ${directoryPath} is not an ordinary directory inside the validation target. Nothing was changed; inspect it by hand.`,
+    );
+  }
+};
+
 // Undoes the journaled steps in reverse (spec §4.6 item 4). A step whose backup is present is
 // restored; a target that did not exist is removed; created directories are removed when empty.
 const rollBack = (paths, transactionRoot, journal) => {
   const { targets, directories } = resolveJournalPaths(paths, journal);
+  assertOwnedDirectory(paths, transactionRoot);
+  const backupRoot = path.join(transactionRoot, BACKUP_DIRNAME);
+  if (entryPresent(backupRoot)) {
+    assertOwnedDirectory(paths, backupRoot);
+  }
 
   for (let index = journal.steps.length - 1; index >= 0; index -= 1) {
     const step = journal.steps[index];
     const target = targets[index];
-    const backup = path.join(transactionRoot, BACKUP_DIRNAME, String(index));
+    const backup = path.join(backupRoot, String(index));
     if (step.existed) {
       if (entryPresent(backup)) {
         fs.renameSync(backup, target);
@@ -184,7 +205,7 @@ export const recoverLifecycleTransaction = (paths) => {
   if (!entryPresent(transactionRoot)) {
     return null;
   }
-  assertContained(paths, transactionRoot);
+  assertOwnedDirectory(paths, transactionRoot);
 
   // The journal is renamed into place after staging and before the first commit step, so without
   // it nothing was committed.
