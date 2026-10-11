@@ -118,7 +118,9 @@ const compareDeclarations = (left, right) =>
 
 // Returns `[{ folder, manifestPath, declarations }]`, sorted by folder.
 export const collectDeclaredLocalPackageEvidence = (targetRoot) => {
-  const rootManifest = readContainedJsonObject(targetRoot, path.join(targetRoot, MANIFEST_FILENAME));
+  const rootManifest = hasExactEntry(targetRoot, MANIFEST_FILENAME)
+    ? readContainedJsonObject(targetRoot, path.join(targetRoot, MANIFEST_FILENAME))
+    : null;
   if (!rootManifest) {
     return [];
   }

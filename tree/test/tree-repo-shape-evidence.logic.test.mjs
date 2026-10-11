@@ -160,3 +160,21 @@ test('the effective policy orders evidence folders ordinally, independent of the
   // Code-unit order: uppercase before lowercase, and `ä` (U+00E4) after every ASCII letter.
   assert.deepEqual(allowedTopLevelDirectories, ['Zeta', 'bin', 'src', 'zeta', 'äpkg']);
 });
+
+test('the classification runtime keeps the effective policy order for evidence folders', () => {
+  withRepository(
+    ({ repositoryRoot }) => {
+      for (const folder of ['Zeta', 'äpkg']) {
+        fs.mkdirSync(path.join(repositoryRoot, folder));
+        writeJson(path.join(repositoryRoot, folder, 'package.json'), { name: folder });
+      }
+
+      const { preparedDependencies } = prepareTreeStructureAdvisorInputs(repositoryRoot, { scope: 'repo' });
+      const policyOrder = preparedDependencies.treeRepoShapePolicy.allowedTopLevelDirectories;
+      assert.deepEqual(policyOrder, [...policyOrder].sort((left, right) => (left === right ? 0 : left < right ? -1 : 1)));
+      assert.ok(policyOrder.includes('Zeta') && policyOrder.includes('äpkg'));
+      assert.deepEqual(preparedDependencies.treeOccurrenceClassificationReplacementRuntime.allowedTopLevelDirectories, policyOrder);
+    },
+    { folder: 'engine-kit', dependencies: { 'engine-kit': 'file:engine-kit', zeta: 'file:Zeta', apkg: 'file:äpkg' } },
+  );
+});

@@ -275,6 +275,17 @@ test('on a case-insensitive filesystem only the exact folder and manifest spelli
   );
 
   withTarget(
+    ({ targetRoot }) => {
+      fs.renameSync(path.join(targetRoot, 'package.json'), path.join(targetRoot, 'Package.json'));
+      withCaseInsensitivePaths(targetRoot, () => {
+        assert.equal(fs.statSync(path.join(targetRoot, 'package.json')).isFile(), true);
+        assert.deepEqual(foldersOf(targetRoot), [], 'root Package.json');
+      });
+    },
+    { rootManifest: { dependencies: { engine: 'file:engine' } }, packageFolders: ['engine'] },
+  );
+
+  withTarget(
     ({ targetRoot }) => withCaseInsensitivePaths(targetRoot, () => assert.deepEqual(foldersOf(targetRoot), ['engine'])),
     { rootManifest: { dependencies: { engine: 'file:engine' } }, packageFolders: ['engine'] },
   );
