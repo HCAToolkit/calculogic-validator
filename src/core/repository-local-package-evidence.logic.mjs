@@ -35,12 +35,18 @@ const readContainedJsonObject = (targetRoot, filePath) => {
 };
 
 // The top-level folder a declaration names exactly, or null. Accepted spellings: `<folder>`,
-// `./<folder>`, each with or without one trailing `/`.
+// `./<folder>`, each with or without one trailing `/`. Surrounding whitespace, on the reference or
+// on the folder name inside it, is unsupported rather than trimmed.
 const toDeclaredTopLevelFolder = (reference) => {
+  if (reference !== reference.trim()) {
+    return null;
+  }
+
   const withoutDotSlash = reference.startsWith('./') ? reference.slice(2) : reference;
   const folder = withoutDotSlash.endsWith('/') ? withoutDotSlash.slice(0, -1) : withoutDotSlash;
   const isSingleSegment =
     folder.length > 0 &&
+    folder === folder.trim() &&
     !folder.includes('/') &&
     !folder.includes('\\') &&
     folder !== '.' &&

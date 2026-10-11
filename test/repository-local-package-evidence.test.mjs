@@ -111,6 +111,20 @@ test('unsupported forms never qualify and are never reinterpreted', () => {
     });
   }
 
+  // Padded references never qualify, even when a directory with the padded name exists.
+  for (const [rootManifest, label] of [
+    [{ dependencies: { engine: 'file:engine ' } }, 'trailing space in a dependency spec'],
+    [{ dependencies: { engine: 'file: engine' } }, 'space inside a dependency spec'],
+    [{ dependencies: { engine: 'file:./ engine/' } }, 'padded folder after ./'],
+    [{ workspaces: ['engine '] }, 'trailing space in a workspace entry'],
+    [{ workspaces: [' engine'] }, 'leading space in a workspace entry'],
+  ]) {
+    withTarget(({ targetRoot }) => assert.deepEqual(foldersOf(targetRoot), [], label), {
+      rootManifest,
+      packageFolders: ['engine ', ' engine'],
+    });
+  }
+
   // Sections that are not objects, and values that are not strings, are ignored.
   withTarget(({ targetRoot }) => assert.deepEqual(foldersOf(targetRoot), []), {
     rootManifest: { dependencies: ['file:engine'], devDependencies: { engine: { path: 'file:engine' } } },

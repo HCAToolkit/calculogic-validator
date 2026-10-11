@@ -226,7 +226,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 
     In both forms, `<folder>` may be written with a leading `./` and one trailing `/`.
   - **Folder manifest.** `<target>/<folder>` resolves inside the target and is a directory, and `<target>/<folder>/package.json` resolves inside the target and parses as a JSON object. Containment is checked before the manifest is read.
-  - **Folder name.** `<folder>` is one path segment: not empty, no `/` or `\`, not `.` or `..`, and no glob character (`*`, `?`, `[`, `]`, `{`, `}`, `!`).
+  - **Folder name.** `<folder>` is one path segment: not empty, no `/` or `\`, not `.` or `..`, and no glob character (`*`, `?`, `[`, `]`, `{`, `}`, `!`). The whole reference and the folder name inside it carry no surrounding whitespace; a padded reference is unsupported, not trimmed.
   - **Everything else does not qualify, and is never reinterpreted.** That includes nested paths (`file:packages/x`), parent or absolute paths, globs, other protocols, and external workspace formats such as `pnpm-workspace.yaml`. A missing or malformed root manifest yields no evidence; it is not an error, because the Validator does not validate manifests.
 - **Reusable capability:**
   - `collectDeclaredLocalPackageEvidence(targetRoot)` returns records sorted by folder: `{ folder, manifestPath, declarations }`. Each declaration is sorted and is `{ field, key, value }` for a dependency or `{ field, value }` for a workspace entry.
