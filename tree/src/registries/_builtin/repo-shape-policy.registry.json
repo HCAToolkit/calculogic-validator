@@ -2,7 +2,6 @@
   "version": "1",
   "allowedTopLevelDirectories": [
     "bin",
-    "calculogic-doc-engine",
     "doc",
     "docs",
     "public",

@@ -32,6 +32,7 @@ import { getBuiltinStructuralHomesRegistry } from '../src/registries/tree-struct
 import { getBuiltinFolderKindsRegistry } from '../src/registries/tree-folder-kinds-registry.logic.mjs';
 import { getBuiltinTreeRepoShapePolicy } from '../src/registries/tree-repo-shape-policy-registry.logic.mjs';
 import { prepareContextualTreeRepoShapePolicy } from '../src/tree-contextual-repo-shape-policy.logic.mjs';
+import { prepareTreeRepoShapeEvidence } from '../src/tree-repo-shape-evidence.logic.mjs';
 import { getBuiltinSemanticNamingFolderTypeRelationshipsRegistry } from '../src/registries/tree-semantic-naming-folder-type-relationships-registry.logic.mjs';
 import { getBuiltinStructuralContextAssessmentPoliciesRegistry } from '../src/registries/tree-structural-context-assessment-policies-registry.logic.mjs';
 import { prepareNamingSemanticEvidenceBridge } from '../../naming/src/naming-semantic-evidence-bridge.logic.mjs';
@@ -44,11 +45,10 @@ const writeJson = async (filePath, value) => {
   await fs.writeFile(filePath, JSON.stringify(value, null, 2), 'utf8');
 };
 
-// Builtin generic policy. `calculogic-doc-engine` is a temporary compatibility exception (see the
-// Tree spec); `calculogic-validator` is allowed only through explicit embedded development context.
+// Builtin generic policy. `calculogic-validator` is allowed only through explicit embedded
+// development context, and declared local packages only through local-package evidence (#37).
 const EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES = [
   'bin',
-  'calculogic-doc-engine',
   'doc',
   'docs',
   'public',
@@ -57,6 +57,24 @@ const EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES = [
   'test',
   'tools',
 ];
+
+// The base fixture declares `calculogic-doc-engine` as a local package, so its effective policy adds it
+// through local-package evidence (#37).
+const EXPECTED_BASE_FIXTURE_ALLOWED_TOP_LEVEL_DIRECTORIES = [
+  ...EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES,
+  'calculogic-doc-engine',
+].sort((left, right) => left.localeCompare(right));
+
+// Local-package evidence as the suite reader returns it for Calculogic_React_App.
+const DOC_ENGINE_REPO_SHAPE_EVIDENCE = prepareTreeRepoShapeEvidence({
+  localPackageEvidence: [
+    {
+      folder: 'calculogic-doc-engine',
+      manifestPath: 'calculogic-doc-engine/package.json',
+      declarations: [{ field: 'dependencies', key: '@calculogic/doc-engine', value: 'file:calculogic-doc-engine' }],
+    },
+  ],
+});
 
 // The host fixture below models a repository with an embedded validator; passing this package root
 // makes that embedded development context explicit.
@@ -188,10 +206,14 @@ const writeBaseFixtureRepo = async (fixtureDir) => {
   await fs.mkdir(path.join(fixtureDir, 'calculogic-doc-engine', 'src'), { recursive: true });
   await fs.mkdir(path.join(fixtureDir, 'calculogic-validator', 'src'), { recursive: true });
 
+  // Like Calculogic_React_App, the root manifest declares `calculogic-doc-engine` as a local package
+  // and the folder has its own manifest, so local-package evidence allows it (#37).
   await writeJson(path.join(fixtureDir, 'package.json'), {
     name: 'tree-structure-advisor-fixture',
     version: '1.0.0',
+    dependencies: { '@calculogic/doc-engine': 'file:calculogic-doc-engine' },
   });
+  await writeJson(path.join(fixtureDir, 'calculogic-doc-engine', 'package.json'), { name: '@calculogic/doc-engine' });
   await fs.writeFile(path.join(fixtureDir, 'src', 'app-shell.logic.ts'), 'export const app = true\n', 'utf8');
   await fs.writeFile(path.join(fixtureDir, 'doc', 'README.md'), '# fixture\n', 'utf8');
   await fs.writeFile(
@@ -525,11 +547,13 @@ test('tree semantic naming folder-type relationship classifies only repository-t
     { path: 'calculogic-validator/tree/src', occurrenceType: 'folder', semanticName: 'src', semanticFamily: 'src', familyRoot: 'src' },
     { path: 'calculogic-doc-engine', occurrenceType: 'folder', semanticName: 'calculogic-doc-engine', semanticFamily: 'calculogic-doc-engine', familyRoot: 'calculogic', semanticEvidenceKind: 'semantic-family-root-folder', familyRootQualification: 'package-root-folder' },
   ];
-  // This fixture models a host repository with an embedded validator, so the effective repo-shape
-  // policy carries that explicit embedded development root.
+  // This fixture models a host repository with an embedded validator and a declared local package, so
+  // the effective repo-shape policy carries the explicit embedded development root and the
+  // local-package evidence.
   const embeddedRepoShapePolicy = prepareContextualTreeRepoShapePolicy({
     registryPolicy: getBuiltinTreeRepoShapePolicy(),
     validatorDevelopmentRoot: 'calculogic-validator',
+    repoShapeEvidence: DOC_ENGINE_REPO_SHAPE_EVIDENCE,
   });
   const structuralHomeEvidence = prepareTreeStructuralHomeEvidence({
     addressedOccurrenceRecords,
@@ -1191,7 +1215,7 @@ test('tree-structure-advisor non-empty structural-home repo-top folder remains u
 
     assert.ok(dataAdvisory);
     assert.equal(dataAdvisory.details.allowedTopLevelDirectories.includes('data'), false);
-    assert.deepEqual(dataAdvisory.details.allowedTopLevelDirectories, EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES);
+    assert.deepEqual(dataAdvisory.details.allowedTopLevelDirectories, EXPECTED_BASE_FIXTURE_ALLOWED_TOP_LEVEL_DIRECTORIES);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }
@@ -1217,7 +1241,7 @@ test('tree-structure-advisor replacement root policy comes from bounded structur
       false,
     );
     assert.ok(advisory);
-    assert.deepEqual(advisory.details.allowedTopLevelDirectories, EXPECTED_TREE_REPO_SHAPE_ALLOWED_TOP_LEVEL_DIRECTORIES);
+    assert.deepEqual(advisory.details.allowedTopLevelDirectories, EXPECTED_BASE_FIXTURE_ALLOWED_TOP_LEVEL_DIRECTORIES);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }

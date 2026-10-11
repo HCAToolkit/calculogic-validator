@@ -770,9 +770,9 @@ test('tree naming bridge contributor reports the resolved docs/runtime pairing p
 });
 
 test('tree naming bridge structural root surfaces are Tree-owned and not derived from repo-shape allowance', () => {
-  // Negative control (Refs #34): `calculogic-doc-engine` is allowed at the repository top level by the
-  // builtin repo-shape policy, but that does not make it a bridge structural surface in any context.
-  assert.equal(getBuiltinTreeRepoShapePolicy().allowedTopLevelDirectories.includes('calculogic-doc-engine'), true);
+  // Negative control (Refs #34, #37): a folder allowed at the repository top level, here
+  // `calculogic-doc-engine` through local-package evidence, is not thereby a bridge structural surface
+  // in any context.
   const folderKindOf = (observationPath, bridgeContext, segment) =>
     classifyNamingBridgeFolderKinds(
       { path: observationPath, semanticName: 'doc-engine', familyRoot: 'doc', semanticFamily: 'doc-engine' },

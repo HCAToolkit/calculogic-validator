@@ -36,6 +36,8 @@ import { loadNamingFolderCompositionPatternsRegistryFromRegistryRoot } from '../
 import { NAMING_BUILTIN_REGISTRY_ROOT, NAMING_REGISTRY_SLICE_ID } from '../../naming/src/registries/naming-registry-inventory.knowledge.mjs';
 import { prepareTreeNamingOccurrenceBridgeIntake } from './tree-naming-occurrence-intake.logic.mjs';
 import { prepareContextualTreeRepoShapePolicy } from './tree-contextual-repo-shape-policy.logic.mjs';
+import { prepareTreeRepoShapeEvidence } from './tree-repo-shape-evidence.logic.mjs';
+import { collectDeclaredLocalPackageEvidence } from '../../src/core/repository-local-package-evidence.logic.mjs';
 import { loadTreeRuntimeRegistries } from './registries/tree-runtime-registries.logic.mjs';
 import { TREE_REGISTRY_SLICE_ID } from './registries/tree-registry-inventory.knowledge.mjs';
 
@@ -122,9 +124,13 @@ export const prepareTreeStructureAdvisorInputs = (
     structuralRoleTokensRegistry,
     structuralContextAssessmentPoliciesRegistry,
   } = loadTreeRuntimeRegistries(registryRoots?.[TREE_REGISTRY_SLICE_ID]);
+  const treeRepoShapeEvidence = prepareTreeRepoShapeEvidence({
+    localPackageEvidence: collectDeclaredLocalPackageEvidence(repositoryRoot),
+  });
   const treeRepoShapePolicy = prepareContextualTreeRepoShapePolicy({
     registryPolicy: repoShapePolicy,
     validatorDevelopmentRoot,
+    repoShapeEvidence: treeRepoShapeEvidence,
   });
   const namingFolderCompositionPatternsRegistry = loadNamingFolderCompositionPatternsRegistryFromRegistryRoot(
     registryRoots?.[NAMING_REGISTRY_SLICE_ID] ?? NAMING_BUILTIN_REGISTRY_ROOT,
@@ -248,6 +254,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeSemanticHomeEvidence,
       treeFolderKindEvidence,
       treeRepoShapePolicy,
+      treeRepoShapeEvidence,
       treeSignalPolicy,
       treeStructuralContextAssessment,
       treeOccurrenceClassificationParityEvidence,
