@@ -528,7 +528,7 @@ test('tree semantic naming folder-type relationship classifies only repository-t
   // This fixture models a host repository with an embedded validator, so the effective repo-shape
   // policy carries that explicit embedded development root.
   const embeddedRepoShapePolicy = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy: getBuiltinTreeRepoShapePolicy(),
+    registryPolicy: getBuiltinTreeRepoShapePolicy(),
     validatorDevelopmentRoot: 'calculogic-validator',
   });
   const structuralHomeEvidence = prepareTreeStructuralHomeEvidence({
@@ -763,7 +763,7 @@ test('tree-structure-advisor fallback honors the prepared effective policy over 
   // over the builtin allowlist and the replacement route is not ready (no execution contract).
   const builtinAllowedSet = new Set(getBuiltinTreeRepoShapePolicy().allowedTopLevelDirectories);
   const effectivePolicy = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy: getBuiltinTreeRepoShapePolicy(),
+    registryPolicy: getBuiltinTreeRepoShapePolicy(),
     validatorDevelopmentRoot: 'calculogic-validator',
   });
   const result = runTreeStructureAdvisorRuntime({
@@ -790,10 +790,10 @@ test('tree-structure-advisor fallback honors the prepared effective policy over 
 test('tree-structure-advisor ready route falls back when the runtime classified against a different repo-shape policy', () => {
   // A direct runtime caller supplies a contextual effective policy, but a gate-ready runtime classified
   // against the builtin policy, so its `isRepoShapeAllowedTopLevelDirectory` flags disagree with it.
-  const builtinPolicy = getBuiltinTreeRepoShapePolicy();
-  const builtinAllowedSet = new Set(builtinPolicy.allowedTopLevelDirectories);
+  const registryPolicy = getBuiltinTreeRepoShapePolicy();
+  const builtinAllowedSet = new Set(registryPolicy.allowedTopLevelDirectories);
   const effectivePolicy = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy,
+    registryPolicy,
     validatorDevelopmentRoot: 'calculogic-validator',
   });
   const readyInputs = createReadyClassificationPreparedInputs({
@@ -819,7 +819,7 @@ test('tree-structure-advisor ready route falls back when the runtime classified 
     .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER');
 
   for (const [label, runtimeOverrides] of [
-    ['declared builtin allowlist', { allowedTopLevelDirectories: builtinPolicy.allowedTopLevelDirectories }],
+    ['declared builtin allowlist', { allowedTopLevelDirectories: registryPolicy.allowedTopLevelDirectories }],
     ['undeclared allowlist', { allowedTopLevelDirectories: undefined }],
   ]) {
     const unexpected = unexpectedOf(runWith(runtimeOverrides));

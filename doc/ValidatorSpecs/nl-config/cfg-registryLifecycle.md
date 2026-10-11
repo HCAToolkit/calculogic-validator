@@ -7,9 +7,10 @@
 
 ## 0.0 Version
 
-Status: **partially implemented (Issue #41)**.
-- Slice 2 implemented: inventories (6.1, 6.2), constants (6.3), 5.2.1–5.2.6, `init-custom` and `status` (5.3), the runner/Naming/suite-core wiring (5.4) and report provenance (7.1, 7.2).
-- Slice 3 pending: `useRegistrySet` (5.2.7), the `use` command, Tree's resolved-root wiring and Tree `registryProvenance`. Until then the activation gate is closed (`CUSTOM_ACTIVATION_AVAILABLE = false`).
+Status: **implemented through slice 3 (Issue #41)**.
+- Slice 2: inventories (6.1, 6.2), constants (6.3), 5.2.1–5.2.6, `init-custom` and `status` (5.3), the runner/Naming/suite-core wiring (5.4) and report provenance (7.1, 7.2).
+- Slice 3: active-Custom resolution (5.2.5), `useRegistrySet` (5.2.7) and the `use` command (5.3), Tree's resolved-root wiring and Tree `registryProvenance` (5.4, 7.1), and usage-text scope lists from the resolved set (5.4). The activation gate holds.
+- Follow-ons: the advanced management surface and the cross-slice compatibility check (1.3).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
 
@@ -117,9 +118,9 @@ Compares Custom with the current Builtin inventory and the Baseline. Produces:
 #### 5.2.5 Workflow: `resolveActiveRegistrySet`
 
 Runs 5.2.1 and 5.2.4.
-- Until the activation gate holds (spec §13 slice 3), a state selecting `custom` is a lifecycle error.
-- If `activeSet` is `custom` and any blocking condition holds, it raises a lifecycle error naming each failing registry and the two ways forward.
-- Otherwise it returns one resolved registry root per slice, plus the provenance inputs for 7.1.
+- `builtin`: returns the package Builtin root of every slice. An existing Custom set is assessed and reported (`customIssues`), never read.
+- `custom`: the blocking conditions are a missing set and every `customIssues` condition except `baseline-mismatch` (`missing`, `version-incompatible`, `invalid`, `manifest-malformed`; spec §7.1). If any holds, it raises a lifecycle error naming each failing registry and the two ways forward (5.2.8). Otherwise it returns `custom/<slice>` for every slice, Custom digests as the resolved digests, and provenance with `source: custom`.
+- In both cases it returns one resolved registry root per slice, plus the provenance inputs for 7.1.
 
 Slice-shape and reference validation failures raised by slice loaders while loading an active Custom set are reported through the same lifecycle error path.
 
@@ -130,28 +131,37 @@ Slice-shape and reference validation failures raised by slice loaders while load
 - Writes the manifest.
 - Writes `registry-state.json` with `activeSet: builtin` only if the file is absent.
 
-#### 5.2.7 Workflow: `useRegistrySet` (lands with Tree adoption, spec §13 slice 3)
+#### 5.2.7 Workflow: `useRegistrySet`
 
-Gated: available only once every inventory slice's registry consumers read resolved roots (spec §6, activation gate).
+`registry-lifecycle-use.logic.mjs`.
+- The lifecycle root and state file must be contained (5.2.1); an escaping one is refused before anything is written.
+- `custom`: runs the 5.2.5 blocking checks and refuses on a blocking condition with the same notice (5.2.8). Otherwise writes `activeSet: custom`.
+- `builtin`: writes `activeSet: builtin` without checks, so it is always the way back.
+- A contained but malformed state file is replaced, so `use` is also the way to repair it.
+- It writes only `registry-state.json`, through a temporary file renamed into place. Custom is never touched.
+- It returns `{ activeSet, previousActiveSet, stateFileCreated }`; `previousActiveSet` is `null` when the replaced state file was malformed.
 
-- `custom`: runs the 5.2.5 checks and refuses on a blocking condition. Otherwise writes `activeSet: custom`.
-- `builtin`: writes `activeSet: builtin`. Custom is never touched.
+#### 5.2.8 Derived value: active-Custom blocking notice
+
+Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `RegistryLifecycleError` whose message lists each blocking condition as `<registryId or "registry-set manifest">: <condition>: <detail>`, then the two ways forward: reconcile Custom (`registry:status` shows each registry), or run `registry:use builtin`, which keeps Custom intact. The error's `conditions` carry the blocking issues.
 
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
 - `init-custom` → 5.2.6.
-- `use <builtin|custom>` → 5.2.7 (spec §13 slice 3).
+- `use <builtin|custom>` → 5.2.7.
 - `status` → 5.2.1 + 5.2.4. Read-only.
 
-Usage errors and lifecycle errors go to stderr with a non-zero exit. Until slice 3, `use` is answered with a notice that Custom activation is not available yet.
+Usage errors and lifecycle errors go to stderr with a non-zero exit.
 
-Repository scripts: `npm run registry:init-custom` and `npm run registry:status` (`scripts/registry-lifecycle.host.mjs`).
+Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>` and `npm run registry:status` (`scripts/registry-lifecycle.host.mjs`).
 
 ### 5.4 Wiring into validation runs
 
 The runner and direct slice CLIs call 5.2.5 once per run, before slice execution. Slice wiring passes each slice its resolved root. Naming's registry-state owner, the suite-core scope-profile and exit-policy loaders, and Tree's direct loaders read from that root instead of their package-relative `_builtin/` constants.
 
-Slice 2 state: Naming and suite core read their resolved roots. Tree receives `registryRoots` for candidate collection (suite scope profiles) but its own loaders still read Builtin; they move in slice 3, which is why the activation gate stays closed.
+- **Tree** (slice 3): `tree/src/registries/tree-runtime-registries.logic.mjs` loads every runtime-consumed Tree registry from the resolved Tree root through the direct loaders (`load…FromRegistryRoot`). The Builtin root is cached; a Custom root is read per run, because its files are user-editable. Tree wiring passes the loaded registries into prepared dependencies and the shim diagnostics contributor; the Tree runtime and shim detection hold no module-level registry state. Tree's read of `naming/folder-composition-patterns` uses the resolved Naming root.
+- **Usage text:** the validator CLI hosts resolve once per invocation and build usage text, including scope lists, from that resolution's roots. When resolution fails, usage uses Builtin roots so `--help` still works, and the run reports the lifecycle error.
+- **Builtin fallbacks:** prepared-input and loader helpers called without a resolution (direct library calls and unit tests) read Builtin. No validation run reaches them.
 
 ## 6.0 Knowledge Concern (Reference Data)
 
@@ -210,6 +220,7 @@ src/core/registry-lifecycle/
   registry-lifecycle-assessment.logic.mjs          5.2.4
   registry-lifecycle-resolution.logic.mjs          5.2.5
   registry-lifecycle-init.logic.mjs                5.2.6
+  registry-lifecycle-use.logic.mjs                 5.2.7
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)
@@ -219,6 +230,7 @@ tree/src/registries/tree-registry-inventory.knowledge.mjs       6.1
 src/registries/suite-registry-inventory.knowledge.mjs           6.1
 naming/src/registries/registry-state.logic.mjs     Naming entry point (validateNamingRegistrySet)
 tree/src/registries/tree-registry-set.logic.mjs    Tree entry point (validateTreeRegistrySet)
+tree/src/registries/tree-runtime-registries.logic.mjs   Tree runtime registries from one resolved root (5.4)
 src/registries/suite-registry-set.logic.mjs        suite entry point (validateSuiteRegistrySet)
 ```
 
@@ -246,7 +258,7 @@ Spec §13 slice 2:
 
 Spec §13 slice 3:
 
-6. Tree loaders read resolved roots. Add `use` (5.2.7) and active-Custom resolution.
+6. Tree loaders read resolved roots, Tree reports `registryProvenance`, and usage text reads the resolved set. Add `use` (5.2.7) and active-Custom resolution (5.2.5, 5.2.8).
 
 ### 10.2 Export checklist
 

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   assertAllowedFields,
@@ -26,12 +27,15 @@ const SHIM_LIST_VALUE_RULES = Object.freeze({
 
 const BUILTIN_REGISTRY_ROOT = new URL('./_builtin/', import.meta.url);
 
+const VALIDATOR_OWNED_SIGNALS_REGISTRY_FILENAME = 'validator-owned-signals.registry.json';
+const SHIM_DETECTION_SIGNALS_REGISTRY_FILENAME = 'shim-detection-signals.registry.json';
+
 export const BUILTIN_VALIDATOR_OWNED_SIGNALS_REGISTRY_PATH = fileURLToPath(
-  new URL('validator-owned-signals.registry.json', BUILTIN_REGISTRY_ROOT),
+  new URL(VALIDATOR_OWNED_SIGNALS_REGISTRY_FILENAME, BUILTIN_REGISTRY_ROOT),
 );
 
 export const BUILTIN_SHIM_DETECTION_SIGNALS_REGISTRY_PATH = fileURLToPath(
-  new URL('shim-detection-signals.registry.json', BUILTIN_REGISTRY_ROOT),
+  new URL(SHIM_DETECTION_SIGNALS_REGISTRY_FILENAME, BUILTIN_REGISTRY_ROOT),
 );
 
 const VALIDATOR_OWNED_SIGNAL_CLASSES = new Set([
@@ -217,7 +221,7 @@ export const loadShimDetectionSignalsRegistryPayload = (registryPath) => {
 
 let cachedBuiltinTreeSignalPolicy = null;
 
-export const loadBuiltinTreeSignalPolicy = ({
+export const loadTreeSignalPolicyFromRegistryPaths = ({
   validatorOwnedSignalsRegistryPath = BUILTIN_VALIDATOR_OWNED_SIGNALS_REGISTRY_PATH,
   shimDetectionSignalsRegistryPath = BUILTIN_SHIM_DETECTION_SIGNALS_REGISTRY_PATH,
 } = {}) => {
@@ -232,9 +236,17 @@ export const loadBuiltinTreeSignalPolicy = ({
   };
 };
 
+// Loads the signal policy from one resolved Tree registry root, Builtin or Custom (#41 registry
+// lifecycle, spec §9.3).
+export const loadTreeSignalPolicyFromRegistryRoot = (registryRoot) =>
+  loadTreeSignalPolicyFromRegistryPaths({
+    validatorOwnedSignalsRegistryPath: path.join(registryRoot, VALIDATOR_OWNED_SIGNALS_REGISTRY_FILENAME),
+    shimDetectionSignalsRegistryPath: path.join(registryRoot, SHIM_DETECTION_SIGNALS_REGISTRY_FILENAME),
+  });
+
 export const getBuiltinTreeSignalPolicy = () => {
   if (cachedBuiltinTreeSignalPolicy === null) {
-    cachedBuiltinTreeSignalPolicy = loadBuiltinTreeSignalPolicy();
+    cachedBuiltinTreeSignalPolicy = loadTreeSignalPolicyFromRegistryRoot(fileURLToPath(BUILTIN_REGISTRY_ROOT));
   }
 
   return cachedBuiltinTreeSignalPolicy;

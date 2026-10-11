@@ -9,9 +9,12 @@ import {
   buildValidatorScopeUsageLinesFromRuntimeProfiles,
 } from '../src/core/cli/validator-cli-scopes.logic.mjs';
 import { runValidatorRunnerCli } from '../src/core/cli/validator-cli-runner.logic.mjs';
+import { resolveCliRegistrySet } from '../src/core/cli/validator-cli-registry-resolution.logic.mjs';
 
 const repositoryRoot = resolveRepositoryRoot();
-const supportedScopes = listAvailableValidatorScopes({ targetRepositoryRoot: repositoryRoot });
+const cliRegistrySet = resolveCliRegistrySet(repositoryRoot);
+const registryRoots = cliRegistrySet.usageRegistryRoots;
+const supportedScopes = listAvailableValidatorScopes({ targetRepositoryRoot: repositoryRoot, registryRoots });
 const supportedScopesToken = buildSupportedScopeToken(supportedScopes);
 
 const usageLines = [
@@ -19,7 +22,7 @@ const usageLines = [
   'Validators:',
   ...listRegisteredValidators().map((validatorId) => `  - ${validatorId}`),
   'Scopes:',
-  ...buildValidatorScopeUsageLinesFromRuntimeProfiles(supportedScopes, { targetRepositoryRoot: repositoryRoot }),
+  ...buildValidatorScopeUsageLinesFromRuntimeProfiles(supportedScopes, { targetRepositoryRoot: repositoryRoot, registryRoots }),
   'Default scope: validator default (repo for naming)',
   'Default validators: all registered validators',
   'Examples:',
@@ -89,6 +92,7 @@ const result = runValidatorRunnerCli({
   argv: process.argv.slice(2),
   usageLines,
   repositoryRoot,
+  cliRegistrySet,
   expectedLifecycleEvent: 'validate:all',
   supportedFlagNames: ['scope', 'target', 'config', 'strict', 'validators'],
   parseCliArgs,

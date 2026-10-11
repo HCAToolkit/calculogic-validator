@@ -3,10 +3,10 @@ import { getBuiltinTreeSignalPolicy } from './registries/tree-signal-policy-regi
 import { getBuiltinTreeRepoShapePolicy } from './registries/tree-repo-shape-policy-registry.logic.mjs';
 import { toValidatorDevelopmentPathPrefix } from './tree-validator-development-root.logic.mjs';
 
-const TREE_SIGNAL_POLICY = getBuiltinTreeSignalPolicy();
-const TREE_REPO_SHAPE_POLICY = getBuiltinTreeRepoShapePolicy();
-const ALLOWED_TOP_LEVEL_DIRECTORY_NAMES = TREE_REPO_SHAPE_POLICY.allowedTopLevelDirectories;
-const ALLOWED_TOP_LEVEL_DIRECTORY_NAME_SET = new Set(ALLOWED_TOP_LEVEL_DIRECTORY_NAMES);
+// Registry policy comes from the prepared dependencies Tree wiring builds from the run's resolved
+// registry root (#41 registry lifecycle). Direct runtime callers that omit it get Builtin.
+const resolveTreeSignalPolicy = (preparedDependencies) =>
+  preparedDependencies?.treeSignalPolicy ?? getBuiltinTreeSignalPolicy();
 
 // Suite-core carveouts are relative to the suite-core root, which is derived per run from the prepared
 // validator development root (`src/` standalone, `<embedded-root>/src/` embedded).
@@ -26,11 +26,14 @@ const sortByPathThenCode = (left, right) => {
   return left.code.localeCompare(right.code);
 };
 
-const isValidatorOwnedBasenameSignal = (basename) =>
-  TREE_SIGNAL_POLICY.validatorOwnedBasenameSignalMatchers.some(({ matcher }) => matcher.test(basename));
+const isValidatorOwnedBasenameSignal = (basename, signalPolicy) =>
+  signalPolicy.validatorOwnedBasenameSignalMatchers.some(({ matcher }) => matcher.test(basename));
 
-const createNeutralReplacementRuntime = (allowedTopLevelDirectoryNameSet = ALLOWED_TOP_LEVEL_DIRECTORY_NAME_SET) => ({
-  classifyOccurrenceRecords: (occurrenceRecords = []) => occurrenceRecords,
+// Classification that keeps records as they are, used when no replacement runtime is prepared.
+const neutralClassifyOccurrenceRecords = (occurrenceRecords = []) => occurrenceRecords;
+
+const createNeutralReplacementRuntime = (allowedTopLevelDirectoryNameSet) => ({
+  classifyOccurrenceRecords: neutralClassifyOccurrenceRecords,
   collectUnexpectedTopLevelDirectoryNames: (topLevelDirectoryNames = []) => {
     if (!Array.isArray(topLevelDirectoryNames)) {
       throw new Error('Tree unexpected top-level fallback runtime requires topLevelDirectoryNames array.');
@@ -43,13 +46,13 @@ const createNeutralReplacementRuntime = (allowedTopLevelDirectoryNameSet = ALLOW
   },
 });
 
-// The effective repo-shape policy is prepared by Tree wiring for each run; direct runtime callers that
-// omit it fall back to the builtin policy.
+// The effective repo-shape policy is prepared by Tree wiring for each run from the resolved registry
+// root; direct runtime callers that omit it fall back to the Builtin policy.
 const resolveAllowedTopLevelDirectoryNames = (preparedDependencies) => {
   const preparedPolicy = preparedDependencies?.treeRepoShapePolicy;
   return Array.isArray(preparedPolicy?.allowedTopLevelDirectories)
     ? preparedPolicy.allowedTopLevelDirectories
-    : ALLOWED_TOP_LEVEL_DIRECTORY_NAMES;
+    : getBuiltinTreeRepoShapePolicy().allowedTopLevelDirectories;
 };
 
 const isReplacementRuntime = (replacementRuntime) => (
@@ -60,13 +63,12 @@ const isReplacementRuntime = (replacementRuntime) => (
   typeof replacementRuntime.collectUnexpectedTopLevelDirectoryNames === 'function'
 );
 
-const resolveReplacementRuntime = (replacementRuntime) => {
-  if (isReplacementRuntime(replacementRuntime)) {
-    return replacementRuntime;
-  }
-
-  return createNeutralReplacementRuntime();
-};
+// File reasoning needs only classification, so without a prepared runtime it keeps records as they
+// are and reads no repo-shape policy.
+const resolveOccurrenceClassifier = (replacementRuntime) =>
+  isReplacementRuntime(replacementRuntime)
+    ? replacementRuntime
+    : { classifyOccurrenceRecords: neutralClassifyOccurrenceRecords };
 
 const isRuntimeExecutionReadyForReplacementRoute = (preparedDependencies = {}) => {
   const runtimeExecutionContract = preparedDependencies.treeOccurrenceClassificationRuntimeExecutionContract;
@@ -223,7 +225,7 @@ const isPathWithinValidatorDevelopmentRoot = (relativePath, validatorDevelopment
   relativePath === validatorDevelopmentRoot ||
   relativePath.startsWith(`${validatorDevelopmentRoot}/`);
 
-const collectValidatorOwnedOutsideTreeFindings = (paths, validatorDevelopmentRoot) => {
+const collectValidatorOwnedOutsideTreeFindings = (paths, validatorDevelopmentRoot, signalPolicy) => {
   if (typeof validatorDevelopmentRoot !== 'string' || validatorDevelopmentRoot.length === 0) {
     return [];
   }
@@ -232,7 +234,7 @@ const collectValidatorOwnedOutsideTreeFindings = (paths, validatorDevelopmentRoo
 
   return paths
     .filter((relativePath) => !isPathWithinValidatorDevelopmentRoot(relativePath, validatorDevelopmentRoot))
-    .filter((relativePath) => isValidatorOwnedBasenameSignal(path.posix.basename(relativePath)))
+    .filter((relativePath) => isValidatorOwnedBasenameSignal(path.posix.basename(relativePath), signalPolicy))
     .sort((left, right) => left.localeCompare(right))
     .map((relativePath) => ({
       code: 'TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE',
@@ -329,7 +331,7 @@ export const collectFileReasoningInput = (preparedInputs, replacementRuntime) =>
   const occurrenceRecords = preparedInputs?.structuralAddressSnapshot?.occurrenceRecords;
 
   if (Array.isArray(occurrenceRecords)) {
-    const runtime = resolveReplacementRuntime(replacementRuntime);
+    const runtime = resolveOccurrenceClassifier(replacementRuntime);
     let classifiedOccurrenceRecords;
 
     try {
@@ -444,6 +446,7 @@ export const runTreeStructureAdvisor = (preparedInputs = {}) => {
     ...collectValidatorOwnedOutsideTreeFindings(
       selectedPathsForReasoning,
       prepared.validatorDevelopmentRoot,
+      resolveTreeSignalPolicy(prepared.preparedDependencies),
     ),
     ...collectOwnedSliceBoundaryDriftFindings(selectedPathsForReasoning, prepared.validatorDevelopmentRoot),
     ...collectContributorFindings(prepared),

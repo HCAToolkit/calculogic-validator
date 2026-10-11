@@ -2,7 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { collectShimCompatFindings } from '../tree-shim-detection.logic.mjs';
 
-export const attachTreeShimDiagnosticsContributor = ({ repositoryRoot, selectedPaths, validatorDevelopmentRoot = null }) => {
+// `treeSignalPolicy` is the run's resolved Tree signal policy (#41); without it shim detection uses Builtin.
+export const attachTreeShimDiagnosticsContributor = ({
+  repositoryRoot,
+  selectedPaths,
+  validatorDevelopmentRoot = null,
+  treeSignalPolicy,
+}) => {
   if (typeof repositoryRoot !== 'string' || repositoryRoot.length === 0) {
     throw new Error('Tree shim diagnostics attachment requires repositoryRoot prepared input.');
   }
@@ -29,5 +35,6 @@ export const attachTreeShimDiagnosticsContributor = ({ repositoryRoot, selectedP
     return rawContent;
   };
 
-  return () => collectShimCompatFindings(selectedPaths, getFileContent, { validatorDevelopmentRoot });
+  return () =>
+    collectShimCompatFindings(selectedPaths, getFileContent, { validatorDevelopmentRoot, signalPolicy: treeSignalPolicy });
 };

@@ -2,7 +2,7 @@
 
 - **Classification:** Normative target contract for the suite-level registry lifecycle. Sections marked *Current implementation reality* or *Historical* are Informative.
 - **Ownership:** suite-owned lifecycle mechanics; slice-owned registry meaning (§9).
-- **Status:** accepted contract, partially implemented. Slice 2 (§13) has landed: suite lifecycle mechanics, `init-custom` and `status`, Naming and suite-core adoption, report provenance and the config retirement. Slice 3 (Tree adoption, `use` and active-Custom resolution) has not; until it lands the activation gate (§6) stays closed. §14 records current reality.
+- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. The advanced management surface and the cross-slice compatibility check remain follow-ons (§13 item 4). §14 records current reality.
 - **Report-only note:** the lifecycle selects registry inputs and discloses them in report metadata. It adds no enforcement mode and no fix execution.
 - **Issue lineage:** Refs #41; parent Refs #39. Decision record: #41 comments "Decision record (before the spec PR)", "Decision record: section 9 resolved" and "Decision record: activation, and the earlier customization draft".
 
@@ -157,7 +157,9 @@ Digests are computed over canonical forms only. File formatting, key order, and 
 - `activeSet: custom` → every slice loads every registry from `custom/<slice>/`.
 - No registry is ever loaded from the other set during a run.
 - The resolved set is passed to slices as **resolved registry roots**, one directory per slice. Slice loaders read their files from that root and keep their own validation, canonicalization and conversion (§9).
-- **Activation gate:** Custom activation is available only when **every** registry consumer of every inventory slice reads its resolved root. A partially adopted suite would mix Custom and Builtin policy in one run and misreport provenance. Until that holds, `use custom` is not offered, and a `registry-state.json` that selects `custom` is a lifecycle error. The rollout is in §13.
+- **Activation gate:** Custom activation is available only when **every** registry consumer of every inventory slice reads its resolved root. A partially adopted suite would mix Custom and Builtin policy in one run and misreport provenance. The gate held from slice 3 (§13), when Tree adopted resolved roots, and it stays a standing rule:
+  - every new reader of registry policy (a loader, a runtime consumer, or CLI output derived from a registry, such as the scope list in usage text) reads the resolved set of the run;
+  - a Builtin read is allowed only where there is no validation run to resolve (direct library calls without a resolution), and it never happens inside a run that resolved a set.
 - A per-run source choice may later be supplied explicitly (for example "validate against Builtin" or a candidate set for preview, §10). It changes only that run's source. It never changes `registry-state.json` and never writes Custom.
 
 ## 7) Validity of an active Custom set
@@ -330,6 +332,7 @@ Each slice report carries its own registries:
 ```
 
 - `source` is always the active set. The field exists so a later per-run source choice (§10) is disclosed per registry.
+- A slice reports its own inventory registries. A registry another slice reads through a bridge or projection (for example Tree reading `naming/folder-composition-patterns` through the Naming-owned folder-composition projection) is disclosed by its owning slice's provenance and by the set-level `resolvedSetDigest`; it always comes from the same resolved set.
 - `digest` is the canonical digest of the resolved registry. An active registry always has one, because a registry that cannot be parsed blocks an active-Custom run (§7.1).
 - The `null` digest of an unparseable registry (§3) appears only in `status` output and in the diagnostics behind `customIssues`.
 
@@ -357,7 +360,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 | Command | Effect | Writes |
 |---|---|---|
 | `init-custom` | Copies every registry of every slice inventory from Builtin into `custom/`, writes `.baseline/` and the manifest. Refuses if `custom/` already exists. | `custom/**`; `registry-state.json` only if absent (written with `activeSet: builtin`) |
-| `use builtin` \| `use custom` | Sets the active set. `use custom` runs the §7.1 checks first and refuses on a blocking condition. Available only once the activation gate holds (§6, §13 slice 3). | `registry-state.json` |
+| `use builtin` \| `use custom` | Sets the active set. `use custom` runs the §7.1 checks first and refuses on a blocking condition, naming each failing registry. `use builtin` needs no check: it is always the way back, also when Custom is missing or invalid. A contained but malformed `registry-state.json` is replaced; an escaping one is refused (§4.1). | `registry-state.json` only; never `custom/` |
 | `status` | Prints the three facts, completeness, version compatibility, drift, orphans and `customIssues`, with one classification per registry (below). Deterministic JSON on stdout. | nothing |
 
 **`status` per-registry entries** have the shape `{ registryId, classification, customDigest, builtinDigest, baselineDigest, baselineMismatch, detail? }`.
@@ -418,9 +421,15 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
    - runs without a Custom set keep their findings and existing report fields unchanged, except the documented `registryDigests.custom` change (§11.3), and gain only the new provenance fields;
    - the config-overlay tests are replaced by tests that the retired surfaces are rejected;
    - Naming's in-package `_custom/` set and `registry-state.json` become test fixtures, and a fixture Custom set equivalent to today's custom mode resolves to the same Naming payload digest through the internal resolution API.
-3. **Tree adoption and Custom activation:**
+3. **Tree adoption and Custom activation (landed):**
    - Tree loaders read resolved roots, and Tree reports `registryProvenance`;
-   - with every consumer adopted, `use custom` and active-Custom resolution become available.
+   - Tree's read of the Naming folder-composition registry and the usage-text scope lists read the resolved set too;
+   - with every consumer adopted, `use custom` and active-Custom resolution became available.
+
+   Acceptance:
+   - Builtin-active runs keep their findings and report fields, gaining only Tree's `meta.registryProvenance`;
+   - an initialized, valid Custom set can be activated, is used by Naming, Tree and suite core in one run, and switching back to Builtin leaves Custom unchanged;
+   - an active Custom set with any §7.1 condition stops the run before validation.
 
    #37 decides separately between the Custom-policy route and evidence-derived repository shape.
 4. **Follow-ons:**
@@ -429,14 +438,16 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
 
 ## 14) Current implementation reality (Informative)
 
-After slice 2:
+After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, canonical digests, state and manifest reading, Custom assessment and status classification, one resolution per run, `init-custom` and `status` (bin `calculogic-validator-registry`; scripts `registry:init-custom`, `registry:status`).
-- **Activation gate closed:** `use` is not offered, and a state file selecting `custom` is a lifecycle error that stops every validation run. The active set is always Builtin.
-- **Naming and suite core** read every registry from their resolved roots. An existing inactive Custom set is assessed and reported in `registrySet.customIssues`, never resolved.
-- **Tree** still loads its own registries from Builtin and emits no `registryProvenance`; it receives resolved roots only for suite scope profiles. Tree's registry-set validation entry point covers Custom shape checks for `status` and `customIssues`.
-- **Reports** carry `registrySet` (runner envelope and Naming report) and `registryProvenance` (Naming report and runner Naming entry `meta`; suite-core registries on the runner envelope). Naming's transitional fields are derived (§11.3); `registryDigests.custom` equals `builtin` unless a Custom set exists and resolves validly, meaning its only `customIssues`, if any, are `baseline-mismatch`.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, canonical digests, state and manifest reading, Custom assessment and status classification, one resolution per run, and the commands `init-custom`, `use` and `status` (bin `calculogic-validator-registry`; scripts `registry:init-custom`, `registry:use`, `registry:status`).
+- **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
+- **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
+- **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.
+- **Registries without a runtime consumer:** `naming/agnostic-core-meanings`, `naming/category-role-perspective`, `tree/semantic-home-policy`, `tree/structural-home-signal-policy` and `tree/surface-structural-home-perspective` are part of both sets. They are validated, digested and disclosed, but no runtime consumer reads them yet, so editing them in Custom has no effect on findings until a consumer slice lands. The same holds for the field `allowDotFiles` in `naming/walk-exclusions` (#54).
+- **Reports** carry `registrySet` (runner envelope and Naming report) and `registryProvenance` (Naming report and runner Naming entry `meta`; Tree runner entry `meta`; suite-core registries on the runner envelope). Naming's transitional fields are derived (§11.3).
 - **Retired:** Naming's config record surfaces (`naming.*` in config), the `overlay-capabilities` registry, and the in-package `_custom/` set and `registry-state.json`, which are now test fixtures under `naming/test/fixtures/registry-lifecycle/legacy-in-package-custom-set/`.
+- **Before slice 3:** the activation gate was closed. `use` was not offered, a state file selecting `custom` was a lifecycle error, and Tree loaded its registries from Builtin and emitted no `registryProvenance`.
 - **Before slice 2:** Naming resolved from Builtin, a partial in-package `_custom/` set selected by in-package `registry-state.json`, or the `--config` overlay. It emitted `registrySource` values `builtin | custom | config`. Tree and suite core loaded Builtin only and emitted no provenance. Five Builtin registries had no `version` field.
 
 ## 15) Non-goals

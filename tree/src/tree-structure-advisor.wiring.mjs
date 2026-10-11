@@ -32,15 +32,12 @@ import { planTreeOccurrenceClassificationRuntimeExecutionContract } from './tree
 import { prepareNamingSemanticEvidenceBridge } from '../../naming/src/naming-semantic-evidence-bridge.logic.mjs';
 import { projectNamingFolderCompositionBridge } from '../../naming/src/naming-folder-composition-projection.logic.mjs';
 import { createNamingOccurrenceBridgePayload } from '../../naming/src/naming-occurrence-bridge-payload.logic.mjs';
-import { getBuiltinNamingFolderCompositionPatternsRegistry } from '../../naming/src/registries/naming-folder-composition-patterns-registry.logic.mjs';
+import { loadNamingFolderCompositionPatternsRegistryFromRegistryRoot } from '../../naming/src/registries/naming-folder-composition-patterns-registry.logic.mjs';
+import { NAMING_BUILTIN_REGISTRY_ROOT, NAMING_REGISTRY_SLICE_ID } from '../../naming/src/registries/naming-registry-inventory.knowledge.mjs';
 import { prepareTreeNamingOccurrenceBridgeIntake } from './tree-naming-occurrence-intake.logic.mjs';
-import { getBuiltinStructuralHomesRegistry } from './registries/tree-structural-homes-registry.logic.mjs';
-import { getBuiltinFolderKindsRegistry } from './registries/tree-folder-kinds-registry.logic.mjs';
-import { getBuiltinTreeRepoShapePolicy } from './registries/tree-repo-shape-policy-registry.logic.mjs';
 import { prepareContextualTreeRepoShapePolicy } from './tree-contextual-repo-shape-policy.logic.mjs';
-import { getBuiltinSemanticNamingFolderTypeRelationshipsRegistry } from './registries/tree-semantic-naming-folder-type-relationships-registry.logic.mjs';
-import { getBuiltinStructuralRoleTokensRegistry } from './registries/tree-structural-role-tokens-registry.logic.mjs';
-import { getBuiltinStructuralContextAssessmentPoliciesRegistry } from './registries/tree-structural-context-assessment-policies-registry.logic.mjs';
+import { loadTreeRuntimeRegistries } from './registries/tree-runtime-registries.logic.mjs';
+import { TREE_REGISTRY_SLICE_ID } from './registries/tree-registry-inventory.knowledge.mjs';
 
 const TOP_LEVEL_SCAN_EXCLUSIONS = new Set(['.git', 'node_modules']);
 const TREE_ADDRESS_PROFILE_ID = 'tree-structure-advisor-address-profile';
@@ -66,8 +63,10 @@ const collectTopLevelDirectoryNames = (repositoryRoot) =>
     .filter((directoryName) => !directoryName.startsWith('.'))
     .sort((left, right) => left.localeCompare(right));
 
-// `registryRoots` carries the resolved suite registry root for scope profiles (#41 registry
-// lifecycle). Tree's own registries keep loading from Builtin until Tree adopts resolved roots.
+// `registryRoots` carries the run's resolved registry roots (#41 registry lifecycle): the suite
+// root for scope profiles, the Tree root for Tree's own registries and the Naming root for the
+// Naming folder-composition registry. Without it (a direct call outside a validation run) every
+// registry comes from Builtin.
 export const prepareTreeStructureAdvisorInputs = (
   repositoryRoot,
   {
@@ -114,16 +113,22 @@ export const prepareTreeStructureAdvisorInputs = (
     selectedPaths,
     source: 'tree-structure-advisor.wiring',
   });
-  const structuralHomesRegistry = getBuiltinStructuralHomesRegistry();
-  const folderKindsRegistry = getBuiltinFolderKindsRegistry();
+  const {
+    signalPolicy: treeSignalPolicy,
+    repoShapePolicy,
+    structuralHomesRegistry,
+    folderKindsRegistry,
+    semanticNamingFolderTypeRelationshipsRegistry,
+    structuralRoleTokensRegistry,
+    structuralContextAssessmentPoliciesRegistry,
+  } = loadTreeRuntimeRegistries(registryRoots?.[TREE_REGISTRY_SLICE_ID]);
   const treeRepoShapePolicy = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy: getBuiltinTreeRepoShapePolicy(),
+    registryPolicy: repoShapePolicy,
     validatorDevelopmentRoot,
   });
-  const semanticNamingFolderTypeRelationshipsRegistry = getBuiltinSemanticNamingFolderTypeRelationshipsRegistry();
-  const structuralRoleTokensRegistry = getBuiltinStructuralRoleTokensRegistry();
-  const structuralContextAssessmentPoliciesRegistry = getBuiltinStructuralContextAssessmentPoliciesRegistry();
-  const namingFolderCompositionPatternsRegistry = getBuiltinNamingFolderCompositionPatternsRegistry();
+  const namingFolderCompositionPatternsRegistry = loadNamingFolderCompositionPatternsRegistryFromRegistryRoot(
+    registryRoots?.[NAMING_REGISTRY_SLICE_ID] ?? NAMING_BUILTIN_REGISTRY_ROOT,
+  );
   const namingSemanticEvidenceBridge = namingSemanticFamilyBridge
     ? prepareNamingSemanticEvidenceBridge(namingSemanticFamilyBridge)
     : { observations: [] };
@@ -243,6 +248,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeSemanticHomeEvidence,
       treeFolderKindEvidence,
       treeRepoShapePolicy,
+      treeSignalPolicy,
       treeStructuralContextAssessment,
       treeOccurrenceClassificationParityEvidence,
       treeOccurrenceClassificationParitySummary,
@@ -260,6 +266,7 @@ export const prepareTreeStructureAdvisorInputs = (
       namingSemanticFamilyBridge,
       preparedAddressKeyedJoinEvidence,
       validatorDevelopmentRoot,
+      treeSignalPolicy,
     }),
   };
 };

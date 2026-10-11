@@ -26,10 +26,11 @@ import {
 } from '../src/core/registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
 import { buildRegistryLifecycleStatus } from '../src/core/registry-lifecycle/registry-lifecycle-status.logic.mjs';
 import {
-  CUSTOM_ACTIVATION_AVAILABLE,
+  CUSTOM_SET_MISSING_CONDITION,
   REGISTRY_LIFECYCLE_ERROR_CODE,
   STATUS_CLASSIFICATIONS,
 } from '../src/core/registry-lifecycle/registry-lifecycle.contracts.mjs';
+import { useRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-use.logic.mjs';
 import { prepareNamingRuntimeInputs } from '../naming/src/naming-validator.wiring.mjs';
 
 const VALIDATOR_VERSION = '0.0.0-test';
@@ -1674,20 +1675,216 @@ test('registryDigests.custom falls back to builtin when the Custom set is invali
   });
 });
 
-test('while the activation gate is closed, a state selecting custom is a lifecycle error', () => {
-  assert.equal(CUSTOM_ACTIVATION_AVAILABLE, false);
+// ---- activation (#41 slice 3) -------------------------------------------------------------------
 
+// Every file under a directory with its bytes, so a test can prove a directory was not changed.
+const snapshotDirectory = (directoryPath) =>
+  Object.fromEntries(
+    fs
+      .readdirSync(directoryPath, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => path.join(entry.parentPath, entry.name))
+      .sort()
+      .map((filePath) => [path.relative(directoryPath, filePath), fs.readFileSync(filePath, 'base64')]),
+  );
+
+const isBlockedBy = (expectedKeys) => (error) => {
+  assert.ok(error instanceof RegistryLifecycleError, error.message);
+  assert.equal(error.code, REGISTRY_LIFECYCLE_ERROR_CODE);
+  const keys = error.conditions.map((condition) => `${condition.registryId}:${condition.condition}`);
+  for (const expectedKey of expectedKeys) {
+    assert.ok(keys.includes(expectedKey), `${expectedKey} not in ${keys.join(', ')}`);
+    assert.ok(error.message.includes(expectedKey.split(':')[0].replace('null', 'registry set')), error.message);
+  }
+  assert.match(error.message, /registry:use builtin/u);
+  return true;
+};
+
+test('an active, valid Custom set resolves every slice from custom/ with Custom provenance', () => {
   withLifecycleFixture(({ targetRoot, paths }) => {
     initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
-    writeJson(paths.statePath, { schemaVersion: '1', activeSet: 'custom' });
+    updateJson(customFile(paths, 'tree/repo-shape-policy'), (payload) => ({
+      ...payload,
+      allowedTopLevelDirectories: [...payload.allowedTopLevelDirectories, 'experiments'],
+    }));
+    useRegistrySet({ targetRoot, activeSet: 'custom' });
+
+    const resolution = resolveActiveRegistrySet({ targetRoot });
+    const assessment = assessCustomRegistrySet({ paths, slices: REGISTRY_LIFECYCLE_SLICES });
+
+    assert.equal(resolution.activeSet, 'custom');
+    assert.deepEqual(resolution.registryRoots, {
+      naming: path.join(paths.customRoot, 'naming'),
+      tree: path.join(paths.customRoot, 'tree'),
+      suite: path.join(paths.customRoot, 'suite'),
+    });
+    assert.deepEqual(resolution.customRegistryRoots, resolution.registryRoots);
+    assert.equal(resolution.registrySet.activeSet, 'custom');
+    assert.equal(resolution.registrySet.customDiffers, true);
+    assert.deepEqual(resolution.registrySet.customIssues, []);
+    assert.equal(resolution.registrySet.resolvedSetDigest, digestRegistrySet(assessment.customDigests));
+    assert.notEqual(resolution.registrySet.resolvedSetDigest, digestRegistrySet(digestBuiltinRegistrySet()));
+    for (const sliceProvenance of Object.values(resolution.registryProvenance)) {
+      for (const [registryId, entry] of Object.entries(sliceProvenance)) {
+        assert.deepEqual(entry, { source: 'custom', digest: assessment.customDigests[registryId] }, registryId);
+      }
+    }
+    assert.notEqual(
+      resolution.registryProvenance.tree['tree/repo-shape-policy'].digest,
+      digestBuiltinRegistrySet()['tree/repo-shape-policy'],
+    );
+  });
+});
+
+test('an active Custom set with a blocking condition stops resolution, naming each failing registry', () => {
+  const blockingCases = [
+    {
+      label: 'missing set',
+      prepare: ({ paths }) => fs.rmSync(paths.customRoot, { recursive: true }),
+      expected: [`null:${CUSTOM_SET_MISSING_CONDITION}`],
+    },
+    {
+      label: 'incomplete set',
+      prepare: ({ paths }) => fs.rmSync(customFile(paths, 'tree/folder-kinds')),
+      expected: ['tree/folder-kinds:missing'],
+    },
+    {
+      label: 'incompatible version',
+      prepare: ({ paths }) => updateJson(customFile(paths, 'suite/exit-policy'), (payload) => ({ ...payload, version: '99' })),
+      expected: ['suite/exit-policy:version-incompatible'],
+    },
+    {
+      label: 'invalid payload',
+      prepare: ({ paths }) => {
+        fs.writeFileSync(customFile(paths, 'naming/roles'), '{ broken');
+        updateJson(customFile(paths, 'tree/repo-shape-policy'), (payload) => ({ ...payload, allowedTopLevelDirectories: ['a/b'] }));
+      },
+      expected: ['naming/roles:invalid', 'tree/repo-shape-policy:invalid'],
+    },
+    {
+      label: 'malformed manifest',
+      prepare: ({ paths }) => fs.writeFileSync(paths.manifestPath, '{ broken'),
+      expected: ['null:manifest-malformed'],
+    },
+  ];
+
+  for (const blockingCase of blockingCases) {
+    withLifecycleFixture(({ targetRoot, paths }) => {
+      initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+      useRegistrySet({ targetRoot, activeSet: 'custom' });
+      blockingCase.prepare({ paths });
+
+      assert.throws(() => resolveActiveRegistrySet({ targetRoot }), isBlockedBy(blockingCase.expected), blockingCase.label);
+    });
+  }
+});
+
+test('baseline-mismatch and orphan registries never block an active Custom set', () => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    useRegistrySet({ targetRoot, activeSet: 'custom' });
+    updateJson(path.join(paths.baselineRoot, 'tree', 'folder-kinds.registry.json'), (payload) => ({ ...payload, tampered: true }));
+    writeJson(path.join(paths.customRoot, 'tree', 'retired-thing.registry.json'), { version: '1' });
+
+    const resolution = resolveActiveRegistrySet({ targetRoot });
+
+    assert.equal(resolution.activeSet, 'custom');
+    assert.deepEqual(
+      resolution.registrySet.customIssues.map((issue) => `${issue.registryId}:${issue.condition}`),
+      ['tree/folder-kinds:baseline-mismatch'],
+    );
+    assert.deepEqual(resolution.registrySet.orphanRegistries, ['tree/retired-thing']);
+    assert.equal(resolution.registryProvenance.tree['tree/retired-thing'], undefined);
+  });
+});
+
+test('use custom activates a valid set; use builtin switches back; Custom is never written', () => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    updateJson(customFile(paths, 'naming/reportable-extensions'), (payload) => ({
+      ...payload,
+      reportableExtensions: [...payload.reportableExtensions, '.py'],
+    }));
+    const customBefore = snapshotDirectory(paths.customRoot);
+
+    assert.deepEqual(useRegistrySet({ targetRoot, activeSet: 'custom' }), {
+      activeSet: 'custom',
+      previousActiveSet: 'builtin',
+      stateFileCreated: false,
+    });
+    assert.deepEqual(readJson(paths.statePath), { schemaVersion: '1', activeSet: 'custom' });
+    assert.equal(resolveActiveRegistrySet({ targetRoot }).activeSet, 'custom');
+
+    assert.deepEqual(useRegistrySet({ targetRoot, activeSet: 'builtin' }), {
+      activeSet: 'builtin',
+      previousActiveSet: 'custom',
+      stateFileCreated: false,
+    });
+    const backOnBuiltin = resolveActiveRegistrySet({ targetRoot });
+    assert.equal(backOnBuiltin.activeSet, 'builtin');
+    assert.deepEqual(backOnBuiltin.registryRoots, getBuiltinRegistryRoots());
+
+    assert.deepEqual(snapshotDirectory(paths.customRoot), customBefore);
+    assert.deepEqual(
+      fs.readdirSync(paths.lifecycleRoot).sort(),
+      ['custom', 'registry-state.json'],
+      'no temporary state file is left behind',
+    );
+  });
+});
+
+test('use custom refuses a blocked set and leaves the state file unchanged', () => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    assert.throws(
+      () => useRegistrySet({ targetRoot, activeSet: 'custom' }),
+      isBlockedBy([`null:${CUSTOM_SET_MISSING_CONDITION}`]),
+    );
+    assert.equal(fs.existsSync(paths.lifecycleRoot), false);
+
+    initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    const stateBefore = fs.readFileSync(paths.statePath, 'utf8');
+    updateJson(customFile(paths, 'naming/summary-buckets'), (payload) => ({ ...payload, version: '2' }));
 
     assert.throws(
-      () => resolveActiveRegistrySet({ targetRoot }),
-      (error) =>
-        error instanceof RegistryLifecycleError &&
-        error.code === REGISTRY_LIFECYCLE_ERROR_CODE &&
-        /Custom activation is not available yet/u.test(error.message),
+      () => useRegistrySet({ targetRoot, activeSet: 'custom' }),
+      isBlockedBy(['naming/summary-buckets:version-incompatible']),
     );
+    assert.equal(fs.readFileSync(paths.statePath, 'utf8'), stateBefore);
+  });
+});
+
+test('use builtin needs no check, creates an absent state file and repairs a malformed one', () => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    assert.deepEqual(useRegistrySet({ targetRoot, activeSet: 'builtin' }), {
+      activeSet: 'builtin',
+      previousActiveSet: 'builtin',
+      stateFileCreated: true,
+    });
+    assert.deepEqual(readJson(paths.statePath), { schemaVersion: '1', activeSet: 'builtin' });
+
+    initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    fs.writeFileSync(customFile(paths, 'naming/roles'), '{ broken');
+    fs.writeFileSync(paths.statePath, '{"schemaVersion":"1","activeSet":"elsewhere"}\n');
+    assert.throws(() => resolveActiveRegistrySet({ targetRoot }), RegistryLifecycleError);
+
+    assert.deepEqual(useRegistrySet({ targetRoot, activeSet: 'builtin' }), {
+      activeSet: 'builtin',
+      previousActiveSet: null,
+      stateFileCreated: false,
+    });
+    assert.equal(resolveActiveRegistrySet({ targetRoot }).activeSet, 'builtin');
+  });
+});
+
+test('use refuses an escaping state file before writing, and rejects an unknown set', () => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    const outsideRoot = outsideDir(targetRoot);
+    fs.mkdirSync(paths.lifecycleRoot, { recursive: true });
+    fs.symlinkSync(path.join(outsideRoot, 'registry-state.json'), paths.statePath);
+
+    assert.throws(() => useRegistrySet({ targetRoot, activeSet: 'builtin' }), isLifecycleError);
+    assert.deepEqual(fs.readdirSync(outsideRoot), []);
+    assert.throws(() => useRegistrySet({ targetRoot, activeSet: 'mixed' }), /must be one of builtin, custom/u);
   });
 });
 

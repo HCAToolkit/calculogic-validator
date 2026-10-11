@@ -82,14 +82,6 @@ const assertValidRegistry = (payload) => {
 
 const FOLDER_COMPOSITION_PATTERNS_REGISTRY_FILENAME = 'folder-composition-patterns.registry.json';
 
-// Loads folder-composition patterns from a Naming registry root (#41 registry lifecycle).
-export const loadNamingFolderCompositionPatternsRegistryFromRegistryRoot = (registryRoot) =>
-  assertValidRegistry(
-    JSON.parse(
-      fs.readFileSync(path.join(registryRoot, FOLDER_COMPOSITION_PATTERNS_REGISTRY_FILENAME), 'utf8'),
-    ),
-  );
-
 export const getBuiltinNamingFolderCompositionPatternsRegistry = () => {
   if (!cachedBuiltinFolderCompositionPatternsRegistry) {
     cachedBuiltinFolderCompositionPatternsRegistry = assertValidRegistry(
@@ -97,4 +89,17 @@ export const getBuiltinNamingFolderCompositionPatternsRegistry = () => {
     );
   }
   return cachedBuiltinFolderCompositionPatternsRegistry;
+};
+
+// Loads folder-composition patterns from a Naming registry root (#41 registry lifecycle). The
+// package Builtin root is served from the Builtin cache; any other root is read per call, because
+// Custom files are user-editable.
+export const loadNamingFolderCompositionPatternsRegistryFromRegistryRoot = (registryRoot) => {
+  if (path.resolve(registryRoot) === path.resolve(fileURLToPath(BUILTIN_REGISTRY_ROOT))) {
+    return getBuiltinNamingFolderCompositionPatternsRegistry();
+  }
+
+  return assertValidRegistry(
+    JSON.parse(fs.readFileSync(path.join(registryRoot, FOLDER_COMPOSITION_PATTERNS_REGISTRY_FILENAME), 'utf8')),
+  );
 };

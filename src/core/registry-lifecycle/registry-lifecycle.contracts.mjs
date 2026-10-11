@@ -48,10 +48,10 @@ export const STATUS_CLASSIFICATIONS = Object.freeze([
   'unchanged',
 ]);
 
-// [6.3] cfg-registryLifecycle · Primitive · "Activation gate" (spec §6, §13)
-// Custom activation stays unavailable until every registry consumer of every inventory slice
-// reads its resolved root. Tree adopts resolved roots in #41 slice 3; until then this is false.
-export const CUSTOM_ACTIVATION_AVAILABLE = false;
+// [6.3] cfg-registryLifecycle · Primitive · "Missing-set blocking condition" (spec §7.1 item 1)
+// Blocks activation and an active-Custom run when no Custom set exists. It is not a `customIssues`
+// condition, because `customIssues` describe an existing set.
+export const CUSTOM_SET_MISSING_CONDITION = 'missing-set';
 
 // [6.3] cfg-registryLifecycle · Primitive · "Lifecycle error code"
 export const REGISTRY_LIFECYCLE_ERROR_CODE = 'REGISTRY_LIFECYCLE_ERROR';

@@ -6,11 +6,11 @@ import { test } from 'node:test';
 import {
   BUILTIN_SHIM_DETECTION_SIGNALS_REGISTRY_PATH,
   BUILTIN_VALIDATOR_OWNED_SIGNALS_REGISTRY_PATH,
-  loadBuiltinTreeSignalPolicy,
+  loadTreeSignalPolicyFromRegistryPaths,
 } from '../src/registries/tree-signal-policy-registry.logic.mjs';
 
 test('tree signal policy loader compiles validator-owned basename matchers deterministically', () => {
-  const policy = loadBuiltinTreeSignalPolicy();
+  const policy = loadTreeSignalPolicyFromRegistryPaths();
 
   assert.equal(Array.isArray(policy.validatorOwnedBasenameSignalMatchers), true);
   assert.equal(policy.validatorOwnedBasenameSignalMatchers.length, 7);
@@ -19,7 +19,7 @@ test('tree signal policy loader compiles validator-owned basename matchers deter
 });
 
 test('tree signal policy loader normalizes shim vocabularies into lowercased allowlists', () => {
-  const policy = loadBuiltinTreeSignalPolicy();
+  const policy = loadTreeSignalPolicyFromRegistryPaths();
 
   assert.equal(policy.shimFolderSignals.has('compat'), true);
   assert.equal(policy.shimRelevantFileExtensions.has('.mjs'), true);
@@ -45,7 +45,7 @@ test('tree signal policy loader fails deterministically on malformed validator-o
 
     assert.throws(
       () =>
-        loadBuiltinTreeSignalPolicy({
+        loadTreeSignalPolicyFromRegistryPaths({
           validatorOwnedSignalsRegistryPath: invalidPath,
           shimDetectionSignalsRegistryPath: BUILTIN_SHIM_DETECTION_SIGNALS_REGISTRY_PATH,
         }),
@@ -86,7 +86,7 @@ test('tree signal policy loader fails deterministically on malformed shim-detect
 
     assert.throws(
       () =>
-        loadBuiltinTreeSignalPolicy({
+        loadTreeSignalPolicyFromRegistryPaths({
           validatorOwnedSignalsRegistryPath: BUILTIN_VALIDATOR_OWNED_SIGNALS_REGISTRY_PATH,
           shimDetectionSignalsRegistryPath: invalidPath,
         }),

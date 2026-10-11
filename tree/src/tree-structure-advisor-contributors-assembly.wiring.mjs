@@ -11,11 +11,13 @@ export const collectDefaultTreeStructureAdvisorContributors = ({
   namingSemanticFamilyBridge,
   preparedAddressKeyedJoinEvidence,
   validatorDevelopmentRoot = null,
+  treeSignalPolicy,
 }) => [
   attachTreeShimDiagnosticsContributor({
     repositoryRoot,
     selectedPaths,
     validatorDevelopmentRoot,
+    treeSignalPolicy,
   }),
   attachTreeNamingSemanticFamilyBridgeContributor({
     namingSemanticFamilyBridge,

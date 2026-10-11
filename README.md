@@ -136,7 +136,8 @@ npx --no-install calculogic-validator-registry --help
 
 - `init-custom` creates a complete Custom registry set, with its Baseline copy and manifest, in `.calculogic/registries/custom/` of the repository it runs in. It refuses when a Custom set exists and never changes the active set.
 - `status` prints the Builtin/Custom state as JSON: the active set, whether Custom exists and differs, Baseline drift, orphans, issues, and a per-registry classification.
-- `use` (activating Custom) is not available yet; it ships when Tree reads resolved registry roots (#41 slice 3).
+- `use custom` activates the Custom set after checking it is complete, version-compatible and valid; it refuses otherwise and names each failing registry. `use builtin` switches back and always works; it never changes the Custom set.
+- While Custom is active, every validation run checks it first. A Custom set that has become incomplete, incompatible or invalid stops the run with no report, naming each failing registry and the two ways forward (reconcile Custom, or `use builtin`).
 
 `calculogic-validator-report-summarize` is the Validator-owned summarizer for captured Validator reports. It reads `./.reports` relative to the directory it is run from, so running it from the consumer repository root summarizes that repository's reports, not anything inside `node_modules`. It is part of `@calculogic/validator`, not `@calculogic/report-capture`.
 
@@ -283,7 +284,7 @@ Current intentional pattern:
 - Tree slice policy payloads remain under direct local builtin-loader ownership in tree-owned registry logic modules.
 - Suite-core scope/runtime composition ownership remains local under `src/core/**` instead of acting as a universal registry-state host.
 
-Registry lifecycle (Issue #41): a suite-level Builtin/Custom registry lifecycle (`src/core/registry-lifecycle/`) resolves one registry root per slice, once per run. The consumer can own a complete Custom set under `.calculogic/registries/`, while slices keep their loaders and meaning. Naming and suite core read their resolved roots today; Tree follows in slice 3, and until then Custom activation is not available, so runs always use Builtin and only report an existing Custom set. See [`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`](./doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md).
+Registry lifecycle (Issue #41): a suite-level Builtin/Custom registry lifecycle (`src/core/registry-lifecycle/`) resolves one registry root per slice, once per run. The consumer can own a complete Custom set under `.calculogic/registries/`, while slices keep their loaders and meaning. Naming, Tree and suite core read every registry from their resolved roots, so a run is wholly Builtin or wholly Custom; `calculogic-validator-registry use` switches between them, and every report discloses the active set (`registrySet`) and per-registry provenance (`registryProvenance`). See [`doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`](./doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md).
 
 ## 3) Quickstart (repo root)
 
@@ -323,7 +324,7 @@ npm run health:validator
 - `npm run validate:all`: shared-runner validation that stages naming before tree and reports all configured validators.
 - `npm run validate:tree`: tree-structure-advisor validation through the shared runner path (tree only in report output).
 - `npm run health:validator`: validator environment/health diagnostics.
-- `npm run registry:init-custom` / `npm run registry:status`: registry lifecycle commands (`calculogic-validator-registry init-custom` / `status`) for this repository.
+- `npm run registry:init-custom` / `npm run registry:use -- <builtin|custom>` / `npm run registry:status`: registry lifecycle commands (`calculogic-validator-registry init-custom` / `use` / `status`) for this repository.
 
 Bridge behavior note (normal runs):
 

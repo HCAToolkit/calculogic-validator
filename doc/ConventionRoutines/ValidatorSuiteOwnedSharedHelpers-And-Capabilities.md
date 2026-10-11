@@ -38,10 +38,12 @@ Only currently real, discoverable suite-owned surfaces are listed here.
   - usage/usage-error formatting and output via `validator-cli-usage.logic.mjs`
   - repeatable `--target` parsing/normalization via `validator-cli-targets.logic.mjs`
   - scope token/order and scope usage-line helpers via `validator-cli-scopes.logic.mjs`
+  - one registry lifecycle resolution per CLI invocation, shared by usage text and the run, via `validator-cli-registry-resolution.logic.mjs` (#41; a failed resolution keeps Builtin usage roots so `--help` works, and the run reports the lifecycle error)
 - **When to reuse:**
   - adding/updating validator CLI entrypoints (`validate:naming`, `validate:tree`, `validate:all`, or new suite CLIs)
   - implementing repeatable `--target` argument handling
   - implementing consistent scope usage output derived from suite scope vocabulary
+  - building usage text that reads a registry (pass the invocation's `usageRegistryRoots`, never Builtin directly)
   - implementing report-first stdout emission + usage/error stderr behavior
 - **When not to reuse:**
   - slice-internal runtime logic that is not CLI-facing
@@ -167,9 +169,10 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 - **Owner:** suite-core
 - **Path/area:**
   - `src/core/registry-lifecycle/`
-- **Concern:** Builtin/Custom registry set selection (#41): lifecycle state, Custom set initialization and assessment, comparison digests, one resolution per run into resolved registry roots, and report provenance.
+- **Concern:** Builtin/Custom registry set selection (#41): lifecycle state, Custom set initialization, assessment and activation (`use`), comparison digests, one resolution per run into resolved registry roots, and report provenance.
 - **Reusable capability:**
-  - `resolveActiveRegistrySet` for validator CLIs and the runner (one call per run, passed to slices as `registryResolution`)
+  - `resolveActiveRegistrySet` for validator CLIs and the runner (one call per run, passed to slices as `registryResolution`); an active Custom set with a blocking condition raises one lifecycle error naming each failing registry
+  - `useRegistrySet` for changing the active set (the only operation that does)
   - slice inventories (registry ids, descriptors, readable versions) aggregated in deterministic slice order
 - **When to reuse:**
   - any validation entry point that loads registries; slices read their resolved root instead of package `_builtin/` constants

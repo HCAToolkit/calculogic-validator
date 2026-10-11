@@ -6,14 +6,14 @@ import { getBuiltinTreeRepoShapePolicy } from '../src/registries/tree-repo-shape
 // Refs #14: the effective repo-shape policy is a prepared value derived from the builtin policy and
 // the prepared validator development root. The builtin policy is never modified.
 
-const builtinPolicyFixture = () => ({
+const registryPolicyFixture = () => ({
   version: '1',
   allowedTopLevelDirectories: ['doc', 'src', 'test'],
 });
 
 test('contextual repo-shape policy adds the explicit embedded root top-level folder', () => {
   const policy = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy: builtinPolicyFixture(),
+    registryPolicy: registryPolicyFixture(),
     validatorDevelopmentRoot: 'calculogic-validator',
   });
 
@@ -25,7 +25,7 @@ test('contextual repo-shape policy adds the explicit embedded root top-level fol
 
 test('contextual repo-shape policy uses only the top-level folder of a nested embedded root', () => {
   const policy = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy: builtinPolicyFixture(),
+    registryPolicy: registryPolicyFixture(),
     validatorDevelopmentRoot: 'packages/validator',
   });
 
@@ -35,7 +35,7 @@ test('contextual repo-shape policy uses only the top-level folder of a nested em
 test('contextual repo-shape policy adds nothing for standalone, installed-consumer, or unusable roots', () => {
   for (const validatorDevelopmentRoot of ['.', null, undefined, '', '../outside']) {
     const policy = prepareContextualTreeRepoShapePolicy({
-      builtinPolicy: builtinPolicyFixture(),
+      registryPolicy: registryPolicyFixture(),
       validatorDevelopmentRoot,
     });
 
@@ -49,7 +49,7 @@ test('contextual repo-shape policy adds nothing for standalone, installed-consum
 
 test('contextual repo-shape policy does not duplicate an already-allowed folder', () => {
   const policy = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy: builtinPolicyFixture(),
+    registryPolicy: registryPolicyFixture(),
     validatorDevelopmentRoot: 'src',
   });
 
@@ -57,28 +57,28 @@ test('contextual repo-shape policy does not duplicate an already-allowed folder'
 });
 
 test('contextual repo-shape policy returns a new object and never mutates the builtin policy', () => {
-  const builtinPolicy = builtinPolicyFixture();
-  const before = structuredClone(builtinPolicy);
+  const registryPolicy = registryPolicyFixture();
+  const before = structuredClone(registryPolicy);
 
   const policy = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy,
+    registryPolicy,
     validatorDevelopmentRoot: 'calculogic-validator',
   });
 
-  assert.notEqual(policy, builtinPolicy);
-  assert.notEqual(policy.allowedTopLevelDirectories, builtinPolicy.allowedTopLevelDirectories);
-  assert.deepEqual(builtinPolicy, before);
+  assert.notEqual(policy, registryPolicy);
+  assert.notEqual(policy.allowedTopLevelDirectories, registryPolicy.allowedTopLevelDirectories);
+  assert.deepEqual(registryPolicy, before);
 });
 
 test('contextual repo-shape policy leaves the cached builtin policy unchanged across runs', () => {
   const cachedBefore = structuredClone(getBuiltinTreeRepoShapePolicy());
 
   const embedded = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy: getBuiltinTreeRepoShapePolicy(),
+    registryPolicy: getBuiltinTreeRepoShapePolicy(),
     validatorDevelopmentRoot: 'calculogic-validator',
   });
   const consumer = prepareContextualTreeRepoShapePolicy({
-    builtinPolicy: getBuiltinTreeRepoShapePolicy(),
+    registryPolicy: getBuiltinTreeRepoShapePolicy(),
     validatorDevelopmentRoot: null,
   });
 
@@ -89,11 +89,11 @@ test('contextual repo-shape policy leaves the cached builtin policy unchanged ac
 });
 
 test('contextual repo-shape policy rejects a missing or malformed builtin policy', () => {
-  for (const builtinPolicy of [undefined, null, {}, { allowedTopLevelDirectories: 'src' }]) {
+  for (const registryPolicy of [undefined, null, {}, { allowedTopLevelDirectories: 'src' }]) {
     assert.throws(
-      () => prepareContextualTreeRepoShapePolicy({ builtinPolicy, validatorDevelopmentRoot: '.' }),
-      /requires a builtin policy with allowedTopLevelDirectories/u,
+      () => prepareContextualTreeRepoShapePolicy({ registryPolicy, validatorDevelopmentRoot: '.' }),
+      /requires a registry policy with allowedTopLevelDirectories/u,
     );
   }
-  assert.throws(() => prepareContextualTreeRepoShapePolicy(), /requires a builtin policy/u);
+  assert.throws(() => prepareContextualTreeRepoShapePolicy(), /requires a registry policy/u);
 });

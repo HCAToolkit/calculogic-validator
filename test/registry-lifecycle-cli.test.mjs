@@ -11,6 +11,7 @@ const registryBinPath = path.join(packageRoot, 'bin/calculogic-validator-registr
 const validateNamingScriptPath = path.join(packageRoot, 'scripts/validate-naming.host.mjs');
 const validateAllScriptPath = path.join(packageRoot, 'scripts/validate-all.host.mjs');
 const validateTreeScriptPath = path.join(packageRoot, 'scripts/validate-tree.host.mjs');
+const validateBinPath = path.join(packageRoot, 'bin/calculogic-validate.host.mjs');
 
 const run = (scriptPath, args, cwd) =>
   spawnSync(process.execPath, ['--experimental-strip-types', scriptPath, ...args], {
@@ -37,6 +38,7 @@ test('package.json declares the registry lifecycle bin and repository scripts', 
 
   assert.equal(packageJson.bin['calculogic-validator-registry'], './bin/calculogic-validator-registry.host.mjs');
   assert.match(packageJson.scripts['registry:init-custom'], /registry-lifecycle\.host\.mjs init-custom$/u);
+  assert.match(packageJson.scripts['registry:use'], /registry-lifecycle\.host\.mjs use$/u);
   assert.match(packageJson.scripts['registry:status'], /registry-lifecycle\.host\.mjs status$/u);
 });
 
@@ -80,13 +82,36 @@ test('init-custom creates the Custom set once, keeps Builtin active, and refuses
   });
 });
 
-test('use is not available while Custom activation is gated', () => {
+test('use switches the active set, refuses a missing Custom set, and rejects bad arguments', () => {
   withTargetRepository((targetRoot) => {
-    const result = run(registryBinPath, ['use', 'custom'], targetRoot);
+    const refused = run(registryBinPath, ['use', 'custom'], targetRoot);
+    assert.equal(refused.status, 1);
+    assert.equal(refused.stdout, '');
+    assert.match(refused.stderr, /missing-set/u);
+    assert.match(refused.stderr, /registry:use builtin/u);
+    assert.equal(fs.existsSync(path.join(targetRoot, '.calculogic')), false);
 
-    assert.equal(result.status, 1);
-    assert.equal(result.stdout, '');
-    assert.match(result.stderr, /"use" is not available yet/u);
+    assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
+    const activated = run(registryBinPath, ['use', 'custom'], targetRoot);
+    assert.equal(activated.status, 0, activated.stderr);
+    assert.deepEqual(JSON.parse(activated.stdout), {
+      command: 'use',
+      activeSet: 'custom',
+      previousActiveSet: 'builtin',
+      stateFileCreated: false,
+    });
+    assert.equal(JSON.parse(run(registryBinPath, ['status'], targetRoot).stdout).activeSet, 'custom');
+
+    const restored = run(registryBinPath, ['use', 'builtin'], targetRoot);
+    assert.equal(restored.status, 0, restored.stderr);
+    assert.equal(JSON.parse(restored.stdout).activeSet, 'builtin');
+
+    for (const args of [['use'], ['use', 'mixed'], ['use', 'custom', 'extra']]) {
+      const usageError = run(registryBinPath, args, targetRoot);
+      assert.equal(usageError.status, 1, args.join(' '));
+      assert.equal(usageError.stdout, '', args.join(' '));
+      assert.match(usageError.stderr, /"use" needs exactly one of: builtin, custom\./u, args.join(' '));
+    }
   });
 });
 
@@ -136,24 +161,158 @@ test('validation runs report an inactive Custom set and keep Builtin provenance'
   });
 });
 
-test('a state selecting custom stops every validation entry point with no report', () => {
+test('an active Custom set with a blocking condition stops every validation entry point with no report', () => {
   withTargetRepository((targetRoot) => {
     assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
-    fs.writeFileSync(
-      path.join(targetRoot, '.calculogic/registries/registry-state.json'),
-      '{"schemaVersion":"1","activeSet":"custom"}\n',
-    );
+    assert.equal(run(registryBinPath, ['use', 'custom'], targetRoot).status, 0);
+    fs.writeFileSync(path.join(targetRoot, '.calculogic/registries/custom/tree/folder-kinds.registry.json'), '{ broken');
 
     for (const scriptPath of [validateNamingScriptPath, validateAllScriptPath, validateTreeScriptPath]) {
       const result = run(scriptPath, ['--scope=repo'], targetRoot);
 
       assert.equal(result.status, 1, path.basename(scriptPath));
       assert.equal(result.stdout, '', path.basename(scriptPath));
-      assert.match(result.stderr, /Custom activation is not available yet/u, path.basename(scriptPath));
+      assert.match(result.stderr, /tree\/folder-kinds: invalid/u, path.basename(scriptPath));
+      assert.match(result.stderr, /registry:use builtin/u, path.basename(scriptPath));
+
+      // Help still works: usage falls back to Builtin roots when the lifecycle cannot be resolved.
+      const help = run(scriptPath, ['--help'], targetRoot);
+      assert.equal(help.status, 0, path.basename(scriptPath));
+      assert.match(help.stdout, /Usage:/u, path.basename(scriptPath));
     }
 
     const status = run(registryBinPath, ['status'], targetRoot);
     assert.equal(status.status, 0, status.stderr);
     assert.equal(JSON.parse(status.stdout).activeSet, 'custom');
+
+    // The way back keeps the Custom set as it is.
+    assert.equal(run(registryBinPath, ['use', 'builtin'], targetRoot).status, 0);
+    assert.equal(run(validateTreeScriptPath, ['--scope=repo'], targetRoot).status, 0);
+    assert.equal(
+      fs.readFileSync(path.join(targetRoot, '.calculogic/registries/custom/tree/folder-kinds.registry.json'), 'utf8'),
+      '{ broken',
+    );
+  });
+});
+
+const updateCustomRegistry = (targetRoot, registryId, update) => {
+  const [sliceId, name] = registryId.split('/');
+  const filePath = path.join(targetRoot, '.calculogic/registries/custom', sliceId, `${name}.registry.json`);
+  fs.writeFileSync(filePath, `${JSON.stringify(update(JSON.parse(fs.readFileSync(filePath, 'utf8'))), null, 2)}\n`);
+};
+
+const snapshotDirectory = (directoryPath) =>
+  Object.fromEntries(
+    fs
+      .readdirSync(directoryPath, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => path.join(entry.parentPath, entry.name))
+      .sort()
+      .map((filePath) => [path.relative(directoryPath, filePath), fs.readFileSync(filePath, 'base64')]),
+  );
+
+const findingKeys = (validatorEntry) => validatorEntry.findings.map((finding) => `${finding.code}:${finding.path}`);
+const sourcesOf = (provenance) => [...new Set(Object.values(provenance).map((entry) => entry.source))];
+
+const runValidateAll = (targetRoot, scope) => {
+  const result = run(validateBinPath, [`--scope=${scope}`], targetRoot);
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout);
+  return {
+    report,
+    naming: report.validators.find((entry) => entry.validatorId === 'naming'),
+    tree: report.validators.find((entry) => entry.validatorId === 'tree-structure-advisor'),
+  };
+};
+
+test('an activated Custom set is used by Naming, Tree and suite core in one run; use builtin restores Builtin', () => {
+  withTargetRepository((targetRoot) => {
+    fs.writeFileSync(path.join(targetRoot, 'src', 'tool.py'), 'print(1)\n');
+    fs.mkdirSync(path.join(targetRoot, 'src', 'interop'));
+    fs.writeFileSync(path.join(targetRoot, 'src', 'interop', 'thing.logic.ts'), 'export const value = 1;\n');
+    fs.mkdirSync(path.join(targetRoot, 'lib'));
+    fs.writeFileSync(path.join(targetRoot, 'lib', 'util.logic.ts'), 'export {};\n');
+
+    assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
+    // One Custom edit per owner: Naming candidates, Tree repo shape and shim signals, suite scopes.
+    updateCustomRegistry(targetRoot, 'naming/reportable-extensions', (payload) => ({
+      ...payload,
+      reportableExtensions: [...payload.reportableExtensions, '.py'],
+    }));
+    updateCustomRegistry(targetRoot, 'tree/repo-shape-policy', (payload) => ({
+      ...payload,
+      allowedTopLevelDirectories: [...payload.allowedTopLevelDirectories, 'lib'],
+    }));
+    updateCustomRegistry(targetRoot, 'tree/shim-detection-signals', (payload) => ({
+      ...payload,
+      shimDetectionSignals: {
+        ...payload.shimDetectionSignals,
+        folderSignals: [...payload.shimDetectionSignals.folderSignals, 'interop'],
+      },
+    }));
+    updateCustomRegistry(targetRoot, 'suite/scope-profiles', (payload) => ({
+      ...payload,
+      profiles: { ...payload.profiles, app: { ...payload.profiles.app, includeRoots: [...payload.profiles.app.includeRoots, 'lib'] } },
+    }));
+    const customRoot = path.join(targetRoot, '.calculogic/registries/custom');
+    const customBefore = snapshotDirectory(customRoot);
+
+    const builtinRepo = runValidateAll(targetRoot, 'repo');
+    const builtinApp = runValidateAll(targetRoot, 'app');
+
+    assert.equal(run(registryBinPath, ['use', 'custom'], targetRoot).status, 0);
+    const customRepo = runValidateAll(targetRoot, 'repo');
+    const customApp = runValidateAll(targetRoot, 'app');
+
+    // Provenance: one set, everywhere.
+    for (const { report, naming, tree } of [customRepo, customApp]) {
+      assert.equal(report.registrySet.activeSet, 'custom');
+      assert.deepEqual(sourcesOf(report.registryProvenance), ['custom']);
+      assert.deepEqual(sourcesOf(naming.meta.registryProvenance), ['custom']);
+      assert.deepEqual(sourcesOf(tree.meta.registryProvenance), ['custom']);
+      assert.equal(Object.keys(tree.meta.registryProvenance).length, 11);
+    }
+    for (const { report, naming, tree } of [builtinRepo, builtinApp]) {
+      assert.equal(report.registrySet.activeSet, 'builtin');
+      assert.deepEqual(sourcesOf(report.registryProvenance), ['builtin']);
+      assert.deepEqual(sourcesOf(naming.meta.registryProvenance), ['builtin']);
+      assert.deepEqual(sourcesOf(tree.meta.registryProvenance), ['builtin']);
+    }
+
+    // Naming: the Custom reportable extension makes the .py file a candidate.
+    assert.ok(!findingKeys(builtinRepo.naming).some((key) => key.endsWith(':src/tool.py')));
+    assert.ok(findingKeys(customRepo.naming).some((key) => key.endsWith(':src/tool.py')));
+    // Tree: the Custom repo shape allows lib/, and the Custom shim signal flags src/interop/.
+    assert.ok(findingKeys(builtinRepo.tree).includes('TREE_UNEXPECTED_TOP_LEVEL_FOLDER:lib'));
+    assert.ok(!findingKeys(customRepo.tree).includes('TREE_UNEXPECTED_TOP_LEVEL_FOLDER:lib'));
+    assert.ok(!findingKeys(builtinRepo.tree).some((key) => key.endsWith(':src/interop/thing.logic.ts')));
+    assert.ok(findingKeys(customRepo.tree).some((key) => key.endsWith(':src/interop/thing.logic.ts')));
+    // Suite core: the Custom app scope includes lib/ for both slices.
+    assert.ok(!findingKeys(builtinApp.naming).some((key) => key.endsWith(':lib/util.logic.ts')));
+    assert.ok(findingKeys(customApp.naming).some((key) => key.endsWith(':lib/util.logic.ts')));
+    // Tree already scans every file under src/; the Custom scope adds lib/util.logic.ts.
+    assert.equal(customApp.tree.totalFilesScanned, builtinApp.tree.totalFilesScanned + 1);
+
+    // Switching back restores Builtin results and leaves Custom byte for byte as it was.
+    assert.equal(run(registryBinPath, ['use', 'builtin'], targetRoot).status, 0);
+    const restoredRepo = runValidateAll(targetRoot, 'repo');
+    assert.equal(restoredRepo.report.registrySet.activeSet, 'builtin');
+    assert.deepEqual(findingKeys(restoredRepo.naming), findingKeys(builtinRepo.naming));
+    assert.deepEqual(findingKeys(restoredRepo.tree), findingKeys(builtinRepo.tree));
+    assert.deepEqual(snapshotDirectory(customRoot), customBefore);
+  });
+});
+
+test('validate:tree reports Tree registry provenance from the run resolution', () => {
+  withTargetRepository((targetRoot) => {
+    const result = run(validateTreeScriptPath, ['--scope=repo'], targetRoot);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    const treeProvenance = report.validators[0].meta.registryProvenance;
+
+    assert.equal(report.registrySet.activeSet, 'builtin');
+    assert.deepEqual(Object.keys(treeProvenance).sort(), Object.keys(treeProvenance).filter((id) => id.startsWith('tree/')).sort());
+    assert.equal(Object.keys(treeProvenance).length, 11);
+    assert.deepEqual(sourcesOf(treeProvenance), ['builtin']);
   });
 });

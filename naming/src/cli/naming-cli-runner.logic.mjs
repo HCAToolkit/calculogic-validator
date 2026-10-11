@@ -16,11 +16,18 @@ import {
   printValidatorUsageErrorToStderr,
 } from '../../../src/core/cli/validator-cli-usage.logic.mjs';
 import { resolveContextualValidatorScopeProfile } from '../../../src/core/validator-scopes.logic.mjs';
-import { resolveActiveRegistrySet } from '../../../src/core/registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
+import { resolveCliRegistrySet } from '../../../src/core/cli/validator-cli-registry-resolution.logic.mjs';
 import { parseNamingCliArguments } from './naming-cli-args.logic.mjs';
 import { buildNamingValidatorReport } from './naming-report-builder.logic.mjs';
 
-export const runNamingCli = ({ argv, usageLines, repositoryRoot, npmArgForwardingMessage }) => {
+export const runNamingCli = ({
+  argv,
+  usageLines,
+  repositoryRoot,
+  npmArgForwardingMessage,
+  // From `resolveCliRegistrySet`, when the host already resolved for its usage text.
+  cliRegistrySet = resolveCliRegistrySet(repositoryRoot),
+}) => {
   if (npmArgForwardingMessage) {
     printValidatorUsageErrorToStderr(npmArgForwardingMessage, usageLines);
     return { shouldExit: true, exitCode: 1 };
@@ -40,13 +47,11 @@ export const runNamingCli = ({ argv, usageLines, repositoryRoot, npmArgForwardin
   }
 
   // One lifecycle resolution per run; a lifecycle error stops the run before any report.
-  let registryResolution;
-  try {
-    registryResolution = resolveActiveRegistrySet({ targetRoot: repositoryRoot });
-  } catch (error) {
-    printValidatorUsageErrorToStderr(error.message, usageLines);
+  if (cliRegistrySet.registryResolutionError) {
+    printValidatorUsageErrorToStderr(cliRegistrySet.registryResolutionError.message, usageLines);
     return { shouldExit: true, exitCode: 1 };
   }
+  const { registryResolution } = cliRegistrySet;
 
   const scopeResolution = resolveContextualValidatorScopeProfile(parsed.selectedScope, {
     targetRepositoryRoot: repositoryRoot,
