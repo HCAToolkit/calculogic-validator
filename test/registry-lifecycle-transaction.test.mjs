@@ -159,3 +159,26 @@ test('an existing symlink at a target is backed up and restored as a link, and a
     assert.equal(fs.existsSync(transactionRoot), false);
   });
 });
+
+test('a relative symlink target, which dangles once moved to the backup, is still restored', () => {
+  withLifecycleRoot(({ paths }) => {
+    fs.writeFileSync(path.join(paths.customRoot, 'real.json'), 'real');
+    const link = path.join(paths.customRoot, 'link.json');
+    fs.symlinkSync('real.json', link);
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(commit, 'old');
+    const writes = [
+      { targetPath: link, contents: 'replacement' },
+      { targetPath: commit, contents: 'new' },
+    ];
+
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-1:backed-up') }));
+    assert.equal(fs.readlinkSync(link), 'real.json');
+
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-1:backed-up', { crash: true }) }));
+    assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'rolled-back' });
+    assert.equal(fs.readlinkSync(link), 'real.json');
+    assert.equal(fs.readFileSync(link, 'utf8'), 'real');
+    assert.equal(fs.readFileSync(commit, 'utf8'), 'old');
+  });
+});

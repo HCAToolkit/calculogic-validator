@@ -75,6 +75,17 @@ const targetExists = (targetPath) => {
   return true;
 };
 
+// Whether a directory entry is present, without following a symlink: a moved relative link
+// usually dangles in the backup directory, and must still be restored.
+const entryPresent = (entryPath) => {
+  try {
+    fs.lstatSync(entryPath);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const isFile = (filePath) => {
   try {
     return fs.lstatSync(filePath).isFile();
@@ -110,7 +121,7 @@ const rollBack = (paths, transactionRoot, journal) => {
     const target = targets[index];
     const backup = path.join(transactionRoot, BACKUP_DIRNAME, String(index));
     if (step.existed) {
-      if (fs.existsSync(backup)) {
+      if (entryPresent(backup)) {
         fs.renameSync(backup, target);
       }
     } else {
