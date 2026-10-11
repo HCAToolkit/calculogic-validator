@@ -11,7 +11,8 @@ Status: **implemented through slice 3 (Issue #41)**.
 - Slice 2: inventories (6.1, 6.2), constants (6.3), 5.2.1–5.2.6, `init-custom` and `status` (5.3), the runner/Naming/suite-core wiring (5.4) and report provenance (7.1, 7.2).
 - Slice 3: active-Custom resolution (5.2.5), `useRegistrySet` (5.2.7) and the `use` command (5.3), Tree's resolved-root wiring and Tree `registryProvenance` (5.4, 7.1), and usage-text scope lists from the resolved set (5.4). The activation gate holds.
 - #60 slice 1: comparison identity declarations in every slice inventory (6.1) and the read-only `diff` (5.2.9, 5.3).
-- Follow-ons: the rest of the advanced management surface (#60) and the cross-slice compatibility check (#61).
+- #60 slice 2: the update decisions document, its template and its check (5.2.10, 5.3, 6.3). Read-only.
+- Follow-ons: the rest of the advanced management surface (#60), starting with `update` for `registry-added`, and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
 
@@ -31,7 +32,7 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- Diff, edit, inherit/update, trace, import/export, preview and migrate commands (advanced management surface, follow-on).
+- Edit, inherit/update, trace, import/export, preview and migrate commands (advanced management surface, follow-on). `diff` and the update decisions document are in scope.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present
@@ -159,16 +160,26 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
   - both changed → `aligned` when Custom equals Builtin, otherwise `both-changed`.
 - **Output:** deterministic JSON with ordinal ordering and counts per class. Nothing is written.
 
+#### 5.2.10 Workflow: update decisions document (read-only)
+
+`registry-lifecycle-decisions.logic.mjs` (spec §12.4). Both functions take the comparison from `compareRegistryLifecycle` (5.2.9), which returns the diff together with the assessment's per-registry status entries, so the bound digests and the diff come from one assessment.
+- **Decidable registries:** `registry-added`, and `differs` with at least one entry that is not `custom-only`. A `registry-added` record has a registry-level `decision`; a `differs` record lists its entries whose class is in `ENTRY_DECISIONS_BY_CLASS` (6.3).
+- **`buildRegistryUpdateDecisionsTemplate`:** the document with every decision `null` and `basedOn` set from the status digests.
+- **`checkRegistryUpdateDecisions`:** strict shape check, then per registry: known id, no duplicate, decidable now, same class and `basedOn` digests (otherwise `stale`), then per entry: known decidable address, no duplicate, same class, a decision the class accepts or `null`, and no decidable entry missing. Problems are collected, never thrown, and sorted ordinally. Only records without a problem are summarized.
+- Neither reads nor writes `activeSet`, and nothing is written.
+
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
 - `init-custom` → 5.2.6.
 - `use <builtin|custom>` → 5.2.7.
 - `status` → 5.2.1 + 5.2.4. Read-only.
 - `diff [registryId…]` → 5.2.9. Read-only. An unknown registry id is a usage error.
+- `decisions-template [registryId…]` → 5.2.10. Read-only; prints the document on stdout. An unknown registry id is a usage error; no Custom set is a lifecycle error.
+- `decisions-check <file>` → 5.2.10. Read-only. The path is resolved from the working directory. Prints the check result on stdout and exits 1 when it has problems; an unreadable or unparseable file is an error on stderr.
 
 Usage errors and lifecycle errors go to stderr with a non-zero exit.
 
-Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status` and `npm run registry:diff` (`scripts/registry-lifecycle.host.mjs`).
+Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status`, `npm run registry:diff`, `npm run registry:decisions-template` and `npm run registry:decisions-check` (`scripts/registry-lifecycle.host.mjs`).
 
 ### 5.4 Wiring into validation runs
 
@@ -194,7 +205,7 @@ Each is owned by its slice and lists only that slice's registries. Every entry c
 
 ### 6.3 Constants
 
-Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary.
+Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary; the comparison kinds and entry and `diff` registry classes; and the update decisions document's `kind`, `schemaVersion`, decisions by class (`REGISTRY_DECISIONS_BY_CLASS`, `ENTRY_DECISIONS_BY_CLASS`) and problem codes.
 
 ## 7.0 Results Concern (Outputs)
 
@@ -238,6 +249,7 @@ src/core/registry-lifecycle/
   registry-lifecycle-use.logic.mjs                 5.2.7
   registry-lifecycle-comparison.logic.mjs          5.2.9 (entry extraction and classification)
   registry-lifecycle-diff.logic.mjs                5.2.9
+  registry-lifecycle-decisions.logic.mjs           5.2.10
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)
