@@ -161,9 +161,11 @@ const selectRecords = (document) => {
 
 // [5.2.12] cfg-registryLifecycle · Workflow · "applyRegistryUpdateDecisions"
 // Returns `{ recovered?, applied, skipped, failed? }`, or `{ recovered?, applied: [], problems }`
-// for a document that is not valid. `onTransactionStep` is the transaction's internal test seam.
+// for a document that is not valid. The document is read through `loadDocument`, which is called
+// only after recovery: recovery comes first even when the document cannot be read (spec §12.5).
+// `onTransactionStep` is the transaction's internal test seam.
 export const applyRegistryUpdateDecisions = ({
-  document,
+  loadDocument,
   targetRoot,
   lifecycleRootOverride,
   validatorVersion,
@@ -185,6 +187,14 @@ export const applyRegistryUpdateDecisions = ({
 
   const recovered = recoverLifecycleTransaction(paths);
   const withRecovered = (result) => (recovered ? { recovered, ...result } : result);
+
+  let document;
+  try {
+    document = loadDocument();
+  } catch (error) {
+    const recoveryNote = recovered ? ` An interrupted transaction was recovered first (${recovered.outcome}).` : '';
+    throw new RegistryLifecycleError(`Cannot read the decisions document: ${error.message}.${recoveryNote}`);
+  }
 
   const check = checkRegistryUpdateDecisions({ document, targetRoot, lifecycleRootOverride, slices });
   if (!check.valid) {

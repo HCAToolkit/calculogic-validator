@@ -445,6 +445,15 @@ test('update applies an inherit decision through the bin and refuses an invalid 
     assert.deepEqual(JSON.parse(run(registryBinPath, ['status'], targetRoot).stdout).customIssues, []);
     assert.equal(fs.readFileSync(statePath, 'utf8'), stateBefore);
 
+    // An interrupted transaction is recovered even when the document cannot be read.
+    const transactionRoot = path.join(targetRoot, '.calculogic/registries/.lifecycle-transaction');
+    fs.mkdirSync(transactionRoot);
+    const unreadable = run(registryBinPath, ['update', 'missing.json'], targetRoot);
+    assert.equal(unreadable.status, 1);
+    assert.equal(unreadable.stdout, '');
+    assert.match(unreadable.stderr, /Cannot read the decisions document: .*recovered first \(rolled-back\)/u);
+    assert.equal(fs.existsSync(transactionRoot), false);
+
     const usage = run(registryBinPath, ['update'], targetRoot);
     assert.equal(usage.status, 1);
     assert.match(usage.stderr, /"update" needs exactly one document path/u);

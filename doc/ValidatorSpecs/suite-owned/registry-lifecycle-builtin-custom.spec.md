@@ -162,7 +162,7 @@ A transaction replaces an ordered list of files. Its last file is the **commit p
    The transaction directory is then removed and the command reports the failure. The registry is exactly as it was before the command.
 5. **Recovery.** A process that stops between steps (killed, crashed) leaves the transaction directory behind.
    - Every partial state is already visible. A Custom file without a manifest entry makes the manifest malformed: `status` reports it, and it blocks activation and active-Custom runs (§7.1 item 5). A `.baseline/` copy without a manifest entry is never read.
-   - The next writing lifecycle command recovers first, from the journal. If the commit point holds the journaled bytes, the transaction committed and only its directory is removed. Otherwise it is rolled back as in item 4.
+   - The next writing lifecycle command recovers first, from the journal. Every journal path is checked, lexically and by realpath (§4.1), before the commit point is read or anything is touched; a journal that fails the check is refused and its directory kept. If the commit point holds the journaled bytes, the transaction committed and only its directory is removed. Otherwise it is rolled back as in item 4.
    - Recovery never reads or writes `registry-state.json`.
    - Lifecycle commands are not run concurrently against one target.
 6. **Scope.** One transaction advances one registry (§8.2). A command that advances several registries runs one transaction per registry, in ordinal registry-id order. A failure stops the command: earlier registries stay advanced and later ones are untouched.
@@ -549,7 +549,7 @@ Both need a Custom set and write nothing.
 
 `calculogic-validator-registry update <file>` applies a decisions document (§12.4). The path is resolved from the working directory. **This slice applies `registry-added` records only**; entry decisions on `differs` records are a later #60 slice.
 
-1. **Recover** an interrupted transaction (§4.6 item 5). A Custom set must exist.
+1. **Recover** an interrupted transaction (§4.6 item 5), before the document is even read: a missing or unparseable document never leaves an interrupted transaction in place. A Custom set must exist.
 2. **Check** the document exactly as `decisions-check` does, against the current comparison. A document that is not `valid` is refused before anything is written, and its problems are printed.
 3. **Select.**
    - Records with `class: "registry-added"` and `decision: "inherit"` are applied, in ordinal registry-id order.

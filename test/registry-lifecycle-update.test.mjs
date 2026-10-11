@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -75,7 +76,7 @@ const withAddedRegistries = (run, { missingIds = ['naming/case-rules'] } = {}) =
       baselineFile,
       template: () => buildRegistryUpdateDecisionsTemplate({ targetRoot, slices }),
       update: (document, options = {}) =>
-        applyRegistryUpdateDecisions({ document, targetRoot, slices, validatorVersion: VALIDATOR_VERSION, ...options }),
+        applyRegistryUpdateDecisions({ loadDocument: () => document, targetRoot, slices, validatorVersion: VALIDATOR_VERSION, ...options }),
       diff: () => buildRegistryLifecycleDiff({ targetRoot, slices }),
       status: () => buildRegistryLifecycleStatus({ targetRoot, slices }),
     });
@@ -352,6 +353,63 @@ test('recovery alone restores the pre-command state after a crash before the com
   });
 });
 
+test('recovery runs before the document is read, even when it cannot be read', () => {
+  withAddedRegistries(({ targetRoot, slices, paths, template, update }) => {
+    const document = decide(template(), { 'naming/case-rules': 'inherit' });
+    const before = snapshotTree(paths.lifecycleRoot);
+    assert.throws(() =>
+      update(document, {
+        onTransactionStep: (step) => {
+          if (step === 'step-1:applied') {
+            throw Object.assign(new Error('crash'), { [LIFECYCLE_TRANSACTION_SIMULATED_CRASH]: true });
+          }
+        },
+      }),
+    );
+
+    assert.throws(
+      () =>
+        applyRegistryUpdateDecisions({
+          targetRoot,
+          slices,
+          validatorVersion: VALIDATOR_VERSION,
+          loadDocument: () => JSON.parse('{ broken'),
+        }),
+      /Cannot read the decisions document: .*An interrupted transaction was recovered first \(rolled-back\)\./u,
+    );
+    assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
+  });
+});
+
+test('a journal path that escapes through a symlink is refused before the commit target is read', () => {
+  withAddedRegistries(({ paths, template, update }) => {
+    const outside = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'registry-lifecycle-update-journal-')));
+    try {
+      const outsideManifest = path.join(outside, 'registry-set.manifest.json');
+      fs.writeFileSync(outsideManifest, 'outside bytes');
+      fs.symlinkSync(outside, path.join(paths.customRoot, 'escape'));
+      fs.mkdirSync(transactionRoot(paths));
+      fs.writeFileSync(
+        path.join(transactionRoot(paths), 'journal.json'),
+        JSON.stringify({
+          schemaVersion: '1',
+          steps: [{ target: 'custom/escape/registry-set.manifest.json', existed: true }],
+          createdDirectories: [],
+          // The outside file's bytes: a commit check that followed the link would report `committed`.
+          commitSha256: createHash('sha256').update('outside bytes').digest('hex'),
+        }),
+      );
+      const before = snapshotTree(paths.lifecycleRoot);
+
+      assert.throws(() => update(decide(template(), { 'naming/case-rules': 'inherit' })), /resolves outside the validation target/u);
+      assert.deepEqual(snapshotTree(paths.lifecycleRoot), before, 'the transaction evidence is kept');
+      assert.equal(fs.readFileSync(outsideManifest, 'utf8'), 'outside bytes');
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
 test('a malformed journal is never guessed at', () => {
   withAddedRegistries(({ paths, template, update }) => {
     fs.mkdirSync(transactionRoot(paths));
@@ -418,9 +476,9 @@ test('update never reads or writes registry-state.json', () => {
 test('update needs a Validator version and a Custom set', () => {
   const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-lifecycle-update-none-'));
   try {
-    assert.throws(() => applyRegistryUpdateDecisions({ targetRoot, document: {} }), /needs the Validator version/u);
+    assert.throws(() => applyRegistryUpdateDecisions({ targetRoot, loadDocument: () => ({}) }), /needs the Validator version/u);
     assert.throws(
-      () => applyRegistryUpdateDecisions({ targetRoot, document: {}, validatorVersion: VALIDATOR_VERSION }),
+      () => applyRegistryUpdateDecisions({ targetRoot, loadDocument: () => ({}), validatorVersion: VALIDATOR_VERSION }),
       /No Custom registry set exists/u,
     );
     assert.equal(fs.existsSync(path.join(targetRoot, '.calculogic')), false);

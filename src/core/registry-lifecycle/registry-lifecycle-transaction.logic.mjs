@@ -106,15 +106,21 @@ const missingDirectories = (paths, filePath) => {
   return missing;
 };
 
-// Undoes the journaled steps in reverse (spec §4.6 item 4). A step whose backup is present is
-// restored; a target that did not exist is removed; created directories are removed when empty.
-const rollBack = (paths, transactionRoot, journal) => {
-  // Every journal path is checked before anything is touched.
+// Every journal path, resolved and checked lexically and by realpath (spec §4.1) before anything
+// is read or touched, so a tampered journal or a retargeted symlink is refused, never followed.
+const resolveJournalPaths = (paths, journal) => {
   const targets = journal.steps.map((step) => fromJournalPath(paths, step.target));
   const directories = journal.createdDirectories.map((directory) => fromJournalPath(paths, directory));
   for (const candidatePath of [...targets, ...directories]) {
     assertContained(paths, candidatePath);
   }
+  return { targets, directories };
+};
+
+// Undoes the journaled steps in reverse (spec §4.6 item 4). A step whose backup is present is
+// restored; a target that did not exist is removed; created directories are removed when empty.
+const rollBack = (paths, transactionRoot, journal) => {
+  const { targets, directories } = resolveJournalPaths(paths, journal);
 
   for (let index = journal.steps.length - 1; index >= 0; index -= 1) {
     const step = journal.steps[index];
@@ -175,7 +181,7 @@ const readJournal = (transactionRoot) => {
 // Returns null when no transaction directory exists, otherwise `{ outcome }` (spec §4.6 item 5).
 export const recoverLifecycleTransaction = (paths) => {
   const transactionRoot = transactionRootOf(paths);
-  if (!fs.existsSync(transactionRoot)) {
+  if (!entryPresent(transactionRoot)) {
     return null;
   }
   assertContained(paths, transactionRoot);
@@ -188,7 +194,7 @@ export const recoverLifecycleTransaction = (paths) => {
     return { outcome: LIFECYCLE_TRANSACTION_OUTCOMES.rolledBack };
   }
 
-  const commitTarget = fromJournalPath(paths, journal.steps.at(-1).target);
+  const commitTarget = resolveJournalPaths(paths, journal).targets.at(-1);
   if (isFile(commitTarget) && sha256Hex(fs.readFileSync(commitTarget)) === journal.commitSha256) {
     fs.rmSync(transactionRoot, { recursive: true, force: true });
     return { outcome: LIFECYCLE_TRANSACTION_OUTCOMES.committed };

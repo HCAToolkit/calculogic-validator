@@ -120,24 +120,26 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
     }
 
     // The document is an ordinary input file, resolved from the working directory (spec §12.4).
-    let document;
+    // `update` reads it only after recovering an interrupted transaction (spec §12.5).
+    const loadDocument = () => JSON.parse(fs.readFileSync(path.resolve(documentPath), 'utf8'));
     try {
-      document = JSON.parse(fs.readFileSync(path.resolve(documentPath), 'utf8'));
-    } catch (error) {
-      console.error(`Cannot read ${documentPath}: ${error.message}`);
-      return { exitCode: 1 };
-    }
-
-    try {
-      if (command === 'decisions-check') {
-        const result = checkRegistryUpdateDecisions({ document, targetRoot });
-        writeJson(result);
-        return { exitCode: result.valid ? 0 : 1 };
+      if (command === 'update') {
+        const result = applyRegistryUpdateDecisions({ loadDocument, targetRoot, validatorVersion: getValidatorToolVersion() });
+        writeJson({ command, ...result });
+        return { exitCode: result.problems || result.failed ? 1 : 0 };
       }
 
-      const result = applyRegistryUpdateDecisions({ document, targetRoot, validatorVersion: getValidatorToolVersion() });
-      writeJson({ command, ...result });
-      return { exitCode: result.problems || result.failed ? 1 : 0 };
+      let document;
+      try {
+        document = loadDocument();
+      } catch (error) {
+        console.error(`Cannot read ${documentPath}: ${error.message}`);
+        return { exitCode: 1 };
+      }
+
+      const result = checkRegistryUpdateDecisions({ document, targetRoot });
+      writeJson(result);
+      return { exitCode: result.valid ? 0 : 1 };
     } catch (error) {
       console.error(error.message);
       return { exitCode: 1 };
