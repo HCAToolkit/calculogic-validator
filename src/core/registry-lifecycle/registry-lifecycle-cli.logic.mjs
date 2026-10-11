@@ -2,7 +2,7 @@
  * Configuration: cfg-registryLifecycle
  * Concern File: Logic
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.3, §7.3)
- * Responsibility: The lifecycle command interface: `init-custom`, `use` and `status`.
+ * Responsibility: The lifecycle command interface: `init-custom`, `use`, `status` and `diff`.
  * Invariants: operates on the validation target root; prints deterministic JSON on stdout;
  *   usage and lifecycle errors go to stderr with exit code 1.
  */
@@ -14,6 +14,7 @@ import {
 import { initCustomRegistrySet } from './registry-lifecycle-init.logic.mjs';
 import { buildRegistryLifecycleStatus } from './registry-lifecycle-status.logic.mjs';
 import { useRegistrySet } from './registry-lifecycle-use.logic.mjs';
+import { buildRegistryLifecycleDiff } from './registry-lifecycle-diff.logic.mjs';
 import { ACTIVE_SET_VALUES } from './registry-lifecycle.contracts.mjs';
 
 export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
@@ -26,11 +27,14 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '                         if it is missing, incomplete, version-incompatible or invalid. "use builtin" always',
   '                         works and keeps the Custom set as it is.',
   '  status                 Print the Builtin/Custom lifecycle state as JSON.',
+  '  diff [registryId...]   Print the read-only three-way comparison of Custom with its Baseline and the',
+  '                         current Builtin, per registry and per entry, as JSON. Writes nothing.',
   '',
   'Repository scripts:',
   '  npm run registry:init-custom',
   '  npm run registry:use -- <builtin|custom>',
   '  npm run registry:status',
+  '  npm run registry:diff -- [registryId...]',
 ]);
 
 const writeJson = (value) => {
@@ -68,6 +72,24 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
       console.error(error.message);
       return { exitCode: 1 };
     }
+  }
+
+  if (command === 'diff') {
+    let diff;
+    try {
+      diff = buildRegistryLifecycleDiff({ targetRoot, registryIds: rest });
+    } catch (error) {
+      const isUsageError = error.message.startsWith('Unknown registry id');
+      if (isUsageError) {
+        printValidatorUsageErrorToStderr(error.message, REGISTRY_LIFECYCLE_USAGE_LINES);
+      } else {
+        console.error(error.message);
+      }
+      return { exitCode: 1 };
+    }
+
+    writeJson(diff);
+    return { exitCode: 0 };
   }
 
   if (rest.length > 0) {

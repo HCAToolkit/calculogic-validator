@@ -10,7 +10,8 @@
 Status: **implemented through slice 3 (Issue #41)**.
 - Slice 2: inventories (6.1, 6.2), constants (6.3), 5.2.1–5.2.6, `init-custom` and `status` (5.3), the runner/Naming/suite-core wiring (5.4) and report provenance (7.1, 7.2).
 - Slice 3: active-Custom resolution (5.2.5), `useRegistrySet` (5.2.7) and the `use` command (5.3), Tree's resolved-root wiring and Tree `registryProvenance` (5.4, 7.1), and usage-text scope lists from the resolved set (5.4). The activation gate holds.
-- Follow-ons: the advanced management surface and the cross-slice compatibility check (1.3).
+- #60 slice 1: comparison identity declarations in every slice inventory (6.1) and the read-only `diff` (5.2.9, 5.3).
+- Follow-ons: the rest of the advanced management surface (#60) and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
 
@@ -46,7 +47,8 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
   - registry id;
   - Builtin file path;
   - readable `version` values;
-  - canonical-form descriptor (set-like array paths, entry keys, omittable optional fields);
+  - canonical-form descriptor (set-like array paths, their sort keys, omittable optional fields);
+  - comparison identity declaration (what an entry is and how it is addressed; spec §8.4);
   - same-slice reference edges;
   - a slice-owned registry-set validation entry point (shape and reference checks over a given root; spec §9.3).
 - **Validator package version.**
@@ -145,15 +147,28 @@ Slice-shape and reference validation failures raised by slice loaders while load
 
 Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `RegistryLifecycleError` whose message lists each blocking condition as `<registryId or "registry-set manifest">: <condition>: <detail>`, then the two ways forward: reconcile Custom (`registry:status` shows each registry), or run `registry:use builtin`, which keeps Custom intact. The error's `conditions` carry the blocking issues.
 
+#### 5.2.9 Workflow: `buildRegistryLifecycleDiff` (read-only)
+
+`registry-lifecycle-comparison.logic.mjs` and `registry-lifecycle-diff.logic.mjs` (spec §8.2, §8.4, §12.3).
+- **Extraction** (`extractComparisonEntries`) canonicalizes a payload with the registry's descriptor (5.2.2), then turns it into a map from address to canonical value, following the comparison identity declaration. A payload with a root field the declaration does not cover, or with a duplicate key, cannot be extracted. The comparison is then not trusted, and the registry is reported `not-comparable`.
+- **Registry class** in spec order: `orphan`, `registry-added`, `version-changed`, `not-comparable` (status condition or `baseline-mismatch`), `differs`, `unchanged`. Baseline payloads are read only from verified `.baseline/` copies (§4.4).
+- **Entry class** (`classifyEntry(baseline, builtin, custom)`, each a canonical value or absent):
+  - all equal → no entry;
+  - only Builtin changed → `builtin-added`, `builtin-removed` or `builtin-changed`;
+  - only Custom changed → `custom-only`;
+  - both changed → `aligned` when Custom equals Builtin, otherwise `both-changed`.
+- **Output:** deterministic JSON with ordinal ordering and counts per class. Nothing is written.
+
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
 - `init-custom` → 5.2.6.
 - `use <builtin|custom>` → 5.2.7.
 - `status` → 5.2.1 + 5.2.4. Read-only.
+- `diff [registryId…]` → 5.2.9. Read-only. An unknown registry id is a usage error.
 
 Usage errors and lifecycle errors go to stderr with a non-zero exit.
 
-Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>` and `npm run registry:status` (`scripts/registry-lifecycle.host.mjs`).
+Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status` and `npm run registry:diff` (`scripts/registry-lifecycle.host.mjs`).
 
 ### 5.4 Wiring into validation runs
 
@@ -171,7 +186,7 @@ The runner and direct slice CLIs call 5.2.5 once per run, before slice execution
 - `tree/src/registries/tree-registry-inventory.knowledge.mjs`
 - `src/registries/suite-registry-inventory.knowledge.mjs`
 
-Each is owned by its slice and lists only that slice's registries. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
+Each is owned by its slice and lists only that slice's registries. Every entry carries both a canonical-form `descriptor` (spec §5) and a `comparison` identity declaration (spec §8.4); the two are separate concerns, and identity is never inferred from `descriptor.setLike`. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
 
 ### 6.2 Suite inventory aggregate
 
@@ -221,6 +236,8 @@ src/core/registry-lifecycle/
   registry-lifecycle-resolution.logic.mjs          5.2.5
   registry-lifecycle-init.logic.mjs                5.2.6
   registry-lifecycle-use.logic.mjs                 5.2.7
+  registry-lifecycle-comparison.logic.mjs          5.2.9 (entry extraction and classification)
+  registry-lifecycle-diff.logic.mjs                5.2.9
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)

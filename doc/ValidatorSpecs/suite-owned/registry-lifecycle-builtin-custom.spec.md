@@ -195,13 +195,13 @@ A lifecycle check runs on every validation run, whichever set is active. It is r
 
 ### 8.2 Three-way classification
 
-The update/inherit operation (part of the advanced management surface, §12) compares **Baseline**, **current Builtin** and **Custom**, per registry and per entry. Entries are identified by the entry keys each registry declares (§9.1). Each difference is classified as:
+The update/inherit operation (part of the advanced management surface, §12) compares **Baseline**, **current Builtin** and **Custom**, per registry and per entry. Entries and their addresses come from each registry's comparison identity declaration (§8.4). Each difference is classified as:
 
 | Class | Meaning | Default treatment |
 |---|---|---|
 | `builtin-added` | new in Builtin since Baseline, absent from Custom | offered for inheritance |
 | `builtin-changed` | changed in Builtin, unchanged in Custom | review required |
-| `builtin-removed` | removed or deprecated in Builtin | review required |
+| `builtin-removed` | removed from Builtin (a deprecation that keeps the entry is a `builtin-changed` entry whose values show the new status) | review required |
 | `custom-only` | changed or added only in Custom | kept |
 | `aligned` | changed identically in Builtin and Custom | no action; counts as decided |
 | `both-changed` | changed differently in both | reconciliation required |
@@ -223,6 +223,22 @@ For each item the user chooses: keep theirs, take Builtin, merge selected fields
 - The migration command previews the transformation and keeps the pre-migration Custom until the user accepts it.
 - Content inheritance (§8.2) and shape migration are separate operations.
 
+### 8.4 Entry identity: comparison declarations
+
+A three-way comparison needs to know what an **entry** of a registry is, and how to address it the same way in all three inputs. That is a separate concern from canonicalization (§5): the canonical-form descriptor says how a payload is normalized for digests; it does not say what is independently comparable. Each registry therefore declares a **comparison identity declaration** in its slice inventory (§9.1). It is slice-owned, and identity is never inferred from set-like canonicalization paths.
+
+A declaration is a list of collections. Together they cover every root field of the payload except `version`, each exactly once. A path is a dot-separated field path, and only its last segment may be `*`, which stands for every property of a map.
+
+| Kind | Meaning | Entries and addresses |
+|---|---|---|
+| `value` | One whole value: a scalar, an object, or an ordered list without a stable key. | One entry per path: `outcomes["canonical"]`, `semanticName`. With a final `*`, each map property is one entry. |
+| `keyed` | Records identified by a stable key field. `ordered: true` marks first-match or otherwise order-significant collections. | One entry per record: `roles[role="adapter"]`. An ordered collection adds one order entry, `missingRolePatterns#order`, whose value is the key sequence. With a final `*` (a map of keyed lists), each map property is also a group-presence entry, `rolesByCategory["concern-core"]`, so an empty group stays visible. |
+| `members` | A set of scalars. Membership is the meaning. | One entry per member: `reportableExtensions[".ts"]`. |
+
+- Addresses are deterministic. Map keys and member values are written as JSON strings, and the key field is named in keyed addresses.
+- Every input is canonicalized with the registry's descriptor (§5) before entries are extracted, so formatting, key order and set-like order never produce a difference.
+- Two entries compare equal when their canonical values are equal.
+
 ## 9) Ownership
 
 ### 9.1 Slice-owned: the registry inventory
@@ -231,7 +247,8 @@ Every registry-bearing slice declares a registry inventory. For each registry, i
 
 - registry id and filename;
 - readable `version` values (every registry in the inventory carries a `version` field);
-- the canonical-form descriptor (§5): set-like array paths, entry keys and omittable optional fields;
+- the canonical-form descriptor (§5): set-like array paths, their sort keys and omittable optional fields;
+- the comparison identity declaration (§8.4): what an entry is and how it is addressed;
 - reference edges to other registries of the same slice (§9.3);
 - a **registry-set validation entry point**, slice-owned (§9.3).
 
@@ -399,9 +416,27 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 - Direct edits, command-guided edits, comparison, sync, migration and inheritance may change `customDiffers`, digests and status. They never change `activeSet`.
 - Later editing commands may offer activation as an explicit prompted follow-up, never perform it silently.
 
-### 12.2 Advanced management surface (follow-on)
+### 12.2 Advanced management surface (#60)
 
-Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec; they are implemented in a follow-on tracked in #39.
+Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices. `diff` comes first (§12.3). `update` follows, and it consumes a deterministic, reviewable decisions file as its authoritative input; interactive prompting may only generate or edit that file.
+
+### 12.3 `diff` (read-only)
+
+`calculogic-validator-registry diff [registryId…]` prints the three-way comparison of §8.2 as deterministic JSON. It writes nothing and never advances a Baseline.
+
+- **Registry classes**, the first that applies:
+  1. `orphan`: present in Custom, absent from the current Builtin inventory. Not compared.
+  2. `registry-added`: a current Builtin registry with no Baseline entry. Its Builtin entries are listed as `builtin-added`. Custom lacks the registry; a Custom copy without a Baseline entry makes the manifest malformed (§7.1 item 5).
+  3. `version-changed`: Builtin moved the registry to a `version` other than the Baseline's. Migration is required (§8.3), so entries are not compared.
+  4. `not-comparable`: no trusted three-way input exists. `reason` is the registry's `status` condition: `missing`, `invalid`, `version-incompatible`, `baseline-unavailable`, or `baseline-mismatch` (the `.baseline/` copy does not match its manifest digest, §4.4). Nothing is classified from an untrusted merge base.
+  5. `differs`: at least one entry differs. Only differing entries are listed.
+  6. `unchanged`.
+
+  A malformed manifest leaves no trusted Baseline, so every non-orphan registry is then `not-comparable` with reason `baseline-unavailable`.
+- **Entries** have the shape `{ address, class, baseline?, builtin?, custom? }`, where `class` is one of the §8.2 entry classes. Each value field holds the entry's canonical value in that input and is omitted when the entry is absent there.
+- **Ordering:** registries are sorted by id and entries by address, in ordinal order. Each registry and the whole output carry counts per class.
+- With `customExists: false`, the output carries only the set-level facts and an empty registry list.
+- Registry ids given as arguments restrict the output to those registries. An unknown id is a usage error.
 
 ## 13) Implementation slices
 
@@ -440,7 +475,7 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, canonical digests, state and manifest reading, Custom assessment and status classification, one resolution per run, and the commands `init-custom`, `use` and `status` (bin `calculogic-validator-registry`; scripts `registry:init-custom`, `registry:use`, `registry:status`).
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status` and `registry:diff`. The rest of §12.2 (`update`, `migrate`, `edit`, `trace`, `import`/`export`, preview) is not implemented yet (#60).
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.

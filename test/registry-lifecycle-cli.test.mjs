@@ -40,6 +40,7 @@ test('package.json declares the registry lifecycle bin and repository scripts', 
   assert.match(packageJson.scripts['registry:init-custom'], /registry-lifecycle\.host\.mjs init-custom$/u);
   assert.match(packageJson.scripts['registry:use'], /registry-lifecycle\.host\.mjs use$/u);
   assert.match(packageJson.scripts['registry:status'], /registry-lifecycle\.host\.mjs status$/u);
+  assert.match(packageJson.scripts['registry:diff'], /registry-lifecycle\.host\.mjs diff$/u);
 });
 
 test('status prints the Builtin-only state as JSON without writing lifecycle files', () => {
@@ -314,5 +315,38 @@ test('validate:tree reports Tree registry provenance from the run resolution', (
     assert.deepEqual(Object.keys(treeProvenance).sort(), Object.keys(treeProvenance).filter((id) => id.startsWith('tree/')).sort());
     assert.equal(Object.keys(treeProvenance).length, 11);
     assert.deepEqual(sourcesOf(treeProvenance), ['builtin']);
+  });
+});
+
+test('diff prints the read-only comparison as JSON and rejects an unknown registry id', () => {
+  withTargetRepository((targetRoot) => {
+    const withoutCustom = run(registryBinPath, ['diff'], targetRoot);
+    assert.equal(withoutCustom.status, 0, withoutCustom.stderr);
+    assert.deepEqual(JSON.parse(withoutCustom.stdout), { activeSet: 'builtin', customExists: false, counts: {}, registries: [] });
+
+    assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
+    const extensionsPath = path.join(targetRoot, '.calculogic/registries/custom/naming/reportable-extensions.registry.json');
+    const extensions = JSON.parse(fs.readFileSync(extensionsPath, 'utf8'));
+    extensions.reportableExtensions.push('.py');
+    fs.writeFileSync(extensionsPath, JSON.stringify(extensions, null, 2));
+    const before = fs.readFileSync(extensionsPath, 'utf8');
+
+    const result = run(registryBinPath, ['diff', 'naming/reportable-extensions'], targetRoot);
+    assert.equal(result.status, 0, result.stderr);
+    const diff = JSON.parse(result.stdout);
+    assert.deepEqual(diff.registries, [
+      {
+        registryId: 'naming/reportable-extensions',
+        class: 'differs',
+        counts: { 'custom-only': 1 },
+        entries: [{ address: 'reportableExtensions[".py"]', class: 'custom-only', custom: '.py' }],
+      },
+    ]);
+    assert.equal(fs.readFileSync(extensionsPath, 'utf8'), before);
+
+    const unknown = run(registryBinPath, ['diff', 'naming/nope'], targetRoot);
+    assert.equal(unknown.status, 1);
+    assert.equal(unknown.stdout, '');
+    assert.match(unknown.stderr, /Unknown registry id\(s\): naming\/nope\./u);
   });
 });
