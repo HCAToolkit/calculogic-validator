@@ -2,10 +2,13 @@
  * Configuration: cfg-registryLifecycle
  * Concern File: Logic
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.3, §7.3)
- * Responsibility: The lifecycle command interface: `init-custom`, `use`, `status` and `diff`.
+ * Responsibility: The lifecycle command interface: `init-custom`, `use`, `status`, `diff`,
+ *   `decisions-template` and `decisions-check`.
  * Invariants: operates on the validation target root; prints deterministic JSON on stdout;
  *   usage and lifecycle errors go to stderr with exit code 1.
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import { getValidatorToolVersion } from '../validator-report-meta.logic.mjs';
 import {
   printValidatorUsageErrorToStderr,
@@ -15,6 +18,10 @@ import { initCustomRegistrySet } from './registry-lifecycle-init.logic.mjs';
 import { buildRegistryLifecycleStatus } from './registry-lifecycle-status.logic.mjs';
 import { useRegistrySet } from './registry-lifecycle-use.logic.mjs';
 import { buildRegistryLifecycleDiff } from './registry-lifecycle-diff.logic.mjs';
+import {
+  buildRegistryUpdateDecisionsTemplate,
+  checkRegistryUpdateDecisions,
+} from './registry-lifecycle-decisions.logic.mjs';
 import { ACTIVE_SET_VALUES } from './registry-lifecycle.contracts.mjs';
 
 export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
@@ -29,12 +36,19 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '  status                 Print the Builtin/Custom lifecycle state as JSON.',
   '  diff [registryId...]   Print the read-only three-way comparison of Custom with its Baseline and the',
   '                         current Builtin, per registry and per entry, as JSON. Writes nothing.',
+  '  decisions-template [registryId...]',
+  '                         Print an update decisions document for the current comparison, with every',
+  '                         decision null (undecided), as JSON. Writes nothing.',
+  '  decisions-check <file> Check an update decisions document against the current comparison and print',
+  '                         the result as JSON. Exits 1 when it has problems. Writes nothing.',
   '',
   'Repository scripts:',
   '  npm run registry:init-custom',
   '  npm run registry:use -- <builtin|custom>',
   '  npm run registry:status',
   '  npm run registry:diff -- [registryId...]',
+  '  npm run -s registry:decisions-template -- [registryId...] > <file>',
+  '  npm run registry:decisions-check -- <file>',
 ]);
 
 const writeJson = (value) => {
@@ -74,10 +88,11 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
     }
   }
 
-  if (command === 'diff') {
-    let diff;
+  if (command === 'diff' || command === 'decisions-template') {
+    const build = command === 'diff' ? buildRegistryLifecycleDiff : buildRegistryUpdateDecisionsTemplate;
+    let output;
     try {
-      diff = buildRegistryLifecycleDiff({ targetRoot, registryIds: rest });
+      output = build({ targetRoot, registryIds: rest });
     } catch (error) {
       const isUsageError = error.message.startsWith('Unknown registry id');
       if (isUsageError) {
@@ -88,8 +103,29 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
       return { exitCode: 1 };
     }
 
-    writeJson(diff);
+    writeJson(output);
     return { exitCode: 0 };
+  }
+
+  if (command === 'decisions-check') {
+    const [documentPath, ...extra] = rest;
+    if (documentPath === undefined || extra.length > 0) {
+      printValidatorUsageErrorToStderr('"decisions-check" needs exactly one document path.', REGISTRY_LIFECYCLE_USAGE_LINES);
+      return { exitCode: 1 };
+    }
+
+    // The document is an ordinary input file, resolved from the working directory (spec §12.4).
+    let result;
+    try {
+      const document = JSON.parse(fs.readFileSync(path.resolve(documentPath), 'utf8'));
+      result = checkRegistryUpdateDecisions({ document, targetRoot });
+    } catch (error) {
+      console.error(`Cannot check ${documentPath}: ${error.message}`);
+      return { exitCode: 1 };
+    }
+
+    writeJson(result);
+    return { exitCode: result.valid ? 0 : 1 };
   }
 
   if (rest.length > 0) {

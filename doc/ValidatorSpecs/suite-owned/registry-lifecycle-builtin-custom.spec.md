@@ -418,7 +418,10 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 
 ### 12.2 Advanced management surface (#60)
 
-Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices. `diff` comes first (§12.3). `update` follows, and it consumes a deterministic, reviewable decisions file as its authoritative input; interactive prompting may only generate or edit that file.
+Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices:
+1. `diff` (§12.3);
+2. the update decisions document (§12.4);
+3. `update`, which consumes that document as its only authority for choices. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
 
 ### 12.3 `diff` (read-only)
 
@@ -437,6 +440,80 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
 - **Ordering:** registries are sorted by id and entries by address, in ordinal order. Each registry and the whole output carry counts per class.
 - With `customExists: false`, the output carries only the set-level facts and an empty registry list.
 - Registry ids given as arguments restrict the output to those registries. An unknown id is a usage error.
+
+### 12.4 Update decisions document (read-only)
+
+The choices `update` will apply (§8.2) are recorded in a plain JSON document that the user keeps, reviews and passes to the command. The lifecycle never reads it implicitly and never stores it under `.calculogic/registries/`. Two read-only commands support it:
+- `decisions-template [registryId…]` prints the document for the current comparison, with every decision `null`. Ids restrict it as they restrict `diff`; an unknown id is a usage error.
+- `decisions-check <file>` checks a document against the current comparison and prints the result. It exits 1 when there is any problem. The path is resolved from the working directory.
+
+Both need a Custom set and write nothing.
+
+**Shape:**
+
+```json
+{
+  "kind": "calculogic-registry-update-decisions",
+  "schemaVersion": "1",
+  "registries": [
+    {
+      "registryId": "naming/roles",
+      "class": "differs",
+      "basedOn": { "baselineDigest": "…", "builtinDigest": "…", "customDigest": "…" },
+      "entries": [{ "address": "roles[role=\"adapter\"]", "class": "builtin-changed", "decision": null }]
+    },
+    {
+      "registryId": "naming/new-thing",
+      "class": "registry-added",
+      "basedOn": { "baselineDigest": null, "builtinDigest": "…", "customDigest": null },
+      "decision": null
+    }
+  ]
+}
+```
+
+- **Decidable registries.** A registry is in the template when the current `diff` (§12.3) classifies it:
+  - `registry-added`: one registry-level `decision`, and no `entries`;
+  - `differs`, with at least one entry Builtin changed (any class but `custom-only`): `entries` lists each entry whose class takes a decision, and may be empty when every Builtin change is `aligned`. Its Baseline can then advance with nothing to decide.
+
+  Every other registry has nothing to decide: `unchanged`, `differs` with only `custom-only` entries, `version-changed` (migration, §8.3), `not-comparable` and `orphan`.
+- **Decisions.**
+
+  | Applies to | Decisions |
+  |---|---|
+  | `registry-added` (registry level) | `inherit` |
+  | `builtin-added`, `builtin-changed`, `builtin-removed`, `both-changed` (entry level) | `keep-custom`, `take-builtin` |
+  | `custom-only`, `aligned` | none: kept, or counted as decided (§8.2); never listed |
+
+  `null` is the only spelling of "no decision". `keep-custom` is an explicit choice, recorded the same way as `take-builtin`. The other §8.2 choices (merge selected fields, add the Builtin form alongside) are later additions to this vocabulary.
+- **Identity.** Registries are named by id and entries by their §8.4 comparison address, never by array position or file layout. Document order carries no meaning; the template and every check result are in ordinal order.
+- **Binding.** `basedOn` records the canonical digests of the three inputs the record was made against: the Baseline digest from the manifest, the current Builtin digest and the Custom digest, as `status` reports them (`null` where there is none). The binding is per registry: a record whose digests no longer match is `stale`, while other registries' records stay usable.
+- **Independence of the active set.** The document has no `activeSet`, and neither command reads or changes it (§12.1 activation rule). Neither reads `registry-state.json`, so a malformed state file does not stop them; `diff` and `status`, which print `activeSet`, still report it.
+
+**Check result:** `{ valid, complete, problems, registries }`.
+- `problems` holds `{ registryId, address?, problem, detail }`, sorted by registry id (`null`, for the document itself, first), then address and problem. `problem` is one of:
+
+  | Problem | Meaning |
+  |---|---|
+  | `malformed` | the document, a registry record or an entry does not have the shape above; unknown fields included, so a misspelled field never reads as "no decision" |
+  | `unknown-registry` | the id is neither a current Builtin registry nor an orphan of this Custom set |
+  | `duplicate-registry` | the registry is listed more than once |
+  | `not-decidable` | the registry has nothing to decide now; `detail` names its current `diff` class |
+  | `stale` | the record was made for another registry class, or for other input digests; `detail` names the changed inputs |
+  | `unknown-entry` | the address is not a decidable entry of the current comparison |
+  | `duplicate-entry` | the address is listed more than once |
+  | `missing-entry` | a decidable entry is absent; undecided entries are recorded as `null`, not omitted |
+  | `entry-class-mismatch` | the entry's recorded class differs from its current class |
+  | `unsupported-decision` | the decision is not one the class accepts |
+
+- `registries` summarizes each record without a problem: `{ registryId, class, decided, undecided, complete }`. A record with a problem is never summarized, so it never reads as complete.
+- `valid` is true when there is no problem. `complete` is true when the document is valid and nothing in it is undecided.
+
+**How `update` will use it (contract for the next slices):**
+- `update` refuses a document that is not `valid`, before writing anything.
+- It applies only registries whose record is complete; a registry with any `null` decision keeps its Baseline and its Custom content (§8.2 atomic advancement).
+- Whether a combination of entry choices yields a valid registry (for example an order entry against the records it orders) is checked when the choices are applied, and a combination that cannot is refused before writing.
+- It never changes `activeSet`.
 
 ## 13) Implementation slices
 
@@ -475,7 +552,7 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status` and `registry:diff`. The rest of §12.2 (`update`, `migrate`, `edit`, `trace`, `import`/`export`, preview) is not implemented yet (#60).
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template` and `registry:decisions-check`. The rest of §12.2 (`update`, `migrate`, `edit`, `trace`, `import`/`export`, preview) is not implemented yet (#60): no command changes an existing Custom set's content or advances its Baseline.
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.

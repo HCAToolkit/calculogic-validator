@@ -71,6 +71,40 @@ export const DIFF_REGISTRY_CLASSES = Object.freeze([
   'unchanged',
 ]);
 
+// [6.3] cfg-registryLifecycle · Primitive · "Update decisions document" (spec §12.4)
+export const UPDATE_DECISIONS_KIND = 'calculogic-registry-update-decisions';
+export const UPDATE_DECISIONS_SCHEMA_VERSION = '1';
+
+// [6.3] cfg-registryLifecycle · Primitive · "Registry-level decisions by diff registry class" (spec §12.4)
+// Only `registry-added` takes a registry-level decision; `differs` registries are decided per entry.
+export const REGISTRY_DECISIONS_BY_CLASS = Object.freeze({
+  'registry-added': Object.freeze(['inherit']),
+});
+
+// [6.3] cfg-registryLifecycle · Primitive · "Entry decisions by entry class" (spec §12.4)
+// The decidable entry classes and the choices each accepts. `custom-only` is kept and `aligned`
+// counts as decided (spec §8.2), so neither takes a decision.
+export const ENTRY_DECISIONS_BY_CLASS = Object.freeze({
+  'builtin-added': Object.freeze(['keep-custom', 'take-builtin']),
+  'builtin-changed': Object.freeze(['keep-custom', 'take-builtin']),
+  'builtin-removed': Object.freeze(['keep-custom', 'take-builtin']),
+  'both-changed': Object.freeze(['keep-custom', 'take-builtin']),
+});
+
+// [6.3] cfg-registryLifecycle · Primitive · "Update decisions problems" (spec §12.4)
+export const UPDATE_DECISIONS_PROBLEMS = Object.freeze({
+  malformed: 'malformed',
+  unknownRegistry: 'unknown-registry',
+  duplicateRegistry: 'duplicate-registry',
+  notDecidable: 'not-decidable',
+  stale: 'stale',
+  unknownEntry: 'unknown-entry',
+  duplicateEntry: 'duplicate-entry',
+  missingEntry: 'missing-entry',
+  entryClassMismatch: 'entry-class-mismatch',
+  unsupportedDecision: 'unsupported-decision',
+});
+
 // [6.3] cfg-registryLifecycle · Primitive · "Missing-set blocking condition" (spec §7.1 item 1)
 // Blocks activation and an active-Custom run when no Custom set exists. It is not a `customIssues`
 // condition, because `customIssues` describe an existing set.

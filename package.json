@@ -49,6 +49,8 @@
     "registry:use": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs use",
     "registry:status": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs status",
     "registry:diff": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs diff",
+    "registry:decisions-template": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs decisions-template",
+    "registry:decisions-check": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs decisions-check",
     "report:naming:repo": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-repo -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=repo",
     "report:naming:app": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-app -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=app",
     "report:naming:docs": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-docs -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=docs",

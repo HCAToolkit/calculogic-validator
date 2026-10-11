@@ -41,6 +41,8 @@ test('package.json declares the registry lifecycle bin and repository scripts', 
   assert.match(packageJson.scripts['registry:use'], /registry-lifecycle\.host\.mjs use$/u);
   assert.match(packageJson.scripts['registry:status'], /registry-lifecycle\.host\.mjs status$/u);
   assert.match(packageJson.scripts['registry:diff'], /registry-lifecycle\.host\.mjs diff$/u);
+  assert.match(packageJson.scripts['registry:decisions-template'], /registry-lifecycle\.host\.mjs decisions-template$/u);
+  assert.match(packageJson.scripts['registry:decisions-check'], /registry-lifecycle\.host\.mjs decisions-check$/u);
 });
 
 test('status prints the Builtin-only state as JSON without writing lifecycle files', () => {
@@ -348,5 +350,62 @@ test('diff prints the read-only comparison as JSON and rejects an unknown regist
     assert.equal(unknown.status, 1);
     assert.equal(unknown.stdout, '');
     assert.match(unknown.stderr, /Unknown registry id\(s\): naming\/nope\./u);
+  });
+});
+
+test('decisions-template and decisions-check print JSON, write nothing, and exit 1 on problems', () => {
+  withTargetRepository((targetRoot) => {
+    const withoutCustom = run(registryBinPath, ['decisions-template'], targetRoot);
+    assert.equal(withoutCustom.status, 1);
+    assert.equal(withoutCustom.stdout, '');
+    assert.match(withoutCustom.stderr, /No Custom registry set exists/u);
+
+    assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
+    const lifecycleRoot = path.join(targetRoot, '.calculogic/registries');
+    const snapshot = () =>
+      fs
+        .readdirSync(lifecycleRoot, { recursive: true })
+        .sort()
+        .map((relativePath) => {
+          const filePath = path.join(lifecycleRoot, relativePath);
+          return [relativePath, fs.statSync(filePath).isFile() ? fs.readFileSync(filePath, 'base64') : null];
+        });
+    const before = snapshot();
+
+    const template = run(registryBinPath, ['decisions-template'], targetRoot);
+    assert.equal(template.status, 0, template.stderr);
+    const document = JSON.parse(template.stdout);
+    assert.deepEqual(document, { kind: 'calculogic-registry-update-decisions', schemaVersion: '1', registries: [] });
+
+    const documentPath = path.join(targetRoot, 'decisions.json');
+    fs.writeFileSync(documentPath, template.stdout);
+    const valid = run(registryBinPath, ['decisions-check', 'decisions.json'], targetRoot);
+    assert.equal(valid.status, 0, valid.stderr);
+    assert.deepEqual(JSON.parse(valid.stdout), { valid: true, complete: true, problems: [], registries: [] });
+
+    document.registries.push({ registryId: 'naming/nope' });
+    fs.writeFileSync(documentPath, JSON.stringify(document));
+    const invalid = run(registryBinPath, ['decisions-check', documentPath], targetRoot);
+    assert.equal(invalid.status, 1);
+    assert.deepEqual(JSON.parse(invalid.stdout).problems.map((item) => item.problem), ['unknown-registry']);
+
+    fs.writeFileSync(documentPath, '{ broken');
+    const unreadable = run(registryBinPath, ['decisions-check', documentPath], targetRoot);
+    assert.equal(unreadable.status, 1);
+    assert.equal(unreadable.stdout, '');
+    assert.match(unreadable.stderr, /Cannot check /u);
+
+    for (const args of [['decisions-check'], ['decisions-check', 'a.json', 'b.json']]) {
+      const usage = run(registryBinPath, args, targetRoot);
+      assert.equal(usage.status, 1);
+      assert.equal(usage.stdout, '');
+      assert.match(usage.stderr, /needs exactly one document path/u);
+    }
+
+    const unknown = run(registryBinPath, ['decisions-template', 'naming/nope'], targetRoot);
+    assert.equal(unknown.status, 1);
+    assert.match(unknown.stderr, /Unknown registry id\(s\): naming\/nope\./u);
+
+    assert.deepEqual(snapshot(), before);
   });
 });
