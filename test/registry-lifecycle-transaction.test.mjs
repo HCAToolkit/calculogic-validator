@@ -219,3 +219,55 @@ test('recovery refuses a transaction or backup directory replaced by a symlink, 
     }
   });
 });
+
+test('a target whose existing parent is not a directory is refused before staging', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    fs.writeFileSync(path.join(paths.customRoot, '.baseline'), 'a file, not a directory');
+    assert.throws(
+      () =>
+        runLifecycleTransaction({
+          paths,
+          writes: [
+            { targetPath: path.join(paths.customRoot, '.baseline', 'naming', 'x.registry.json'), contents: 'x' },
+            { targetPath: path.join(paths.customRoot, 'commit.json'), contents: 'new' },
+          ],
+        }),
+      /parent is not a directory/u,
+    );
+    assert.equal(fs.existsSync(transactionRoot), false);
+    assert.equal(fs.existsSync(path.join(paths.customRoot, 'commit.json')), false);
+  });
+});
+
+test('a journal replaced by a symlink is refused, never followed or taken for no journal', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const first = path.join(paths.customRoot, 'first.json');
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(first, 'first-old');
+    fs.writeFileSync(commit, 'commit-old');
+    const writes = [
+      { targetPath: first, contents: 'first-new' },
+      { targetPath: commit, contents: 'commit-new' },
+    ];
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-0:applied', { crash: true }) }));
+
+    const journalPath = path.join(transactionRoot, 'journal.json');
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-lifecycle-transaction-journal-'));
+    try {
+      fs.renameSync(journalPath, path.join(outside, 'journal.json'));
+      for (const linkTarget of [path.join(outside, 'journal.json'), path.join(outside, 'missing.json')]) {
+        fs.symlinkSync(linkTarget, journalPath);
+        assert.throws(() => recoverLifecycleTransaction(paths), /journal is not an ordinary file/u);
+        assert.equal(fs.existsSync(transactionRoot), true, 'the evidence is kept');
+        assert.equal(fs.readFileSync(first, 'utf8'), 'first-new', 'nothing was rolled back');
+        fs.rmSync(journalPath);
+      }
+
+      fs.renameSync(path.join(outside, 'journal.json'), journalPath);
+      assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'rolled-back' });
+      assert.equal(fs.readFileSync(first, 'utf8'), 'first-old');
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});

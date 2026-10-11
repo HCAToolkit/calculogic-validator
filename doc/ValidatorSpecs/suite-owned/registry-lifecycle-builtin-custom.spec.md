@@ -145,7 +145,7 @@ Commands that change an existing Custom set write through one suite-owned **life
 
 A transaction replaces an ordered list of files. Its last file is the **commit point**, which is always `registry-set.manifest.json`: until the manifest names a file's digest, no lifecycle check trusts that file as Baseline.
 
-1. **Prepare.** Every new file content is computed and checked before anything is written (for `update`, §12.5). Every target, every directory the transaction creates, and the transaction directory itself must be contained (§4.1).
+1. **Prepare.** Every new file content is computed and checked before anything is written (for `update`, §12.5). Every target, every directory the transaction creates, and the transaction directory itself must be contained (§4.1), and each target's nearest existing ancestor must be a directory.
 2. **Stage.** The transaction directory `.calculogic/registries/.lifecycle-transaction/` is created exclusively. It sits outside `custom/`, so it is never part of the portable set.
    - The new contents are written into it.
    - So is a journal. The journal lists, in commit order, each target and whether it existed, the directories to create, and the SHA-256 of the commit point's new bytes.
@@ -162,7 +162,7 @@ A transaction replaces an ordered list of files. Its last file is the **commit p
    The transaction directory is then removed and the command reports the failure. The registry is exactly as it was before the command.
 5. **Recovery.** A process that stops between steps (killed, crashed) leaves the transaction directory behind.
    - Every partial state is already visible. A Custom file without a manifest entry makes the manifest malformed: `status` reports it, and it blocks activation and active-Custom runs (§7.1 item 5). A `.baseline/` copy without a manifest entry is never read.
-   - The next writing lifecycle command recovers first, from the journal. Every journal path is checked, lexically and by realpath (§4.1), before the commit point is read or anything is touched, and the transaction directory and its backup directory must be ordinary directories, not symlinks. A journal or directory that fails these checks is refused and kept. If the commit point holds the journaled bytes, the transaction committed and only its directory is removed. Otherwise it is rolled back as in item 4.
+   - The next writing lifecycle command recovers first, from the journal. Every journal path is checked, lexically and by realpath (§4.1), before the commit point is read or anything is touched, and the transaction directory and its backup directory must be ordinary directories and the journal an ordinary file, never symlinks. A journal or directory that fails these checks is refused and kept. If the commit point holds the journaled bytes, the transaction committed and only its directory is removed. Otherwise it is rolled back as in item 4.
    - Recovery never reads or writes `registry-state.json`.
    - Lifecycle commands are not run concurrently against one target.
 6. **Scope.** One transaction advances one registry (§8.2). A command that advances several registries runs one transaction per registry, in ordinal registry-id order. A failure stops the command: earlier registries stay advanced and later ones are untouched.

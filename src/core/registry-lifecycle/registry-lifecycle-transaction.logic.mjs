@@ -94,11 +94,24 @@ const isFile = (filePath) => {
   }
 };
 
-// The missing ancestors of `filePath` below the lifecycle root, shallowest first.
+// The missing ancestors of `filePath` below the lifecycle root, shallowest first. The nearest
+// existing ancestor must be a directory (a symlink to one is checked by containment): anything
+// else would fail the commit after the journal is installed, so it is refused before staging.
 const missingDirectories = (paths, filePath) => {
   const missing = [];
   for (let directory = path.dirname(filePath); directory !== paths.lifecycleRoot; directory = path.dirname(directory)) {
-    if (fs.existsSync(directory)) {
+    if (entryPresent(directory)) {
+      let isDirectory = false;
+      try {
+        isDirectory = fs.statSync(directory).isDirectory();
+      } catch {
+        // A dangling link: not a directory.
+      }
+      if (!isDirectory) {
+        throw new RegistryLifecycleError(
+          `A lifecycle write target's parent is not a directory (${directory}); nothing was written.`,
+        );
+      }
       break;
     }
     missing.unshift(directory);
@@ -169,8 +182,15 @@ const rollBack = (paths, transactionRoot, journal) => {
 
 const readJournal = (transactionRoot) => {
   const journalPath = path.join(transactionRoot, LIFECYCLE_TRANSACTION_JOURNAL_FILENAME);
-  if (!fs.existsSync(journalPath)) {
+  if (!entryPresent(journalPath)) {
     return null;
+  }
+  // Only the journal the transaction wrote is trusted: a symlink, even a dangling one, is refused,
+  // never followed and never taken for "no journal".
+  if (!fs.lstatSync(journalPath).isFile()) {
+    throw new RegistryLifecycleError(
+      `The lifecycle transaction journal is not an ordinary file (${journalPath}). Nothing was changed; inspect ${transactionRoot} by hand.`,
+    );
   }
 
   let journal;
