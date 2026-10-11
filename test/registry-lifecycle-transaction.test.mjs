@@ -271,3 +271,23 @@ test('a journal replaced by a symlink is refused, never followed or taken for no
     }
   });
 });
+
+test('a journaled transaction whose backup directory is gone is refused, and its evidence kept', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const first = path.join(paths.customRoot, 'first.json');
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(first, 'first-old');
+    fs.writeFileSync(commit, 'commit-old');
+    const writes = [
+      { targetPath: first, contents: 'first-new' },
+      { targetPath: commit, contents: 'commit-new' },
+    ];
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-0:applied', { crash: true }) }));
+    fs.rmSync(path.join(transactionRoot, 'backup'), { recursive: true });
+
+    assert.throws(() => recoverLifecycleTransaction(paths), /not an ordinary directory/u);
+    assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, 'the evidence is kept');
+    assert.equal(fs.readFileSync(first, 'utf8'), 'first-new', 'nothing was rolled back');
+    assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-old');
+  });
+});

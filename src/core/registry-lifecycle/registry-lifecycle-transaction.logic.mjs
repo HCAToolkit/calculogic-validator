@@ -151,10 +151,10 @@ const assertOwnedDirectory = (paths, directoryPath) => {
 const rollBack = (paths, transactionRoot, journal) => {
   const { targets, directories } = resolveJournalPaths(paths, journal);
   assertOwnedDirectory(paths, transactionRoot);
+  // `backup/` is created before the journal is published, so a journaled transaction without it
+  // has been altered: every backup would read as absent, so it is refused, never rolled back.
   const backupRoot = path.join(transactionRoot, BACKUP_DIRNAME);
-  if (entryPresent(backupRoot)) {
-    assertOwnedDirectory(paths, backupRoot);
-  }
+  assertOwnedDirectory(paths, backupRoot);
 
   for (let index = journal.steps.length - 1; index >= 0; index -= 1) {
     const step = journal.steps[index];
