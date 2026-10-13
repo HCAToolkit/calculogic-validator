@@ -393,10 +393,15 @@ test('a journal path that escapes through a symlink is refused before the commit
         path.join(transactionRoot(paths), 'journal.json'),
         JSON.stringify({
           schemaVersion: '1',
-          steps: [{ target: 'custom/escape/registry-set.manifest.json', existed: true }],
+          steps: [
+            {
+              target: 'custom/escape/registry-set.manifest.json',
+              original: { kind: 'file', sha256: '0'.repeat(64) },
+              // The outside file's bytes: a commit check that followed the link would report `committed`.
+              sha256: createHash('sha256').update('outside bytes').digest('hex'),
+            },
+          ],
           createdDirectories: [],
-          // The outside file's bytes: a commit check that followed the link would report `committed`.
-          commitSha256: createHash('sha256').update('outside bytes').digest('hex'),
         }),
       );
       const before = snapshotTree(paths.lifecycleRoot);

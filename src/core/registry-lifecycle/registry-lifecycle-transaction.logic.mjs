@@ -105,23 +105,55 @@ const assertContained = (paths, candidatePath) => {
   }
 };
 
-// Whether a directory entry exists at `targetPath`, of any kind but a directory. A symlink counts
-// as itself: it is moved to the backup and restored as a link, never followed. A directory cannot
-// be replaced by a file, so it is refused.
-const targetExists = (targetPath) => {
+const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+
+// The identity of the entry at `entryPath`, never following a symlink: null when absent,
+// `{ kind: 'file', sha256 }`, `{ kind: 'symlink', link }`, or `{ kind: 'other' }` (a directory,
+// FIFO, socket or device). The journal records the identity of every entry the transaction
+// replaces, and the digest of every file it writes, so recovery acts only on entries it can
+// identify (spec §4.6 item 5).
+const entryIdentity = (entryPath) => {
   let stats;
   try {
-    stats = fs.lstatSync(targetPath);
+    stats = fs.lstatSync(entryPath);
   } catch {
-    return false;
+    return null;
   }
-  // Only a regular file or a symlink can be backed up and restored (spec §4.6 item 3).
-  if (!stats.isFile() && !stats.isSymbolicLink()) {
+  if (stats.isSymbolicLink()) {
+    return { kind: 'symlink', link: fs.readlinkSync(entryPath) };
+  }
+  if (stats.isFile()) {
+    return { kind: 'file', sha256: sha256Hex(fs.readFileSync(entryPath)) };
+  }
+  return { kind: 'other' };
+};
+
+const sameIdentity = (left, right) =>
+  left !== null &&
+  right !== null &&
+  left.kind === right.kind &&
+  (left.kind === 'file' ? left.sha256 === right.sha256 : left.link === right.link);
+
+const isJournalIdentity = (identity) =>
+  isPlainObject(identity) &&
+  ((identity.kind === 'file' && Object.keys(identity).length === 2 && typeof identity.sha256 === 'string' && SHA256_PATTERN.test(identity.sha256)) ||
+    (identity.kind === 'symlink' && Object.keys(identity).length === 2 && typeof identity.link === 'string'));
+
+// Whether a step replaces an existing entry (its journaled `original`) or creates a new one.
+const replacesEntry = (step) => step.original !== null;
+
+// The journaled identity of the entry a write replaces, or null when there is none. A symlink
+// counts as itself: it is moved to the backup and restored as a link, never followed. Only a
+// regular file or a symlink can be backed up and restored (spec §4.6 item 3); anything else is
+// refused.
+const originalIdentity = (targetPath) => {
+  const identity = entryIdentity(targetPath);
+  if (identity?.kind === 'other') {
     throw new RegistryLifecycleError(
       `A lifecycle write target is neither a file nor a symlink (${targetPath}); nothing was written.`,
     );
   }
-  return true;
+  return identity;
 };
 
 // Whether a directory entry is present, without following a symlink: a moved relative link
@@ -238,7 +270,7 @@ const assertTransactionShape = (paths, transactionRoot, journal) => {
   for (const name of fs.readdirSync(backupRoot)) {
     const index = stepIndex(name);
     const stats = fs.lstatSync(path.join(backupRoot, name));
-    if (index === null || !journal.steps[index].existed || !(stats.isFile() || stats.isSymbolicLink())) {
+    if (index === null || !replacesEntry(journal.steps[index]) || !(stats.isFile() || stats.isSymbolicLink())) {
       altered(`backup/${name}`);
     }
   }
@@ -250,25 +282,33 @@ const rollBack = (paths, transactionRoot, journal, onStep = () => {}) => {
   assertTransactionShape(paths, transactionRoot, journal);
   const backupRoot = path.join(transactionRoot, BACKUP_DIRNAME);
 
-  // Every step must be in one state its own commit sequence can produce (spec §4.6 item 5):
-  // - replacing an existing entry: unstarted (target and `staged/<i>`, no backup), backed up
-  //   (`backup/<i>` and `staged/<i>`, no target) or applied (`backup/<i>` and target, no staged);
-  // - creating a new entry: unstarted (`staged/<i>`, no target) or applied (target, no staged).
-  // Any other combination means an original was lost or something else appeared at a target, so
-  // a rollback could not restore the pre-command state. Checked for every step first.
-  // A step marked in `rolling-back/` may also already be undone: a replaced entry restored (target,
-  // no backup) or a created entry removed (no target).
+  // Every step must be in one state its own commit sequence can produce (spec §4.6 item 5), with
+  // every entry identified by the journal: the original is the journaled `original` exactly, and a
+  // written target is a regular file holding the journaled `sha256`.
+  // - replacing an existing entry: unstarted (original at the target, `staged/<i>`, no backup),
+  //   backed up (original in `backup/<i>`, `staged/<i>`, no target) or applied (original in
+  //   `backup/<i>`, written target, no staged);
+  // - creating a new entry: unstarted (`staged/<i>`, no target) or applied (written target, no
+  //   staged).
+  // Any other combination means an original was lost, or the target holds something the journal
+  // does not identify (another entry, or a journal naming the wrong target), so a rollback could
+  // neither restore the pre-command state nor be sure what it deletes or overwrites. Checked for
+  // every step first. A step marked in `rolling-back/` may also already be undone: the original
+  // restored at the target (no backup), or a created entry removed (no target).
   const rollingBackRoot = path.join(transactionRoot, ROLLING_BACK_DIRNAME);
   journal.steps.forEach((step, index) => {
-    const backup = entryPresent(path.join(backupRoot, String(index)));
+    const backup = entryIdentity(path.join(backupRoot, String(index)));
     const staged = entryPresent(path.join(transactionRoot, STAGED_DIRNAME, String(index)));
-    const target = entryPresent(targets[index]);
-    const undone = entryPresent(path.join(rollingBackRoot, String(index))) && (step.existed ? !backup && target : !target);
-    const consistent =
-      undone ||
-      (step.existed
-        ? (!backup && target && staged) || (backup && !target && staged) || (backup && target && !staged)
-        : !backup && target !== staged);
+    const target = entryIdentity(targets[index]);
+    const isOriginal = (identity) => sameIdentity(identity, step.original);
+    const isWritten = (identity) => identity?.kind === 'file' && identity.sha256 === step.sha256;
+    const marked = entryPresent(path.join(rollingBackRoot, String(index)));
+    const consistent = replacesEntry(step)
+      ? (isOriginal(target) && staged && !backup) ||
+        (isOriginal(backup) && !target && staged) ||
+        (isOriginal(backup) && isWritten(target) && !staged) ||
+        (marked && isOriginal(target) && !backup)
+      : !backup && ((!target && staged) || (isWritten(target) && !staged) || (marked && !target));
     if (!consistent) {
       throw new RegistryLifecycleError(
         `The lifecycle transaction step for ${step.target} is in a state its commit cannot produce; it cannot be rolled back. Nothing was changed; inspect ${transactionRoot} by hand.`,
@@ -283,7 +323,7 @@ const rollBack = (paths, transactionRoot, journal, onStep = () => {}) => {
     const target = targets[index];
     const backup = path.join(backupRoot, String(index));
     fs.writeFileSync(path.join(rollingBackRoot, String(index)), '');
-    if (step.existed) {
+    if (replacesEntry(step)) {
       if (entryPresent(backup)) {
         fs.renameSync(backup, target);
       }
@@ -329,11 +369,16 @@ const readJournal = (transactionRoot) => {
     journal.schemaVersion === LIFECYCLE_TRANSACTION_SCHEMA_VERSION &&
     Array.isArray(journal.steps) &&
     journal.steps.length > 0 &&
-    journal.steps.every((step) => isPlainObject(step) && typeof step.target === 'string' && typeof step.existed === 'boolean') &&
+    journal.steps.every(
+      (step) =>
+        isPlainObject(step) &&
+        typeof step.target === 'string' &&
+        typeof step.sha256 === 'string' &&
+        SHA256_PATTERN.test(step.sha256) &&
+        (step.original === null || isJournalIdentity(step.original)),
+    ) &&
     Array.isArray(journal.createdDirectories) &&
-    journal.createdDirectories.every((directory) => typeof directory === 'string') &&
-    typeof journal.commitSha256 === 'string' &&
-    /^[a-f0-9]{64}$/u.test(journal.commitSha256);
+    journal.createdDirectories.every((directory) => typeof directory === 'string');
   if (!isValid) {
     throw new RegistryLifecycleError(
       `The lifecycle transaction journal is malformed (${journalPath}). Nothing was changed; inspect ${path.dirname(journalPath)} by hand.`,
@@ -365,12 +410,12 @@ export const recoverLifecycleTransaction = (paths) => {
   // both outcomes (spec §4.6 item 5).
   const commitTarget = resolveJournalPaths(paths, journal).targets.at(-1);
   assertTransactionShape(paths, transactionRoot, journal);
-  if (isFile(commitTarget) && sha256Hex(fs.readFileSync(commitTarget)) === journal.commitSha256) {
+  if (isFile(commitTarget) && sha256Hex(fs.readFileSync(commitTarget)) === journal.steps.at(-1).sha256) {
     // A committed transaction applied every step: nothing is left in `staged/`, and every step that
     // replaced an existing entry has its backup. Anything else was altered after the fact.
     const stagedLeft = fs.readdirSync(path.join(transactionRoot, STAGED_DIRNAME));
     const backupMissing = journal.steps.some(
-      (step, index) => step.existed && !entryPresent(path.join(transactionRoot, BACKUP_DIRNAME, String(index))),
+      (step, index) => replacesEntry(step) && !entryPresent(path.join(transactionRoot, BACKUP_DIRNAME, String(index))),
     );
     const rollingBack = entryPresent(path.join(transactionRoot, ROLLING_BACK_DIRNAME));
     // Every target was written by renaming a regular staged file into place.
@@ -415,9 +460,12 @@ export const runLifecycleTransaction = ({ paths, writes, onStep = () => {} }) =>
   }
   const journal = {
     schemaVersion: LIFECYCLE_TRANSACTION_SCHEMA_VERSION,
-    steps: writes.map(({ targetPath }) => ({ target: toJournalPath(paths, targetPath), existed: targetExists(targetPath) })),
+    steps: writes.map(({ targetPath, contents }) => ({
+      target: toJournalPath(paths, targetPath),
+      original: originalIdentity(targetPath),
+      sha256: sha256Hex(Buffer.from(contents)),
+    })),
     createdDirectories: createdDirectories.map((directory) => toJournalPath(paths, directory)),
-    commitSha256: sha256Hex(Buffer.from(writes.at(-1).contents)),
   };
 
   // Stage (spec §4.6 item 2). Exclusive creation: an existing directory is an interrupted
@@ -460,7 +508,7 @@ export const runLifecycleTransaction = ({ paths, writes, onStep = () => {} }) =>
     onStep('directories-created');
 
     writes.forEach(({ targetPath }, index) => {
-      if (journal.steps[index].existed) {
+      if (replacesEntry(journal.steps[index])) {
         fs.renameSync(targetPath, backupPath(index));
         onStep(`step-${index}:backed-up`);
       }

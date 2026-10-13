@@ -118,9 +118,8 @@ test('a journal naming a path outside the lifecycle root is refused, and nothing
       path.join(transactionRoot, 'journal.json'),
       JSON.stringify({
         schemaVersion: '1',
-        steps: [{ target: '../../outside.json', existed: false }],
+        steps: [{ target: '../../outside.json', original: null, sha256: '0'.repeat(64) }],
         createdDirectories: [],
-        commitSha256: '0'.repeat(64),
       }),
     );
     assert.throws(() => recoverLifecycleTransaction(paths), /outside the lifecycle root/u);
@@ -673,7 +672,7 @@ test('each partial rollback state (replacing restored, created removed, several,
 });
 
 test('a committed transaction whose journal digest was altered is refused, never rolled back', () => {
-  for (const [label, commitSha256, pattern] of [
+  for (const [label, sha256, pattern] of [
     ['a digest that is not a SHA-256', 'not-a-hash', /journal is malformed/u],
     ['a well-formed but different digest', 'f'.repeat(64), /commit point was applied but does not hold the journaled bytes/u],
   ]) {
@@ -688,7 +687,9 @@ test('a committed transaction whose journal digest was altered is refused, never
       ];
       assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('committed', { crash: true }) }), label);
       const journalPath = path.join(transactionRoot, 'journal.json');
-      fs.writeFileSync(journalPath, JSON.stringify({ ...JSON.parse(fs.readFileSync(journalPath, 'utf8')), commitSha256 }));
+      const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
+      journal.steps.at(-1).sha256 = sha256;
+      fs.writeFileSync(journalPath, JSON.stringify(journal));
 
       assert.throws(() => recoverLifecycleTransaction(paths), pattern, label);
       assert.equal(fs.readFileSync(first, 'utf8'), 'first-new', `${label}: the committed files stay`);
@@ -753,6 +754,96 @@ test('a committed transaction whose target was replaced by a non-file is refused
 
       assert.throws(() => recoverLifecycleTransaction(paths), /does not match a committed transaction/u, label);
       assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, label);
+    });
+  }
+});
+
+// Every entry under the lifecycle root, the transaction directory included: a refused recovery
+// moves, deletes and overwrites nothing.
+const snapshotWholeTree = (lifecycleRoot) =>
+  fs
+    .readdirSync(lifecycleRoot, { recursive: true })
+    .sort()
+    .map((relativePath) => {
+      const entryPath = path.join(lifecycleRoot, relativePath);
+      const stats = fs.lstatSync(entryPath);
+      return [
+        relativePath,
+        stats.isSymbolicLink() ? `link:${fs.readlinkSync(entryPath)}` : stats.isFile() ? fs.readFileSync(entryPath, 'base64') : 'dir',
+      ];
+    });
+
+test('an uncommitted step whose target is not the entry the journal identifies is refused, and nothing is touched', () => {
+  const replaceWith = {
+    'a directory': (target) => fs.mkdirSync(target),
+    // A contained link, so it is the state check, not containment, that refuses it.
+    'a symlink': (target, commit) => fs.symlinkSync(commit, target),
+    'a file with other bytes': (target) => fs.writeFileSync(target, 'other-bytes'),
+  };
+  // [crash boundary, the step whose target is replaced]
+  const states = {
+    'an unstarted replacing step': ['journaled', 'replaced'],
+    'an applied replacing step': ['step-0:applied', 'replaced'],
+    'an applied creating step': ['step-1:applied', 'created'],
+  };
+
+  for (const [stateLabel, [boundary, targetName]] of Object.entries(states)) {
+    for (const [replaceLabel, replace] of Object.entries(replaceWith)) {
+      const label = `${stateLabel}, target replaced by ${replaceLabel}`;
+      withRollbackFixture(({ paths, transactionRoot, writes, ...targets }) => {
+        assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt(boundary, { crash: true }) }), label);
+        fs.rmSync(targets[targetName]);
+        replace(targets[targetName], targets.commit);
+        const altered = snapshotWholeTree(paths.lifecycleRoot);
+
+        assert.throws(() => recoverLifecycleTransaction(paths), /state its commit cannot produce/u, label);
+        assert.deepEqual(snapshotWholeTree(paths.lifecycleRoot), altered, `${label}: nothing is moved or deleted`);
+        assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, label);
+      });
+    }
+  }
+});
+
+test('a journal step redirected to another existing file is refused, and that file is never deleted or overwritten', () => {
+  // [crash boundary, index of the step whose journaled target is redirected]
+  for (const [label, [boundary, index]] of Object.entries({
+    'an applied creating step': ['step-1:applied', 1],
+    'an applied replacing step': ['step-0:applied', 0],
+  })) {
+    withRollbackFixture(({ paths, transactionRoot, writes }) => {
+      const unrelated = path.join(paths.customRoot, 'unrelated.json');
+      fs.writeFileSync(unrelated, 'unrelated-bytes');
+      assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt(boundary, { crash: true }) }), label);
+      const journalPath = path.join(transactionRoot, 'journal.json');
+      const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
+      journal.steps[index].target = 'custom/unrelated.json';
+      fs.writeFileSync(journalPath, JSON.stringify(journal));
+      const altered = snapshotWholeTree(paths.lifecycleRoot);
+
+      assert.throws(() => recoverLifecycleTransaction(paths), /state its commit cannot produce/u, label);
+      assert.deepEqual(snapshotWholeTree(paths.lifecycleRoot), altered, `${label}: nothing is moved or deleted`);
+      assert.equal(fs.readFileSync(unrelated, 'utf8'), 'unrelated-bytes', label);
+    });
+  }
+});
+
+test('a journal whose step identities are malformed is refused, and nothing is touched', () => {
+  for (const [label, alter] of Object.entries({
+    'a step without a written digest': (step) => delete step.sha256,
+    'a replacing step whose original has an unknown kind': (step) => Object.assign(step, { original: { kind: 'directory' } }),
+    'a file original without a SHA-256': (step) => Object.assign(step, { original: { kind: 'file', sha256: 'x' } }),
+    'an original with extra fields': (step) => Object.assign(step, { original: { kind: 'symlink', link: 'a', sha256: 'b' } }),
+  })) {
+    withRollbackFixture(({ paths, transactionRoot, writes }) => {
+      assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('journaled', { crash: true }) }), label);
+      const journalPath = path.join(transactionRoot, 'journal.json');
+      const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
+      alter(journal.steps[0]);
+      fs.writeFileSync(journalPath, JSON.stringify(journal));
+      const altered = snapshotWholeTree(paths.lifecycleRoot);
+
+      assert.throws(() => recoverLifecycleTransaction(paths), /journal is malformed/u, label);
+      assert.deepEqual(snapshotWholeTree(paths.lifecycleRoot), altered, label);
     });
   }
 });
