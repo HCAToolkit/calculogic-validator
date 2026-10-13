@@ -548,3 +548,125 @@ test('a rollback interrupted part-way is resumed by the next recovery', () => {
     });
   }
 });
+
+// Every entry under the lifecycle root except transaction evidence, with its bytes (links as their
+// target text), so "back to the pre-command state" is checked byte for byte.
+const snapshotWithoutTransaction = (lifecycleRoot) =>
+  fs
+    .readdirSync(lifecycleRoot, { recursive: true })
+    .filter((relativePath) => !relativePath.split(path.sep)[0].startsWith('.lifecycle-transaction'))
+    .sort()
+    .map((relativePath) => {
+      const entryPath = path.join(lifecycleRoot, relativePath);
+      const stats = fs.lstatSync(entryPath);
+      return [
+        relativePath,
+        stats.isSymbolicLink() ? `link:${fs.readlinkSync(entryPath)}` : stats.isFile() ? fs.readFileSync(entryPath, 'base64') : 'dir',
+      ];
+    });
+
+// A replacing step, a creating step (in a new directory) and the commit point. A failure at the
+// commit point's backup starts a rollback that undoes them in reverse.
+const withRollbackFixture = (run) =>
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const replaced = path.join(paths.customRoot, 'replaced.json');
+    const created = path.join(paths.customRoot, 'new-dir', 'created.json');
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(replaced, 'replaced-old');
+    fs.writeFileSync(commit, 'commit-old');
+    const before = snapshotWithoutTransaction(paths.lifecycleRoot);
+    const writes = [
+      { targetPath: replaced, contents: 'replaced-new' },
+      { targetPath: created, contents: 'created-new' },
+      { targetPath: commit, contents: 'commit-new' },
+    ];
+    return run({ paths, transactionRoot, writes, before, replaced, created, commit });
+  });
+
+const failBeforeCommitThen = (interrupt) => (step) => {
+  if (step === 'step-2:backed-up') {
+    throw new Error('fail before commit');
+  }
+  interrupt?.(step);
+};
+
+test('recovery resumes a rollback that failed during retirement, and the tree matches the pre-command bytes', () => {
+  withRollbackFixture(({ paths, transactionRoot, writes, before }) => {
+    const originalRenameSync = fs.renameSync;
+    fs.renameSync = (source, destination) => {
+      if (source === transactionRoot) {
+        throw new Error('retirement rename failed');
+      }
+      return originalRenameSync(source, destination);
+    };
+    try {
+      assert.throws(
+        () => runLifecycleTransaction({ paths, writes, onStep: failBeforeCommitThen() }),
+        /rollback failed too \(retirement rename failed\)/u,
+      );
+    } finally {
+      fs.renameSync = originalRenameSync;
+    }
+
+    // Every step was undone, so all three are marked and in their undone state.
+    assert.deepEqual(fs.readdirSync(path.join(transactionRoot, 'rolling-back')).sort(), ['0', '1', '2']);
+    assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'rolled-back' });
+    assert.deepEqual(snapshotWithoutTransaction(paths.lifecycleRoot), before);
+    assert.equal(fs.existsSync(transactionRoot), false);
+  });
+});
+
+test('repeated recoveries after repeated rollback failures converge to the pre-command bytes', () => {
+  withRollbackFixture(({ paths, transactionRoot, writes, before, created }) => {
+    // The first rollback stops right after restoring the commit point (one replacing step).
+    const crashAfter = (target) => (step) => {
+      if (step === target) {
+        throw Object.assign(new Error('crash during rollback'), { [LIFECYCLE_TRANSACTION_SIMULATED_CRASH]: true });
+      }
+    };
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failBeforeCommitThen(crashAfter('rollback-step-2:done')) }));
+    assert.deepEqual(fs.readdirSync(path.join(transactionRoot, 'rolling-back')), ['2']);
+
+    // The next recovery's rollback fails while removing the created target.
+    const originalRmSync = fs.rmSync;
+    fs.rmSync = (target, options) => {
+      if (target === created) {
+        throw new Error('removal failed');
+      }
+      return originalRmSync(target, options);
+    };
+    try {
+      assert.throws(() => recoverLifecycleTransaction(paths), /removal failed/u);
+    } finally {
+      fs.rmSync = originalRmSync;
+    }
+    assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, 'the evidence is kept');
+
+    // A further recovery resumes and finishes.
+    assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'rolled-back' });
+    assert.deepEqual(snapshotWithoutTransaction(paths.lifecycleRoot), before);
+    assert.equal(recoverLifecycleTransaction(paths), null, 'nothing is left to recover');
+  });
+});
+
+test('each partial rollback state (replacing restored, created removed, several, all) resumes to the pre-command bytes', () => {
+  const interruptions = {
+    'one replacing step restored': 'rollback-step-2:done',
+    'one created target removed as well': 'rollback-step-1:done',
+    'every step undone before retirement': 'rollback-step-0:done',
+  };
+  for (const [label, interruption] of Object.entries(interruptions)) {
+    withRollbackFixture(({ paths, transactionRoot, writes, before }) => {
+      const crash = (step) => {
+        if (step === interruption) {
+          throw Object.assign(new Error('crash during rollback'), { [LIFECYCLE_TRANSACTION_SIMULATED_CRASH]: true });
+        }
+      };
+      assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failBeforeCommitThen(crash) }), label);
+      assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, label);
+
+      assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'rolled-back' }, label);
+      assert.deepEqual(snapshotWithoutTransaction(paths.lifecycleRoot), before, label);
+    });
+  }
+});
