@@ -847,3 +847,21 @@ test('a journal whose step identities are malformed is refused, and nothing is t
     });
   }
 });
+
+test('a committed transaction is accepted only when every step holds its own journaled bytes', () => {
+  for (const [label, alter] of Object.entries({
+    'an earlier target edited to other bytes': ({ replaced }) => fs.writeFileSync(replaced, 'edited-bytes'),
+    'a created target edited to other bytes': ({ created }) => fs.writeFileSync(created, 'edited-bytes'),
+    'a backup that no longer holds its original': ({ transactionRoot }) =>
+      fs.writeFileSync(path.join(transactionRoot, 'backup', '0'), 'edited-bytes'),
+  })) {
+    withRollbackFixture(({ paths, transactionRoot, writes, ...targets }) => {
+      assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('committed', { crash: true }) }), label);
+      alter({ transactionRoot, ...targets });
+      const altered = snapshotWholeTree(paths.lifecycleRoot);
+
+      assert.throws(() => recoverLifecycleTransaction(paths), /does not match a committed transaction/u, label);
+      assert.deepEqual(snapshotWholeTree(paths.lifecycleRoot), altered, `${label}: nothing is retired or changed`);
+    });
+  }
+});

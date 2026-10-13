@@ -276,46 +276,59 @@ const assertTransactionShape = (paths, transactionRoot, journal) => {
   }
 };
 
+// The states each journaled step is in, with every entry identified by the journal: an original
+// is the journaled `original` exactly, and a written target is a regular file holding the step's
+// journaled `sha256` (spec §4.6 item 5).
+// - replacing an existing entry: unstarted (original at the target, `staged/<i>`, no backup),
+//   backed up (original in `backup/<i>`, `staged/<i>`, no target) or applied (original in
+//   `backup/<i>`, written target, no staged);
+// - creating a new entry: unstarted (`staged/<i>`, no target) or applied (written target, no
+//   staged, no backup).
+// A step marked in `rolling-back/<i>` may also be undone: the original restored at the target (no
+// backup), or a created entry removed (no target).
+const stepStatesOf = (transactionRoot, targets, journal) =>
+  journal.steps.map((step, index) => {
+    const backup = entryIdentity(path.join(transactionRoot, BACKUP_DIRNAME, String(index)));
+    const staged = entryPresent(path.join(transactionRoot, STAGED_DIRNAME, String(index)));
+    const target = entryIdentity(targets[index]);
+    const marked = entryPresent(path.join(transactionRoot, ROLLING_BACK_DIRNAME, String(index)));
+    const isOriginal = (identity) => sameIdentity(identity, step.original);
+    const isWritten = (identity) => identity?.kind === 'file' && identity.sha256 === step.sha256;
+    return replacesEntry(step)
+      ? {
+          unstarted: isOriginal(target) && staged && !backup,
+          backedUp: isOriginal(backup) && !target && staged,
+          applied: isOriginal(backup) && isWritten(target) && !staged,
+          undone: marked && isOriginal(target) && !backup,
+        }
+      : {
+          unstarted: !backup && !target && staged,
+          backedUp: false,
+          applied: !backup && isWritten(target) && !staged,
+          undone: marked && !backup && !target,
+        };
+  });
+
 const rollBack = (paths, transactionRoot, journal, onStep = () => {}) => {
   const { targets, directories } = resolveJournalPaths(paths, journal);
   assertOwnedDirectory(paths, transactionRoot);
   assertTransactionShape(paths, transactionRoot, journal);
   const backupRoot = path.join(transactionRoot, BACKUP_DIRNAME);
 
-  // Every step must be in one state its own commit sequence can produce (spec §4.6 item 5), with
-  // every entry identified by the journal: the original is the journaled `original` exactly, and a
-  // written target is a regular file holding the journaled `sha256`.
-  // - replacing an existing entry: unstarted (original at the target, `staged/<i>`, no backup),
-  //   backed up (original in `backup/<i>`, `staged/<i>`, no target) or applied (original in
-  //   `backup/<i>`, written target, no staged);
-  // - creating a new entry: unstarted (`staged/<i>`, no target) or applied (written target, no
-  //   staged).
-  // Any other combination means an original was lost, or the target holds something the journal
-  // does not identify (another entry, or a journal naming the wrong target), so a rollback could
-  // neither restore the pre-command state nor be sure what it deletes or overwrites. Checked for
-  // every step first. A step marked in `rolling-back/` may also already be undone: the original
-  // restored at the target (no backup), or a created entry removed (no target).
-  const rollingBackRoot = path.join(transactionRoot, ROLLING_BACK_DIRNAME);
-  journal.steps.forEach((step, index) => {
-    const backup = entryIdentity(path.join(backupRoot, String(index)));
-    const staged = entryPresent(path.join(transactionRoot, STAGED_DIRNAME, String(index)));
-    const target = entryIdentity(targets[index]);
-    const isOriginal = (identity) => sameIdentity(identity, step.original);
-    const isWritten = (identity) => identity?.kind === 'file' && identity.sha256 === step.sha256;
-    const marked = entryPresent(path.join(rollingBackRoot, String(index)));
-    const consistent = replacesEntry(step)
-      ? (isOriginal(target) && staged && !backup) ||
-        (isOriginal(backup) && !target && staged) ||
-        (isOriginal(backup) && isWritten(target) && !staged) ||
-        (marked && isOriginal(target) && !backup)
-      : !backup && ((!target && staged) || (isWritten(target) && !staged) || (marked && !target));
-    if (!consistent) {
+  // Every step must be in one state its own commit sequence can produce, or already undone
+  // (spec §4.6 item 5). Any other state means an original was lost, or a target holds something
+  // the journal does not identify (another entry, or a journal naming the wrong target), so a
+  // rollback could neither restore the pre-command state nor be sure what it deletes or
+  // overwrites. Checked for every step first.
+  stepStatesOf(transactionRoot, targets, journal).forEach((state, index) => {
+    if (!(state.unstarted || state.backedUp || state.applied || state.undone)) {
       throw new RegistryLifecycleError(
-        `The lifecycle transaction step for ${step.target} is in a state its commit cannot produce; it cannot be rolled back. Nothing was changed; inspect ${transactionRoot} by hand.`,
+        `The lifecycle transaction step for ${journal.steps[index].target} is in a state its commit cannot produce; it cannot be rolled back. Nothing was changed; inspect ${transactionRoot} by hand.`,
       );
     }
   });
 
+  const rollingBackRoot = path.join(transactionRoot, ROLLING_BACK_DIRNAME);
   // Undoing a step is idempotent, so a resumed rollback simply repeats the marked steps.
   fs.mkdirSync(rollingBackRoot, { recursive: true });
   for (let index = journal.steps.length - 1; index >= 0; index -= 1) {
@@ -408,19 +421,15 @@ export const recoverLifecycleTransaction = (paths) => {
 
   // Journal paths, then the directory's shape, are checked before the commit point is read, for
   // both outcomes (spec §4.6 item 5).
-  const commitTarget = resolveJournalPaths(paths, journal).targets.at(-1);
+  const { targets } = resolveJournalPaths(paths, journal);
+  const commitTarget = targets.at(-1);
   assertTransactionShape(paths, transactionRoot, journal);
   if (isFile(commitTarget) && sha256Hex(fs.readFileSync(commitTarget)) === journal.steps.at(-1).sha256) {
-    // A committed transaction applied every step: nothing is left in `staged/`, and every step that
-    // replaced an existing entry has its backup. Anything else was altered after the fact.
-    const stagedLeft = fs.readdirSync(path.join(transactionRoot, STAGED_DIRNAME));
-    const backupMissing = journal.steps.some(
-      (step, index) => replacesEntry(step) && !entryPresent(path.join(transactionRoot, BACKUP_DIRNAME, String(index))),
-    );
-    const rollingBack = entryPresent(path.join(transactionRoot, ROLLING_BACK_DIRNAME));
-    // Every target was written by renaming a regular staged file into place.
-    const targetMissing = resolveJournalPaths(paths, journal).targets.some((target) => !isFile(target));
-    if (stagedLeft.length > 0 || backupMissing || rollingBack || targetMissing) {
+    // A committed transaction applied every step, so every step is in its applied state: each
+    // target holds its own journaled bytes (not only the commit point) and each replaced original is
+    // in its backup. No rollback ever began. Anything else was altered after the fact.
+    const allApplied = stepStatesOf(transactionRoot, targets, journal).every((state) => state.applied);
+    if (!allApplied || entryPresent(path.join(transactionRoot, ROLLING_BACK_DIRNAME))) {
       throw new RegistryLifecycleError(
         `The lifecycle transaction directory was altered (it does not match a committed transaction). Nothing was changed; inspect ${transactionRoot} by hand.`,
       );
