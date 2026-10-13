@@ -670,3 +670,29 @@ test('each partial rollback state (replacing restored, created removed, several,
     });
   }
 });
+
+test('a committed transaction whose journal digest was altered is refused, never rolled back', () => {
+  for (const [label, commitSha256, pattern] of [
+    ['a digest that is not a SHA-256', 'not-a-hash', /journal is malformed/u],
+    ['a well-formed but different digest', 'f'.repeat(64), /commit point was applied but does not hold the journaled bytes/u],
+  ]) {
+    withLifecycleRoot(({ paths, transactionRoot }) => {
+      const first = path.join(paths.customRoot, 'first.json');
+      const commit = path.join(paths.customRoot, 'commit.json');
+      fs.writeFileSync(first, 'first-old');
+      fs.writeFileSync(commit, 'commit-old');
+      const writes = [
+        { targetPath: first, contents: 'first-new' },
+        { targetPath: commit, contents: 'commit-new' },
+      ];
+      assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('committed', { crash: true }) }), label);
+      const journalPath = path.join(transactionRoot, 'journal.json');
+      fs.writeFileSync(journalPath, JSON.stringify({ ...JSON.parse(fs.readFileSync(journalPath, 'utf8')), commitSha256 }));
+
+      assert.throws(() => recoverLifecycleTransaction(paths), pattern, label);
+      assert.equal(fs.readFileSync(first, 'utf8'), 'first-new', `${label}: the committed files stay`);
+      assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-new', label);
+      assert.equal(fs.existsSync(journalPath), true, label);
+    });
+  }
+});

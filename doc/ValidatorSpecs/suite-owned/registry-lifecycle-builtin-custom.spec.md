@@ -167,7 +167,7 @@ A transaction replaces an ordered list of files. Its last file is the **commit p
    - Lifecycle commands are not run concurrently against one target.
 6. **Scope.** One transaction advances one registry (§8.2). A command that advances several registries runs one transaction per registry, in ordinal registry-id order. A failure stops the command: earlier registries stay advanced and later ones are untouched.
 7. **Outside this guarantee:** durability against power loss (fsync), and anything else modifying the repository while a lifecycle command runs. Containment (§4.1) is checked before staging and again by recovery; a symlink retargeted between that check and a rename is a concurrent modification, which no in-process check can exclude (Node offers no rename relative to a held directory handle).
-8. **A committed transaction** applied every step, so recovery accepts the commit point only when nothing is left in `staged/` and every step that replaced an entry has its backup; otherwise the directory was altered and is refused and kept.
+8. **A committed transaction** applied every step, so recovery accepts the commit point only when nothing is left in `staged/` and every step that replaced an entry has its backup; otherwise the directory was altered and is refused and kept. The journaled digest must be a SHA-256 (64 lowercase hex characters). The commit point's staged copy is consumed exactly when the commit point is applied, so a consumed staged copy with a commit point that does not hold the journaled bytes is refused rather than rolled back.
 
 ## 5) Canonical comparison and digests
 

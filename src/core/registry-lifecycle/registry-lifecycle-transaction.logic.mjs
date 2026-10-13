@@ -329,7 +329,8 @@ const readJournal = (transactionRoot) => {
     journal.steps.every((step) => isPlainObject(step) && typeof step.target === 'string' && typeof step.existed === 'boolean') &&
     Array.isArray(journal.createdDirectories) &&
     journal.createdDirectories.every((directory) => typeof directory === 'string') &&
-    typeof journal.commitSha256 === 'string';
+    typeof journal.commitSha256 === 'string' &&
+    /^[a-f0-9]{64}$/u.test(journal.commitSha256);
   if (!isValid) {
     throw new RegistryLifecycleError(
       `The lifecycle transaction journal is malformed (${journalPath}). Nothing was changed; inspect ${path.dirname(journalPath)} by hand.`,
@@ -376,6 +377,16 @@ export const recoverLifecycleTransaction = (paths) => {
     }
     retireTransactionDirectory(paths, transactionRoot);
     return { outcome: LIFECYCLE_TRANSACTION_OUTCOMES.committed };
+  }
+
+  // The commit point's staged copy is consumed exactly when the commit point is applied. Consumed,
+  // yet the commit point does not hold the journaled bytes: the journal or the target was altered,
+  // and a rollback would undo a committed transaction.
+  const commitStaged = path.join(transactionRoot, STAGED_DIRNAME, String(journal.steps.length - 1));
+  if (!entryPresent(commitStaged)) {
+    throw new RegistryLifecycleError(
+      `The lifecycle transaction directory was altered (the commit point was applied but does not hold the journaled bytes). Nothing was changed; inspect ${transactionRoot} by hand.`,
+    );
   }
 
   rollBack(paths, transactionRoot, journal);
