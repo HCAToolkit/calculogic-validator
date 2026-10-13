@@ -514,3 +514,37 @@ test('the sweep removes only directories it retired, and leaves anything else wi
     assert.equal(fs.existsSync(ownRetired), false);
   });
 });
+
+test('a rollback interrupted part-way is resumed by the next recovery', () => {
+  for (const interruption of ['rollback-step-2:done', 'rollback-step-1:done', 'rollback-step-0:done']) {
+    withLifecycleRoot(({ paths, transactionRoot }) => {
+      const replaced = path.join(paths.customRoot, 'replaced.json');
+      const created = path.join(paths.customRoot, 'created.json');
+      const commit = path.join(paths.customRoot, 'commit.json');
+      fs.writeFileSync(replaced, 'replaced-old');
+      fs.writeFileSync(commit, 'commit-old');
+      const writes = [
+        { targetPath: replaced, contents: 'replaced-new' },
+        { targetPath: created, contents: 'created-new' },
+        { targetPath: commit, contents: 'commit-new' },
+      ];
+      // A failure at the commit point's backup starts a rollback, which then stops part-way.
+      const onStep = (step) => {
+        if (step === 'step-2:backed-up') {
+          throw new Error('fail before commit');
+        }
+        if (step === interruption) {
+          throw Object.assign(new Error('crash during rollback'), { [LIFECYCLE_TRANSACTION_SIMULATED_CRASH]: true });
+        }
+      };
+      assert.throws(() => runLifecycleTransaction({ paths, writes, onStep }), /crash during rollback/u, interruption);
+      assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, interruption);
+
+      assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'rolled-back' }, interruption);
+      assert.equal(fs.readFileSync(replaced, 'utf8'), 'replaced-old', interruption);
+      assert.equal(fs.existsSync(created), false, interruption);
+      assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-old', interruption);
+      assert.equal(fs.existsSync(transactionRoot), false, interruption);
+    });
+  }
+});

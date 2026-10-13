@@ -23,6 +23,9 @@ import {
 
 const STAGED_DIRNAME = 'staged';
 const BACKUP_DIRNAME = 'backup';
+// Rollback progress: `rolling-back/<i>` is written before step `i` is undone, so an interrupted
+// rollback can be resumed (spec §4.6 item 5).
+const ROLLING_BACK_DIRNAME = 'rolling-back';
 
 // [5.2.11] cfg-registryLifecycle · Primitive · "LIFECYCLE_TRANSACTION_SIMULATED_CRASH"
 // Internal, for tests only: an error carrying this key stops the transaction where it is, without
@@ -207,7 +210,7 @@ const assertTransactionShape = (paths, transactionRoot, journal) => {
   assertOwnedDirectory(paths, stagedRoot);
   assertOwnedDirectory(paths, backupRoot);
 
-  const allowedTopLevel = new Set([STAGED_DIRNAME, BACKUP_DIRNAME, LIFECYCLE_TRANSACTION_JOURNAL_FILENAME]);
+  const allowedTopLevel = new Set([STAGED_DIRNAME, BACKUP_DIRNAME, ROLLING_BACK_DIRNAME, LIFECYCLE_TRANSACTION_JOURNAL_FILENAME]);
   for (const name of fs.readdirSync(transactionRoot)) {
     if (!allowedTopLevel.has(name)) {
       altered(`unexpected entry ${name}`);
@@ -220,6 +223,15 @@ const assertTransactionShape = (paths, transactionRoot, journal) => {
       altered(`staged/${name}`);
     }
   }
+  const rollingBackRoot = path.join(transactionRoot, ROLLING_BACK_DIRNAME);
+  if (entryPresent(rollingBackRoot)) {
+    assertOwnedDirectory(paths, rollingBackRoot);
+    for (const name of fs.readdirSync(rollingBackRoot)) {
+      if (stepIndex(name) === null || !fs.lstatSync(path.join(rollingBackRoot, name)).isFile()) {
+        altered(`${ROLLING_BACK_DIRNAME}/${name}`);
+      }
+    }
+  }
   for (const name of fs.readdirSync(backupRoot)) {
     const index = stepIndex(name);
     const stats = fs.lstatSync(path.join(backupRoot, name));
@@ -229,7 +241,7 @@ const assertTransactionShape = (paths, transactionRoot, journal) => {
   }
 };
 
-const rollBack = (paths, transactionRoot, journal) => {
+const rollBack = (paths, transactionRoot, journal, onStep = () => {}) => {
   const { targets, directories } = resolveJournalPaths(paths, journal);
   assertOwnedDirectory(paths, transactionRoot);
   assertTransactionShape(paths, transactionRoot, journal);
@@ -241,13 +253,19 @@ const rollBack = (paths, transactionRoot, journal) => {
   // - creating a new entry: unstarted (`staged/<i>`, no target) or applied (target, no staged).
   // Any other combination means an original was lost or something else appeared at a target, so
   // a rollback could not restore the pre-command state. Checked for every step first.
+  // A step marked in `rolling-back/` may also already be undone: a replaced entry restored (target,
+  // no backup) or a created entry removed (no target).
+  const rollingBackRoot = path.join(transactionRoot, ROLLING_BACK_DIRNAME);
   journal.steps.forEach((step, index) => {
     const backup = entryPresent(path.join(backupRoot, String(index)));
     const staged = entryPresent(path.join(transactionRoot, STAGED_DIRNAME, String(index)));
     const target = entryPresent(targets[index]);
-    const consistent = step.existed
-      ? (!backup && target && staged) || (backup && !target && staged) || (backup && target && !staged)
-      : !backup && target !== staged;
+    const undone = entryPresent(path.join(rollingBackRoot, String(index))) && (step.existed ? !backup && target : !target);
+    const consistent =
+      undone ||
+      (step.existed
+        ? (!backup && target && staged) || (backup && !target && staged) || (backup && target && !staged)
+        : !backup && target !== staged);
     if (!consistent) {
       throw new RegistryLifecycleError(
         `The lifecycle transaction step for ${step.target} is in a state its commit cannot produce; it cannot be rolled back. Nothing was changed; inspect ${transactionRoot} by hand.`,
@@ -255,10 +273,13 @@ const rollBack = (paths, transactionRoot, journal) => {
     }
   });
 
+  // Undoing a step is idempotent, so a resumed rollback simply repeats the marked steps.
+  fs.mkdirSync(rollingBackRoot, { recursive: true });
   for (let index = journal.steps.length - 1; index >= 0; index -= 1) {
     const step = journal.steps[index];
     const target = targets[index];
     const backup = path.join(backupRoot, String(index));
+    fs.writeFileSync(path.join(rollingBackRoot, String(index)), '');
     if (step.existed) {
       if (entryPresent(backup)) {
         fs.renameSync(backup, target);
@@ -266,6 +287,7 @@ const rollBack = (paths, transactionRoot, journal) => {
     } else {
       fs.rmSync(target, { force: true });
     }
+    onStep(`rollback-step-${index}:done`);
   }
 
   for (const directory of [...directories].reverse()) {
@@ -346,7 +368,8 @@ export const recoverLifecycleTransaction = (paths) => {
     const backupMissing = journal.steps.some(
       (step, index) => step.existed && !entryPresent(path.join(transactionRoot, BACKUP_DIRNAME, String(index))),
     );
-    if (stagedLeft.length > 0 || backupMissing) {
+    const rollingBack = entryPresent(path.join(transactionRoot, ROLLING_BACK_DIRNAME));
+    if (stagedLeft.length > 0 || backupMissing || rollingBack) {
       throw new RegistryLifecycleError(
         `The lifecycle transaction directory was altered (it does not match a committed transaction). Nothing was changed; inspect ${transactionRoot} by hand.`,
       );
@@ -436,8 +459,11 @@ export const runLifecycleTransaction = ({ paths, writes, onStep = () => {} }) =>
     }
 
     try {
-      rollBack(paths, transactionRoot, journal);
+      rollBack(paths, transactionRoot, journal, onStep);
     } catch (rollbackError) {
+      if (rollbackError?.[LIFECYCLE_TRANSACTION_SIMULATED_CRASH]) {
+        throw rollbackError;
+      }
       throw new RegistryLifecycleError(
         `A lifecycle write failed (${error.message}) and its rollback failed too (${rollbackError.message}). ` +
           `The transaction directory ${transactionRoot} is kept; the next writing lifecycle command recovers it.`,
