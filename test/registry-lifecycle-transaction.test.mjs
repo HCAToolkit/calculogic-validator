@@ -442,3 +442,26 @@ test('an altered transaction directory is refused even when the commit point was
     assert.equal(fs.readFileSync(commit, 'utf8'), 'new');
   });
 });
+
+test('a committed transaction that lost a backup entry is refused, never retired as committed', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const first = path.join(paths.customRoot, 'first.json');
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(first, 'first-old');
+    fs.writeFileSync(commit, 'commit-old');
+    const writes = [
+      { targetPath: first, contents: 'first-new' },
+      { targetPath: commit, contents: 'commit-new' },
+    ];
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('committed', { crash: true }) }));
+    const backup = path.join(transactionRoot, 'backup', '0');
+    const kept = fs.readFileSync(backup);
+    fs.rmSync(backup);
+
+    assert.throws(() => recoverLifecycleTransaction(paths), /does not match a committed transaction/u);
+    assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, 'the evidence is kept');
+
+    fs.writeFileSync(backup, kept);
+    assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'committed' });
+  });
+});

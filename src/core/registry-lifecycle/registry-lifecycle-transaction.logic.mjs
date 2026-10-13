@@ -324,6 +324,17 @@ export const recoverLifecycleTransaction = (paths) => {
   const commitTarget = resolveJournalPaths(paths, journal).targets.at(-1);
   assertTransactionShape(paths, transactionRoot, journal);
   if (isFile(commitTarget) && sha256Hex(fs.readFileSync(commitTarget)) === journal.commitSha256) {
+    // A committed transaction applied every step: nothing is left in `staged/`, and every step that
+    // replaced an existing entry has its backup. Anything else was altered after the fact.
+    const stagedLeft = fs.readdirSync(path.join(transactionRoot, STAGED_DIRNAME));
+    const backupMissing = journal.steps.some(
+      (step, index) => step.existed && !entryPresent(path.join(transactionRoot, BACKUP_DIRNAME, String(index))),
+    );
+    if (stagedLeft.length > 0 || backupMissing) {
+      throw new RegistryLifecycleError(
+        `The lifecycle transaction directory was altered (it does not match a committed transaction). Nothing was changed; inspect ${transactionRoot} by hand.`,
+      );
+    }
     retireTransactionDirectory(paths, transactionRoot);
     return { outcome: LIFECYCLE_TRANSACTION_OUTCOMES.committed };
   }
