@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { resolveRegistryLifecyclePaths } from '../src/core/registry-lifecycle/registry-lifecycle-state.logic.mjs';
 import {
   LIFECYCLE_TRANSACTION_SIMULATED_CRASH,
@@ -154,7 +155,7 @@ test('an existing symlink at a target is backed up and restored as a link, and a
     fs.mkdirSync(directoryTarget);
     assert.throws(
       () => runLifecycleTransaction({ paths, writes: [{ targetPath: directoryTarget, contents: 'x' }] }),
-      /is a directory/u,
+      /neither a file nor a symlink/u,
     );
     assert.equal(fs.existsSync(transactionRoot), false);
   });
@@ -695,4 +696,40 @@ test('a committed transaction whose journal digest was altered is refused, never
       assert.equal(fs.existsSync(journalPath), true, label);
     });
   }
+});
+
+test('a committed transaction with a missing target is refused, never retired as committed', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const created = path.join(paths.customRoot, 'created.json');
+    const commit = path.join(paths.customRoot, 'commit.json');
+    fs.writeFileSync(commit, 'commit-old');
+    const writes = [
+      { targetPath: created, contents: 'created-new' },
+      { targetPath: commit, contents: 'commit-new' },
+    ];
+    assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('committed', { crash: true }) }));
+    fs.rmSync(created);
+
+    assert.throws(() => recoverLifecycleTransaction(paths), /does not match a committed transaction/u);
+    assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, 'the evidence is kept');
+
+    fs.writeFileSync(created, 'created-new');
+    assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'committed' });
+  });
+});
+
+test('an existing target that is neither a file nor a symlink is refused before staging', () => {
+  withLifecycleRoot(({ paths, transactionRoot }) => {
+    const fifo = path.join(paths.customRoot, 'fifo.json');
+    const made = spawnSync('mkfifo', [fifo]);
+    if (made.status !== 0) {
+      return; // mkfifo is unavailable on this host.
+    }
+    assert.throws(
+      () => runLifecycleTransaction({ paths, writes: [{ targetPath: fifo, contents: 'x' }] }),
+      /neither a file nor a symlink/u,
+    );
+    assert.equal(fs.lstatSync(fifo).isFIFO(), true);
+    assert.equal(fs.existsSync(transactionRoot), false);
+  });
 });

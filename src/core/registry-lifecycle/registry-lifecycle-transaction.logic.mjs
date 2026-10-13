@@ -115,8 +115,11 @@ const targetExists = (targetPath) => {
   } catch {
     return false;
   }
-  if (stats.isDirectory()) {
-    throw new RegistryLifecycleError(`A lifecycle write target is a directory (${targetPath}); nothing was written.`);
+  // Only a regular file or a symlink can be backed up and restored (spec §4.6 item 3).
+  if (!stats.isFile() && !stats.isSymbolicLink()) {
+    throw new RegistryLifecycleError(
+      `A lifecycle write target is neither a file nor a symlink (${targetPath}); nothing was written.`,
+    );
   }
   return true;
 };
@@ -370,7 +373,8 @@ export const recoverLifecycleTransaction = (paths) => {
       (step, index) => step.existed && !entryPresent(path.join(transactionRoot, BACKUP_DIRNAME, String(index))),
     );
     const rollingBack = entryPresent(path.join(transactionRoot, ROLLING_BACK_DIRNAME));
-    if (stagedLeft.length > 0 || backupMissing || rollingBack) {
+    const targetMissing = resolveJournalPaths(paths, journal).targets.some((target) => !entryPresent(target));
+    if (stagedLeft.length > 0 || backupMissing || rollingBack || targetMissing) {
       throw new RegistryLifecycleError(
         `The lifecycle transaction directory was altered (it does not match a committed transaction). Nothing was changed; inspect ${transactionRoot} by hand.`,
       );

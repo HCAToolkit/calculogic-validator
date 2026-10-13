@@ -177,7 +177,7 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
   - `steps: [{ target, existed }]`, with targets relative to the lifecycle root;
   - `createdDirectories`;
   - `commitSha256`, the SHA-256 of the commit point's new bytes.
-- **Commit:** create the missing directories. For each step: if an entry exists at the target (a file, or a symlink, which is moved as the link itself), rename it to `backup/<i>`, then rename `staged/<i>` onto it. A directory at a target is refused before staging.
+- **Commit:** create the missing directories. For each step: if an entry exists at the target (a file, or a symlink, which is moved as the link itself), rename it to `backup/<i>`, then rename `staged/<i>` onto it. Any other existing entry at a target (directory, FIFO, socket, device) is refused before staging.
 - **Rollback**, on any failure before the last rename, in reverse order:
   - restore each backup;
   - remove each target that did not exist;
@@ -189,7 +189,7 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 - **After the commit point** nothing reports a failure. A transaction directory that cannot be removed is a committed transaction.
 - **`recoverLifecycleTransaction(paths)`** returns `null` when there is no transaction directory. Otherwise:
   - no journal → nothing was committed, so the directory is removed (`rolled-back`);
-  - the commit point holds the journaled bytes, `staged/` is empty and every replaced step has its backup → `committed`, and the directory is retired (a commit-point match with any other state is refused as altered);
+  - the commit point holds the journaled bytes, `staged/` is empty, every replaced step has its backup and every journaled target is present → `committed`, and the directory is retired (a commit-point match with any other state is refused as altered);
   - otherwise → rollback (`rolled-back`), but only while the commit point's `staged/<last>` is still present; a consumed commit-point staged copy without the journaled bytes is refused as altered. The journal's `commitSha256` must be 64 lowercase hex characters.
 
   Every journal path is resolved and checked, lexically and by realpath, before the commit point is read. The transaction directory, `staged/` and `backup/` must exist as ordinary contained directories, and `assertTransactionShape` (run after the journal-path check and before the commit point is read, for both outcomes) refuses any entry the transaction did not write (top level: `staged`, `backup`, `journal.json`; `staged/<i>` regular files; `backup/<i>` files or symlinks, only for steps that replaced an entry), and every step must be in a state its commit can produce (replacing: unstarted, backed up or applied; creating: unstarted or applied), or, when marked in `rolling-back/<i>` (written before rollback undoes that step), already undone; otherwise recovery refuses. A resumed rollback repeats the marked steps idempotently and `journal.json` an ordinary file, never symlinks (a dangling journal link is refused, not taken for no journal); a backup entry itself may be a link, which is moved and never followed. A malformed journal, or one naming a path outside the lifecycle root or outside the target, is a lifecycle error, and nothing is touched.
