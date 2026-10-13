@@ -310,7 +310,7 @@ test('a step whose backup entry is gone after it was applied is refused, never r
 
     assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('step-0:applied', { crash: true }) }));
     fs.rmSync(path.join(transactionRoot, 'backup', '0'));
-    assert.throws(() => recoverLifecycleTransaction(paths), /lost the backup of custom\/first\.json/u);
+    assert.throws(() => recoverLifecycleTransaction(paths), /step for custom\/first\.json is in a state its commit cannot produce/u);
     assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, 'the evidence is kept');
     assert.equal(fs.readFileSync(first, 'utf8'), 'first-new', 'nothing was rolled back');
     assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-old');
@@ -332,7 +332,7 @@ test('a step whose backup entry is gone after it was backed up, but before it wa
     assert.equal(fs.existsSync(first), false, 'the original is in the backup at this point');
     fs.rmSync(path.join(transactionRoot, 'backup', '0'));
 
-    assert.throws(() => recoverLifecycleTransaction(paths), /lost the backup of custom\/first\.json/u);
+    assert.throws(() => recoverLifecycleTransaction(paths), /step for custom\/first\.json is in a state its commit cannot produce/u);
     assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, 'the evidence is kept');
     assert.equal(fs.readFileSync(commit, 'utf8'), 'commit-old');
   });
@@ -463,5 +463,54 @@ test('a committed transaction that lost a backup entry is refused, never retired
 
     fs.writeFileSync(backup, kept);
     assert.deepEqual(recoverLifecycleTransaction(paths), { outcome: 'committed' });
+  });
+});
+
+test('a step creating a new entry is refused when its staged copy is lost or an entry appeared at its target', () => {
+  const alterations = {
+    'the staged copy of an unapplied new target is lost': ({ transactionRoot }) => {
+      fs.rmSync(path.join(transactionRoot, 'staged', '0'));
+    },
+    'an unrelated file appeared at an unapplied new target': ({ paths }) => {
+      fs.writeFileSync(path.join(paths.customRoot, 'new.json'), 'unrelated');
+    },
+  };
+
+  for (const [label, alter] of Object.entries(alterations)) {
+    withLifecycleRoot(({ paths, transactionRoot }) => {
+      const created = path.join(paths.customRoot, 'new.json');
+      const commit = path.join(paths.customRoot, 'commit.json');
+      fs.writeFileSync(commit, 'commit-old');
+      const writes = [
+        { targetPath: created, contents: 'created' },
+        { targetPath: commit, contents: 'commit-new' },
+      ];
+      assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('journaled', { crash: true }) }), label);
+      const before = fs.existsSync(created) ? fs.readFileSync(created, 'utf8') : null;
+      alter({ paths, transactionRoot });
+      const altered = fs.existsSync(created) ? fs.readFileSync(created, 'utf8') : null;
+
+      assert.throws(() => recoverLifecycleTransaction(paths), /state its commit cannot produce/u, label);
+      assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, label);
+      assert.equal(fs.existsSync(created) ? fs.readFileSync(created, 'utf8') : null, altered, `${label}: the target is untouched`);
+      assert.equal(before, null, label);
+    });
+  }
+});
+
+test('the sweep removes only directories it retired, and leaves anything else with the same prefix', () => {
+  withLifecycleRoot(({ paths }) => {
+    const foreignFile = path.join(paths.lifecycleRoot, '.lifecycle-transaction-retired-notes.txt');
+    const foreignDirectory = path.join(paths.lifecycleRoot, '.lifecycle-transaction-retired-abc123');
+    const ownRetired = path.join(paths.lifecycleRoot, '.lifecycle-transaction-retired-Zz9Zz9');
+    fs.writeFileSync(foreignFile, 'keep');
+    fs.mkdirSync(foreignDirectory);
+    fs.writeFileSync(path.join(foreignDirectory, 'user-data.json'), 'keep');
+    fs.mkdirSync(path.join(ownRetired, '.lifecycle-transaction', 'staged'), { recursive: true });
+
+    assert.equal(recoverLifecycleTransaction(paths), null);
+    assert.equal(fs.readFileSync(foreignFile, 'utf8'), 'keep');
+    assert.equal(fs.readFileSync(path.join(foreignDirectory, 'user-data.json'), 'utf8'), 'keep');
+    assert.equal(fs.existsSync(ownRetired), false);
   });
 });

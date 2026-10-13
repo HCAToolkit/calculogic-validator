@@ -34,6 +34,8 @@ const isPlainObject = (value) => value !== null && typeof value === 'object' && 
 const transactionRootOf = (paths) => path.join(paths.lifecycleRoot, LIFECYCLE_TRANSACTION_DIRNAME);
 
 const RETIRED_PREFIX = `${LIFECYCLE_TRANSACTION_DIRNAME}-retired-`;
+// `fs.mkdtempSync` appends six characters to the prefix.
+const RETIRED_NAME_PATTERN = new RegExp(`^${RETIRED_PREFIX.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}[A-Za-z0-9]{6}$`, 'u');
 
 // Retires the transaction directory: one atomic rename takes it out of recovery's view, then the
 // retired copy is deleted. Recursive deletion is not atomic, so deleting in place could remove the
@@ -56,9 +58,18 @@ const sweepRetiredTransactionDirectories = (paths) => {
   } catch {
     return;
   }
-  for (const name of names.filter((entry) => entry.startsWith(RETIRED_PREFIX))) {
+  // Only entries `retireTransactionDirectory` produced are removed: the exact generated name, an
+  // ordinary directory, holding nothing but (what is left of) the retired transaction directory.
+  // Anything else that merely shares the prefix is left alone.
+  for (const name of names.filter((entry) => RETIRED_NAME_PATTERN.test(entry))) {
+    const retiredRoot = path.join(paths.lifecycleRoot, name);
     try {
-      fs.rmSync(path.join(paths.lifecycleRoot, name), { recursive: true, force: true });
+      const stats = fs.lstatSync(retiredRoot);
+      const contents = stats.isDirectory() ? fs.readdirSync(retiredRoot) : null;
+      if (!contents || contents.some((entry) => entry !== LIFECYCLE_TRANSACTION_DIRNAME)) {
+        continue;
+      }
+      fs.rmSync(retiredRoot, { recursive: true, force: true });
     } catch {
       // Left for a later sweep.
     }
@@ -224,17 +235,22 @@ const rollBack = (paths, transactionRoot, journal) => {
   assertTransactionShape(paths, transactionRoot, journal);
   const backupRoot = path.join(transactionRoot, BACKUP_DIRNAME);
 
-  // A step that replaced an existing entry is in one of three states: not started (the original
-  // target and `staged/<i>` present), backed up (`backup/<i>` present) or applied (`backup/<i>`
-  // present). So without its backup it must be unstarted. Anything else has lost the original, and
-  // rolling back would claim a restore it cannot make. Checked for every step first.
+  // Every step must be in one state its own commit sequence can produce (spec §4.6 item 5):
+  // - replacing an existing entry: unstarted (target and `staged/<i>`, no backup), backed up
+  //   (`backup/<i>` and `staged/<i>`, no target) or applied (`backup/<i>` and target, no staged);
+  // - creating a new entry: unstarted (`staged/<i>`, no target) or applied (target, no staged).
+  // Any other combination means an original was lost or something else appeared at a target, so
+  // a rollback could not restore the pre-command state. Checked for every step first.
   journal.steps.forEach((step, index) => {
-    const backupEntry = path.join(backupRoot, String(index));
-    const stagedEntry = path.join(transactionRoot, STAGED_DIRNAME, String(index));
-    const unstarted = entryPresent(targets[index]) && entryPresent(stagedEntry);
-    if (step.existed && !entryPresent(backupEntry) && !unstarted) {
+    const backup = entryPresent(path.join(backupRoot, String(index)));
+    const staged = entryPresent(path.join(transactionRoot, STAGED_DIRNAME, String(index)));
+    const target = entryPresent(targets[index]);
+    const consistent = step.existed
+      ? (!backup && target && staged) || (backup && !target && staged) || (backup && target && !staged)
+      : !backup && target !== staged;
+    if (!consistent) {
       throw new RegistryLifecycleError(
-        `The lifecycle transaction lost the backup of ${step.target}; it cannot be rolled back. Nothing was changed; inspect ${transactionRoot} by hand.`,
+        `The lifecycle transaction step for ${step.target} is in a state its commit cannot produce; it cannot be rolled back. Nothing was changed; inspect ${transactionRoot} by hand.`,
       );
     }
   });
