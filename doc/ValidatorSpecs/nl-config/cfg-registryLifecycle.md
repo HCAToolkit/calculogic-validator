@@ -184,7 +184,7 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
   - remove the transaction directory.
 
   If the rollback itself fails, the directory is kept for recovery.
-- **Removing the transaction directory** always retires it first: `retireTransactionDirectory` renames it into a fresh `.lifecycle-transaction-retired-*` directory, then deletes that, so a partial recursive deletion can never leave a journal-less directory that recovery would misread. Recovery sweeps leftover retired directories first, removing only exact `mkdtemp` names that are ordinary directories holding nothing but the retired transaction directory.
+- **Removing the transaction directory** always retires it first: `retireTransactionDirectory` renames it into a fresh `.lifecycle-transaction-retired-*` directory, then deletes that, so a partial recursive deletion can never leave a journal-less directory that recovery would misread. Recovery sweeps leftover retired directories first, removing only exact `mkdtemp` names that are ordinary directories holding nothing, or only the retired transaction directory as an ordinary directory (a file or symlink by that name is left alone).
 - **After the commit point** nothing reports a failure. A transaction directory that cannot be removed is a committed transaction.
 - **`recoverLifecycleTransaction(paths)`** returns `null` when there is no transaction directory. Otherwise:
   - no journal → nothing was committed, so the directory is removed (`rolled-back`);

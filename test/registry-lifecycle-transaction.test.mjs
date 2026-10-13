@@ -507,11 +507,25 @@ test('the sweep removes only directories it retired, and leaves anything else wi
     fs.mkdirSync(foreignDirectory);
     fs.writeFileSync(path.join(foreignDirectory, 'user-data.json'), 'keep');
     fs.mkdirSync(path.join(ownRetired, '.lifecycle-transaction', 'staged'), { recursive: true });
+    // Generated-looking names whose only child is named like the transaction directory but is not
+    // an ordinary directory: retirement never produces these.
+    const lookalikeFile = path.join(paths.lifecycleRoot, '.lifecycle-transaction-retired-abc456');
+    const lookalikeLink = path.join(paths.lifecycleRoot, '.lifecycle-transaction-retired-abc789');
+    fs.mkdirSync(lookalikeFile);
+    fs.writeFileSync(path.join(lookalikeFile, '.lifecycle-transaction'), 'keep');
+    fs.mkdirSync(lookalikeLink);
+    fs.symlinkSync(foreignDirectory, path.join(lookalikeLink, '.lifecycle-transaction'));
+    // Retirement deleted that far: an empty retired root is still swept.
+    const emptyRetired = path.join(paths.lifecycleRoot, '.lifecycle-transaction-retired-Ee0Ee0');
+    fs.mkdirSync(emptyRetired);
 
     assert.equal(recoverLifecycleTransaction(paths), null);
     assert.equal(fs.readFileSync(foreignFile, 'utf8'), 'keep');
     assert.equal(fs.readFileSync(path.join(foreignDirectory, 'user-data.json'), 'utf8'), 'keep');
+    assert.equal(fs.readFileSync(path.join(lookalikeFile, '.lifecycle-transaction'), 'utf8'), 'keep');
+    assert.equal(fs.lstatSync(path.join(lookalikeLink, '.lifecycle-transaction')).isSymbolicLink(), true);
     assert.equal(fs.existsSync(ownRetired), false);
+    assert.equal(fs.existsSync(emptyRetired), false);
   });
 });
 

@@ -72,6 +72,11 @@ const sweepRetiredTransactionDirectories = (paths) => {
       if (!contents || contents.some((entry) => entry !== LIFECYCLE_TRANSACTION_DIRNAME)) {
         continue;
       }
+      // Empty (deleted that far), or holding the retired transaction directory as an ordinary
+      // directory: a file or symlink by that name was not made by retirement.
+      if (contents.length > 0 && !fs.lstatSync(path.join(retiredRoot, LIFECYCLE_TRANSACTION_DIRNAME)).isDirectory()) {
+        continue;
+      }
       fs.rmSync(retiredRoot, { recursive: true, force: true });
     } catch {
       // Left for a later sweep.
