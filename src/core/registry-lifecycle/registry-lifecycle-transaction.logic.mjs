@@ -373,7 +373,8 @@ export const recoverLifecycleTransaction = (paths) => {
       (step, index) => step.existed && !entryPresent(path.join(transactionRoot, BACKUP_DIRNAME, String(index))),
     );
     const rollingBack = entryPresent(path.join(transactionRoot, ROLLING_BACK_DIRNAME));
-    const targetMissing = resolveJournalPaths(paths, journal).targets.some((target) => !entryPresent(target));
+    // Every target was written by renaming a regular staged file into place.
+    const targetMissing = resolveJournalPaths(paths, journal).targets.some((target) => !isFile(target));
     if (stagedLeft.length > 0 || backupMissing || rollingBack || targetMissing) {
       throw new RegistryLifecycleError(
         `The lifecycle transaction directory was altered (it does not match a committed transaction). Nothing was changed; inspect ${transactionRoot} by hand.`,

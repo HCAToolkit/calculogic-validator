@@ -733,3 +733,26 @@ test('an existing target that is neither a file nor a symlink is refused before 
     assert.equal(fs.existsSync(transactionRoot), false);
   });
 });
+
+test('a committed transaction whose target was replaced by a non-file is refused', () => {
+  for (const [label, replace] of [
+    ['a directory', (target) => fs.mkdirSync(target)],
+    ['a symlink', (target) => fs.symlinkSync('commit.json', target)],
+  ]) {
+    withLifecycleRoot(({ paths, transactionRoot }) => {
+      const created = path.join(paths.customRoot, 'created.json');
+      const commit = path.join(paths.customRoot, 'commit.json');
+      fs.writeFileSync(commit, 'commit-old');
+      const writes = [
+        { targetPath: created, contents: 'created-new' },
+        { targetPath: commit, contents: 'commit-new' },
+      ];
+      assert.throws(() => runLifecycleTransaction({ paths, writes, onStep: failAt('committed', { crash: true }) }), label);
+      fs.rmSync(created);
+      replace(created);
+
+      assert.throws(() => recoverLifecycleTransaction(paths), /does not match a committed transaction/u, label);
+      assert.equal(fs.existsSync(path.join(transactionRoot, 'journal.json')), true, label);
+    });
+  }
+});
