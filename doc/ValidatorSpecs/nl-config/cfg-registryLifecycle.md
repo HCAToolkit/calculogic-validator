@@ -30,11 +30,12 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 - Initialization of the Custom set, active-set selection and status.
 - Whole-set resolution into one resolved registry root per slice, with completeness, version and validity checks before validation.
 - Set-level and per-registry provenance.
+- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom` and `take-builtin`, with the lifecycle transaction it writes through.
 
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- Edit, inherit/update, trace, import/export, preview and migrate commands (advanced management surface, follow-on). `diff`, the update decisions document and `update` for `registry-added` are in scope.
+- The rest of the advanced management surface (follow-on): the entry choices merge-fields and add-alongside, and the `edit`, `trace`, `import`/`export`, preview and `migrate` commands.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present

@@ -2,7 +2,7 @@
 
 - **Classification:** Normative target contract for the suite-level registry lifecycle. Sections marked *Current implementation reality* or *Historical* are Informative.
 - **Ownership:** suite-owned lifecycle mechanics; slice-owned registry meaning (§9).
-- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. The advanced management surface and the cross-slice compatibility check remain follow-ons (§13 item 4). §14 records current reality.
+- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document and `update` (`registry-added` inheritance, and the entry decisions `keep-custom` and `take-builtin`) are implemented; its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
 - **Report-only note:** the lifecycle selects registry inputs and discloses them in report metadata. It adds no enforcement mode and no fix execution.
 - **Issue lineage:** Refs #41; parent Refs #39. Decision record: #41 comments "Decision record (before the spec PR)", "Decision record: section 9 resolved" and "Decision record: activation, and the earlier customization draft".
 
