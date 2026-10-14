@@ -452,7 +452,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices:
 1. `diff` (§12.3);
 2. the update decisions document (§12.4);
-3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance first; entry decisions, migration and the other commands follow. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
+3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance and the entry decisions `keep-custom` and `take-builtin` (§12.6); the other entry choices (§8.2), migration and the other commands follow. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
 
 ### 12.3 `diff` (read-only)
 
@@ -548,27 +548,28 @@ Both need a Custom set and write nothing.
 
 ### 12.5 `update`
 
-`calculogic-validator-registry update <file>` applies a decisions document (§12.4). The path is resolved from the working directory. **This slice applies `registry-added` records only**; entry decisions on `differs` records are a later #60 slice.
+`calculogic-validator-registry update <file>` applies a decisions document (§12.4). The path is resolved from the working directory. It applies `registry-added` records (`inherit`) and `differs` records (`keep-custom`, `take-builtin`). Same-version content only: a registry whose `version` changed needs migration (§8.3).
 
 1. **Recover** an interrupted transaction (§4.6 item 5), before the document is even read: a missing or unparseable document never leaves an interrupted transaction in place. A Custom set must exist.
 2. **Check** the document exactly as `decisions-check` does, against the current comparison. A document that is not `valid` is refused before anything is written, and its problems are printed.
 3. **Select.**
-   - Records with `class: "registry-added"` and `decision: "inherit"` are applied, in ordinal registry-id order.
-   - Every other record is listed under `skipped` with a reason:
-     - `undecided`: its decision, or one of its entry decisions, is still `null`;
-     - `not-yet-supported`: a complete `differs` record.
-
-     Nothing is ever inferred from `null`.
+   - Every complete record is applied: a `registry-added` record decided `inherit`, and a `differs` record with every entry decided, including one with no entries (every Builtin change `aligned`). Records are applied in ordinal registry-id order.
+   - Every other record is listed under `skipped` with reason `undecided`: its decision, or one of its entry decisions, is still `null`. Nothing is ever inferred from `null`.
 4. **Prepare each registry** (§4.6 item 1). The registry is refused, before its transaction, unless all of these hold:
-   - **Builtin source:** the Builtin file resolves inside its slice's Builtin root and parses. Its canonical digest (§5) equals the record's `basedOn.builtinDigest`, so the copied bytes are exactly the ones the document authorized. Its `version` is one this engine reads.
-   - **Still added:** Custom still lacks the registry, and the manifest still lacks its entry. Otherwise the record is stale.
-   - **Valid in Custom:** the slice's registry-set validation (§9.3), run over the Custom slice with the new file added, reports no failure it does not already report without it. That covers the new registry and its references to Custom's other registries.
+   - **Builtin source:** the Builtin file resolves inside its slice's Builtin root and parses. Its canonical digest (§5) equals the record's `basedOn.builtinDigest`, so the bytes written are exactly the ones the document authorized. Its `version` is one this engine reads.
+   - For a `registry-added` record, **still added:** Custom still lacks the registry, and the manifest still lacks its entry. Otherwise the record is stale.
+   - For a `differs` record, **the decided inputs:**
+     - the manifest entry, the `.baseline/` copy and the Custom file are the ones the record was made against: the manifest digest and the `.baseline/` copy's canonical digest equal `basedOn.baselineDigest`, and the Custom file's equals `basedOn.customDigest`. Both files resolve inside the Custom set and parse;
+     - the Builtin `version` equals the manifest entry's and the Custom file's `version`, so the update stays within one version;
+     - the candidate (§12.6) is constructed without a refusal.
+   - **Valid in Custom:** the slice's registry-set validation (§9.3), run over the Custom slice with the new file added or the Custom file replaced by the candidate, reports no failure it does not already report without the change. That covers the registry itself and its references to Custom's other registries.
 5. **Transaction** (§4.6), in this order:
-   1. `custom/.baseline/<slice>/<file>`;
-   2. `custom/<slice>/<file>`. This and the `.baseline/` copy are the same Builtin bytes.
+   1. `custom/.baseline/<slice>/<file>`: the current Builtin bytes, whole. The Baseline advances to the current Builtin even where an entry was decided `keep-custom` (§8.2).
+   2. `custom/<slice>/<file>`: for `registry-added`, the same Builtin bytes; for `differs`, the candidate (§12.6). A candidate equal to the Custom payload is not written, so Custom keeps its bytes.
    3. The manifest, with `basedOn.registries[<id>]` set to `{ validatorVersion, version, digest }`: the current Validator version, the Builtin `version` and the canonical digest (§5), computed exactly as `init-custom` computes them. Every other entry and field is unchanged, and entries are sorted by id.
 6. **Result.** After a successful `update`:
-   - `diff` reports the registry `unchanged`, and `status` reports it `unchanged`;
+   - a `registry-added` registry is `unchanged` in `diff` and in `status`;
+   - in a `differs` registry, against the new Baseline, every entry decided `take-builtin` and every `aligned` entry no longer differs; every entry decided `keep-custom` is `custom-only`, as are the `custom-only` entries before; with nothing left, the registry is `unchanged`;
    - no other registry, Baseline copy or manifest entry has changed;
    - `registry-state.json` is never read or written.
 
@@ -578,6 +579,24 @@ Both need a Custom set and write nothing.
 - A failed registry: `{ command, recovered?, applied, skipped, failed: { registryId, detail } }`. Exit 1. `applied` lists the registries advanced before the failure; the failed registry is rolled back (§4.6 item 4).
 
 `recovered` is present only when a transaction was found: `{ outcome: "committed" | "rolled-back" }`.
+
+### 12.6 Update candidate (entry decisions)
+
+For a complete `differs` record, `update` constructs the **candidate**: the Custom payload the decisions describe. Construction is pure: from the Baseline, current Builtin and current Custom payloads, the registry's comparison declaration (§8.4) and the record, with no file access. Suite core applies the declaration mechanically and never interprets registry content (§9.2).
+
+1. **The record.** Every decidable entry (§12.4) of the three-way comparison has a decision, and every decision names a decidable entry of that class. Otherwise the candidate is refused.
+2. **Start** from the Custom payload as parsed. `keep-custom` changes nothing, so a `builtin-added` entry stays absent, a `builtin-removed` entry stays, and a `builtin-changed` or `both-changed` entry keeps its Custom form. `custom-only` and `aligned` entries are not touched.
+3. **`take-builtin`** makes the entry's location hold its current Builtin form, read from the Builtin payload at the same location, or makes it absent where Builtin lacks it:
+   - `value`: the value is set, or removed;
+   - `members`: the member is appended, or every occurrence is removed;
+   - `keyed` record: the record is replaced in place, or appended, or removed;
+   - group-presence entry: the map property is created as an empty list, or removed with whatever it still holds.
+
+   A container that is not an entry itself (an object on the path, an unordered list, a list of members) is created when an addition needs it, and an emptied one stays as an empty container: the comparison identity does not distinguish it from an absent one.
+4. **Order entries** apply last. Each ordered collection's records are arranged in the decided sequence: Builtin's for `take-builtin`, otherwise Custom's. A collection whose decided order is absent is removed when it is empty.
+5. **Exact image.** The candidate is extracted (§8.4) and must hold exactly the decided entries: at every address, the Builtin value for `take-builtin` and the Custom value otherwise, present or absent alike. A combination of individually valid choices that cannot produce that image is refused, naming each address that differs. Examples: an order taken from Builtin that lists a record decided `keep-custom` absent, records kept in a group decided removed, or a record added to a group decided absent. A candidate is never repaired.
+
+Nothing else is created, merged or reordered.
 
 ## 13) Implementation slices
 
@@ -616,7 +635,7 @@ Both need a Custom set and write nothing.
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), and `update` for `registry-added` records (§12.5) through the lifecycle transaction (§4.6). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check` and `registry:update`. Not implemented yet (#60): entry decisions in `update`, `migrate`, `edit`, `trace`, `import`/`export` and preview.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), and `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom` and `take-builtin` (§12.6) through the lifecycle transaction (§4.6). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check` and `registry:update`. Not implemented yet (#60): the entry choices merge-fields and add-alongside, `migrate`, `edit`, `trace`, `import`/`export` and preview.
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.

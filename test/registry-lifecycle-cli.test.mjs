@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { digestRegistryPayload } from '../src/core/registry-lifecycle/registry-lifecycle-canonical-digest.logic.mjs';
+import { REGISTRY_LIFECYCLE_SLICES } from '../src/core/registry-lifecycle/registry-lifecycle-inventory.knowledge.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const registryBinPath = path.join(packageRoot, 'bin/calculogic-validator-registry.host.mjs');
@@ -457,5 +459,49 @@ test('update applies an inherit decision through the bin and refuses an invalid 
     const usage = run(registryBinPath, ['update'], targetRoot);
     assert.equal(usage.status, 1);
     assert.match(usage.stderr, /"update" needs exactly one document path/u);
+  });
+});
+
+test('update applies entry decisions through the bin, and the declined entries read custom-only afterwards', () => {
+  withTargetRepository((targetRoot) => {
+    assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
+    // Emulate a Custom set made when Builtin lacked `.tsx` and `.jsx`: its Baseline copy, its Custom
+    // file and its manifest digest all lack them, so the current Builtin reports both builtin-added.
+    const customRoot = path.join(targetRoot, '.calculogic/registries/custom');
+    const registryPath = (root) => path.join(root, 'naming/reportable-extensions.registry.json');
+    const older = JSON.parse(fs.readFileSync(registryPath(customRoot), 'utf8'));
+    older.reportableExtensions = older.reportableExtensions.filter((extension) => !['.tsx', '.jsx'].includes(extension));
+    for (const root of [customRoot, path.join(customRoot, '.baseline')]) {
+      fs.writeFileSync(registryPath(root), `${JSON.stringify(older, null, 2)}\n`);
+    }
+    const descriptor = REGISTRY_LIFECYCLE_SLICES.flatMap((slice) => slice.inventory).find(
+      (entry) => entry.registryId === 'naming/reportable-extensions',
+    ).descriptor;
+    const manifestPath = path.join(customRoot, 'registry-set.manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifest.basedOn.registries['naming/reportable-extensions'].digest = digestRegistryPayload(older, descriptor);
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+
+    const document = JSON.parse(run(registryBinPath, ['decisions-template'], targetRoot).stdout);
+    assert.deepEqual(document.registries.map((record) => record.entries), [
+      [
+        { address: 'reportableExtensions[".jsx"]', class: 'builtin-added', decision: null },
+        { address: 'reportableExtensions[".tsx"]', class: 'builtin-added', decision: null },
+      ],
+    ]);
+    document.registries[0].entries[0].decision = 'keep-custom';
+    document.registries[0].entries[1].decision = 'take-builtin';
+    fs.writeFileSync(path.join(targetRoot, 'decisions.json'), JSON.stringify(document));
+
+    const applied = run(registryBinPath, ['update', 'decisions.json'], targetRoot);
+    assert.equal(applied.status, 0, applied.stderr);
+    assert.deepEqual(JSON.parse(applied.stdout), { command: 'update', applied: ['naming/reportable-extensions'], skipped: [] });
+
+    const diff = JSON.parse(run(registryBinPath, ['diff', 'naming/reportable-extensions'], targetRoot).stdout);
+    assert.deepEqual(diff.registries[0].entries.map((entry) => [entry.address, entry.class]), [
+      ['reportableExtensions[".jsx"]', 'custom-only'],
+    ]);
+    assert.deepEqual(JSON.parse(run(registryBinPath, ['status'], targetRoot).stdout).customIssues, []);
+    assert.deepEqual(JSON.parse(run(registryBinPath, ['decisions-template'], targetRoot).stdout).registries, []);
   });
 });

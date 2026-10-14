@@ -81,14 +81,18 @@ export const REGISTRY_DECISIONS_BY_CLASS = Object.freeze({
   'registry-added': Object.freeze(['inherit']),
 });
 
+// [6.3] cfg-registryLifecycle · Primitive · "Entry decisions" (spec §12.4)
+export const ENTRY_DECISIONS = Object.freeze({ keepCustom: 'keep-custom', takeBuiltin: 'take-builtin' });
+
 // [6.3] cfg-registryLifecycle · Primitive · "Entry decisions by entry class" (spec §12.4)
 // The decidable entry classes and the choices each accepts. `custom-only` is kept and `aligned`
 // counts as decided (spec §8.2), so neither takes a decision.
+const CONTENT_ENTRY_DECISIONS = Object.freeze([ENTRY_DECISIONS.keepCustom, ENTRY_DECISIONS.takeBuiltin]);
 export const ENTRY_DECISIONS_BY_CLASS = Object.freeze({
-  'builtin-added': Object.freeze(['keep-custom', 'take-builtin']),
-  'builtin-changed': Object.freeze(['keep-custom', 'take-builtin']),
-  'builtin-removed': Object.freeze(['keep-custom', 'take-builtin']),
-  'both-changed': Object.freeze(['keep-custom', 'take-builtin']),
+  'builtin-added': CONTENT_ENTRY_DECISIONS,
+  'builtin-changed': CONTENT_ENTRY_DECISIONS,
+  'builtin-removed': CONTENT_ENTRY_DECISIONS,
+  'both-changed': CONTENT_ENTRY_DECISIONS,
 });
 
 // [6.3] cfg-registryLifecycle · Primitive · "Update decisions problems" (spec §12.4)
@@ -115,7 +119,6 @@ export const LIFECYCLE_TRANSACTION_OUTCOMES = Object.freeze({ committed: 'commit
 // [6.3] cfg-registryLifecycle · Primitive · "update skip reasons" (spec §12.5)
 export const UPDATE_SKIP_REASONS = Object.freeze({
   undecided: 'undecided',
-  notYetSupported: 'not-yet-supported',
 });
 
 // [6.3] cfg-registryLifecycle · Primitive · "Missing-set blocking condition" (spec §7.1 item 1)

@@ -162,7 +162,7 @@ test('several registries are applied one transaction each, in id order', () => {
 
 // ---- what is not applied ----------------------------------------------------------------------
 
-test('null is never inheritance, and complete entry decisions are skipped until supported', () => {
+test('null is never a decision: an undecided registry or entry is skipped, and nothing is written', () => {
   withAddedRegistries(({ paths, builtinFile, customFile, template, update }) => {
     for (const file of [builtinFile, customFile]) {
       updateJson(file('naming/reportable-extensions'), (payload) => ({
@@ -172,19 +172,20 @@ test('null is never inheritance, and complete entry decisions are skipped until 
     }
     updateJson(builtinFile('naming/reportable-root-files'), (payload) => ({
       ...payload,
-      reportableRootFiles: [...payload.reportableRootFiles, 'NOTICE'],
+      reportableRootFiles: [...payload.reportableRootFiles, 'NOTICE', 'AUTHORS'],
     }));
 
+    // One of the two root-file entries is decided; the other stays null, so the record is skipped.
     const document = template();
-    const decidedEntries = document.registries.find((record) => record.registryId === 'naming/reportable-extensions');
-    decidedEntries.entries.forEach((entry) => (entry.decision = 'keep-custom'));
+    const partly = document.registries.find((record) => record.registryId === 'naming/reportable-root-files');
+    partly.entries[0].decision = 'take-builtin';
     const before = snapshotTree(paths.lifecycleRoot);
 
     assert.deepEqual(update(document), {
       applied: [],
       skipped: [
         { registryId: 'naming/case-rules', reason: 'undecided' },
-        { registryId: 'naming/reportable-extensions', reason: 'not-yet-supported' },
+        { registryId: 'naming/reportable-extensions', reason: 'undecided' },
         { registryId: 'naming/reportable-root-files', reason: 'undecided' },
       ],
     });
@@ -489,5 +490,247 @@ test('update needs a Validator version and a Custom set', () => {
     assert.equal(fs.existsSync(path.join(targetRoot, '.calculogic')), false);
   } finally {
     fs.rmSync(targetRoot, { recursive: true, force: true });
+  }
+});
+
+// ---- entry decisions (spec §12.5, §12.6) --------------------------------------------------------
+
+// Decides every entry of `registryId`'s record with `choose(address, class)`.
+const decideEntries = (document, registryId, choose) => {
+  const record = document.registries.find((candidate) => candidate.registryId === registryId);
+  record.entries.forEach((entry) => (entry.decision = choose(entry.address, entry.class)));
+  return document;
+};
+const entryClasses = (diffResult, registryId) =>
+  Object.fromEntries((registryOf(diffResult, registryId).entries ?? []).map((entry) => [entry.address, entry.class]));
+
+// Builtin adds `.py` and drops `.js`; Custom independently adds `.rb`. Builtin also inserts an exit
+// policy before `default-success`, which changes the ordered collection's order entry.
+const withContentChanges = (run) =>
+  withAddedRegistries(
+    (fixture) => {
+      const { builtinFile, customFile } = fixture;
+      updateJson(builtinFile('naming/reportable-extensions'), (payload) => ({
+        ...payload,
+        reportableExtensions: [...payload.reportableExtensions.filter((extension) => extension !== '.js'), '.py'],
+      }));
+      updateJson(customFile('naming/reportable-extensions'), (payload) => ({
+        ...payload,
+        reportableExtensions: [...payload.reportableExtensions, '.rb'],
+      }));
+      updateJson(builtinFile('suite/exit-policy'), (payload) => ({
+        ...payload,
+        policies: [...payload.policies.slice(0, -1), { id: 'review', exitCode: 3, predicate: { strictMode: true } }, payload.policies.at(-1)],
+      }));
+      return run(fixture);
+    },
+    { missingIds: [] },
+  );
+
+test('entry decisions: take-builtin entries align, keep-custom entries become custom-only, and the Baseline advances whole', () => {
+  withContentChanges(({ paths, builtinFile, customFile, baselineFile, template, update, diff, status }) => {
+    assert.deepEqual(entryClasses(diff(), 'naming/reportable-extensions'), {
+      'reportableExtensions[".js"]': 'builtin-removed',
+      'reportableExtensions[".py"]': 'builtin-added',
+      'reportableExtensions[".rb"]': 'custom-only',
+    });
+    assert.deepEqual(entryClasses(diff(), 'suite/exit-policy'), {
+      'policies#order': 'builtin-changed',
+      'policies[id="review"]': 'builtin-added',
+    });
+
+    const document = template();
+    decideEntries(document, 'naming/reportable-extensions', (address) =>
+      address === 'reportableExtensions[".py"]' ? 'take-builtin' : 'keep-custom',
+    );
+    decideEntries(document, 'suite/exit-policy', () => 'take-builtin');
+    const stateBefore = fs.readFileSync(paths.statePath);
+    const changedIds = ['naming/reportable-extensions', 'suite/exit-policy'];
+    const targets = new Set([
+      ...changedIds.flatMap((registryId) => [customFile(registryId), baselineFile(registryId)]),
+      paths.manifestPath,
+    ].map((target) => path.relative(paths.lifecycleRoot, target)));
+    const othersBefore = snapshotTree(paths.lifecycleRoot).filter(([relativePath]) => !targets.has(relativePath));
+    const manifestBefore = readJson(paths.manifestPath);
+
+    assert.deepEqual(update(document), { applied: changedIds, skipped: [] });
+
+    // Custom: `.py` taken, `.js` kept although Builtin removed it, `.rb` (custom-only) untouched.
+    assert.deepEqual(readJson(customFile('naming/reportable-extensions')).reportableExtensions.slice(-2), ['.rb', '.py']);
+    assert.ok(readJson(customFile('naming/reportable-extensions')).reportableExtensions.includes('.js'));
+    assert.deepEqual(
+      readJson(customFile('suite/exit-policy')).policies.map((policy) => policy.id),
+      readJson(builtinFile('suite/exit-policy')).policies.map((policy) => policy.id),
+    );
+    // The Baseline is the whole current Builtin, keep-custom decisions included.
+    for (const registryId of changedIds) {
+      assert.deepEqual(fs.readFileSync(baselineFile(registryId)), fs.readFileSync(builtinFile(registryId)), registryId);
+      const manifestEntry = readJson(paths.manifestPath).basedOn.registries[registryId];
+      assert.equal(manifestEntry.validatorVersion, VALIDATOR_VERSION);
+      assert.equal(manifestEntry.digest, document.registries.find((record) => record.registryId === registryId).basedOn.builtinDigest);
+    }
+    const { basedOn: { registries: after } } = readJson(paths.manifestPath);
+    for (const registryId of Object.keys(manifestBefore.basedOn.registries).filter((id) => !changedIds.includes(id))) {
+      assert.deepEqual(after[registryId], manifestBefore.basedOn.registries[registryId], registryId);
+    }
+    assert.deepEqual(snapshotTree(paths.lifecycleRoot).filter(([relativePath]) => !targets.has(relativePath)), othersBefore);
+    assert.deepEqual(fs.readFileSync(paths.statePath), stateBefore);
+    assert.equal(fs.existsSync(transactionRoot(paths)), false);
+
+    // Against the new Baseline: the declined removal and the earlier Custom addition are custom-only;
+    // the taken entries no longer differ.
+    assert.deepEqual(entryClasses(diff(), 'naming/reportable-extensions'), {
+      'reportableExtensions[".js"]': 'custom-only',
+      'reportableExtensions[".rb"]': 'custom-only',
+    });
+    assert.equal(registryOf(diff(), 'suite/exit-policy').class, 'unchanged');
+    assert.deepEqual(status().customIssues, []);
+    assert.equal(registryOf(status(), 'naming/reportable-extensions').baselineMismatch, false);
+    assert.deepEqual(template().registries, [], 'a declined change is not offered again');
+  });
+});
+
+test('all keep-custom: Custom keeps its bytes, the Baseline still advances, and every Builtin change becomes custom-only', () => {
+  withContentChanges(({ customFile, baselineFile, builtinFile, template, update, diff }) => {
+    const document = template();
+    const customBefore = fs.readFileSync(customFile('suite/exit-policy'));
+    decideEntries(document, 'naming/reportable-extensions', () => 'keep-custom');
+    decideEntries(document, 'suite/exit-policy', () => 'keep-custom');
+
+    assert.deepEqual(update(document).applied, ['naming/reportable-extensions', 'suite/exit-policy']);
+    assert.deepEqual(fs.readFileSync(customFile('suite/exit-policy')), customBefore, 'not rewritten');
+    assert.deepEqual(fs.readFileSync(baselineFile('suite/exit-policy')), fs.readFileSync(builtinFile('suite/exit-policy')));
+    assert.deepEqual(entryClasses(diff(), 'suite/exit-policy'), {
+      'policies#order': 'custom-only',
+      'policies[id="review"]': 'custom-only',
+    });
+  });
+});
+
+test('a differs record whose every Builtin change is aligned has nothing to decide and advances its Baseline', () => {
+  withAddedRegistries(
+    ({ builtinFile, customFile, baselineFile, template, update, diff }) => {
+      for (const file of [builtinFile, customFile]) {
+        updateJson(file('naming/reportable-root-files'), (payload) => ({
+          ...payload,
+          reportableRootFiles: [...payload.reportableRootFiles, 'NOTICE'],
+        }));
+      }
+      const document = template();
+      assert.deepEqual(document.registries.map((record) => [record.registryId, record.entries]), [['naming/reportable-root-files', []]]);
+      const customBefore = fs.readFileSync(customFile('naming/reportable-root-files'));
+
+      assert.deepEqual(update(document), { applied: ['naming/reportable-root-files'], skipped: [] });
+      assert.deepEqual(fs.readFileSync(customFile('naming/reportable-root-files')), customBefore);
+      assert.deepEqual(fs.readFileSync(baselineFile('naming/reportable-root-files')), fs.readFileSync(builtinFile('naming/reportable-root-files')));
+      assert.equal(registryOf(diff(), 'naming/reportable-root-files').class, 'unchanged');
+    },
+    { missingIds: [] },
+  );
+});
+
+test('an inconsistent combination of entry decisions is refused before its transaction, naming the address', () => {
+  withContentChanges(({ paths, template, update }) => {
+    const document = template();
+    decideEntries(document, 'naming/reportable-extensions', () => 'take-builtin');
+    // The new policy is taken, but the order entry keeps Custom's sequence, which does not list it.
+    decideEntries(document, 'suite/exit-policy', (address) => (address === 'policies#order' ? 'keep-custom' : 'take-builtin'));
+    const exitPolicyFiles = ['custom', path.join('custom', '.baseline')].map((root) =>
+      fs.readFileSync(path.join(paths.lifecycleRoot, root, 'suite', 'exit-policy.registry.json')),
+    );
+
+    const result = update(document);
+    assert.deepEqual(result.applied, ['naming/reportable-extensions']);
+    assert.equal(result.failed.registryId, 'suite/exit-policy');
+    assert.match(result.failed.detail, /inconsistent registry; refused at: policies#order\./u);
+    assert.deepEqual(
+      ['custom', path.join('custom', '.baseline')].map((root) =>
+        fs.readFileSync(path.join(paths.lifecycleRoot, root, 'suite', 'exit-policy.registry.json')),
+      ),
+      exitPolicyFiles,
+    );
+    assert.equal(fs.existsSync(transactionRoot(paths)), false);
+  });
+});
+
+test('individually valid entry decisions whose registry fails slice validation are refused before the transaction', () => {
+  withAddedRegistries(
+    ({ paths, builtinFile, customFile, template, update, diff }) => {
+      // Builtin adds a category and its (empty) group in the category-role perspective, which must
+      // name declared categories only.
+      updateJson(builtinFile('naming/categories'), (payload) => ({
+        ...payload,
+        categories: [...payload.categories, { category: 'new-family', status: 'active', definition: 'A new family.' }],
+      }));
+      updateJson(builtinFile('naming/category-role-perspective'), (payload) => ({
+        ...payload,
+        rolesByCategory: { ...payload.rolesByCategory, 'new-family': [] },
+      }));
+      const document = template();
+      decideEntries(document, 'naming/categories', () => 'keep-custom');
+      decideEntries(document, 'naming/category-role-perspective', () => 'take-builtin');
+      const perspectiveBefore = snapshotTree(path.dirname(customFile('naming/category-role-perspective')));
+
+      const result = update(document);
+      assert.deepEqual(result.applied, ['naming/categories']);
+      assert.equal(result.failed.registryId, 'naming/category-role-perspective');
+      assert.match(result.failed.detail, /registry-set validation fails with the candidate: .*not declared in categories: new-family/u);
+      assert.deepEqual(snapshotTree(path.dirname(customFile('naming/category-role-perspective'))), perspectiveBefore);
+      assert.equal(registryOf(diff(), 'naming/category-role-perspective').entries[0].class, 'builtin-added');
+      assert.equal(fs.existsSync(transactionRoot(paths)), false);
+    },
+    { missingIds: [] },
+  );
+});
+
+test('a registry whose inputs change after the check is refused as stale, and one whose Baseline version moved as a migration', () => {
+  for (const [label, alter, pattern] of [
+    [
+      'the Custom file changed',
+      ({ customFile }) =>
+        updateJson(customFile('suite/exit-policy'), (payload) => ({ ...payload, policies: payload.policies.slice(1) })),
+      /the Custom file no longer has the digest the decisions document was made against/u,
+    ],
+    [
+      'the Baseline copy changed',
+      ({ baselineFile }) => updateJson(baselineFile('suite/exit-policy'), (payload) => ({ ...payload, policies: [] })),
+      /the Baseline copy file no longer has the digest/u,
+    ],
+    [
+      'the manifest Baseline digest changed',
+      ({ paths }) =>
+        updateJson(paths.manifestPath, (manifest) => {
+          manifest.basedOn.registries['suite/exit-policy'].digest = '0'.repeat(64);
+          return manifest;
+        }),
+      /the manifest Baseline entry is not the one the decisions document was made against/u,
+    ],
+    [
+      'the manifest entry names another version',
+      ({ paths }) =>
+        updateJson(paths.manifestPath, (manifest) => {
+          manifest.basedOn.registries['suite/exit-policy'].version = '0';
+          return manifest;
+        }),
+      /the update applies within one version/u,
+    ],
+  ]) {
+    withContentChanges((fixture) => {
+      const document = fixture.template();
+      decideEntries(document, 'naming/reportable-extensions', () => 'take-builtin');
+      decideEntries(document, 'suite/exit-policy', () => 'take-builtin');
+      const exitPolicyBefore = fs.readFileSync(fixture.customFile('suite/exit-policy'));
+      // The first registry's transaction runs after the document was checked; altering the second
+      // registry's inputs then is the window prepare re-binds.
+      const result = fixture.update(document, {
+        onTransactionStep: (step) => step === 'committed' && alter(fixture),
+      });
+      assert.deepEqual(result.applied, ['naming/reportable-extensions'], label);
+      assert.equal(result.failed.registryId, 'suite/exit-policy', label);
+      assert.match(result.failed.detail, pattern, label);
+      if (label !== 'the Custom file changed') {
+        assert.deepEqual(fs.readFileSync(fixture.customFile('suite/exit-policy')), exitPolicyBefore, label);
+      }
+    });
   }
 });
