@@ -105,6 +105,19 @@ export const UPDATE_DECISIONS_PROBLEMS = Object.freeze({
   unsupportedDecision: 'unsupported-decision',
 });
 
+// [6.3] cfg-registryLifecycle · Primitive · "Lifecycle transaction" (spec §4.6)
+// The transaction directory lives in the lifecycle root, outside `custom/`.
+export const LIFECYCLE_TRANSACTION_DIRNAME = '.lifecycle-transaction';
+export const LIFECYCLE_TRANSACTION_JOURNAL_FILENAME = 'journal.json';
+export const LIFECYCLE_TRANSACTION_SCHEMA_VERSION = '1';
+export const LIFECYCLE_TRANSACTION_OUTCOMES = Object.freeze({ committed: 'committed', rolledBack: 'rolled-back' });
+
+// [6.3] cfg-registryLifecycle · Primitive · "update skip reasons" (spec §12.5)
+export const UPDATE_SKIP_REASONS = Object.freeze({
+  undecided: 'undecided',
+  notYetSupported: 'not-yet-supported',
+});
+
 // [6.3] cfg-registryLifecycle · Primitive · "Missing-set blocking condition" (spec §7.1 item 1)
 // Blocks activation and an active-Custom run when no Custom set exists. It is not a `customIssues`
 // condition, because `customIssues` describe an existing set.

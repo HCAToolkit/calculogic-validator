@@ -43,6 +43,7 @@ test('package.json declares the registry lifecycle bin and repository scripts', 
   assert.match(packageJson.scripts['registry:diff'], /registry-lifecycle\.host\.mjs diff$/u);
   assert.match(packageJson.scripts['registry:decisions-template'], /registry-lifecycle\.host\.mjs decisions-template$/u);
   assert.match(packageJson.scripts['registry:decisions-check'], /registry-lifecycle\.host\.mjs decisions-check$/u);
+  assert.match(packageJson.scripts['registry:update'], /registry-lifecycle\.host\.mjs update$/u);
 });
 
 test('status prints the Builtin-only state as JSON without writing lifecycle files', () => {
@@ -393,7 +394,7 @@ test('decisions-template and decisions-check print JSON, write nothing, and exit
     const unreadable = run(registryBinPath, ['decisions-check', documentPath], targetRoot);
     assert.equal(unreadable.status, 1);
     assert.equal(unreadable.stdout, '');
-    assert.match(unreadable.stderr, /Cannot check /u);
+    assert.match(unreadable.stderr, /Cannot read /u);
 
     for (const args of [['decisions-check'], ['decisions-check', 'a.json', 'b.json']]) {
       const usage = run(registryBinPath, args, targetRoot);
@@ -407,5 +408,54 @@ test('decisions-template and decisions-check print JSON, write nothing, and exit
     assert.match(unknown.stderr, /Unknown registry id\(s\): naming\/nope\./u);
 
     assert.deepEqual(snapshot(), before);
+  });
+});
+
+test('update applies an inherit decision through the bin and refuses an invalid document', () => {
+  withTargetRepository((targetRoot) => {
+    assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
+    // Emulate a Custom set made before naming/case-rules existed.
+    const customRoot = path.join(targetRoot, '.calculogic/registries/custom');
+    fs.rmSync(path.join(customRoot, 'naming/case-rules.registry.json'));
+    fs.rmSync(path.join(customRoot, '.baseline/naming/case-rules.registry.json'));
+    const manifestPath = path.join(customRoot, 'registry-set.manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    delete manifest.basedOn.registries['naming/case-rules'];
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    const statePath = path.join(targetRoot, '.calculogic/registries/registry-state.json');
+    const stateBefore = fs.readFileSync(statePath, 'utf8');
+
+    const document = JSON.parse(run(registryBinPath, ['decisions-template'], targetRoot).stdout);
+    assert.deepEqual(document.registries.map((record) => [record.registryId, record.class]), [['naming/case-rules', 'registry-added']]);
+    const documentPath = path.join(targetRoot, 'decisions.json');
+
+    fs.writeFileSync(documentPath, JSON.stringify({ ...document, registries: [{ ...document.registries[0], decision: 'take-builtin' }] }));
+    const refused = run(registryBinPath, ['update', 'decisions.json'], targetRoot);
+    assert.equal(refused.status, 1);
+    assert.deepEqual(JSON.parse(refused.stdout).problems.map((item) => item.problem), ['unsupported-decision']);
+    assert.equal(fs.existsSync(path.join(customRoot, 'naming/case-rules.registry.json')), false);
+
+    fs.writeFileSync(documentPath, JSON.stringify({ ...document, registries: [{ ...document.registries[0], decision: 'inherit' }] }));
+    const applied = run(registryBinPath, ['update', documentPath], targetRoot);
+    assert.equal(applied.status, 0, applied.stderr);
+    assert.deepEqual(JSON.parse(applied.stdout), { command: 'update', applied: ['naming/case-rules'], skipped: [] });
+
+    const diff = JSON.parse(run(registryBinPath, ['diff', 'naming/case-rules'], targetRoot).stdout);
+    assert.deepEqual(diff.registries, [{ registryId: 'naming/case-rules', class: 'unchanged' }]);
+    assert.deepEqual(JSON.parse(run(registryBinPath, ['status'], targetRoot).stdout).customIssues, []);
+    assert.equal(fs.readFileSync(statePath, 'utf8'), stateBefore);
+
+    // An interrupted transaction is recovered even when the document cannot be read.
+    const transactionRoot = path.join(targetRoot, '.calculogic/registries/.lifecycle-transaction');
+    fs.mkdirSync(transactionRoot);
+    const unreadable = run(registryBinPath, ['update', 'missing.json'], targetRoot);
+    assert.equal(unreadable.status, 1);
+    assert.equal(unreadable.stdout, '');
+    assert.match(unreadable.stderr, /Cannot read the decisions document: .*recovered first \(rolled-back\)/u);
+    assert.equal(fs.existsSync(transactionRoot), false);
+
+    const usage = run(registryBinPath, ['update'], targetRoot);
+    assert.equal(usage.status, 1);
+    assert.match(usage.stderr, /"update" needs exactly one document path/u);
   });
 });

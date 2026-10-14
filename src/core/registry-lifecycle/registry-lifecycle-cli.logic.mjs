@@ -3,7 +3,7 @@
  * Concern File: Logic
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.3, §7.3)
  * Responsibility: The lifecycle command interface: `init-custom`, `use`, `status`, `diff`,
- *   `decisions-template` and `decisions-check`.
+ *   `decisions-template`, `decisions-check` and `update`.
  * Invariants: operates on the validation target root; prints deterministic JSON on stdout;
  *   usage and lifecycle errors go to stderr with exit code 1.
  */
@@ -16,6 +16,7 @@ import {
 } from '../cli/validator-cli-usage.logic.mjs';
 import { initCustomRegistrySet } from './registry-lifecycle-init.logic.mjs';
 import { buildRegistryLifecycleStatus } from './registry-lifecycle-status.logic.mjs';
+import { applyRegistryUpdateDecisions } from './registry-lifecycle-update.logic.mjs';
 import { useRegistrySet } from './registry-lifecycle-use.logic.mjs';
 import { buildRegistryLifecycleDiff } from './registry-lifecycle-diff.logic.mjs';
 import {
@@ -41,6 +42,9 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '                         decision null (undecided), as JSON. Writes nothing.',
   '  decisions-check <file> Check an update decisions document against the current comparison and print',
   '                         the result as JSON. Exits 1 when it has problems. Writes nothing.',
+  '  update <file>          Apply a checked update decisions document to the Custom set. This release',
+  '                         applies registry-added records decided "inherit" and skips the others.',
+  '                         Each registry advances atomically; the active set never changes.',
   '',
   'Repository scripts:',
   '  npm run registry:init-custom',
@@ -49,6 +53,7 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '  npm run registry:diff -- [registryId...]',
   '  npm run -s registry:decisions-template -- [registryId...] > <file>',
   '  npm run registry:decisions-check -- <file>',
+  '  npm run registry:update -- <file>',
 ]);
 
 const writeJson = (value) => {
@@ -107,25 +112,38 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
     return { exitCode: 0 };
   }
 
-  if (command === 'decisions-check') {
+  if (command === 'decisions-check' || command === 'update') {
     const [documentPath, ...extra] = rest;
     if (documentPath === undefined || extra.length > 0) {
-      printValidatorUsageErrorToStderr('"decisions-check" needs exactly one document path.', REGISTRY_LIFECYCLE_USAGE_LINES);
+      printValidatorUsageErrorToStderr(`"${command}" needs exactly one document path.`, REGISTRY_LIFECYCLE_USAGE_LINES);
       return { exitCode: 1 };
     }
 
     // The document is an ordinary input file, resolved from the working directory (spec §12.4).
-    let result;
+    // `update` reads it only after recovering an interrupted transaction (spec §12.5).
+    const loadDocument = () => JSON.parse(fs.readFileSync(path.resolve(documentPath), 'utf8'));
     try {
-      const document = JSON.parse(fs.readFileSync(path.resolve(documentPath), 'utf8'));
-      result = checkRegistryUpdateDecisions({ document, targetRoot });
+      if (command === 'update') {
+        const result = applyRegistryUpdateDecisions({ loadDocument, targetRoot, validatorVersion: getValidatorToolVersion() });
+        writeJson({ command, ...result });
+        return { exitCode: result.problems || result.failed ? 1 : 0 };
+      }
+
+      let document;
+      try {
+        document = loadDocument();
+      } catch (error) {
+        console.error(`Cannot read ${documentPath}: ${error.message}`);
+        return { exitCode: 1 };
+      }
+
+      const result = checkRegistryUpdateDecisions({ document, targetRoot });
+      writeJson(result);
+      return { exitCode: result.valid ? 0 : 1 };
     } catch (error) {
-      console.error(`Cannot check ${documentPath}: ${error.message}`);
+      console.error(error.message);
       return { exitCode: 1 };
     }
-
-    writeJson(result);
-    return { exitCode: result.valid ? 0 : 1 };
   }
 
   if (rest.length > 0) {
