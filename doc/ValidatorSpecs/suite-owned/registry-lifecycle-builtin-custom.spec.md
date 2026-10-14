@@ -2,7 +2,7 @@
 
 - **Classification:** Normative target contract for the suite-level registry lifecycle. Sections marked *Current implementation reality* or *Historical* are Informative.
 - **Ownership:** suite-owned lifecycle mechanics; slice-owned registry meaning (§9).
-- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. The advanced management surface and the cross-slice compatibility check remain follow-ons (§13 item 4). §14 records current reality.
+- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document and `update` (`registry-added` inheritance, and the entry decisions `keep-custom` and `take-builtin`) are implemented; its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
 - **Report-only note:** the lifecycle selects registry inputs and discloses them in report metadata. It adds no enforcement mode and no fix execution.
 - **Issue lineage:** Refs #41; parent Refs #39. Decision record: #41 comments "Decision record (before the spec PR)", "Decision record: section 9 resolved" and "Decision record: activation, and the earlier customization draft".
 
@@ -151,7 +151,7 @@ A transaction replaces an ordered list of files. Its last file is the **commit p
    - So is a journal. The journal lists, in commit order, each target with the identity of the entry it replaces (`original`: a file's SHA-256 or a symlink's link text, or `null` when the target is new) and the SHA-256 of its new bytes (`sha256`), then the directories to create. The commit point's `sha256` is the commit digest.
    - The journal is written last and renamed into place, so a transaction directory without a journal has committed nothing.
 3. **Commit, in order.** For each target, an existing entry is first moved into the transaction directory as a backup, then the staged file is renamed into place. Both stay on one file system, so each rename is atomic. An existing entry is a file or a symlink; a symlink is moved, and restored, as the link itself and is never followed. Any other existing entry at a target (a directory, FIFO, socket or device) is refused before anything is written.
-   - For one registry the order is: the `.baseline/` copy, the Custom file, the manifest.
+   - For each registry the transaction advances, its `.baseline/` copy precedes its Custom file. The manifest is written once, last.
    - The manifest rename is the commit point. Before it, nothing trusts the new files; after it, the registry is fully advanced.
    - The transaction directory is then removed. Removal is always a retirement: one atomic rename takes the directory out of recovery's view (to `.lifecycle-transaction-retired-*`), then the copy is deleted. A partial deletion therefore never leaves a directory that recovery could misread, and a retired copy that cannot be deleted is swept by the next recovery. The sweep removes only what retirement produces (the exact generated name, an ordinary directory holding nothing, or only the retired transaction directory as an ordinary directory) and leaves any other entry alone. This applies wherever this section removes the transaction directory.
 4. **Rollback.** Any failure before the commit point undoes every completed step in reverse:
@@ -165,7 +165,7 @@ A transaction replaces an ordered list of files. Its last file is the **commit p
    - The next writing lifecycle command recovers first, from the journal. Every journal path is checked, lexically and by realpath (§4.1), before the commit point is read or anything is touched, and the transaction directory and its backup directory must exist as ordinary directories and the journal as an ordinary file, never symlinks. The transaction directory must hold exactly what the transaction wrote: `staged/` with regular files and `backup/` with files or symlinks, each named by a journaled step index (a backup only for a step that replaced an entry), and the journal. Both directories are created before the journal, so a journaled transaction without either has been altered, as has one with any other entry, name or type. Likewise, every step must be in a state its own commit sequence can produce, with every entry identified by the journal: an original is the journaled `original` exactly, and a new entry is a regular file holding the step's journaled `sha256`. A step replacing an entry is unstarted (original at the target, staged copy), backed up (original as the backup, staged copy) or applied (original as the backup, new entry at the target); a step creating an entry is unstarted (staged copy, no entry) or applied (new entry, no staged copy). Any other state has lost an original, or finds at a target something the journal does not identify (another entry, or a journal naming another target), and recovery refuses rather than report a rollback it cannot make or delete or overwrite an entry it did not write. Rollback records each step in `rolling-back/<i>` before undoing it; a marked step may also be already undone (the original restored at the target, a created entry removed), so an interrupted rollback is resumed by repeating the marked steps, which is idempotent. A committed transaction never has `rolling-back/`. A journal or directory that fails these checks is refused and kept. If the commit point holds its journaled `sha256`, the transaction committed and only its directory is removed. Otherwise it is rolled back as in item 4.
    - Recovery never reads or writes `registry-state.json`.
    - Lifecycle commands are not run concurrently against one target.
-6. **Scope.** One transaction advances one registry (§8.2). A command that advances several registries runs one transaction per registry, in ordinal registry-id order. A failure stops the command: earlier registries stay advanced and later ones are untouched.
+6. **Scope.** A transaction advances its command's atomic unit, every file of which it lists; for `update` that unit is the selected registries of one slice (§12.5). A command that advances several units runs one transaction per unit, in a deterministic order. A failure stops the command: earlier units stay advanced and later ones are untouched.
 7. **Outside this guarantee:** durability against power loss (fsync), and anything else modifying the repository while a lifecycle command runs. Containment (§4.1) is checked before staging and again by recovery; a symlink retargeted between that check and a rename is a concurrent modification, which no in-process check can exclude (Node offers no rename relative to a held directory handle). So is a journal rewritten consistently after a crash: recovery checks the journal against the entries it names, so it never deletes or overwrites an entry the journal does not identify, but a journal cannot authenticate itself; a step redirected to an absent path while its original sits in `backup/` restores that original to the path the journal names.
 8. **A committed transaction** applied every step, so recovery accepts the commit point only when every step is in its applied state (item 5), checked by identity: every target, not only the commit point, is a regular file holding its step's journaled `sha256`, every replaced original is in its backup, nothing is left in `staged/`, and there is no `rolling-back/`. Otherwise the directory was altered and is refused and kept. Every journaled digest must be a SHA-256 (64 lowercase hex characters), and an `original` is exactly `{ kind: "file", sha256 }` or `{ kind: "symlink", link }`. The commit point's staged copy is consumed exactly when the commit point is applied, so a consumed staged copy with a commit point that does not hold the journaled bytes is refused rather than rolled back.
 
@@ -452,7 +452,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices:
 1. `diff` (§12.3);
 2. the update decisions document (§12.4);
-3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance first; entry decisions, migration and the other commands follow. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
+3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance and the entry decisions `keep-custom` and `take-builtin` (§12.6); the other entry choices (§8.2), migration and the other commands follow. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
 
 ### 12.3 `diff` (read-only)
 
@@ -548,36 +548,59 @@ Both need a Custom set and write nothing.
 
 ### 12.5 `update`
 
-`calculogic-validator-registry update <file>` applies a decisions document (§12.4). The path is resolved from the working directory. **This slice applies `registry-added` records only**; entry decisions on `differs` records are a later #60 slice.
+`calculogic-validator-registry update <file>` applies a decisions document (§12.4). The path is resolved from the working directory. It applies `registry-added` records (`inherit`) and `differs` records (`keep-custom`, `take-builtin`). Same-version content only: a registry whose `version` changed needs migration (§8.3).
 
 1. **Recover** an interrupted transaction (§4.6 item 5), before the document is even read: a missing or unparseable document never leaves an interrupted transaction in place. A Custom set must exist.
 2. **Check** the document exactly as `decisions-check` does, against the current comparison. A document that is not `valid` is refused before anything is written, and its problems are printed.
 3. **Select.**
-   - Records with `class: "registry-added"` and `decision: "inherit"` are applied, in ordinal registry-id order.
-   - Every other record is listed under `skipped` with a reason:
-     - `undecided`: its decision, or one of its entry decisions, is still `null`;
-     - `not-yet-supported`: a complete `differs` record.
+   - Every complete record is selected: a `registry-added` record decided `inherit`, and a `differs` record with every entry decided, including one with no entries (every Builtin change `aligned`).
+   - Every other record is listed under `skipped` with reason `undecided`: its decision, or one of its entry decisions, is still `null`. Nothing is ever inferred from `null`, and an undecided record is never pulled into an update.
+   - Selected records are grouped by their owning slice. **The slice is the unit of update:** its registry-set validation (§9.3) decides whether its registries are valid together, so its selected registries are validated and committed together. Slices are applied in ordinal slice-id order, and the registries within one in ordinal registry-id order.
+4. **Prepare each slice** (§4.6 item 1). The slice is refused, before its transaction, unless every selected registry passes its own checks and the slice passes as a whole. Per registry:
+   - **Builtin source:** the Builtin file resolves inside its slice's Builtin root and parses. Its canonical digest (§5) equals the record's `basedOn.builtinDigest`, so the bytes written are exactly the ones the document authorized. Its `version` is one this engine reads.
+   - For a `registry-added` record, **still added:** Custom still lacks the registry, and the manifest still lacks its entry. Otherwise the record is stale.
+   - For a `differs` record, **the decided inputs:**
+     - the manifest entry, the `.baseline/` copy and the Custom file are the ones the record was made against: the manifest digest and the `.baseline/` copy's canonical digest equal `basedOn.baselineDigest`, and the Custom file's equals `basedOn.customDigest`. Both files resolve inside the Custom set and parse;
+     - the Builtin `version` equals the manifest entry's and the Custom file's `version`, so the update stays within one version;
+     - the candidate (§12.6) is constructed without a refusal.
+   Then, for the slice:
+   - **Valid together:** the slice's registry-set validation (§9.3) runs once over the slice's final image: every selected registry's new Custom file (the inherited Builtin bytes or the candidate) in place, and every other registry's current Custom file unchanged. It must report no failure that it does not already report for the current Custom slice. Coordinated changes across the slice's registries (a category removed together with its group, a category renamed in both registries, a role added in both) are therefore valid together whatever their order. A change that is valid only together with an undecided record's change is refused for the whole slice.
+5. **Transaction** (§4.6): one per slice, in this order:
+   1. for each selected registry, `custom/.baseline/<slice>/<file>`: the current Builtin bytes, whole. The Baseline advances to the current Builtin even where an entry was decided `keep-custom` (§8.2);
+   2. for each selected registry, `custom/<slice>/<file>`: for `registry-added`, the same Builtin bytes; for `differs`, the candidate (§12.6). A candidate equal to the Custom payload is not written, so Custom keeps its bytes;
+   3. the manifest, once, with `basedOn.registries[<id>]` set to `{ validatorVersion, version, digest }` for every selected registry: the current Validator version, the Builtin `version` and the canonical digest (§5), computed exactly as `init-custom` computes them. Every other entry and field is unchanged, and entries are sorted by id.
 
-     Nothing is ever inferred from `null`.
-4. **Prepare each registry** (§4.6 item 1). The registry is refused, before its transaction, unless all of these hold:
-   - **Builtin source:** the Builtin file resolves inside its slice's Builtin root and parses. Its canonical digest (§5) equals the record's `basedOn.builtinDigest`, so the copied bytes are exactly the ones the document authorized. Its `version` is one this engine reads.
-   - **Still added:** Custom still lacks the registry, and the manifest still lacks its entry. Otherwise the record is stale.
-   - **Valid in Custom:** the slice's registry-set validation (§9.3), run over the Custom slice with the new file added, reports no failure it does not already report without it. That covers the new registry and its references to Custom's other registries.
-5. **Transaction** (§4.6), in this order:
-   1. `custom/.baseline/<slice>/<file>`;
-   2. `custom/<slice>/<file>`. This and the `.baseline/` copy are the same Builtin bytes.
-   3. The manifest, with `basedOn.registries[<id>]` set to `{ validatorVersion, version, digest }`: the current Validator version, the Builtin `version` and the canonical digest (§5), computed exactly as `init-custom` computes them. Every other entry and field is unchanged, and entries are sorted by id.
+   Within a slice, every selected registry advances or none does. A failed slice stops the command; earlier slices stay advanced, later ones are untouched.
 6. **Result.** After a successful `update`:
-   - `diff` reports the registry `unchanged`, and `status` reports it `unchanged`;
+   - a `registry-added` registry is `unchanged` in `diff` and in `status`;
+   - in a `differs` registry, against the new Baseline, every entry decided `take-builtin` and every `aligned` entry no longer differs; every entry decided `keep-custom` is `custom-only`, as are the `custom-only` entries before; with nothing left, the registry is `unchanged`;
    - no other registry, Baseline copy or manifest entry has changed;
    - `registry-state.json` is never read or written.
 
 **Output** is JSON on stdout:
 - `{ command, recovered?, applied, skipped }`. Exit 0.
 - A refused document: `{ command, applied: [], problems }`. Exit 1.
-- A failed registry: `{ command, recovered?, applied, skipped, failed: { registryId, detail } }`. Exit 1. `applied` lists the registries advanced before the failure; the failed registry is rolled back (§4.6 item 4).
+- A failed slice: `{ command, recovered?, applied, skipped, failed: { sliceId, registryIds, detail } }`. Exit 1. `registryIds` are the slice's selected registries, none of which advanced; the slice is rolled back (§4.6 item 4). `applied` lists, by registry id, the registries of the slices committed before it.
 
 `recovered` is present only when a transaction was found: `{ outcome: "committed" | "rolled-back" }`.
+
+### 12.6 Update candidate (entry decisions)
+
+For a complete `differs` record, `update` constructs the **candidate**: the Custom payload the decisions describe. Construction is pure: from the Baseline, current Builtin and current Custom payloads, the registry's comparison declaration (§8.4) and the record, with no file access. Suite core applies the declaration mechanically and never interprets registry content (§9.2).
+
+1. **The record.** Every decidable entry (§12.4) of the three-way comparison has a decision, and every decision names a decidable entry of that class. Otherwise the candidate is refused.
+2. **Start** from the Custom payload as parsed. `keep-custom` changes nothing, so a `builtin-added` entry stays absent, a `builtin-removed` entry stays, and a `builtin-changed` or `both-changed` entry keeps its Custom form. `custom-only` and `aligned` entries are not touched.
+3. **`take-builtin`** makes the entry's location hold its current Builtin form, read from the Builtin payload at the same location, or makes it absent where Builtin lacks it:
+   - `value`: the value is set, or removed;
+   - `members`: the member is appended, or every occurrence is removed;
+   - `keyed` record: the record is replaced in place, or appended, or removed;
+   - group-presence entry: the map property is created as an empty list, or removed with whatever it still holds.
+
+   A container that is not an entry itself (an object on the path, an unordered list, a list of members) is created when an addition needs it, and an emptied one stays as an empty container: the comparison identity does not distinguish it from an absent one.
+4. **Order entries** apply last. Each ordered collection's records are arranged in the decided sequence: Builtin's for `take-builtin`, otherwise Custom's. A collection whose decided order is absent is removed when it is empty.
+5. **Exact image.** The candidate is extracted (§8.4) and must hold exactly the decided entries: at every address, the Builtin value for `take-builtin` and the Custom value otherwise, present or absent alike. A combination of individually valid choices that cannot produce that image is refused, naming each address that differs. Examples: an order taken from Builtin that lists a record decided `keep-custom` absent, records kept in a group decided removed, or a record added to a group decided absent. A candidate is never repaired.
+
+Nothing else is created, merged or reordered.
 
 ## 13) Implementation slices
 
@@ -616,7 +639,7 @@ Both need a Custom set and write nothing.
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), and `update` for `registry-added` records (§12.5) through the lifecycle transaction (§4.6). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check` and `registry:update`. Not implemented yet (#60): entry decisions in `update`, `migrate`, `edit`, `trace`, `import`/`export` and preview.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), and `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom` and `take-builtin` (§12.6) through the lifecycle transaction (§4.6). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check` and `registry:update`. Not implemented yet (#60): the entry choices merge-fields and add-alongside, `migrate`, `edit`, `trace`, `import`/`export` and preview.
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.

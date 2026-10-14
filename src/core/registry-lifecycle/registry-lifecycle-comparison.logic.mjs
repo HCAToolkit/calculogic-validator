@@ -100,8 +100,9 @@ const resolvePath = (payload, segments) => {
   return { found: true, node };
 };
 
-// The collection's located nodes: `{ base, node, isGroup }`, where `base` is the address prefix.
-// A final `*` yields one node per map property, addressed `<path>["<property>"]`.
+// The collection's located nodes: `{ base, node, container, isGroup }`, where `base` is the
+// address prefix and `container` the field path to the node. A final `*` yields one node per map
+// property, addressed `<path>["<property>"]`.
 const locateCollection = (canonicalPayload, collection) => {
   const segments = collection.path.split('.');
   const isWildcard = segments.at(-1) === WILDCARD;
@@ -113,7 +114,7 @@ const locateCollection = (canonicalPayload, collection) => {
 
   const literalBase = literalSegments.join('.');
   if (!isWildcard) {
-    return [{ base: literalBase, node, isGroup: false }];
+    return [{ base: literalBase, node, container: literalSegments, isGroup: false }];
   }
 
   if (!isPlainObject(node)) {
@@ -122,21 +123,24 @@ const locateCollection = (canonicalPayload, collection) => {
 
   return Object.keys(node)
     .sort(compareOrdinal)
-    .map((property) => ({ base: `${literalBase}[${JSON.stringify(property)}]`, node: node[property], isGroup: true }));
+    .map((property) => ({
+      base: `${literalBase}[${JSON.stringify(property)}]`,
+      node: node[property],
+      container: [...literalSegments, property],
+      isGroup: true,
+    }));
 };
 
 const isScalar = (value) => value === null || ['string', 'number', 'boolean'].includes(typeof value);
 
-const addEntry = (entries, address, value) => {
-  if (entries.has(address)) {
-    fail(`Comparison address "${address}" occurs twice.`);
-  }
-  entries.set(address, value);
-};
-
-// [5.2.9] cfg-registryLifecycle · Derived value · "extractComparisonEntries"
-// Returns a Map from address to canonical entry value, in ordinal address order.
-export const extractComparisonEntries = (payload, { descriptor, comparison, registryId }) => {
+// [5.2.9] cfg-registryLifecycle · Derived value · "walkComparisonEntries"
+// The one owner of the address grammar (spec §8.4). Returns `[{ address, value, site }]` in ordinal
+// address order, where `value` is the canonical entry value and `site` the structured location the
+// address names: `{ kind, container }` plus `member` (members), `keyField`, `key` and `grouped`
+// (records), or `keyField` and `grouped` (order). `kind` is `value`, `member`, `record`, `group` or
+// `order`; `container` is the field path to the value, the members list, the keyed list or the group
+// property; `grouped` marks a keyed list that is a group of a wildcard map, itself an entry.
+export const walkComparisonEntries = (payload, { descriptor, comparison, registryId }) => {
   assertComparisonDeclaration(comparison, registryId);
   if (!isPlainObject(payload)) {
     fail('The registry payload must be an object.');
@@ -145,11 +149,17 @@ export const extractComparisonEntries = (payload, { descriptor, comparison, regi
   const canonicalPayload = canonicalizeRegistryPayload(payload, descriptor);
   assertCoverage(canonicalPayload, comparison);
   const entries = new Map();
+  const addEntry = (address, value, site) => {
+    if (entries.has(address)) {
+      fail(`Comparison address "${address}" occurs twice.`);
+    }
+    entries.set(address, { address, value, site });
+  };
 
   for (const collection of comparison) {
-    for (const { base, node, isGroup } of locateCollection(canonicalPayload, collection)) {
+    for (const { base, node, container, isGroup } of locateCollection(canonicalPayload, collection)) {
       if (collection.kind === 'value') {
-        addEntry(entries, base, node);
+        addEntry(base, node, { kind: 'value', container });
         continue;
       }
 
@@ -162,31 +172,43 @@ export const extractComparisonEntries = (payload, { descriptor, comparison, regi
           if (!isScalar(member)) {
             fail(`"${base}" members must be scalars.`);
           }
-          addEntry(entries, `${base}[${JSON.stringify(member)}]`, member);
+          addEntry(`${base}[${JSON.stringify(member)}]`, member, { kind: 'member', container, member });
         }
         continue;
       }
 
       // keyed
+      const keyField = collection.key;
       if (isGroup) {
-        addEntry(entries, base, true);
+        addEntry(base, true, { kind: 'group', container });
       }
       const keys = node.map((record) => {
-        const key = isPlainObject(record) ? record[collection.key] : undefined;
+        const key = isPlainObject(record) ? record[keyField] : undefined;
         if (!isScalar(key) || key === null) {
-          fail(`Every record of "${base}" needs a scalar "${collection.key}".`);
+          fail(`Every record of "${base}" needs a scalar "${keyField}".`);
         }
-        addEntry(entries, `${base}[${collection.key}=${JSON.stringify(key)}]`, record);
+        addEntry(`${base}[${keyField}=${JSON.stringify(key)}]`, record, {
+          kind: 'record',
+          container,
+          keyField,
+          key,
+          grouped: isGroup,
+        });
         return key;
       });
       if (collection.ordered) {
-        addEntry(entries, `${base}${ORDER_SUFFIX}`, keys);
+        addEntry(`${base}${ORDER_SUFFIX}`, keys, { kind: 'order', container, keyField, grouped: isGroup });
       }
     }
   }
 
-  return new Map([...entries.entries()].sort(([left], [right]) => compareOrdinal(left, right)));
+  return [...entries.values()].sort((left, right) => compareOrdinal(left.address, right.address));
 };
+
+// [5.2.9] cfg-registryLifecycle · Derived value · "extractComparisonEntries"
+// Returns a Map from address to canonical entry value, in ordinal address order.
+export const extractComparisonEntries = (payload, entry) =>
+  new Map(walkComparisonEntries(payload, entry).map(({ address, value }) => [address, value]));
 
 // [5.2.9] cfg-registryLifecycle · Derived value · "classifyEntry"
 // Three-way class of one entry (spec §8.2). Each argument is the entry's canonical value, or
