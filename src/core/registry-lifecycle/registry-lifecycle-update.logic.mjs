@@ -4,10 +4,11 @@
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.2.12)
  * Responsibility: `update` (lifecycle spec §12.5): applies a checked decisions document:
  *   `registry-added` inheritance, and `differs` entry decisions through the update candidate (§12.6).
- * Invariants: the decisions document is the only authority; nothing is inferred from `null`; each
- *   registry is prepared and checked completely, against the inputs its record was made for, before
- *   its transaction, and advances atomically through it (§4.6); the Baseline advances to the whole
- *   current Builtin; `registry-state.json` is never read or written; no other registry changes.
+ * Invariants: the decisions document is the only authority; nothing is inferred from `null`; the
+ *   slice is the unit of update: its selected registries are each prepared against the inputs their
+ *   record was made for, validated together, and advanced atomically in one transaction (§4.6); the
+ *   Baseline advances to the whole current Builtin; `registry-state.json` is never read or written;
+ *   no other registry changes.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -43,11 +44,11 @@ const isContainedFile = (paths, filePath) => {
   }
 };
 
-// The slice failures the new file introduces: validation over a scratch copy of the Custom slice,
-// before and after adding the file, at the same root so failure details compare exactly. Only
-// contained files are copied: nothing is read through an escaping path (spec §4.1), so an escaping
-// file is absent from both runs and fails the same way in each.
-const newSliceFailures = ({ paths, slice, customSliceRoot, fileName, bytes }) => {
+// The slice failures the new files introduce: validation over one scratch copy of the Custom slice,
+// before and after writing every new file (`files`: file name → bytes), at the same root so failure
+// details compare exactly. Only contained files are copied: nothing is read through an escaping path
+// (spec §4.1), so an escaping file is absent from both runs and fails the same way in each.
+const newSliceFailures = ({ paths, slice, customSliceRoot, files }) => {
   const scratchRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'calculogic-registry-update-'));
   try {
     const candidateRoot = path.join(scratchRoot, slice.sliceId);
@@ -62,7 +63,9 @@ const newSliceFailures = ({ paths, slice, customSliceRoot, fileName, bytes }) =>
     }
 
     const before = new Set(validateSliceRegistrySet(slice.sliceId, candidateRoot).map(failureKey));
-    fs.writeFileSync(path.join(candidateRoot, fileName), bytes);
+    for (const [fileName, bytes] of files) {
+      fs.writeFileSync(path.join(candidateRoot, fileName), bytes);
+    }
     return validateSliceRegistrySet(slice.sliceId, candidateRoot).filter((failure) => !before.has(failureKey(failure)));
   } finally {
     fs.rmSync(scratchRoot, { recursive: true, force: true });
@@ -110,26 +113,29 @@ const readManifestFor = (paths, refuse) => {
   return manifest;
 };
 
-// Slice validation over the Custom slice with the registry's file written (spec §12.5 item 4):
-// nothing it does not already report without the change.
-const assertValidInCustom = ({ paths, slice, entry, bytes, label, refuse }) => {
+// [5.2.12] cfg-registryLifecycle · Derived value · "assertSliceValid"
+// The slice's registry-set validation, run once over its final image: every prepared registry's new
+// Custom file in place, every other registry's current Custom file unchanged (spec §12.5 item 4).
+// Nothing it does not already report for the current Custom slice.
+const assertSliceValid = ({ paths, slice, prepared }) => {
   const customSliceRoot = path.join(paths.customRoot, slice.sliceId);
-  const introduced = newSliceFailures({ paths, slice, customSliceRoot, fileName: entry.fileName, bytes });
+  const files = prepared.map(({ fileName, customBytes }) => [fileName, customBytes]);
+  const introduced = newSliceFailures({ paths, slice, customSliceRoot, files });
   if (introduced.length > 0) {
-    refuse(
-      `the ${slice.sliceId} registry-set validation fails with the ${label}: ${introduced
-        .map((failure) => `${failure.registryId}: ${failure.detail}`)
-        .join('; ')}`,
+    throw new RegistryLifecycleError(
+      `the ${slice.sliceId} registry-set validation fails with the updated registries (${prepared
+        .map(({ registryId }) => registryId)
+        .join(', ')}): ${introduced.map((failure) => `${failure.registryId}: ${failure.detail}`).join('; ')}`,
     );
   }
 };
 
-// The manifest with this registry's Baseline advanced to the given Builtin, computed exactly as
+// The manifest with each prepared registry's Baseline entry advanced, computed exactly as
 // `init-custom` computes it; every other entry and field unchanged, entries sorted by id.
-const advancedManifestBytes = ({ manifest, registryId, validatorVersion, builtin }) => {
+const advancedManifestBytes = ({ manifest, prepared }) => {
   const registries = {
     ...manifest.basedOn.registries,
-    [registryId]: { validatorVersion, version: builtin.payload.version, digest: builtin.digest },
+    ...Object.fromEntries(prepared.map(({ registryId, manifestEntry }) => [registryId, manifestEntry])),
   };
   const nextManifest = {
     ...manifest,
@@ -145,10 +151,21 @@ const advancedManifestBytes = ({ manifest, registryId, validatorVersion, builtin
   return `${JSON.stringify(nextManifest, null, 2)}\n`;
 };
 
+// What a prepared registry contributes to its slice's transaction (spec §12.5 item 5): its Baseline
+// write, its Custom write (absent when Custom keeps its bytes), its new Custom bytes for slice
+// validation, and its manifest entry.
+const preparedRegistry = ({ entry, validatorVersion, builtin, baselinePath, customPath, customBytes, customChanged }) => ({
+  registryId: entry.registryId,
+  fileName: entry.fileName,
+  baselineWrite: { targetPath: baselinePath, contents: builtin.bytes },
+  customWrite: customChanged ? { targetPath: customPath, contents: customBytes } : null,
+  customBytes,
+  manifestEntry: { validatorVersion, version: builtin.payload.version, digest: builtin.digest },
+});
+
 // [5.2.12] cfg-registryLifecycle · Derived value · "prepareRegistryInheritance"
-// A `registry-added` record decided `inherit` (spec §12.5 item 4). Returns the transaction's writes
-// in commit order (§12.5 item 5).
-const prepareRegistryInheritance = ({ paths, slice, entry, record, validatorVersion }) => {
+// A `registry-added` record decided `inherit` (spec §12.5 item 4).
+const prepareRegistryInheritance = ({ paths, manifest, slice, entry, record, validatorVersion }) => {
   const refuse = refusalFor(entry.registryId);
   const builtin = readAuthorizedBuiltin({ slice, entry, record, refuse });
 
@@ -157,17 +174,19 @@ const prepareRegistryInheritance = ({ paths, slice, entry, record, validatorVers
     refuse('Custom already has this registry; the document is stale.');
   }
 
-  const manifest = readManifestFor(paths, refuse);
   if (Object.hasOwn(manifest.basedOn.registries, entry.registryId)) {
     refuse('the manifest already has a Baseline entry for this registry; the document is stale.');
   }
 
-  assertValidInCustom({ paths, slice, entry, bytes: builtin.bytes, label: 'inherited file', refuse });
-  return [
-    { targetPath: path.join(paths.baselineRoot, slice.sliceId, entry.fileName), contents: builtin.bytes },
-    { targetPath: customPath, contents: builtin.bytes },
-    { targetPath: paths.manifestPath, contents: advancedManifestBytes({ manifest, registryId: entry.registryId, validatorVersion, builtin }) },
-  ];
+  return preparedRegistry({
+    entry,
+    validatorVersion,
+    builtin,
+    baselinePath: path.join(paths.baselineRoot, slice.sliceId, entry.fileName),
+    customPath,
+    customBytes: builtin.bytes,
+    customChanged: true,
+  });
 };
 
 // A lifecycle file the record was made against: contained, an ordinary file, parsed, and with the
@@ -184,14 +203,12 @@ const readBoundLifecycleFile = ({ paths, filePath, entry, expectedDigest, refuse
 };
 
 // [5.2.12] cfg-registryLifecycle · Derived value · "prepareRegistryReconciliation"
-// A complete `differs` record (spec §12.5 item 4, §12.6). Returns the transaction's writes in commit
-// order: the whole current Builtin as the Baseline, the candidate (when it changes Custom), the
-// manifest.
-const prepareRegistryReconciliation = ({ paths, slice, entry, record, validatorVersion }) => {
+// A complete `differs` record (spec §12.5 item 4, §12.6): the whole current Builtin as the Baseline,
+// and the candidate as the Custom file when it changes Custom.
+const prepareRegistryReconciliation = ({ paths, manifest, slice, entry, record, validatorVersion }) => {
   const refuse = refusalFor(entry.registryId);
   const builtin = readAuthorizedBuiltin({ slice, entry, record, refuse });
 
-  const manifest = readManifestFor(paths, refuse);
   const manifestEntry = Object.hasOwn(manifest.basedOn.registries, entry.registryId)
     ? manifest.basedOn.registries[entry.registryId]
     : null;
@@ -242,19 +259,38 @@ const prepareRegistryReconciliation = ({ paths, slice, entry, record, validatorV
     throw error;
   }
 
-  const candidateBytes = candidate.changed ? `${JSON.stringify(candidate.payload, null, 2)}\n` : custom.bytes;
-  assertValidInCustom({ paths, slice, entry, bytes: candidateBytes, label: 'candidate', refuse });
-  return [
-    { targetPath: baselinePath, contents: builtin.bytes },
-    ...(candidate.changed ? [{ targetPath: customPath, contents: candidateBytes }] : []),
-    { targetPath: paths.manifestPath, contents: advancedManifestBytes({ manifest, registryId: entry.registryId, validatorVersion, builtin }) },
-  ];
+  return preparedRegistry({
+    entry,
+    validatorVersion,
+    builtin,
+    baselinePath,
+    customPath,
+    customBytes: candidate.changed ? `${JSON.stringify(candidate.payload, null, 2)}\n` : custom.bytes,
+    customChanged: candidate.changed,
+  });
 };
 
 const PREPARE_BY_CLASS = Object.freeze({
   'registry-added': prepareRegistryInheritance,
   differs: prepareRegistryReconciliation,
 });
+
+// [5.2.12] cfg-registryLifecycle · Derived value · "prepareSliceUpdate"
+// Every selected registry of one slice, prepared against one manifest read, then the slice validated
+// once with all of them in place. Returns the slice's transaction writes in commit order (spec §12.5
+// item 5): every Baseline copy, every changed Custom file, then the manifest once.
+const prepareSliceUpdate = ({ paths, slice, selections, validatorVersion }) => {
+  const manifest = readManifestFor(paths, refusalFor(slice.sliceId));
+  const prepared = selections.map(({ entry, record }) =>
+    PREPARE_BY_CLASS[record.class]({ paths, manifest, slice, entry, record, validatorVersion }),
+  );
+  assertSliceValid({ paths, slice, prepared });
+  return [
+    ...prepared.map(({ baselineWrite }) => baselineWrite),
+    ...prepared.flatMap(({ customWrite }) => (customWrite ? [customWrite] : [])),
+    { targetPath: paths.manifestPath, contents: advancedManifestBytes({ manifest, prepared }) },
+  ];
+};
 
 // The complete records to apply, and the undecided ones skipped (spec §12.5 item 3). A checked
 // document holds only decisions its classes accept, so a record without `null` is complete.
@@ -273,7 +309,7 @@ const selectRecords = (document) => {
 };
 
 // [5.2.12] cfg-registryLifecycle · Workflow · "applyRegistryUpdateDecisions"
-// Returns `{ recovered?, applied, skipped, failed? }`, or `{ recovered?, applied: [], problems }`
+// Returns `{ recovered?, applied, skipped, failed? }` (`failed`: `{ sliceId, registryIds, detail }`), or `{ recovered?, applied: [], problems }`
 // for a document that is not valid. The document is read through `loadDocument`, which is called
 // only after recovery: recovery comes first even when the document cannot be read (spec §12.5).
 // `onTransactionStep` is the transaction's internal test seam.
@@ -318,20 +354,33 @@ export const applyRegistryUpdateDecisions = ({
     slices.flatMap((slice) => slice.inventory.map((entry) => [entry.registryId, { slice, entry }])),
   );
   const { apply, skipped } = selectRecords(document);
-  const applied = [];
+
+  // The slice is the unit of update (spec §12.5 item 3): slices in ordinal id order, registries
+  // within one in ordinal id order (`apply` is sorted).
+  const selectionsBySlice = new Map();
   for (const record of apply) {
     const { slice, entry } = entriesById.get(record.registryId);
+    if (!selectionsBySlice.has(slice.sliceId)) {
+      selectionsBySlice.set(slice.sliceId, { slice, selections: [] });
+    }
+    selectionsBySlice.get(slice.sliceId).selections.push({ entry, record });
+  }
+
+  const applied = [];
+  for (const sliceId of [...selectionsBySlice.keys()].sort(compareOrdinal)) {
+    const { slice, selections } = selectionsBySlice.get(sliceId);
+    const registryIds = selections.map(({ record }) => record.registryId);
     try {
-      const writes = PREPARE_BY_CLASS[record.class]({ paths, slice, entry, record, validatorVersion });
+      const writes = prepareSliceUpdate({ paths, slice, selections, validatorVersion });
       runLifecycleTransaction({ paths, writes, onStep: onTransactionStep });
     } catch (error) {
       // A simulated crash stands for a killed process, which reports nothing (test seam, §4.6).
       if (error?.[LIFECYCLE_TRANSACTION_SIMULATED_CRASH]) {
         throw error;
       }
-      return withRecovered({ applied, skipped, failed: { registryId: record.registryId, detail: error.message } });
+      return withRecovered({ applied, skipped, failed: { sliceId, registryIds, detail: error.message } });
     }
-    applied.push(record.registryId);
+    applied.push(...registryIds);
   }
 
   return withRecovered({ applied, skipped });

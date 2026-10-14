@@ -76,7 +76,7 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 - The active set is loaded whole. No registry is read from the non-active set during a run.
 - An active Custom set that is missing, incomplete, version-incompatible or invalid stops the run before validation. There is no Builtin fallback.
 - Only `use` changes `activeSet`. `init-custom` and `update` never do; `update` never even reads `registry-state.json`.
-- Only `update` changes an existing Custom set, and only through a lifecycle transaction (5.2.11): one registry advances completely or not at all.
+- Only `update` changes an existing Custom set, and only through a lifecycle transaction (5.2.11): the selected registries of one slice advance completely or not at all.
 - Every lifecycle path read or written resolves by realpath inside the validation target root (spec §4.1).
 
 ## 3.0 Build Concern (Structure)
@@ -204,15 +204,17 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 2. Check the document (5.2.10). If it is not valid, return its problems.
 3. Select records:
    - complete records → apply: `registry-added` + `inherit`, and `differs` with every entry decided (an empty `entries` list included);
-   - any `null` → skipped as `undecided`.
-4. For each applied registry, in ordinal order, prepare (`prepareRegistryInheritance` or `prepareRegistryReconciliation`), then run one transaction:
+   - any `null` → skipped as `undecided`; never pulled into an update.
+
+   Group the selected records by owning slice (ordinal slice id; registries in ordinal id order). The slice is the unit of update.
+4. For each slice: prepare every selected registry (`prepareRegistryInheritance` or `prepareRegistryReconciliation`, returning its Baseline write, its Custom write when it changes Custom, and its manifest entry), validate the slice once (`assertSliceValid`), then run one transaction:
    - **both:** Builtin file contained in its slice's Builtin root, parsed, its digest equal to `basedOn.builtinDigest`, and a readable `version`;
    - **`registry-added`:** Custom file and manifest entry still absent;
    - **`differs`:** manifest entry digest, `.baseline/` copy digest and Custom file digest equal to the record's `basedOn` digests (both files contained and parsed); Builtin `version` equal to the manifest entry's and the Custom file's; the candidate (5.2.13) constructed without a refusal;
-   - **both:** slice validation over a scratch copy of the Custom slice, before and after adding the file or replacing it with the candidate, reports no new failure;
-   - **transaction:** `.baseline/` copy (the whole current Builtin), Custom file (the Builtin bytes, or the candidate as two-space JSON with a final newline, omitted when the candidate equals the Custom payload), manifest. The manifest entry is built like `init-custom` builds it, from the current Validator version and `digestRegistryPayload`.
+   - **slice:** validation over one scratch copy of the Custom slice with every selected registry's new Custom file in place reports no failure the current Custom slice does not already report (`newSliceFailures` with every changed file at once);
+   - **transaction:** every selected registry's `.baseline/` copy (the whole current Builtin), then every changed Custom file (the Builtin bytes, or the candidate as two-space JSON with a final newline, omitted when the candidate equals the Custom payload), then the manifest once with every selected entry advanced. Manifest entries are built like `init-custom` builds them, from the current Validator version and `digestRegistryPayload`.
 
-   The first failure stops the command; the registries applied before it stay applied.
+   Within a slice all selected registries advance or none does. The first failed slice stops the command, reported as `failed: { sliceId, registryIds, detail }`; slices committed before it stay applied, and `applied` lists their registry ids.
 
 #### 5.2.13 Derived value: `buildRegistryUpdateCandidate`
 

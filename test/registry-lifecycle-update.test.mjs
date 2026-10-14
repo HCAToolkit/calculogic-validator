@@ -8,6 +8,7 @@ import { REGISTRY_LIFECYCLE_SLICES } from '../src/core/registry-lifecycle/regist
 import { initCustomRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-init.logic.mjs';
 import { buildRegistryUpdateDecisionsTemplate } from '../src/core/registry-lifecycle/registry-lifecycle-decisions.logic.mjs';
 import { buildRegistryLifecycleDiff } from '../src/core/registry-lifecycle/registry-lifecycle-diff.logic.mjs';
+import { extractComparisonEntries } from '../src/core/registry-lifecycle/registry-lifecycle-comparison.logic.mjs';
 import { buildRegistryLifecycleStatus } from '../src/core/registry-lifecycle/registry-lifecycle-status.logic.mjs';
 import { applyRegistryUpdateDecisions } from '../src/core/registry-lifecycle/registry-lifecycle-update.logic.mjs';
 import { useRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-use.logic.mjs';
@@ -219,8 +220,8 @@ test('a Builtin registry the slice rejects, or whose version this engine cannot 
     updateJson(builtinFile('naming/case-rules'), (payload) => ({ ...payload, semanticName: { style: 'SHOUTING' } }));
     const invalid = update(decide(template(), { 'naming/case-rules': 'inherit' }));
     assert.deepEqual(invalid.applied, []);
-    assert.equal(invalid.failed.registryId, 'naming/case-rules');
-    assert.match(invalid.failed.detail, /naming registry-set validation fails with the inherited file/u);
+    assert.deepEqual([invalid.failed.sliceId, invalid.failed.registryIds], ['naming', ['naming/case-rules']]);
+    assert.match(invalid.failed.detail, /naming registry-set validation fails with the updated registries \(naming\/case-rules\)/u);
     assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
 
     updateJson(builtinFile('naming/case-rules'), (payload) => ({ ...payload, semanticName: { style: 'kebab-case' }, version: '99' }));
@@ -230,16 +231,16 @@ test('a Builtin registry the slice rejects, or whose version this engine cannot 
   });
 });
 
-test('a failure stops the command: earlier registries stay advanced, the failed one is untouched', () => {
+test('a failed slice advances none of its registries, however many of them are valid', () => {
   withAddedRegistries(
-    ({ customFile, builtinFile, template, update, status }) => {
+    ({ paths, builtinFile, template, update, status }) => {
       updateJson(builtinFile('naming/special-cases'), (payload) => ({ ...payload, specialCases: 'not-a-list' }));
+      const before = snapshotTree(paths.lifecycleRoot);
       const result = update(decide(template(), { 'naming/special-cases': 'inherit', 'naming/case-rules': 'inherit' }));
-      assert.deepEqual(result.applied, ['naming/case-rules']);
-      assert.equal(result.failed.registryId, 'naming/special-cases');
-      assert.equal(fs.existsSync(customFile('naming/case-rules')), true);
-      assert.equal(fs.existsSync(customFile('naming/special-cases')), false);
-      assert.equal(registryOf(status(), 'naming/case-rules').classification, 'unchanged');
+      assert.deepEqual(result.applied, []);
+      assert.deepEqual(result.failed.registryIds, ['naming/case-rules', 'naming/special-cases']);
+      assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
+      assert.equal(registryOf(status(), 'naming/case-rules').classification, 'missing');
       assert.equal(registryOf(status(), 'naming/special-cases').classification, 'missing');
     },
     { missingIds: ['naming/case-rules', 'naming/special-cases'] },
@@ -641,7 +642,7 @@ test('an inconsistent combination of entry decisions is refused before its trans
 
     const result = update(document);
     assert.deepEqual(result.applied, ['naming/reportable-extensions']);
-    assert.equal(result.failed.registryId, 'suite/exit-policy');
+    assert.deepEqual([result.failed.sliceId, result.failed.registryIds], ['suite', ['suite/exit-policy']]);
     assert.match(result.failed.detail, /inconsistent registry; refused at: policies#order\./u);
     assert.deepEqual(
       ['custom', path.join('custom', '.baseline')].map((root) =>
@@ -653,9 +654,9 @@ test('an inconsistent combination of entry decisions is refused before its trans
   });
 });
 
-test('individually valid entry decisions whose registry fails slice validation are refused before the transaction', () => {
+test('individually valid entry decisions whose slice fails validation are refused before the transaction, for the whole slice', () => {
   withAddedRegistries(
-    ({ paths, builtinFile, customFile, template, update, diff }) => {
+    ({ paths, builtinFile, template, update, diff }) => {
       // Builtin adds a category and its (empty) group in the category-role perspective, which must
       // name declared categories only.
       updateJson(builtinFile('naming/categories'), (payload) => ({
@@ -669,13 +670,13 @@ test('individually valid entry decisions whose registry fails slice validation a
       const document = template();
       decideEntries(document, 'naming/categories', () => 'keep-custom');
       decideEntries(document, 'naming/category-role-perspective', () => 'take-builtin');
-      const perspectiveBefore = snapshotTree(path.dirname(customFile('naming/category-role-perspective')));
+      const before = snapshotTree(paths.lifecycleRoot);
 
       const result = update(document);
-      assert.deepEqual(result.applied, ['naming/categories']);
-      assert.equal(result.failed.registryId, 'naming/category-role-perspective');
-      assert.match(result.failed.detail, /registry-set validation fails with the candidate: .*not declared in categories: new-family/u);
-      assert.deepEqual(snapshotTree(path.dirname(customFile('naming/category-role-perspective'))), perspectiveBefore);
+      assert.deepEqual(result.applied, []);
+      assert.deepEqual(result.failed.registryIds, ['naming/categories', 'naming/category-role-perspective']);
+      assert.match(result.failed.detail, /registry-set validation fails with the updated registries .*not declared in categories: new-family/u);
+      assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
       assert.equal(registryOf(diff(), 'naming/category-role-perspective').entries[0].class, 'builtin-added');
       assert.equal(fs.existsSync(transactionRoot(paths)), false);
     },
@@ -726,11 +727,179 @@ test('a registry whose inputs change after the check is refused as stale, and on
         onTransactionStep: (step) => step === 'committed' && alter(fixture),
       });
       assert.deepEqual(result.applied, ['naming/reportable-extensions'], label);
-      assert.equal(result.failed.registryId, 'suite/exit-policy', label);
+      assert.deepEqual(result.failed.registryIds, ['suite/exit-policy'], label);
       assert.match(result.failed.detail, pattern, label);
       if (label !== 'the Custom file changed') {
         assert.deepEqual(fs.readFileSync(fixture.customFile('suite/exit-policy')), exitPolicyBefore, label);
       }
     });
   }
+});
+
+// ---- the slice is the unit of update (spec §12.5 items 3–5) -------------------------------------
+
+const extractFor = (registryId, filePath) =>
+  extractComparisonEntries(
+    readJson(filePath),
+    REGISTRY_LIFECYCLE_SLICES.flatMap((slice) => slice.inventory).find((entry) => entry.registryId === registryId),
+  );
+
+const dropCategory = (name) => (payload) => ({
+  ...payload,
+  categories: payload.categories.filter((record) => record.category !== name),
+});
+const dropGroup = (name) => (payload) => {
+  const rolesByCategory = { ...payload.rolesByCategory };
+  delete rolesByCategory[name];
+  return { ...payload, rolesByCategory };
+};
+const takeAll = (document) => {
+  for (const record of document.registries) {
+    record.entries.forEach((entry) => (entry.decision = 'take-builtin'));
+  }
+  return document;
+};
+
+// Builtin removes the category `concern-style` and its perspective group. Removing the category
+// alone is invalid (the old perspective still names it), so per-registry order cannot apply it.
+const withCoordinatedRemoval = (run) =>
+  withAddedRegistries(
+    (fixture) => {
+      updateJson(fixture.builtinFile('naming/categories'), dropCategory('concern-style'));
+      updateJson(fixture.builtinFile('naming/category-role-perspective'), dropGroup('concern-style'));
+      return run(fixture);
+    },
+    { missingIds: [] },
+  );
+
+test('a coordinated removal across two Naming registries applies as one slice', () => {
+  withCoordinatedRemoval(({ paths, customFile, builtinFile, template, update, diff }) => {
+    const ids = ['naming/categories', 'naming/category-role-perspective'];
+    assert.deepEqual(update(takeAll(template())), { applied: ids, skipped: [] });
+    for (const registryId of ids) {
+      assert.deepEqual(
+        Object.fromEntries(extractFor(registryId, customFile(registryId))),
+        Object.fromEntries(extractFor(registryId, builtinFile(registryId))),
+        registryId,
+      );
+      assert.equal(registryOf(diff(), registryId).class, 'unchanged', registryId);
+    }
+    assert.equal(fs.existsSync(transactionRoot(paths)), false);
+    assert.deepEqual(template().registries, []);
+  });
+});
+
+test('coordinated changes that are invalid one registry at a time apply together: a role added, a category renamed', () => {
+  const rename = (from, to) => ({
+    'naming/categories': (payload) => ({
+      ...payload,
+      categories: payload.categories.map((record) => (record.category === from ? { ...record, category: to } : record)),
+    }),
+    'naming/category-role-perspective': (payload) => ({
+      ...payload,
+      rolesByCategory: Object.fromEntries(Object.entries(payload.rolesByCategory).map(([key, value]) => [key === from ? to : key, value])),
+    }),
+  });
+  // The perspective sorts before `naming/roles`, and a perspective role without a roles entry is
+  // invalid, so the old per-registry order failed on the first registry.
+  const addRole = {
+    'naming/roles': (payload) => ({ ...payload, roles: [...payload.roles, { role: 'probe-role', status: 'active' }] }),
+    'naming/category-role-perspective': (payload) => ({
+      ...payload,
+      rolesByCategory: {
+        ...payload.rolesByCategory,
+        'concern-core': [...payload.rolesByCategory['concern-core'], { role: 'probe-role', agnosticCoreMeanings: ['structure'] }],
+      },
+    }),
+  };
+  for (const [label, changes] of Object.entries({ 'a role added': addRole, 'a category renamed': rename('concern-style', 'concern-styling') })) {
+    withAddedRegistries(
+      ({ builtinFile, template, update, diff }) => {
+        for (const [registryId, change] of Object.entries(changes)) {
+          updateJson(builtinFile(registryId), change);
+        }
+        const ids = Object.keys(changes).sort();
+        assert.deepEqual(update(takeAll(template())), { applied: ids, skipped: [] }, label);
+        for (const registryId of ids) {
+          assert.equal(registryOf(diff(), registryId).class, 'unchanged', `${label}: ${registryId}`);
+        }
+      },
+      { missingIds: [] },
+    );
+  }
+});
+
+test('a coordinated change whose partner record is still null is refused for the whole slice, and the partner is never pulled in', () => {
+  withCoordinatedRemoval(({ paths, template, update, diff }) => {
+    const document = template();
+    decideEntries(document, 'naming/categories', () => 'take-builtin');
+    const before = snapshotTree(paths.lifecycleRoot);
+
+    const result = update(document);
+    assert.deepEqual(result.applied, []);
+    assert.deepEqual(result.skipped, [{ registryId: 'naming/category-role-perspective', reason: 'undecided' }]);
+    assert.deepEqual([result.failed.sliceId, result.failed.registryIds], ['naming', ['naming/categories']]);
+    assert.match(result.failed.detail, /naming registry-set validation fails with the updated registries \(naming\/categories\)/u);
+    assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
+    assert.equal(registryOf(diff(), 'naming/category-role-perspective').class, 'differs');
+  });
+});
+
+test('a failure at any step of a slice transaction advances neither registry of the slice', () => {
+  // Two Baseline copies, two Custom files and the manifest, all pre-existing (spec §4.6).
+  const boundaries = [
+    'staged',
+    'journaled',
+    'directories-created',
+    ...[0, 1, 2, 3].flatMap((index) => [`step-${index}:backed-up`, `step-${index}:applied`]),
+    'step-4:backed-up',
+  ];
+  for (const boundary of boundaries) {
+    withCoordinatedRemoval(({ paths, template, update }) => {
+      const document = takeAll(template());
+      const before = snapshotTree(paths.lifecycleRoot);
+      const result = update(document, {
+        onTransactionStep: (step) => {
+          if (step === boundary) {
+            throw new Error(`injected at ${boundary}`);
+          }
+        },
+      });
+      assert.deepEqual(result.applied, [], boundary);
+      assert.deepEqual(result.failed.registryIds, ['naming/categories', 'naming/category-role-perspective'], boundary);
+      assert.equal(result.failed.detail, `injected at ${boundary}`, boundary);
+      assert.deepEqual(snapshotTree(paths.lifecycleRoot), before, boundary);
+    });
+  }
+});
+
+test('across slices, a committed slice stays advanced when a later slice fails', () => {
+  withContentChanges(({ paths, baselineFile, builtinFile, template, update, status }) => {
+    const document = template();
+    decideEntries(document, 'naming/reportable-extensions', () => 'take-builtin');
+    decideEntries(document, 'suite/exit-policy', () => 'take-builtin');
+    const suiteBefore = ['custom', path.join('custom', '.baseline')].map((root) =>
+      fs.readFileSync(path.join(paths.lifecycleRoot, root, 'suite', 'exit-policy.registry.json')),
+    );
+    let transactions = 0;
+    const result = update(document, {
+      onTransactionStep: (step) => {
+        transactions += step === 'staged' ? 1 : 0;
+        if (transactions === 2 && step === 'step-1:applied') {
+          throw new Error('injected in the suite slice');
+        }
+      },
+    });
+
+    assert.deepEqual(result.applied, ['naming/reportable-extensions']);
+    assert.deepEqual([result.failed.sliceId, result.failed.registryIds], ['suite', ['suite/exit-policy']]);
+    assert.deepEqual(fs.readFileSync(baselineFile('naming/reportable-extensions')), fs.readFileSync(builtinFile('naming/reportable-extensions')));
+    assert.deepEqual(
+      ['custom', path.join('custom', '.baseline')].map((root) =>
+        fs.readFileSync(path.join(paths.lifecycleRoot, root, 'suite', 'exit-policy.registry.json')),
+      ),
+      suiteBefore,
+    );
+    assert.equal(registryOf(status(), 'suite/exit-policy').classification, 'builtin-changed');
+  });
 });
