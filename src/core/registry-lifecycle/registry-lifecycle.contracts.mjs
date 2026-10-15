@@ -156,6 +156,9 @@ export const MIGRATION_PLAN_PROBLEMS = Object.freeze({
   unsupportedDecision: 'unsupported-decision',
 });
 
+// [6.3] cfg-registryLifecycle · Primitive · "migrate skip reasons" (spec §12.9)
+export const MIGRATE_SKIP_REASONS = Object.freeze({ undecided: 'undecided' });
+
 // [6.3] cfg-registryLifecycle · Primitive · "Missing-set blocking condition" (spec §7.1 item 1)
 // Blocks activation and an active-Custom run when no Custom set exists. It is not a `customIssues`
 // condition, because `customIssues` describe an existing set.

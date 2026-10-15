@@ -17,7 +17,8 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 5: reconciliation capability declarations in every slice inventory (6.1, 5.2.14), and the decisions document's schema `"2"` with structured merge-fields and add-alongside decisions, checked read-only (5.2.10).
 - #60 slice 6: `update` applies merge-fields through the update candidate (5.2.13), with `mergeFieldsForm` (5.2.14) as the one merge rule; add-alongside records stay skipped as `not-yet-supported`.
 - #60 slice 7: migration declarations in every slice inventory (6.1), the slice transforms bridge and the declaration check (5.2.15), the version-aware descriptor (5.2.15) used wherever a payload is digested, and the read-only migration plan with `migrate-plan` and `migrate-check` (5.2.16, 5.3). No migration is written.
-- Follow-ons: the rest of the advanced management surface (#60): applying an accepted migration plan, applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
+- #60 slice 8: `migrate` applies the accepted records of a checked migration plan (5.2.18, 5.3) through the slice-atomic application mechanics it shares with `update` (5.2.17); the manifest reader accepts the optional `migration` provenance (5.2.1).
+- Follow-ons: the rest of the advanced management surface (#60): applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
 
@@ -38,7 +39,7 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- The rest of the advanced management surface (follow-on): applying an accepted migration plan, applying add-alongside, and the `edit`, `trace`, `import`/`export` and preview commands.
+- The rest of the advanced management surface (follow-on): applying add-alongside, and the `edit`, `trace`, `import`/`export` and preview commands.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present
@@ -67,7 +68,7 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 ### 2.2 Data and state
 
 - `<repo>/.calculogic/registries/registry-state.json`: `{ schemaVersion, activeSet }`.
-- `<repo>/.calculogic/registries/custom/registry-set.manifest.json`: `{ schemaVersion, basedOn: { registries: { [id]: { validatorVersion, version, digest } } } }`. Baseline provenance is per registry; set-level Baseline values are derived (spec §4.3). After a migration (applied by the next slice) an entry also carries `migration: { fromVersion, fromDigest, path }`; nothing writes it yet.
+- `<repo>/.calculogic/registries/custom/registry-set.manifest.json`: `{ schemaVersion, basedOn: { registries: { [id]: { validatorVersion, version, digest } } } }`. Baseline provenance is per registry; set-level Baseline values are derived (spec §4.3). After a migration an entry also carries `migration: { fromVersion, fromDigest, path }` (spec §4.3), read strictly: exactly those fields, a non-empty `fromVersion`, a lowercase SHA-256 `fromDigest` and a non-empty list of transform ids; anything else makes the manifest malformed.
 - `<repo>/.calculogic/registries/custom/<slice>/<registry>.registry.json` and `custom/.baseline/<slice>/<registry>.registry.json`.
 
 ### 2.3 Dependencies
@@ -82,8 +83,8 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 - Validation runs never write Custom, the manifest or the state file.
 - The active set is loaded whole. No registry is read from the non-active set during a run.
 - An active Custom set that is missing, incomplete, version-incompatible or invalid stops the run before validation. There is no Builtin fallback.
-- Only `use` changes `activeSet`. `init-custom` and `update` never do; `update` never even reads `registry-state.json`.
-- Only `update` changes an existing Custom set, and only through a lifecycle transaction (5.2.11): the selected registries of one slice advance completely or not at all.
+- Only `use` changes `activeSet`. `init-custom`, `update` and `migrate` never do; `update` and `migrate` never even read `registry-state.json`.
+- Only `update` and `migrate` change an existing Custom set, and only through a lifecycle transaction (5.2.11): the selected registries of one slice advance completely or not at all.
 - Every lifecycle path read or written resolves by realpath inside the validation target root (spec §4.1).
 - `migrate-plan` and `migrate-check` write nothing, never read `registry-state.json`, and never advance a Baseline. A migration transform is pure: it receives a deep-frozen payload and nothing else.
 
@@ -219,7 +220,7 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
    - a complete record with an add-alongside decision → skipped as `not-yet-supported`, with none of its decisions applied. merge-fields decisions apply.
 
    Group the selected records by owning slice (ordinal slice id; registries in ordinal id order). The slice is the unit of update.
-4. For each slice: prepare every selected registry (`prepareRegistryInheritance` or `prepareRegistryReconciliation`, returning its Baseline write, its Custom write when it changes Custom, and its manifest entry), validate the slice once (`assertSliceValid`), then run one transaction:
+4. For each slice (`applyBySlice`, 5.2.17): prepare every selected registry (`prepareRegistryInheritance` or `prepareRegistryReconciliation`, returning its Baseline write, its Custom write when it changes Custom, and its manifest entry), validate the slice once (`assertSliceImageValid`, 5.2.17), then run one transaction:
    - **both:** Builtin file contained in its slice's Builtin root, parsed, its digest equal to `basedOn.builtinDigest`, and a readable `version`;
    - **`registry-added`:** Custom file and manifest entry still absent;
    - **`differs`:** manifest entry digest, `.baseline/` copy digest and Custom file digest equal to the record's `basedOn` digests (both files contained and parsed); Builtin `version` equal to the manifest entry's and the Custom file's; the candidate (5.2.13) constructed without a refusal;
@@ -256,14 +257,35 @@ Returns `{ payload, changed }`, where `changed` is false when the candidate equa
 - **`isVersionDescribed(entry, version)`:** whether a descriptor exists for the version: a readable version or a declared `from`.
 - **`migrationPath(entry, fromVersion, toVersion)`:** the steps from `fromVersion` up to `toVersion` along the one chain, or null when there is none.
 - **`runMigrationPath(path, transforms, payload)`:** runs each step on a deep-frozen structured clone of the previous payload and checks its output: a plain JSON value (objects with a plain prototype, arrays, strings, finite numbers, booleans, `null`) that is an object whose `version` is the step's `to`. Returns `{ payload }` or `{ failure: { step, detail } }`; a throw is a failure, never an escape.
+- **`migrateRegistryPayload({ entry, path, transforms, payload, label })`:** one input run along the path, then its comparison entries extracted (`walkComparisonEntries`); `{ payload, walked }` or `{ failure }`. The plan (5.2.16) and `migrate` (5.2.18) both use it, so what is applied is what was planned.
 
 #### 5.2.16 Workflow: migration plan (read-only)
 
 `registry-lifecycle-migration-plan.logic.mjs` (spec §12.8).
-- **`buildRegistryMigrationPlan`:** asserts every inventory entry's declaration (5.2.15), compares (5.2.9) and, for each `version-changed` registry, either a record or a `notMigratable` item, by the spec's reason precedence: a path (5.2.15) from the manifest's version to the Builtin's; the status entry's `baselineMismatch`; the Custom file present, contained and parsed; its `version` equal to the manifest's; both runs successful, and the comparison entries of C0′ and B0′ extractable (`walkComparisonEntries`). `basedOn` comes from the status digests; `result` digests B0′ and C0′ with the registry's descriptor; `preview` is the `diff` of B0′/B1/C0′ (`summarizeEntryDiff`, 5.2.9) with the migrated payloads. Every decision is `null`.
+- **`buildRegistryMigrationPlan`:** asserts every inventory entry's declaration (5.2.15), compares (5.2.9) and, for each `version-changed` registry, either a record or a `notMigratable` item, by the spec's reason precedence: a path (5.2.15) from the manifest's version to the Builtin's; the status entry's `baselineMismatch`; the Custom file present, contained and parsed; its `version` equal to the manifest's; both runs successful (`migrateRegistryPayload`, 5.2.15). `basedOn` comes from the status digests; `result` digests B0′ and C0′ with the registry's descriptor; `preview` is the `diff` of B0′/B1/C0′ (`summarizeEntryDiff`, 5.2.9) with the migrated payloads. Every decision is `null`.
 - **`checkRegistryMigrationPlan`:** strict shape check, then per record: known Builtin registry, no duplicate, a current record for it (otherwise `not-migratable`, naming the current `diff` class or reason), same `basedOn` digests and path (otherwise `stale`, naming each), then the same `result` (otherwise `stale`: `result`), then a decision of `null` or `"accept"`. One problem per record; problems are collected, never thrown, and sorted ordinally. `preview` and `notMigratable` are accepted and ignored.
 
 Neither reads `registry-state.json` or writes anything.
+
+#### 5.2.17 Workflow: slice-atomic application
+
+`registry-lifecycle-slice-apply.logic.mjs` (spec §4.6, §12.5, §12.9). The mechanics `update` and `migrate` share, so the slice is applied one way:
+- **`openLifecycleWrite(paths, command)`:** the lifecycle root and `custom/` contained, then recovery (5.2.11).
+- **`readAuthorizedBuiltin`, `readBoundLifecycleFile`:** a Builtin file, or a `.baseline/` copy or Custom file, with the digest a document authorized (each payload canonicalized with the descriptor of its version, 5.2.15), or a refusal naming the document as stale.
+- **`assertSliceImageValid`:** the slice's registry-set validation once over a scratch copy of the Custom slice, before and after placing every new Custom file; only failures it introduces refuse the slice. Only Custom files are placed: a Baseline copy is never validated as a set.
+- **`manifestBytesWith`:** the manifest with the given entries replaced, sorted by id.
+- **`applyBySlice`:** groups selected records by slice (ordinal slice ids, ordinal registry ids within), and per slice calls the command's `prepareSlice` and runs one transaction. Returns `{ applied, failed? }`; a failed slice stops the command, and a simulated crash (the transaction's test seam) is rethrown.
+
+#### 5.2.18 Workflow: `applyRegistryMigrationPlan` (`migrate`)
+
+`registry-lifecycle-migrate.logic.mjs` (spec §12.9).
+1. `openLifecycleWrite`, then read the plan through `loadDocument`.
+2. Check it (`checkRegistryMigrationPlan`, 5.2.16). If it is not valid, return its problems.
+3. Select records decided `"accept"`; every other record is skipped as `undecided`.
+4. For each slice (`applyBySlice`): prepare every selected registry (`prepareRegistryMigration`): the manifest entry with the record's Baseline digest and `fromVersion`; the `.baseline/` copy, Custom file and Builtin file bound to the record's digests (`readBoundLifecycleFile`, `readAuthorizedBuiltin`), so they are the bytes whose versions and path the check verified moments before; then `migrateRegistryPayload` (5.2.15) over the Baseline copy and over the Custom file, each result's digest equal to the record's `result`. The plan's `preview` is never read. Then `assertSliceImageValid` with every C0′, and one transaction: every B0′, every C0′, the manifest last.
+5. The manifest entry (`migratedManifestEntry`): the previous `validatorVersion`, `toVersion`, B0′'s digest, and `migration` with the previous provenance's `fromVersion` and `fromDigest` (or the previous entry's `version` and `digest` for a first migration) and its `path` extended by the applied transform ids.
+
+`migrationTransforms`, `validateSlice` and `onTransactionStep` are options; the last two are internal test seams.
 
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
@@ -276,10 +298,11 @@ Neither reads `registry-state.json` or writes anything.
 - `update <file>` → 5.2.12. Prints `{ command, recovered?, applied, skipped }`, or with `problems` or `failed` and exit 1. The path is resolved from the working directory.
 - `migrate-plan [registryId…]` → 5.2.16. Read-only; prints the plan on stdout. An unknown registry id is a usage error; no Custom set is a lifecycle error.
 - `migrate-check <file>` → 5.2.16. Read-only. The path is resolved from the working directory. Prints the check result on stdout and exits 1 when it has problems; an unreadable or unparseable file is an error on stderr.
+- `migrate <file>` → 5.2.18. Prints `{ command, recovered?, applied, skipped }`, or with `problems` or `failed` and exit 1. The path is resolved from the working directory.
 
 Usage errors and lifecycle errors go to stderr with a non-zero exit.
 
-Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status`, `npm run registry:diff`, `npm run registry:decisions-template`, `npm run registry:decisions-check`, `npm run registry:update`, `npm run registry:migrate-plan` and `npm run registry:migrate-check` (`scripts/registry-lifecycle.host.mjs`).
+Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status`, `npm run registry:diff`, `npm run registry:decisions-template`, `npm run registry:decisions-check`, `npm run registry:update`, `npm run registry:migrate-plan`, `npm run registry:migrate-check` and `npm run registry:migrate` (`scripts/registry-lifecycle.host.mjs`).
 
 ### 5.4 Wiring into validation runs
 
@@ -305,7 +328,7 @@ Each is owned by its slice and lists only that slice's registries. Every entry c
 
 ### 6.3 Constants
 
-Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary; the comparison kinds and entry and `diff` registry classes; and the update decisions document's `kind`, `schemaVersion`, decisions by class (`REGISTRY_DECISIONS_BY_CLASS`, `ENTRY_DECISIONS_BY_CLASS`) and problem codes; the lifecycle transaction's directory, journal name, schema version and outcomes; the entry decisions and structured decision kinds; the `update` skip reasons (`undecided`, `not-yet-supported`); and the migration plan's `kind`, `schemaVersion`, decision, problem codes and not-migratable reasons.
+Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary; the comparison kinds and entry and `diff` registry classes; and the update decisions document's `kind`, `schemaVersion`, decisions by class (`REGISTRY_DECISIONS_BY_CLASS`, `ENTRY_DECISIONS_BY_CLASS`) and problem codes; the lifecycle transaction's directory, journal name, schema version and outcomes; the entry decisions and structured decision kinds; the `update` skip reasons (`undecided`, `not-yet-supported`); the migration plan's `kind`, `schemaVersion`, decision, problem codes and not-migratable reasons; and the `migrate` skip reason (`undecided`).
 
 ## 7.0 Results Concern (Outputs)
 
@@ -357,6 +380,8 @@ src/core/registry-lifecycle/
   registry-lifecycle-migration.logic.mjs           5.2.15
   registry-lifecycle-slice-migrations.logic.mjs    5.2.15 (each slice's transforms)
   registry-lifecycle-migration-plan.logic.mjs      5.2.16
+  registry-lifecycle-slice-apply.logic.mjs         5.2.17
+  registry-lifecycle-migrate.logic.mjs             5.2.18
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)

@@ -127,12 +127,28 @@ export const customSetExists = (paths) => {
 // carry no surrounding whitespace.
 const isProvenanceString = (value) => typeof value === 'string' && value.length > 0 && value === value.trim();
 
+const isDigest = (value) => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
+
+const MIGRATION_PROVENANCE_FIELDS = Object.freeze(['fromDigest', 'fromVersion', 'path']);
+
+// A migrated Baseline's provenance (lifecycle spec §4.3): exactly `{ fromVersion, fromDigest, path }`,
+// with the transform ids applied, in order. Provenance only: it never changes how the entry's digest
+// is trusted or how the registry is classified.
+const isValidMigrationProvenance = (migration) =>
+  isPlainObject(migration) &&
+  Object.keys(migration).sort().join() === MIGRATION_PROVENANCE_FIELDS.join() &&
+  isProvenanceString(migration.fromVersion) &&
+  isDigest(migration.fromDigest) &&
+  Array.isArray(migration.path) &&
+  migration.path.length > 0 &&
+  migration.path.every(isProvenanceString);
+
 const isValidManifestEntry = (entry) =>
   isPlainObject(entry) &&
   isProvenanceString(entry.validatorVersion) &&
   isProvenanceString(entry.version) &&
-  typeof entry.digest === 'string' &&
-  /^[a-f0-9]{64}$/u.test(entry.digest);
+  isDigest(entry.digest) &&
+  (!Object.hasOwn(entry, 'migration') || isValidMigrationProvenance(entry.migration));
 
 // [5.2.1] cfg-registryLifecycle · Primitive · "readRegistrySetManifest"
 // Returns `{ manifest }` or `{ manifestError }`. Completeness against the Custom files present is

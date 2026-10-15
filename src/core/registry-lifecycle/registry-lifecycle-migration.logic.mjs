@@ -9,6 +9,7 @@
  *   never reads Builtin into a migrated payload; transforms receive deep-frozen copies and nothing
  *   else; deterministic.
  */
+import { ComparisonExtractionError, walkComparisonEntries } from './registry-lifecycle-comparison.logic.mjs';
 
 const STEP_FIELDS = Object.freeze(['from', 'fromDescriptor', 'to', 'transform']);
 
@@ -193,4 +194,28 @@ export const runMigrationPath = (path, transforms, payload) => {
   }
 
   return { payload: structuredClone(current) };
+};
+
+const describeStepFor = (step) =>
+  `step ${JSON.stringify(step.from)} → ${JSON.stringify(step.to)} (transform ${JSON.stringify(step.transform)})`;
+
+// [5.2.15] cfg-registryLifecycle · Workflow · "migrateRegistryPayload"
+// One input (`label`: Baseline or Custom) along the path, then its comparison entries under the
+// registry's current declaration (spec §8.3 "Running a path"). Returns `{ payload, walked }`, or
+// `{ failure }`, the detail of a `transform-failed` reason. The migration plan and `migrate` both
+// run inputs through it, so what is applied is exactly what was planned.
+export const migrateRegistryPayload = ({ entry, path, transforms, payload, label }) => {
+  const run = runMigrationPath(path, transforms, payload);
+  if (run.failure) {
+    return { failure: `The ${label} input: ${describeStepFor(run.failure.step)}: ${run.failure.detail}` };
+  }
+
+  try {
+    return { payload: run.payload, walked: walkComparisonEntries(run.payload, entry) };
+  } catch (error) {
+    if (error instanceof ComparisonExtractionError) {
+      return { failure: `The migrated ${label} payload has no valid comparison entries: ${error.message}` };
+    }
+    throw error;
+  }
 };
