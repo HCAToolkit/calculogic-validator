@@ -37,15 +37,18 @@ const snapshotTree = (root) =>
 // A target with a Custom set made by an older release that lacked `missingIds`: they are absent
 // from Custom, its Baseline copy and its manifest, so the current Builtin reports them
 // `registry-added`. These are real inventory registries, so the real slice validation applies.
-const withAddedRegistries = (run, { missingIds = ['naming/case-rules'] } = {}) => {
+// `mapSlices` adjusts the inventory `update` sees, for a capability no registry declares.
+const withAddedRegistries = (run, { missingIds = ['naming/case-rules'], mapSlices = (slices) => slices } = {}) => {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-lifecycle-update-'));
   const targetRoot = path.join(fixtureRoot, 'target');
   fs.mkdirSync(targetRoot);
-  const slices = REGISTRY_LIFECYCLE_SLICES.map((slice) => {
-    const builtinRoot = path.join(fixtureRoot, 'builtin', slice.sliceId);
-    fs.cpSync(slice.builtinRoot, builtinRoot, { recursive: true });
-    return { ...slice, builtinRoot };
-  });
+  const slices = mapSlices(
+    REGISTRY_LIFECYCLE_SLICES.map((slice) => {
+      const builtinRoot = path.join(fixtureRoot, 'builtin', slice.sliceId);
+      fs.cpSync(slice.builtinRoot, builtinRoot, { recursive: true });
+      return { ...slice, builtinRoot };
+    }),
+  );
 
   try {
     initCustomRegistrySet({ targetRoot, validatorVersion: '0.0.0-old', slices });
@@ -902,4 +905,187 @@ test('across slices, a committed slice stays advanced when a later slice fails',
     );
     assert.equal(registryOf(status(), 'suite/exit-policy').classification, 'builtin-changed');
   });
+});
+
+// ---- merge-fields (spec §12.6, §12.7) ------------------------------------------------------------
+
+const diffEntryOf = (diffResult, registryId, address) =>
+  (registryOf(diffResult, registryId).entries ?? []).find((entry) => entry.address === address);
+const roleRecord = (filePath, role) => readJson(filePath).roles.find((entry) => entry.role === role);
+const mergeFields = (...takeBuiltin) => ({ kind: 'merge-fields', takeBuiltin });
+
+// naming/roles: Builtin changes the first role's status and definition (builtin-changed), and the
+// second role's definition while Custom changes its status (both-changed); Builtin also drops the
+// third role and adds one.
+const withRoleMerges = (run, options = {}) =>
+  withAddedRegistries(
+    (fixture) => {
+      const { builtinFile, customFile } = fixture;
+      const [first, second, third] = readJson(builtinFile('naming/roles')).roles.map((entry) => entry.role);
+      updateJson(builtinFile('naming/roles'), (payload) => ({
+        ...payload,
+        roles: [
+          ...payload.roles
+            .filter((entry) => entry.role !== third)
+            .map((entry) =>
+              entry.role === first
+                ? { ...entry, status: 'deprecated', definition: 'Builtin first.' }
+                : entry.role === second
+                  ? { ...entry, definition: 'Builtin second.' }
+                  : entry,
+            ),
+          { role: 'zz-new-role', status: 'active', definition: 'Added by Builtin.' },
+        ],
+      }));
+      updateJson(customFile('naming/roles'), (payload) => ({
+        ...payload,
+        roles: payload.roles.map((entry) => (entry.role === second ? { ...entry, status: 'deprecated' } : entry)),
+      }));
+      return run({ ...fixture, first, second, third });
+    },
+    { missingIds: [], ...options },
+  );
+
+test('update applies merge-fields mixed with keep-custom and take-builtin, and the merged entries become custom-only', () => {
+  withRoleMerges(({ paths, builtinFile, customFile, baselineFile, template, update, diff, first, second, third }) => {
+    const address = (role) => `roles[role=${JSON.stringify(role)}]`;
+    const customBefore = roleRecord(customFile('naming/roles'), first);
+    const document = template();
+    decideEntries(document, 'naming/roles', (entryAddress) =>
+      ({
+        [address(first)]: mergeFields('definition'),
+        [address(second)]: mergeFields('definition'),
+        [address(third)]: 'keep-custom',
+      })[entryAddress] ?? 'take-builtin',
+    );
+    const stateBefore = fs.readFileSync(paths.statePath);
+
+    assert.deepEqual(update(document), { applied: ['naming/roles'], skipped: [] });
+
+    // builtin-changed: the Builtin definition, the Custom (Baseline) status.
+    assert.deepEqual(roleRecord(customFile('naming/roles'), first), { ...customBefore, definition: 'Builtin first.' });
+    // both-changed: the Builtin definition, the Custom status.
+    assert.deepEqual(
+      [roleRecord(customFile('naming/roles'), second).definition, roleRecord(customFile('naming/roles'), second).status],
+      ['Builtin second.', 'deprecated'],
+    );
+    assert.ok(roleRecord(customFile('naming/roles'), third), 'keep-custom keeps the role Builtin removed');
+    assert.ok(roleRecord(customFile('naming/roles'), 'zz-new-role'), 'take-builtin adds the new role');
+    assert.deepEqual(fs.readFileSync(baselineFile('naming/roles')), fs.readFileSync(builtinFile('naming/roles')));
+    assert.deepEqual(fs.readFileSync(paths.statePath), stateBefore);
+
+    // Against the new Baseline: each merged entry is custom-only and differs only in the field
+    // group kept from Custom (status); the taken group (definition) no longer differs.
+    const after = diff();
+    for (const role of [first, second]) {
+      const entry = diffEntryOf(after, 'naming/roles', address(role));
+      assert.equal(entry.class, 'custom-only', role);
+      const differing = Object.keys({ ...entry.builtin, ...entry.custom }).filter(
+        (field) => JSON.stringify(entry.builtin[field]) !== JSON.stringify(entry.custom[field]),
+      );
+      assert.deepEqual(differing, ['status'], role);
+    }
+    assert.equal(diffEntryOf(after, 'naming/roles', address(third)).class, 'custom-only');
+    assert.equal(diffEntryOf(after, 'naming/roles', address('zz-new-role')), undefined);
+    assert.deepEqual(template().registries, [], 'the merged Builtin changes are not offered again');
+  });
+});
+
+test('update applies merge-fields to an object value of a real value map (naming/finding-policy outcomes)', () => {
+  withAddedRegistries(
+    ({ builtinFile, customFile, template, update, diff }) => {
+      const outcome = Object.keys(readJson(builtinFile('naming/finding-policy')).outcomes)[0];
+      const before = readJson(customFile('naming/finding-policy')).outcomes[outcome];
+      updateJson(builtinFile('naming/finding-policy'), (payload) => ({
+        ...payload,
+        outcomes: { ...payload.outcomes, [outcome]: { ...payload.outcomes[outcome], severity: 'error', message: 'Builtin message.' } },
+      }));
+      const document = template();
+      decideEntries(document, 'naming/finding-policy', () => mergeFields('message'));
+
+      assert.deepEqual(update(document), { applied: ['naming/finding-policy'], skipped: [] });
+      assert.deepEqual(readJson(customFile('naming/finding-policy')).outcomes[outcome], { ...before, message: 'Builtin message.' });
+      assert.equal(diffEntryOf(diff(), 'naming/finding-policy', `outcomes[${JSON.stringify(outcome)}]`).class, 'custom-only');
+    },
+    { missingIds: [] },
+  );
+});
+
+test('a merge-fields registry and another selected registry of its slice validate and commit in one transaction', () => {
+  withRoleMerges(({ paths, builtinFile, template, update, diff, first, third }) => {
+    updateJson(builtinFile('naming/categories'), (payload) => ({
+      ...payload,
+      categories: payload.categories.map((record, index) => (index === 0 ? { ...record, definition: 'Builtin category.' } : record)),
+    }));
+    const document = template();
+    // The third role stays: the category-role perspective still refers to it.
+    decideEntries(document, 'naming/roles', (address) =>
+      address === `roles[role=${JSON.stringify(first)}]`
+        ? mergeFields('definition')
+        : address === `roles[role=${JSON.stringify(third)}]`
+          ? 'keep-custom'
+          : 'take-builtin',
+    );
+    decideEntries(document, 'naming/categories', () => 'take-builtin');
+    const manifestBefore = readJson(paths.manifestPath);
+    let transactions = 0;
+
+    const result = update(document, { onTransactionStep: (step) => (transactions += step === 'staged' ? 1 : 0) });
+    assert.deepEqual(result, { applied: ['naming/categories', 'naming/roles'], skipped: [] });
+    assert.equal(transactions, 1, 'one transaction for the slice');
+    const manifest = readJson(paths.manifestPath);
+    for (const registryId of ['naming/categories', 'naming/roles']) {
+      assert.notDeepEqual(manifest.basedOn.registries[registryId], manifestBefore.basedOn.registries[registryId], registryId);
+    }
+    assert.equal(registryOf(diff(), 'naming/categories').class, 'unchanged');
+  });
+});
+
+// add-alongside as a test-only capability on naming/roles: its record is never applied, even in part.
+const withAlongsideRoles = (slices) =>
+  slices.map((slice) =>
+    slice.sliceId === 'naming'
+      ? {
+          ...slice,
+          inventory: slice.inventory.map((entry) =>
+            entry.registryId === 'naming/roles'
+              ? { ...entry, reconciliation: entry.reconciliation.map((declaration) => ({ ...declaration, addAlongside: true })) }
+              : entry,
+          ),
+        }
+      : slice,
+  );
+
+test('a record with a valid add-alongside decision is skipped whole, while other registries still apply', () => {
+  withRoleMerges(
+    ({ paths, builtinFile, customFile, template, update, first, second }) => {
+      updateJson(builtinFile('naming/categories'), (payload) => ({
+        ...payload,
+        categories: payload.categories.map((record, index) => (index === 0 ? { ...record, definition: 'Builtin category.' } : record)),
+      }));
+      const document = template();
+      decideEntries(document, 'naming/roles', (address) =>
+        address === `roles[role=${JSON.stringify(first)}]`
+          ? { kind: 'add-alongside', key: 'zz-first-builtin' }
+          : address === `roles[role=${JSON.stringify(second)}]`
+            ? mergeFields('definition')
+            : 'take-builtin',
+      );
+      decideEntries(document, 'naming/categories', () => 'take-builtin');
+      const rolesFiles = [customFile('naming/roles'), path.join(paths.baselineRoot, 'naming', 'roles.registry.json')].map((file) =>
+        fs.readFileSync(file),
+      );
+
+      assert.deepEqual(update(document), {
+        applied: ['naming/categories'],
+        skipped: [{ registryId: 'naming/roles', reason: 'not-yet-supported' }],
+      });
+      assert.deepEqual(
+        [customFile('naming/roles'), path.join(paths.baselineRoot, 'naming', 'roles.registry.json')].map((file) => fs.readFileSync(file)),
+        rolesFiles,
+        'neither the merge nor the take-builtin entries of the record were applied',
+      );
+    },
+    { mapSlices: withAlongsideRoles },
+  );
 });

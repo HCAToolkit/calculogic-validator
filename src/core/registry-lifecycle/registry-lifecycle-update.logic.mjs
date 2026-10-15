@@ -30,7 +30,7 @@ import {
   recoverLifecycleTransaction,
   runLifecycleTransaction,
 } from './registry-lifecycle-transaction.logic.mjs';
-import { UPDATE_SKIP_REASONS } from './registry-lifecycle.contracts.mjs';
+import { STRUCTURED_ENTRY_DECISIONS, UPDATE_SKIP_REASONS } from './registry-lifecycle.contracts.mjs';
 
 const compareOrdinal = (left, right) => (left === right ? 0 : left < right ? -1 : 1);
 
@@ -293,8 +293,9 @@ const prepareSliceUpdate = ({ paths, slice, selections, validatorVersion }) => {
 };
 
 // The complete records to apply, and the ones skipped (spec §12.5 item 3): undecided records, and
-// complete records with a structured decision (merge-fields, add-alongside; §12.7), which this
-// release checks but does not apply. A checked document holds only decisions its classes accept.
+// complete records with an add-alongside decision (§12.7), which this release checks but does not
+// apply; none of such a record's decisions is applied. merge-fields decisions apply. A checked
+// document holds only decisions its classes accept.
 const selectRecords = (document) => {
   const apply = [];
   const skipped = [];
@@ -302,7 +303,7 @@ const selectRecords = (document) => {
     const decisions = record.class === 'registry-added' ? [record.decision] : record.entries.map((entry) => entry.decision);
     if (decisions.includes(null)) {
       skipped.push({ registryId: record.registryId, reason: UPDATE_SKIP_REASONS.undecided });
-    } else if (decisions.some((decision) => typeof decision !== 'string')) {
+    } else if (decisions.some((decision) => decision?.kind === STRUCTURED_ENTRY_DECISIONS.addAlongside)) {
       skipped.push({ registryId: record.registryId, reason: UPDATE_SKIP_REASONS.notYetSupported });
     } else {
       apply.push(record);

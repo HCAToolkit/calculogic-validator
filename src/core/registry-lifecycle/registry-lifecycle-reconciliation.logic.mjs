@@ -144,6 +144,27 @@ export const entryChoices = ({ entry, entryClass, site, builtin, custom }) => {
 
 const containerId = (site) => JSON.stringify(site.container);
 
+const setOwn = (object, key, value) => {
+  Object.defineProperty(object, key, { value, writable: true, enumerable: true, configurable: true });
+};
+
+// [5.2.14] cfg-registryLifecycle · Derived value · "mergeFieldsForm"
+// The one merge rule (spec §12.7): a copy of the Custom object in which each field of `takeBuiltin`
+// holds its Builtin form, or is absent where Builtin lacks it; every other field stays as Custom has
+// it. Applies only what a checked decision lists (a record's key field is never listed). Values are
+// plain JSON; fields are written as own properties, so a key such as `__proto__` stays data.
+export const mergeFieldsForm = ({ custom, builtin, takeBuiltin }) => {
+  const merged = JSON.parse(JSON.stringify(custom));
+  for (const field of takeBuiltin) {
+    if (Object.hasOwn(builtin, field)) {
+      setOwn(merged, field, JSON.parse(JSON.stringify(builtin[field])));
+    } else {
+      delete merged[field];
+    }
+  }
+  return merged;
+};
+
 // [5.2.14] cfg-registryLifecycle · Derived value · "alongsideKeyGroup"
 // The identity of the record an add-alongside decision would create: its collection and its key.
 // Two decisions with the same group conflict, whatever their order (spec §12.7).

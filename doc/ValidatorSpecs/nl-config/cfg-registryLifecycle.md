@@ -14,7 +14,8 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 2: the update decisions document, its template and its check (5.2.10, 5.3, 6.3). Read-only.
 - #60 slice 3: the lifecycle transaction (5.2.11) and `update` for `registry-added` inheritance (5.2.12, 5.3). The first command that changes an existing Custom set.
 - #60 slice 4: entry decisions `keep-custom` and `take-builtin` in `update`, through the pure update candidate (5.2.13) and the lifecycle transaction (5.2.12).
-- #60 slice 5: reconciliation capability declarations in every slice inventory (6.1, 5.2.14), and the decisions document's schema `"2"` with structured merge-fields and add-alongside decisions, checked read-only (5.2.10). `update` skips them as `not-yet-supported`.
+- #60 slice 5: reconciliation capability declarations in every slice inventory (6.1, 5.2.14), and the decisions document's schema `"2"` with structured merge-fields and add-alongside decisions, checked read-only (5.2.10).
+- #60 slice 6: `update` applies merge-fields through the update candidate (5.2.13), with `mergeFieldsForm` (5.2.14) as the one merge rule; add-alongside records stay skipped as `not-yet-supported`.
 - Follow-ons: the rest of the advanced management surface (#60): the entry choices merge-fields and add-alongside, `migrate` and the other commands; and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
@@ -31,12 +32,12 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 - Initialization of the Custom set, active-set selection and status.
 - Whole-set resolution into one resolved registry root per slice, with completeness, version and validity checks before validation.
 - Set-level and per-registry provenance.
-- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom` and `take-builtin`, with the lifecycle transaction it writes through.
+- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields, with the lifecycle transaction it writes through.
 
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- The rest of the advanced management surface (follow-on): the entry choices merge-fields and add-alongside, and the `edit`, `trace`, `import`/`export`, preview and `migrate` commands.
+- The rest of the advanced management surface (follow-on): applying add-alongside, and the `edit`, `trace`, `import`/`export`, preview and `migrate` commands.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present
@@ -208,7 +209,7 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 3. Select records:
    - complete records → apply: `registry-added` + `inherit`, and `differs` with every entry decided (an empty `entries` list included);
    - any `null` → skipped as `undecided`; never pulled into an update;
-   - a complete record with a merge-fields or add-alongside decision → skipped as `not-yet-supported`.
+   - a complete record with an add-alongside decision → skipped as `not-yet-supported`, with none of its decisions applied. merge-fields decisions apply.
 
    Group the selected records by owning slice (ordinal slice id; registries in ordinal id order). The slice is the unit of update.
 4. For each slice: prepare every selected registry (`prepareRegistryInheritance` or `prepareRegistryReconciliation`, returning its Baseline write, its Custom write when it changes Custom, and its manifest entry), validate the slice once (`assertSliceValid`), then run one transaction:
@@ -223,10 +224,10 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 #### 5.2.13 Derived value: `buildRegistryUpdateCandidate`
 
 `registry-lifecycle-update-candidate.logic.mjs` (spec §12.6). Pure: `({ entry, baselinePayload, builtinPayload, customPayload, decisions })` → the candidate Custom payload, where `entry` is the registry's inventory entry (descriptor and comparison declaration) and `decisions` maps each decided address to `keep-custom` or `take-builtin`. No file access and no registry-specific knowledge.
-1. Extract the three inputs (5.2.9) and classify every address. The decided addresses must be exactly the decidable ones (classes in `ENTRY_DECISIONS_BY_CLASS`), each with a decision its class accepts; otherwise `RegistryUpdateCandidateError`.
-2. Copy the Custom payload. For each `take-builtin` address, at its site (`walkComparisonEntries` over Builtin and Custom): group additions first; then values, members and records (set or replace from the Builtin payload at the same site, append, or remove); then group removals. Properties are written as own properties, so a map key such as `__proto__` stays data. Containers that are not entries are created on the way; a group is never created implicitly.
+1. Extract the three inputs (5.2.9) and classify every address. The decided addresses must be exactly the decidable ones (classes in `ENTRY_DECISIONS_BY_CLASS`), each with a string decision its class accepts or a merge-fields decision `checkStructuredDecision` (5.2.14) accepts; an add-alongside decision is refused here, since `update` never passes one. Otherwise `RegistryUpdateCandidateError`.
+2. Copy the Custom payload. For each `take-builtin` address, at its site (`walkComparisonEntries` over Builtin and Custom): group additions first; then values, members and records (set or replace from the Builtin payload at the same site, append, or remove), and merge-fields records and object values (`mergeFieldsForm` over the raw Custom and Builtin forms at the site, replacing the Custom form in place); then group removals. Properties are written as own properties, so a map key such as `__proto__` stays data. Containers that are not entries are created on the way; a group is never created implicitly.
 3. Order entries: arrange each ordered collection by its decided sequence (Builtin's for `take-builtin`, else Custom's) when its records are exactly that sequence's keys; remove it when the decided order is absent and it is empty. Anything else is left for step 4.
-4. Exact image: extract the candidate; every address must hold the Builtin value (`take-builtin`) or the Custom value (otherwise), present or absent alike. Any difference throws `RegistryUpdateCandidateError` listing each `{ address, expected, actual }`. Nothing is repaired.
+4. Exact image: extract the candidate; every address must hold the Builtin value (`take-builtin`), the merged value (merge-fields: `mergeFieldsForm` over the canonical Custom and Builtin values) or the Custom value (otherwise), present or absent alike. Any difference throws `RegistryUpdateCandidateError` listing each `{ address, expected, actual }`. Nothing is repaired.
 
 Returns `{ payload, changed }`, where `changed` is false when the candidate equals the Custom payload exactly.
 
@@ -235,6 +236,7 @@ Returns `{ payload, changed }`, where `changed` is false when the candidate equa
 `registry-lifecycle-reconciliation.logic.mjs` (spec §12.7). Suite core records and checks what slices declare; it never infers mergeable fields or invents keys.
 - **`assertReconciliationDeclaration(entry)`:** every `{ path, mergeFields?, addAlongside? }` names a comparison collection of the entry, at most once; `mergeFields` only on `keyed` or `value` collections, as disjoint non-empty groups of field names without the key field; `addAlongside: true` only on an unordered `keyed` collection. Throws on anything else (a programming error, covered by the inventory tests).
 - **`entryChoices({ entry, address, entryClass, sites, builtin, custom })`:** the decisions the check accepts for one diff entry: `keep-custom` and `take-builtin`, plus for `builtin-changed` and `both-changed` a record or object value in a declaring collection: merge-fields when both forms are objects, every field is in a group and at least two groups differ (offered with the differing groups), and add-alongside on a declaring record. The template's `choices` and the check share it.
+- **`mergeFieldsForm({ custom, builtin, takeBuiltin })`:** the one merge rule (spec §12.7): a copy of the Custom object in which each listed field holds its Builtin form, or is absent where Builtin lacks it; every other field as Custom has it. Fields are written as own properties. The candidate uses it both to write the raw payload and to compute the expected canonical value.
 - **`checkStructuredDecision(...)`:** the spec §12.7 rules for one structured decision on its own, returning `{ problem, detail }` or null. Its `kind` selects a shape only when it is an own key of the shape table (document input: `__proto__` or `constructor` is an unknown kind, `malformed`). add-alongside keys are checked against the keys of the Builtin and Custom collection the record would join (sites from `walkComparisonEntries`, which carry `collectionPath`).
 - **Collection-wide add-alongside keys:** `checkRegistryUpdateDecisions` gathers every add-alongside decision that passes on its own, groups them by `alongsideKeyGroup` (collection and key), and reports every member of a group with more than one decision as `invalid-decision`, with one detail naming all of them. Document order never decides which one fails.
 
