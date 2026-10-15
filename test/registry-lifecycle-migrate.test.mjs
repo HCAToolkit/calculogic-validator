@@ -609,6 +609,45 @@ test('migrate never reads or changes the active set', () => {
   }
 });
 
+test('a Baseline copy that matches its manifest digest but not its manifest version is never migrated', () => {
+  withMigrateFixture(({ release, plan, migrate, paths, baselineFile }) => {
+    // Version-"1" shaped content labelled "2", with the manifest digest repaired to match it. The
+    // transform does not look at the input version, so only the version check stops it.
+    const mislabelled = { version: '2', items: [{ name: 'b', label: 'Alpha' }] };
+    writeJson(baselineFile(THING_T), mislabelled);
+    const manifest = readJson(paths.manifestPath);
+    manifest.basedOn.registries[THING_T].digest = digestRegistryPayload(mislabelled, V2_DESCRIPTOR);
+    writeJson(paths.manifestPath, manifest);
+    const slices = release({ [THING_T]: '2' });
+
+    const document = plan(slices);
+    assert.deepEqual(document.registries, []);
+    assert.deepEqual(document.notMigratable, [
+      { registryId: THING_T, reason: 'baseline-mismatch', detail: 'The .baseline copy is at version "2", its manifest entry at "1".' },
+    ]);
+
+    // A plan made for it before the copy changed is refused, and nothing is written.
+    const before = snapshotTree(paths.lifecycleRoot);
+    const forged = {
+      kind: 'calculogic-registry-migration-plan',
+      schemaVersion: '1',
+      registries: [
+        {
+          registryId: THING_T,
+          fromVersion: '1',
+          toVersion: '2',
+          path: [{ from: '1', to: '2', transform: 'thing-1-to-2' }],
+          basedOn: { baselineDigest: manifest.basedOn.registries[THING_T].digest, builtinDigest: 'x', customDigest: 'y' },
+          result: { baselineDigest: 'x', customDigest: 'y' },
+          decision: 'accept',
+        },
+      ],
+    };
+    assert.deepEqual(migrate(slices, forged).problems.map((item) => [item.registryId, item.problem]), [[THING_T, 'not-migratable']]);
+    assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
+  });
+});
+
 test('a transform id or version that could not be written as manifest provenance is refused before anything is written', () => {
   for (const [label, step, transforms] of [
     ['a padded transform id', { ...STEP_1_TO_2, transform: ' thing-1-to-2 ' }, { ' thing-1-to-2 ': migrate1to2 }],

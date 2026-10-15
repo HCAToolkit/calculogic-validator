@@ -99,6 +99,14 @@ const planRegistryMigration = ({ paths, slice, entry, statusEntry, manifestEntry
   }
 
   const baselinePayload = readJsonFile(baselinePath);
+  // A copy can match its manifest digest yet be at another version than its manifest entry (a
+  // hand-repaired set); the path is chosen by the entry's version, so the copy must be at it.
+  if (baselinePayload?.version !== fromVersion) {
+    return notMigratable(
+      REASONS.baselineMismatch,
+      `The .baseline copy is at version ${JSON.stringify(baselinePayload?.version ?? null)}, its manifest entry at ${JSON.stringify(fromVersion)}.`,
+    );
+  }
   const customPayload = readJsonFile(customPath);
   if (customPayload?.version !== fromVersion) {
     return notMigratable(

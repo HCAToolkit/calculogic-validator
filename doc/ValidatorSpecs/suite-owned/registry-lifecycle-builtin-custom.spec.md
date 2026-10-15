@@ -727,7 +727,7 @@ Both need a Custom set and write nothing. Neither reads or changes `activeSet` a
   | Reason | Applies when |
   |---|---|
   | `no-migration-path` | the declaration (§8.3) has no path from the Baseline version to the Builtin version. Without one, this release also has no descriptor for the Baseline's version (§5), so its copy is unverifiable rather than mismatched. |
-  | `baseline-mismatch` | the `.baseline/` copy is missing, escapes the target or does not match its manifest digest (§4.4). Nothing is migrated from an untrusted merge base. |
+  | `baseline-mismatch` | the `.baseline/` copy is missing, escapes the target, does not match its manifest digest (§4.4), or is not at its manifest entry's `version`, which selects the path. Nothing is migrated from an untrusted merge base. |
   | `missing` | Custom lacks the registry |
   | `invalid` | the Custom registry cannot be read or parsed |
   | `custom-version-mismatch` | the Custom registry's `version` is not the Baseline's: B0 and C0 must take the same path |
