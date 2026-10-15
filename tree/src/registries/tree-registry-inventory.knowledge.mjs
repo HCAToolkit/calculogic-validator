@@ -18,7 +18,10 @@ const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 // `comparison` is the registry's entry identity for three-way comparison (spec §8.4).
 // `reconciliation` declares which of its collections accept merge-fields or add-alongside (spec
 // §12.7); the reasons are recorded in doc/Audits/registry-reconciliation-capabilities.audit.md.
-const defineTreeRegistry = (name, descriptor, comparison, reconciliation = []) =>
+// `migrations` declares the steps from older `version` values, each naming a transform of the
+// slice's migration module and the descriptor of its source version (spec §8.3). Empty while no
+// registry has changed shape.
+const defineTreeRegistry = (name, descriptor, comparison, reconciliation = [], migrations = []) =>
   Object.freeze({
     registryId: `${TREE_REGISTRY_SLICE_ID}/${name}`,
     name,
@@ -35,6 +38,9 @@ const defineTreeRegistry = (name, descriptor, comparison, reconciliation = []) =
             : {}),
         }),
       ),
+    ),
+    migrations: Object.freeze(
+      migrations.map((step) => Object.freeze({ ...step, fromDescriptor: Object.freeze(step.fromDescriptor) })),
     ),
   });
 

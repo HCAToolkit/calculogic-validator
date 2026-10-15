@@ -15,6 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { isPathInsideTarget } from '../target-path-containment.logic.mjs';
 import { digestRegistryPayload } from './registry-lifecycle-canonical-digest.logic.mjs';
+import { descriptorForPayload } from './registry-lifecycle-migration.logic.mjs';
 import { checkRegistryUpdateDecisions } from './registry-lifecycle-decisions.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
 import { RegistryUpdateCandidateError, buildRegistryUpdateCandidate } from './registry-lifecycle-update-candidate.logic.mjs';
@@ -94,7 +95,7 @@ const readAuthorizedBuiltin = ({ slice, entry, record, refuse }) => {
   }
 
   const { bytes, payload } = readJson(builtinPath, refuse, 'Builtin');
-  const digest = digestRegistryPayload(payload, entry.descriptor);
+  const digest = digestRegistryPayload(payload, descriptorForPayload(entry, payload));
   if (digest !== record.basedOn.builtinDigest) {
     refuse('the Builtin file no longer has the digest the decisions document authorized; the document is stale.');
   }
@@ -196,7 +197,7 @@ const readBoundLifecycleFile = ({ paths, filePath, entry, expectedDigest, refuse
     refuse(`the ${label} file is missing or resolves outside the validation target.`);
   }
   const file = readJson(filePath, refuse, label);
-  if (digestRegistryPayload(file.payload, entry.descriptor) !== expectedDigest) {
+  if (digestRegistryPayload(file.payload, descriptorForPayload(entry, file.payload)) !== expectedDigest) {
     refuse(`the ${label} file no longer has the digest the decisions document was made against; the document is stale.`);
   }
   return file;

@@ -131,6 +131,31 @@ export const UPDATE_SKIP_REASONS = Object.freeze({
   notYetSupported: 'not-yet-supported',
 });
 
+// [6.3] cfg-registryLifecycle · Primitive · "Migration plan" (spec §12.8)
+export const MIGRATION_PLAN_KIND = 'calculogic-registry-migration-plan';
+export const MIGRATION_PLAN_SCHEMA_VERSION = '1';
+export const MIGRATION_PLAN_DECISIONS = Object.freeze({ accept: 'accept' });
+
+// [6.3] cfg-registryLifecycle · Primitive · "Not-migratable reasons in precedence order" (spec §12.8)
+export const NOT_MIGRATABLE_REASONS = Object.freeze({
+  noMigrationPath: 'no-migration-path',
+  baselineMismatch: 'baseline-mismatch',
+  missing: 'missing',
+  invalid: 'invalid',
+  customVersionMismatch: 'custom-version-mismatch',
+  transformFailed: 'transform-failed',
+});
+
+// [6.3] cfg-registryLifecycle · Primitive · "Migration plan problems" (spec §12.8)
+export const MIGRATION_PLAN_PROBLEMS = Object.freeze({
+  malformed: 'malformed',
+  unknownRegistry: 'unknown-registry',
+  duplicateRegistry: 'duplicate-registry',
+  notMigratable: 'not-migratable',
+  stale: 'stale',
+  unsupportedDecision: 'unsupported-decision',
+});
+
 // [6.3] cfg-registryLifecycle · Primitive · "Missing-set blocking condition" (spec §7.1 item 1)
 // Blocks activation and an active-Custom run when no Custom set exists. It is not a `customIssues`
 // condition, because `customIssues` describe an existing set.

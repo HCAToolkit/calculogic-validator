@@ -57,7 +57,13 @@ const diffEntries = ({ baseline = new Map(), builtin = new Map(), custom = new M
   });
 };
 
-const withEntries = (registry, entries) => ({ ...registry, counts: countBy(entries, (entry) => entry.class), entries });
+// [5.2.9] cfg-registryLifecycle · Derived value · "summarizeEntryDiff"
+// The differing entries of three address → canonical value maps, with their counts per class. The
+// migration plan previews B0′/B1/C0′ with it (spec §12.8).
+export const summarizeEntryDiff = (inputs) => {
+  const entries = diffEntries(inputs);
+  return { counts: countBy(entries, (entry) => entry.class), entries };
+};
 
 const toValues = (walked) => new Map(walked.map(({ address, value }) => [address, value]));
 
@@ -81,7 +87,7 @@ const diffRegistryWith = ({ paths, slice, entry, statusEntry, manifestEntry, man
   const builtinEntries = toValues(builtinWalked);
 
   if (!manifestEntry) {
-    return withEntries({ registryId, class: 'registry-added' }, diffEntries({ builtin: builtinEntries }));
+    return { registryId, class: 'registry-added', ...summarizeEntryDiff({ builtin: builtinEntries }) };
   }
 
   if (builtinPayload.version !== manifestEntry.version) {
@@ -122,14 +128,15 @@ const diffRegistryWith = ({ paths, slice, entry, statusEntry, manifestEntry, man
     throw error;
   }
 
-  const entries = diffEntries({
+  const inputs = {
     baseline: toValues(walkComparisonEntries(readJsonFile(baselinePath), entry)),
     builtin: builtinEntries,
     custom: toValues(customWalked),
-  });
+  };
   Object.assign(walked, { builtin: builtinWalked, custom: customWalked });
 
-  return entries.length === 0 ? { registryId, class: 'unchanged' } : withEntries({ registryId, class: 'differs' }, entries);
+  const summary = summarizeEntryDiff(inputs);
+  return summary.entries.length === 0 ? { registryId, class: 'unchanged' } : { registryId, class: 'differs', ...summary };
 };
 
 // [5.2.9] cfg-registryLifecycle · Workflow · "compareRegistryLifecycle"

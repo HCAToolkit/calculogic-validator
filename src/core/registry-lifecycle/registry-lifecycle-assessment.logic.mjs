@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { digestRegistryPayload, digestRegistrySet } from './registry-lifecycle-canonical-digest.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
+import { descriptorForPayload, isVersionDescribed } from './registry-lifecycle-migration.logic.mjs';
 import { validateSliceRegistrySet } from './registry-lifecycle-slice-validation.logic.mjs';
 import {
   customSetExists,
@@ -32,15 +33,17 @@ const isDirectory = (directoryPath) => {
   }
 };
 
-// Reads one registry file and returns `{ present, payload?, digest, parseError? }`.
-const readRegistryFile = (filePath, descriptor) => {
+// Reads one registry file and returns `{ present, payload?, digest, parseError? }`. `descriptorOf`
+// names the canonical-form descriptor for the parsed payload: for an inventory registry, the one of
+// the payload's own version (spec §5).
+const readRegistryFile = (filePath, descriptorOf) => {
   if (!fs.existsSync(filePath)) {
     return { present: false, digest: null };
   }
 
   try {
     const payload = readJsonFile(filePath);
-    return { present: true, payload, digest: digestRegistryPayload(payload, descriptor) };
+    return { present: true, payload, digest: digestRegistryPayload(payload, descriptorOf(payload)) };
   } catch (error) {
     return { present: true, digest: null, parseError: error.message };
   }
@@ -50,9 +53,9 @@ const ESCAPING_PATH_DETAIL = 'Resolves outside the validation target; the Valida
 
 // Reads one Custom-set file. A path that resolves outside the validation target is never read: it
 // is reported as present but unreadable (lifecycle spec §4.1 "Containment").
-const readCustomSetFile = (paths, filePath, descriptor) =>
+const readCustomSetFile = (paths, filePath, descriptorOf) =>
   isLifecyclePathContained(paths, filePath)
-    ? readRegistryFile(filePath, descriptor)
+    ? readRegistryFile(filePath, descriptorOf)
     : { present: true, digest: null, parseError: ESCAPING_PATH_DETAIL, escapes: true };
 
 // [5.2.4] cfg-registryLifecycle · Primitive · "digestBuiltinRegistrySet"
@@ -60,7 +63,9 @@ export const digestBuiltinRegistrySet = ({ slices = REGISTRY_LIFECYCLE_SLICES } 
   const digestsById = {};
   for (const slice of slices) {
     for (const entry of slice.inventory) {
-      const builtin = readRegistryFile(path.join(slice.builtinRoot, entry.fileName), entry.descriptor);
+      const builtin = readRegistryFile(path.join(slice.builtinRoot, entry.fileName), (payload) =>
+        descriptorForPayload(entry, payload),
+      );
       if (!builtin.present || builtin.parseError) {
         throw new Error(`Builtin registry ${entry.registryId} is missing or unreadable.`);
       }
@@ -178,7 +183,9 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
     slice.inventory.map((entry) => ({
       slice,
       entry,
-      custom: readCustomSetFile(paths, path.join(paths.customRoot, slice.sliceId, entry.fileName), entry.descriptor),
+      custom: readCustomSetFile(paths, path.join(paths.customRoot, slice.sliceId, entry.fileName), (payload) =>
+        descriptorForPayload(entry, payload),
+      ),
     })),
   );
 
@@ -225,11 +232,13 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
     const baselineDigest = manifestEntry ? manifestEntry.digest : null;
     let baselineMismatch = null;
 
-    if (manifestEntry) {
+    // A copy at a version this release has no descriptor for is unverifiable, never a mismatch
+    // (lifecycle spec §12.1).
+    if (manifestEntry && isVersionDescribed(entry, manifestEntry.version)) {
       const baseline = readCustomSetFile(
         paths,
         path.join(paths.baselineRoot, slice.sliceId, entry.fileName),
-        entry.descriptor,
+        (payload) => descriptorForPayload(entry, payload),
       );
       baselineMismatch = baseline.digest !== manifestEntry.digest;
       if (baselineMismatch) {
@@ -291,14 +300,14 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
   const orphanRegistries = listOrphanRegistries({ paths, slices });
   for (const orphan of orphanRegistries) {
     const retiredDescriptor = retiredDescriptorsById.get(orphan.registryId);
-    const orphanFile = readCustomSetFile(paths, orphan.filePath, retiredDescriptor ?? {});
+    const orphanFile = readCustomSetFile(paths, orphan.filePath, () => retiredDescriptor ?? {});
     const manifestEntry = trustedManifestEntries[orphan.registryId];
     let baselineMismatch = null;
     if (manifestEntry && retiredDescriptor) {
       const baseline = readCustomSetFile(
         paths,
         path.join(paths.baselineRoot, orphan.sliceId, orphan.fileName),
-        retiredDescriptor,
+        () => retiredDescriptor,
       );
       baselineMismatch = baseline.digest !== manifestEntry.digest;
       if (baselineMismatch) {
