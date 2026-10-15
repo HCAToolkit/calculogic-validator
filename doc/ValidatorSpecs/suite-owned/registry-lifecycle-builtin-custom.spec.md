@@ -2,7 +2,7 @@
 
 - **Classification:** Normative target contract for the suite-level registry lifecycle. Sections marked *Current implementation reality* or *Historical* are Informative.
 - **Ownership:** suite-owned lifecycle mechanics; slice-owned registry meaning (§9).
-- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document and `update` (`registry-added` inheritance, and the entry decisions `keep-custom`, `take-builtin` and merge-fields) are implemented; its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
+- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document `update` (`registry-added` inheritance, and the entry decisions `keep-custom`, `take-builtin` and merge-fields) and the read-only migration plan are implemented; its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
 - **Report-only note:** the lifecycle selects registry inputs and discloses them in report metadata. It adds no enforcement mode and no fix execution.
 - **Issue lineage:** Refs #41; parent Refs #39. Decision record: #41 comments "Decision record (before the spec PR)", "Decision record: section 9 resolved" and "Decision record: activation, and the earlier customization draft".
 
@@ -118,12 +118,25 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 - Per-registry provenance is authoritative, because a Baseline can legitimately combine registries from different Validator releases after a partial update (§8.2). Set-level values are derived from it:
   - the Baseline set digest is the set digest (§2) over the per-registry Baseline digests;
   - a single Baseline `validatorVersion` exists only when every registry shares one.
+- **After a shape migration** (§8.3), a registry's entry describes the migrated Baseline B0′, never the current Builtin:
+  - `validatorVersion` stays the release whose Builtin content B0′ holds. A migration changes representation, not content, so it never claims the current release;
+  - `version` is the migrated version, and `digest` is B0′'s canonical digest;
+  - an optional `migration` field records what B0′ was derived from: `{ "fromVersion", "fromDigest", "path" }`, the pre-migration Baseline `version` and digest and the ids of the transforms applied, in order. A later migration of the same registry keeps the original `fromVersion` and `fromDigest` and appends its transform ids to `path`.
+
+  When `update` advances the registry's Baseline to the current Builtin (§8.2), the entry is rewritten without `migration`. `validatorVersion` never doubles as a migration marker.
+
+  ```json
+  "naming/roles": {
+    "validatorVersion": "0.1.0", "version": "2", "digest": "<B0′ sha256-hex>",
+    "migration": { "fromVersion": "1", "fromDigest": "<B0 sha256-hex>", "path": ["roles-1-to-2"] }
+  }
+  ```
 - The manifest carries no registry records and no active-set choice.
 - Additional descriptive fields, such as a set name or author, may be added later as optional metadata. They never affect resolution.
 
 ### 4.4 Baseline copy
 
-`custom/.baseline/` holds a byte-for-byte copy of each registry's Baseline Builtin version. A digest only tells you *that* Builtin changed; the copy tells you *what* changed. The copy is the merge base for the three-way comparison (§8.2), and a shared set carries its own merge base.
+`custom/.baseline/` holds a byte-for-byte copy of each registry's Baseline Builtin version or, after a shape migration (§8.3), that copy migrated by the registry's declared transforms (B0′), whose derivation the manifest records (§4.3). A digest only tells you *that* Builtin changed; the copy tells you *what* changed. The copy is the merge base for the three-way comparison (§8.2), and a shared set carries its own merge base.
 
 **Verification.** The manifest's per-registry digests (§4.3) are authoritative, and the copy is checked against them:
 - **Drift detection** (§7.2) compares the current Builtin digest with the manifest digest. It never needs the copy.
@@ -179,6 +192,7 @@ Comparison decides whether Custom *differs* from Builtin rather than being merel
 - **Set-like arrays** (membership is the meaning) are sorted by their declared entry key, or by value for scalar arrays, with the stable-stringified item as the tie-breaker. Identical members collapse to one, since a repeated member does not change membership; keyed records that differ in any field stay distinct. Collapsing applies only to arrays the descriptor declares set-like: ordered arrays keep repetition, and keyed-record uniqueness is checked by slice validation (§9.3), never repaired by comparison.
 - **Empty optional values** that a registry declares as omittable (for example an empty `notes` string) are normalized out.
 - Arrays are **ordered by default**. A registry's descriptor (§9.1) declares which array paths are set-like, their entry keys and which optional fields are omittable.
+- **The descriptor of a payload's version.** A payload is canonicalized with the descriptor of its own `version`: the `fromDescriptor` of the registry's migration step from that version (§8.3), and otherwise the registry's descriptor. A Baseline copy or Custom registry at an old version therefore stays verifiable against its recorded digest after a release changes the descriptor.
 
 Digests are computed over canonical forms only. File formatting, key order, and the order or repetition of set-like array members never make Custom "differ".
 
@@ -249,10 +263,34 @@ For each item the user chooses: keep theirs, take Builtin, merge selected fields
 
 ### 8.3 Shape migrations
 
-- A Builtin schema change to an existing registry (for example a new required field) is applied to Custom only through an explicit, user-run migration that the registry's `version` gates.
+- A Builtin schema change to an existing registry (for example a new required field, a renamed or a removed field) is applied to Custom only through an explicit, user-run migration that the registry's `version` gates.
 - The owning slice owns the migration transform, which is deterministic.
-- The migration command previews the transformation and keeps the pre-migration Custom until the user accepts it.
+- The migration plan (§12.8) previews the transformation, and the pre-migration Custom stays as it is until the user accepts the plan and applies it.
 - Content inheritance (§8.2) and shape migration are separate operations.
+
+**Model.** For a registry the comparison classifies `version-changed` (§12.3), let **B0** be its verified Baseline copy (§4.4) and **C0** its Custom registry, both at the manifest's `version` v0, and **B1** the current Builtin at v1.
+- The registry's one declared path from v0 to v1 (below) is applied to **both** B0 and C0, giving **B0′** and **C0′** at v1. B0′ is derived from the Baseline copy, never from Builtin.
+- **Invariant: migration changes representation and schema, not the user's content decision history.** B0′ is the Builtin content the Custom set was based on, in the new shape; C0′ is the user's content, in the new shape. A difference between B0 and C0 survives as a difference between B0′ and C0′, unless the shape change itself removes what differed (a dropped field).
+- **The Baseline never advances to B1 because of a migration.** Afterwards B0′/B1/C0′ is an ordinary same-version three-way comparison (§8.2): a Builtin content change that shipped with the shape change is listed by `diff` against B0′ and decided through the decisions document and `update` (§12.4, §12.5), like any other content change. A shape-only release (B0 migrated equals B1) leaves no drift.
+
+**Ownership.** The owning slice declares the path and owns each step's transform: a deterministic, pure function from a payload at the step's `from` version to a payload at its `to` version. It reads no file, no state and no `activeSet`, and it never sees Builtin. Defaults for a new required field, renames, and how an old shape maps to the new one are decided by the transform, never by suite core. Suite core only discovers the path, binds it to its inputs, runs it mechanically, checks its output, previews it and, once accepted, commits it. It never infers a default, a rename or a mapping, and never copies a Builtin value into a migrated payload.
+
+**Declaration.** A registry's inventory entry (§9.1) lists `migrations`, a list of steps `{ from, to, transform, fromDescriptor }`:
+- `from` and `to` are distinct, non-empty `version` strings;
+- `transform` is the id of the step's transform in the slice's transforms. Transforms are code, so they live in the slice's migration module, which suite core reaches through a static bridge, the same way it reaches slice validation (§9.3);
+- `fromDescriptor` is the canonical-form descriptor (§5) of payloads at version `from`, so a Baseline copy or Custom registry at that version stays verifiable.
+
+The versions a registry can be migrated from (the `from` of its steps) are separate from its `readableVersions`, which the runtime reads. The declaration is checked against the slice's transforms, and each of these is a programming error:
+- two steps from the same version (an ambiguous path);
+- a cycle;
+- a transform id the slice does not provide;
+- a chain that ends at a version outside `readableVersions` (a missing intermediate step, or a target the engine cannot read).
+
+So exactly one ordered chain leads from each declared version. The **path** from v0 to v1 follows that chain from v0 and stops at v1; a direct step is a path of one. The registry has no path when v0 is not a declared `from`, or when its chain never reaches v1.
+
+**Running a path.** Each step receives a deep-frozen copy of the previous payload, and must return a plain JSON object whose `version` is the step's `to`. A throw (an attempted mutation included), a non-JSON value or a wrong `version` is a failed transform. The final payload must yield the comparison entries of the registry's declaration (§8.4).
+
+**Sequencing.** The migration plan (§12.8) is read-only. Applying an accepted plan writes B0′ to `.baseline/`, C0′ to Custom and the manifest entry of §4.3, through a lifecycle transaction (§4.6). It is the next #60 slice, which also decides how the slice's registry-set validation (§9.3) gates the migrated image.
 
 ### 8.4 Entry identity: comparison declarations
 
@@ -281,6 +319,7 @@ Every registry-bearing slice declares a registry inventory. For each registry, i
 - the canonical-form descriptor (§5): set-like array paths, their sort keys and omittable optional fields;
 - the comparison identity declaration (§8.4): what an entry is and how it is addressed;
 - the reconciliation capability declaration (§12.7): which comparison collections accept the entry choices merge-fields and add-alongside, and on which terms;
+- the migration declaration (§8.3): the steps from older `version` values, each naming a transform of the slice's migration module and the descriptor of its source version;
 - reference edges to other registries of the same slice (§9.3);
 - a **registry-set validation entry point**, slice-owned (§9.3).
 
@@ -439,7 +478,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 - When the manifest is malformed, `status` also prints a top-level `manifestError` with the parse detail. Every registry that is not class 1–4 is then `baseline-unavailable`, and `customDigest` and `builtinDigest` are still reported.
 - `baselineMismatch` is reported independently of `classification` (§4.4):
   - it is `true` or `false` when the manifest is readable and has an entry for the registry;
-  - it is `null` when there is no trusted manifest digest to check against (a malformed manifest, or no entry, such as for a registry introduced after the Baseline), and for an orphan whose canonical-form descriptor this release does not know.
+  - it is `null` when there is no trusted manifest digest to check against (a malformed manifest, or no entry, such as for a registry introduced after the Baseline), for an orphan whose canonical-form descriptor this release does not know, and when the manifest entry's `version` is one this release has no descriptor for: neither readable nor a declared migration source (§5, §8.3). Such a copy is unverifiable, which is never reported as a mismatch.
 - **Retired descriptors.** The manifest digest of a registry is computed with its canonical-form descriptor (§5), so verifying a copy needs that descriptor. When a release removes or renames a registry, the slice keeps the registry's descriptor in a retired inventory. An orphan's Custom digest and Baseline copy are then canonicalized with it. An orphan without a retired descriptor, such as one from a newer release, has a `null` `customDigest` and `baselineMismatch`: the copy is unverifiable, which is never reported as a mismatch.
 
 **Activation rule:**
@@ -453,7 +492,10 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices:
 1. `diff` (§12.3);
 2. the update decisions document (§12.4);
-3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6, §12.7). add-alongside has its contract and capability declaration (§12.7) and is applied once a slice declares it; migration and the other commands follow. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
+3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6, §12.7). add-alongside has its contract and capability declaration (§12.7) and is applied once a slice declares it;
+4. the migration declaration (§8.3) and the read-only migration plan (§12.8). Applying an accepted plan is the next slice; the other commands follow.
+
+Interactive prompting may only generate or edit these documents; it is never a separate source of decisions.
 
 ### 12.3 `diff` (read-only)
 
@@ -462,7 +504,7 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
 - **Registry classes**, the first that applies:
   1. `orphan`: present in Custom, absent from the current Builtin inventory. Not compared.
   2. `registry-added`: a current Builtin registry with no Baseline entry. Its Builtin entries are listed as `builtin-added`. Custom lacks the registry; a Custom copy without a Baseline entry makes the manifest malformed (§7.1 item 5).
-  3. `version-changed`: Builtin moved the registry to a `version` other than the Baseline's. Migration is required (§8.3), so entries are not compared.
+  3. `version-changed`: Builtin moved the registry to a `version` other than the Baseline's. Migration is required (§8.3, §12.8), so entries are not compared.
   4. `not-comparable`: no trusted three-way input exists. `reason` is the registry's `status` condition: `missing`, `invalid`, `version-incompatible`, `baseline-unavailable`, or `baseline-mismatch` (the `.baseline/` copy does not match its manifest digest, §4.4). Nothing is classified from an untrusted merge base.
   5. `differs`: at least one entry differs. Only differing entries are listed.
   6. `unchanged`.
@@ -648,6 +690,71 @@ Never declarable: `members` entries (membership has no fields and no second form
 
 **Current declarations.** The inventory audit (`doc/Audits/registry-reconciliation-capabilities.audit.md`) records the decision for every collection of every registry. merge-fields is declared on the keyed collections whose records separate descriptive fields from matching or identity fields, and on two value maps. No current collection declares add-alongside: every keyed collection either keys records by a vocabulary term other registries or loaders refer to, constrains another field to be unique, or is ordered.
 
+### 12.8 Migration plan (read-only)
+
+The shape migrations (§8.3) the user accepts are recorded in a plain JSON **migration plan**, which the user keeps, reviews and passes back. Like the decisions document (§12.4), it is never read implicitly and never stored under `.calculogic/registries/`. Two read-only commands support it:
+- `migrate-plan [registryId…]` prints the plan for the current state, with every decision `null`. Ids restrict it as they restrict `diff`; an unknown id is a usage error.
+- `migrate-check <file>` checks a plan against the current state and prints the result. It exits 1 when there is any problem. The path is resolved from the working directory.
+
+Both need a Custom set and write nothing. Neither reads or changes `activeSet` and neither reads `registry-state.json` (§12.1 activation rule), so a malformed state file does not stop them. Interactive tooling may only produce a plan or record its acceptance; it is never a separate source of decisions.
+
+**Shape:**
+
+```json
+{
+  "kind": "calculogic-registry-migration-plan",
+  "schemaVersion": "1",
+  "registries": [
+    {
+      "registryId": "naming/roles",
+      "fromVersion": "1",
+      "toVersion": "2",
+      "path": [{ "from": "1", "to": "2", "transform": "roles-1-to-2" }],
+      "basedOn": { "baselineDigest": "…", "builtinDigest": "…", "customDigest": "…" },
+      "result": { "baselineDigest": "…", "customDigest": "…" },
+      "preview": { "class": "differs", "counts": { "builtin-changed": 1 }, "entries": [], "baseline": {}, "custom": {} },
+      "decision": null
+    }
+  ],
+  "notMigratable": [{ "registryId": "tree/folder-kinds", "reason": "no-migration-path", "detail": "…" }]
+}
+```
+
+- **Registries.** The plan covers every registry the current `diff` classifies `version-changed` (§12.3). One that can be migrated has a record; any other is listed in `notMigratable` with the first reason that applies:
+
+  | Reason | Applies when |
+  |---|---|
+  | `no-migration-path` | the declaration (§8.3) has no path from the Baseline version to the Builtin version. Without one, this release also has no descriptor for the Baseline's version (§5), so its copy is unverifiable rather than mismatched. |
+  | `baseline-mismatch` | the `.baseline/` copy is missing, escapes the target or does not match its manifest digest (§4.4). Nothing is migrated from an untrusted merge base. |
+  | `missing` | Custom lacks the registry |
+  | `invalid` | the Custom registry cannot be read or parsed |
+  | `custom-version-mismatch` | the Custom registry's `version` is not the Baseline's: B0 and C0 must take the same path |
+  | `transform-failed` | a step failed on the Baseline or the Custom payload, or the result has no valid comparison entries; `detail` names the input, the step and the reason |
+
+- **`fromVersion`, `toVersion`, `path`:** the manifest's Baseline `version`, the current Builtin `version`, and the path's steps `{ from, to, transform }` in order.
+- **Binding.** `basedOn` holds the canonical digests of the three inputs, as `status` reports them (§12.1): the manifest's Baseline digest (its copy verified against it), the current Builtin digest and the Custom digest, each payload canonicalized with the descriptor of its version (§5). `result` holds the canonical digests of B0′ and C0′. Since the transforms are deterministic, `result` also binds the plan to what the transforms produce.
+- **`preview`** (informative): what B0′/B1/C0′ will look like, in `diff`'s terms: the registry `class` after the migration (`differs` or `unchanged`), its `counts` and differing `entries` (§12.3), and the migrated payloads `baseline` (B0′) and `custom` (C0′). The check ignores it.
+- **`notMigratable`** (informative): the check ignores it.
+- **`decision`:** `null` (undecided) or `"accept"`.
+- Registries are named by id; document order carries no meaning; the plan and every check result are in ordinal order.
+
+**Check result:** `{ valid, complete, problems, registries }`.
+- `problems` holds `{ registryId, problem, detail }`, sorted by registry id (`null`, for the document itself, first), then problem. Each record has at most one problem, the first that applies:
+
+  | Problem | Meaning |
+  |---|---|
+  | `malformed` | the document or a record does not have the shape above; unknown fields included |
+  | `unknown-registry` | the id is not a current Builtin registry |
+  | `duplicate-registry` | the registry is listed more than once |
+  | `not-migratable` | the registry has nothing to migrate now, or cannot be migrated; `detail` names its current `diff` class or its `notMigratable` reason |
+  | `stale` | the record no longer matches the current state; `detail` names what changed: the inputs (`baseline`, `builtin`, `custom`) and the `path` (its versions or steps), or, when all of those still match, the `result`: the transforms now produce another payload |
+  | `unsupported-decision` | the decision is neither `null` nor `"accept"` |
+
+- `registries` summarizes each record without a problem: `{ registryId, fromVersion, toVersion, accepted }`.
+- `valid` is true when there is no problem. `complete` is true when the plan is valid and every record in it is accepted.
+
+**Applying it** is the next #60 slice (§8.3 "Sequencing"). It refuses a plan that is not valid, before writing anything, migrates only accepted records, and never changes `activeSet`.
+
 ## 13) Implementation slices
 
 1. **Spec/NL (this document):** `nl-config/cfg-registryLifecycle.md` and aligned specs.
@@ -685,7 +792,7 @@ Never declarable: `members` entries (membership has no fields and no second form
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), and `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6) through the lifecycle transaction (§4.6). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check` and `registry:update`. The reconciliation capability declarations (§12.7) are in every slice inventory, the decisions document (schema `"2"`) records and checks merge-fields and add-alongside, and `update` applies merge-fields; it skips add-alongside records as `not-yet-supported`. Not implemented yet (#60): applying add-alongside (no collection declares it), `migrate`, `edit`, `trace`, `import`/`export` and preview.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6) through the lifecycle transaction (§4.6), and the read-only `migrate-plan` and `migrate-check` (§12.8). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check`, `registry:update`, `registry:migrate-plan` and `registry:migrate-check`. The reconciliation capability declarations (§12.7) are in every slice inventory, the decisions document (schema `"2"`) records and checks merge-fields and add-alongside, and `update` applies merge-fields; it skips add-alongside records as `not-yet-supported`. Every inventory entry carries a migration declaration (§8.3); all are empty, because every current registry is at `version` `"1"` and no release has changed a registry's shape, so the slices' transform maps are empty too and the migration plan is exercised by synthetic test registries only. Not implemented yet (#60): applying an accepted migration plan, applying add-alongside (no collection declares it), `edit`, `trace`, `import`/`export` and preview.
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.

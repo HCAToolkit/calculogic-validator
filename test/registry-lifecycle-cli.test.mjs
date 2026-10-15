@@ -46,6 +46,8 @@ test('package.json declares the registry lifecycle bin and repository scripts', 
   assert.match(packageJson.scripts['registry:decisions-template'], /registry-lifecycle\.host\.mjs decisions-template$/u);
   assert.match(packageJson.scripts['registry:decisions-check'], /registry-lifecycle\.host\.mjs decisions-check$/u);
   assert.match(packageJson.scripts['registry:update'], /registry-lifecycle\.host\.mjs update$/u);
+  assert.match(packageJson.scripts['registry:migrate-plan'], /registry-lifecycle\.host\.mjs migrate-plan$/u);
+  assert.match(packageJson.scripts['registry:migrate-check'], /registry-lifecycle\.host\.mjs migrate-check$/u);
 });
 
 test('status prints the Builtin-only state as JSON without writing lifecycle files', () => {
@@ -406,6 +408,64 @@ test('decisions-template and decisions-check print JSON, write nothing, and exit
     }
 
     const unknown = run(registryBinPath, ['decisions-template', 'naming/nope'], targetRoot);
+    assert.equal(unknown.status, 1);
+    assert.match(unknown.stderr, /Unknown registry id\(s\): naming\/nope\./u);
+
+    assert.deepEqual(snapshot(), before);
+  });
+});
+
+test('migrate-plan and migrate-check print JSON, write nothing, and exit 1 on problems', () => {
+  withTargetRepository((targetRoot) => {
+    const withoutCustom = run(registryBinPath, ['migrate-plan'], targetRoot);
+    assert.equal(withoutCustom.status, 1);
+    assert.equal(withoutCustom.stdout, '');
+    assert.match(withoutCustom.stderr, /No Custom registry set exists/u);
+
+    assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
+    const lifecycleRoot = path.join(targetRoot, '.calculogic/registries');
+    const snapshot = () =>
+      fs
+        .readdirSync(lifecycleRoot, { recursive: true })
+        .sort()
+        .map((relativePath) => {
+          const filePath = path.join(lifecycleRoot, relativePath);
+          return [relativePath, fs.statSync(filePath).isFile() ? fs.readFileSync(filePath, 'base64') : null];
+        });
+    const before = snapshot();
+
+    // No registry has changed shape, so the plan is empty.
+    const plan = run(registryBinPath, ['migrate-plan'], targetRoot);
+    assert.equal(plan.status, 0, plan.stderr);
+    const document = JSON.parse(plan.stdout);
+    assert.deepEqual(document, { kind: 'calculogic-registry-migration-plan', schemaVersion: '1', registries: [], notMigratable: [] });
+
+    const documentPath = path.join(targetRoot, 'plan.json');
+    fs.writeFileSync(documentPath, plan.stdout);
+    const valid = run(registryBinPath, ['migrate-check', 'plan.json'], targetRoot);
+    assert.equal(valid.status, 0, valid.stderr);
+    assert.deepEqual(JSON.parse(valid.stdout), { valid: true, complete: true, problems: [], registries: [] });
+
+    document.registries.push({ registryId: 'naming/nope' });
+    fs.writeFileSync(documentPath, JSON.stringify(document));
+    const invalid = run(registryBinPath, ['migrate-check', documentPath], targetRoot);
+    assert.equal(invalid.status, 1);
+    assert.deepEqual(JSON.parse(invalid.stdout).problems.map((item) => item.problem), ['unknown-registry']);
+
+    fs.writeFileSync(documentPath, '{ broken');
+    const unreadable = run(registryBinPath, ['migrate-check', documentPath], targetRoot);
+    assert.equal(unreadable.status, 1);
+    assert.equal(unreadable.stdout, '');
+    assert.match(unreadable.stderr, /Cannot read /u);
+
+    for (const args of [['migrate-check'], ['migrate-check', 'a.json', 'b.json']]) {
+      const usage = run(registryBinPath, args, targetRoot);
+      assert.equal(usage.status, 1);
+      assert.equal(usage.stdout, '');
+      assert.match(usage.stderr, /needs exactly one document path/u);
+    }
+
+    const unknown = run(registryBinPath, ['migrate-plan', 'naming/nope'], targetRoot);
     assert.equal(unknown.status, 1);
     assert.match(unknown.stderr, /Unknown registry id\(s\): naming\/nope\./u);
 

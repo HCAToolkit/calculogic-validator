@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { digestRegistryPayload } from './registry-lifecycle-canonical-digest.logic.mjs';
+import { descriptorForPayload } from './registry-lifecycle-migration.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
 import {
   RegistryLifecycleError,
@@ -77,7 +78,7 @@ export const initCustomRegistrySet = ({
         manifestRegistries[entry.registryId] = {
           validatorVersion,
           version: builtinPayload.version,
-          digest: digestRegistryPayload(builtinPayload, entry.descriptor),
+          digest: digestRegistryPayload(builtinPayload, descriptorForPayload(entry, builtinPayload)),
         };
       }
     }

@@ -3,7 +3,7 @@
  * Concern File: Logic
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.3, §7.3)
  * Responsibility: The lifecycle command interface: `init-custom`, `use`, `status`, `diff`,
- *   `decisions-template`, `decisions-check` and `update`.
+ *   `decisions-template`, `decisions-check`, `update`, `migrate-plan` and `migrate-check`.
  * Invariants: operates on the validation target root; prints deterministic JSON on stdout;
  *   usage and lifecycle errors go to stderr with exit code 1.
  */
@@ -23,6 +23,10 @@ import {
   buildRegistryUpdateDecisionsTemplate,
   checkRegistryUpdateDecisions,
 } from './registry-lifecycle-decisions.logic.mjs';
+import {
+  buildRegistryMigrationPlan,
+  checkRegistryMigrationPlan,
+} from './registry-lifecycle-migration-plan.logic.mjs';
 import { ACTIVE_SET_VALUES } from './registry-lifecycle.contracts.mjs';
 
 export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
@@ -47,6 +51,12 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '                         "take-builtin" or merge-fields. Undecided records, and records with an',
   '                         add-alongside decision (checked, not yet applied), are skipped. The',
   '                         registries of a slice advance together; the active set never changes.',
+  '  migrate-plan [registryId...]',
+  '                         Print the shape-migration plan for every registry whose Builtin version',
+  '                         changed: the Baseline copy and Custom migrated along the slice-declared path,',
+  '                         with a preview, and every decision null, as JSON. Writes nothing.',
+  '  migrate-check <file>   Check a migration plan against the current state and print the result as',
+  '                         JSON. Exits 1 when it has problems. Writes nothing.',
   '',
   'Repository scripts:',
   '  npm run registry:init-custom',
@@ -56,6 +66,8 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '  npm run -s registry:decisions-template -- [registryId...] > <file>',
   '  npm run registry:decisions-check -- <file>',
   '  npm run registry:update -- <file>',
+  '  npm run -s registry:migrate-plan -- [registryId...] > <file>',
+  '  npm run registry:migrate-check -- <file>',
 ]);
 
 const writeJson = (value) => {
@@ -95,8 +107,12 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
     }
   }
 
-  if (command === 'diff' || command === 'decisions-template') {
-    const build = command === 'diff' ? buildRegistryLifecycleDiff : buildRegistryUpdateDecisionsTemplate;
+  if (command === 'diff' || command === 'decisions-template' || command === 'migrate-plan') {
+    const build = {
+      diff: buildRegistryLifecycleDiff,
+      'decisions-template': buildRegistryUpdateDecisionsTemplate,
+      'migrate-plan': buildRegistryMigrationPlan,
+    }[command];
     let output;
     try {
       output = build({ targetRoot, registryIds: rest });
@@ -114,7 +130,7 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
     return { exitCode: 0 };
   }
 
-  if (command === 'decisions-check' || command === 'update') {
+  if (command === 'decisions-check' || command === 'update' || command === 'migrate-check') {
     const [documentPath, ...extra] = rest;
     if (documentPath === undefined || extra.length > 0) {
       printValidatorUsageErrorToStderr(`"${command}" needs exactly one document path.`, REGISTRY_LIFECYCLE_USAGE_LINES);
@@ -139,7 +155,8 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
         return { exitCode: 1 };
       }
 
-      const result = checkRegistryUpdateDecisions({ document, targetRoot });
+      const check = command === 'migrate-check' ? checkRegistryMigrationPlan : checkRegistryUpdateDecisions;
+      const result = check({ document, targetRoot });
       writeJson(result);
       return { exitCode: result.valid ? 0 : 1 };
     } catch (error) {
