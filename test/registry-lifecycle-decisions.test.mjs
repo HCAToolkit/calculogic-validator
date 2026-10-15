@@ -732,12 +732,95 @@ test('add-alongside, where declared, needs a new key of the key type that no rec
         assert.match(result.problems[0].detail, pattern, label);
       }
 
-      const twice = check(
-        decideRoles(template(), { [roleAddress(first)]: alongside('zz-same'), [roleAddress(second)]: alongside('zz-same') }),
-      );
-      assert.deepEqual(problemCodes(twice), [['naming/roles', roleAddress(second), 'invalid-decision']]);
-      assert.match(twice.problems[0].detail, /used by another add-alongside decision/u);
     },
     { mapSlices: withAlongsideRoles },
   );
+});
+
+// Builtin also changes a third role, so three entries can request add-alongside keys.
+const changeThreeRoles = ({ builtinFile, customFile }) => {
+  const { first, second } = changeRoleGroups({ builtinFile, customFile });
+  const third = readJson(builtinFile('naming/roles')).roles[2].role;
+  updateJson(builtinFile('naming/roles'), (payload) => ({
+    ...payload,
+    roles: payload.roles.map((entry) => (entry.role === third ? { ...entry, definition: 'Builtin third.' } : entry)),
+  }));
+  return { first, second, third };
+};
+
+test('add-alongside keys are a collection-wide constraint: every decision sharing a key is invalid, in any document order', () => {
+  withDecisionsFixture(
+    ({ builtinFile, customFile, template, check }) => {
+      const { first, second, third } = changeThreeRoles({ builtinFile, customFile });
+      const alongside = (key) => ({ kind: 'add-alongside', key });
+      const reversed = (document) => {
+        const copy = clone(document);
+        copy.registries.forEach((record) => record.entries.reverse());
+        return copy;
+      };
+
+      // Two decisions share a key; the third has its own and stays valid.
+      const pair = decideRoles(template(), {
+        [roleAddress(first)]: alongside('zz-same'),
+        [roleAddress(second)]: alongside('zz-same'),
+        [roleAddress(third)]: alongside('zz-own'),
+      });
+      const pairResult = check(pair);
+      const sharedAddresses = [roleAddress(first), roleAddress(second)].sort();
+      assert.deepEqual(
+        problemCodes(pairResult),
+        sharedAddresses.map((address) => ['naming/roles', address, 'invalid-decision']),
+      );
+      for (const item of pairResult.problems) {
+        assert.equal(
+          item.detail,
+          `The add-alongside decision does not fit the entry: "zz-same" is requested by more than one add-alongside decision in the collection (${sharedAddresses.join(', ')}).`,
+        );
+      }
+      assert.deepEqual(check(reversed(pair)), pairResult, 'document order carries no meaning');
+
+      // Three decisions share a key: all three are invalid, not one pair.
+      const triple = decideRoles(template(), {
+        [roleAddress(first)]: alongside('zz-same'),
+        [roleAddress(second)]: alongside('zz-same'),
+        [roleAddress(third)]: alongside('zz-same'),
+      });
+      const tripleResult = check(triple);
+      assert.deepEqual(
+        problemCodes(tripleResult),
+        [roleAddress(first), roleAddress(second), roleAddress(third)].sort().map((address) => ['naming/roles', address, 'invalid-decision']),
+      );
+      assert.deepEqual(check(reversed(triple)), tripleResult, 'document order carries no meaning');
+
+      // Distinct keys: all valid.
+      const distinct = decideRoles(template(), {
+        [roleAddress(first)]: alongside('zz-a'),
+        [roleAddress(second)]: alongside('zz-b'),
+        [roleAddress(third)]: alongside('zz-c'),
+      });
+      assert.deepEqual(check(distinct).problems, []);
+      assert.equal(check(distinct).complete, true);
+    },
+    { mapSlices: withAlongsideRoles },
+  );
+});
+
+test('a document never selects a lookup through an inherited property: __proto__ or constructor is just unknown', () => {
+  withDecisionsFixture(({ builtinFile, customFile, template, check }) => {
+    const { first } = changeRoleGroups({ builtinFile, customFile });
+    const address = roleAddress(first);
+    // JSON.parse keeps "__proto__" as an own data property, as a document read from a file does.
+    for (const kind of ['__proto__', 'constructor', 'prototype', 'toString', 'hasOwnProperty']) {
+      const document = decideRoles(template(), {});
+      entryOf(document, address).decision = JSON.parse(`{"kind": ${JSON.stringify(kind)}, "takeBuiltin": ["definition"]}`);
+      const result = check(document);
+      assert.deepEqual(problemCodes(result), [['naming/roles', address, 'malformed']], kind);
+      assert.match(result.problems[0].detail, /"kind" is merge-fields or add-alongside/u, kind);
+    }
+    for (const registryClass of ['__proto__', 'constructor', 'toString']) {
+      const document = template();
+      recordOf(document, 'naming/roles').class = registryClass;
+      assert.deepEqual(problemCodes(check(document)), [['naming/roles', null, 'malformed']], registryClass);
+    }
+  });
 });

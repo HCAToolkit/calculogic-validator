@@ -12,10 +12,16 @@
  */
 import { compareRegistryLifecycle } from './registry-lifecycle-diff.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
-import { checkStructuredDecision, collectionKeys, entryChoices } from './registry-lifecycle-reconciliation.logic.mjs';
+import {
+  alongsideKeyGroup,
+  checkStructuredDecision,
+  collectionKeys,
+  entryChoices,
+} from './registry-lifecycle-reconciliation.logic.mjs';
 import {
   ENTRY_DECISIONS_BY_CLASS,
   REGISTRY_DECISIONS_BY_CLASS,
+  STRUCTURED_ENTRY_DECISIONS,
   UPDATE_DECISIONS_KIND,
   UPDATE_DECISIONS_PROBLEMS as PROBLEMS,
   UPDATE_DECISIONS_READABLE_SCHEMA_VERSIONS,
@@ -145,7 +151,7 @@ const describeCurrent = (registry) =>
 const isPlainDecisionObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 // One structured decision against its entry (spec §12.7). Returns `{ problem, detail }` or null.
-const checkStructured = ({ context, expected, decision, alongsideKeys }) => {
+const checkStructured = ({ context, expected, decision }) => {
   const diffEntry = context.diffByAddress.get(expected.address);
   const site = context.siteByAddress.get(expected.address);
   return checkStructuredDecision({
@@ -158,8 +164,26 @@ const checkStructured = ({ context, expected, decision, alongsideKeys }) => {
     keysInCollection: site?.kind === 'record'
       ? new Set([...collectionKeys(context.walked.builtin, site), ...collectionKeys(context.walked.custom, site)])
       : new Set(),
-    alongsideKeys,
   });
+};
+
+// Two add-alongside decisions requesting the same key in one collection conflict as a group: every
+// member is invalid, whatever the document order (spec §12.4 "document order carries no meaning",
+// §12.7). Returns the conflicting addresses with their detail.
+const conflictingAlongsideKeys = (accepted) => {
+  const byGroup = new Map();
+  for (const item of accepted) {
+    byGroup.set(item.group, [...(byGroup.get(item.group) ?? []), item]);
+  }
+  return [...byGroup.values()]
+    .filter((members) => members.length > 1)
+    .flatMap((members) => {
+      const addresses = members.map(({ address }) => address).sort(compareOrdinal);
+      return members.map(({ address, key }) => ({
+        address,
+        detail: `The add-alongside decision does not fit the entry: ${JSON.stringify(key)} is requested by more than one add-alongside decision in the collection (${addresses.join(', ')}).`,
+      }));
+    });
 };
 
 // Checks one document entry list against the expected entries. Returns the problems and the
@@ -167,7 +191,8 @@ const checkStructured = ({ context, expected, decision, alongsideKeys }) => {
 const checkEntries = ({ registryId, documentEntries, expectedEntries, context, structuredAllowed, problem }) => {
   const expectedByAddress = new Map(expectedEntries.map((entry) => [entry.address, entry]));
   const entryFields = structuredAllowed ? ENTRY_FIELDS_V2 : ENTRY_FIELDS;
-  const alongsideKeys = new Map();
+  // add-alongside decisions that pass on their own, checked together after every entry.
+  const acceptedAlongside = [];
   const seen = new Set();
   let decided = 0;
   let undecided = 0;
@@ -220,10 +245,18 @@ const checkEntries = ({ registryId, documentEntries, expectedEntries, context, s
 
     if (isPlainDecisionObject(documentEntry.decision)) {
       const result = structuredAllowed
-        ? checkStructured({ context, expected, decision: documentEntry.decision, alongsideKeys })
+        ? checkStructured({ context, expected, decision: documentEntry.decision })
         : { problem: PROBLEMS.malformed, detail: `Structured decisions need "schemaVersion": "${UPDATE_DECISIONS_SCHEMA_VERSION}".` };
       if (result) {
         problem(result.problem, result.detail, { registryId, address });
+        continue;
+      }
+      if (documentEntry.decision.kind === STRUCTURED_ENTRY_DECISIONS.addAlongside) {
+        acceptedAlongside.push({
+          address,
+          key: documentEntry.decision.key,
+          group: alongsideKeyGroup(context.siteByAddress.get(address), documentEntry.decision.key),
+        });
         continue;
       }
       decided += 1;
@@ -242,6 +275,12 @@ const checkEntries = ({ registryId, documentEntries, expectedEntries, context, s
 
     decided += 1;
   }
+
+  const conflicts = conflictingAlongsideKeys(acceptedAlongside);
+  for (const { address, detail } of conflicts) {
+    problem(PROBLEMS.invalidDecision, detail, { registryId, address });
+  }
+  decided += acceptedAlongside.length - conflicts.length;
 
   for (const expected of expectedEntries) {
     if (!seen.has(expected.address)) {
@@ -263,7 +302,11 @@ const checkRegistry = ({ record, expected, current, context, structuredAllowed, 
     return null;
   }
 
-  const allowedFields = REGISTRY_FIELDS_BY_CLASS[record.class];
+  // `class` is document input: only an own key of the table selects a shape.
+  const allowedFields =
+    typeof record.class === 'string' && Object.hasOwn(REGISTRY_FIELDS_BY_CLASS, record.class)
+      ? REGISTRY_FIELDS_BY_CLASS[record.class]
+      : null;
   if (!allowedFields) {
     problem(PROBLEMS.malformed, `"class" must be registry-added or differs.`, { registryId });
     return null;

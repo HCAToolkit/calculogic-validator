@@ -144,6 +144,11 @@ export const entryChoices = ({ entry, entryClass, site, builtin, custom }) => {
 
 const containerId = (site) => JSON.stringify(site.container);
 
+// [5.2.14] cfg-registryLifecycle · Derived value · "alongsideKeyGroup"
+// The identity of the record an add-alongside decision would create: its collection and its key.
+// Two decisions with the same group conflict, whatever their order (spec §12.7).
+export const alongsideKeyGroup = (site, key) => `${containerId(site)}\u0000${stableStringify(key)}`;
+
 // [5.2.14] cfg-registryLifecycle · Derived value · "collectionKeys"
 // The keys of the records sharing `site`'s keyed list, in the walked entries of one input.
 export const collectionKeys = (walkedEntries, site) =>
@@ -187,7 +192,7 @@ const checkMergeData = ({ declaration, site, builtin, custom, takeBuiltin }) => 
   return null;
 };
 
-const checkAlongsideData = ({ site, key, keysInCollection, alongsideKeys }) => {
+const checkAlongsideData = ({ site, key, keysInCollection }) => {
   const isScalarOfKeyType =
     typeof key === typeof site.key &&
     (typeof key === 'string' ? key.length > 0 : typeof key === 'number' ? Number.isFinite(key) : typeof key === 'boolean');
@@ -197,20 +202,19 @@ const checkAlongsideData = ({ site, key, keysInCollection, alongsideKeys }) => {
   if (keysInCollection.has(stableStringify(key))) {
     return `${JSON.stringify(key)} is already a "${site.keyField}" of the collection.`;
   }
-  if (alongsideKeys.get(containerId(site))?.has(stableStringify(key))) {
-    return `${JSON.stringify(key)} is used by another add-alongside decision in the collection.`;
-  }
   return null;
 };
 
 // [5.2.14] cfg-registryLifecycle · Derived value · "checkStructuredDecision"
-// The spec §12.7 rules for one structured decision. Returns `{ problem, detail }` or null.
-// `keysInCollection` holds the keys of the Builtin and Custom collection the record belongs to;
-// `alongsideKeys` maps a collection to the keys earlier add-alongside decisions took, and gains this
-// decision's key when it is accepted.
-export const checkStructuredDecision = ({ entry, entryClass, site, builtin, custom, decision, keysInCollection, alongsideKeys }) => {
+// The spec §12.7 rules for one structured decision on its own. Returns `{ problem, detail }` or
+// null. `keysInCollection` holds the keys of the Builtin and Custom collection the record belongs
+// to. Whether two add-alongside decisions request the same key is a constraint on the whole
+// collection, checked by the caller over every accepted decision (`alongsideKeyGroup`).
+// The decision is document input: its `kind` selects a shape only when it is an own key of the
+// shape table, so `__proto__` or `constructor` is an unknown kind like any other.
+export const checkStructuredDecision = ({ entry, entryClass, site, builtin, custom, decision, keysInCollection }) => {
   const { kind } = decision;
-  const fields = DECISION_FIELDS_BY_KIND[kind];
+  const fields = typeof kind === 'string' && Object.hasOwn(DECISION_FIELDS_BY_KIND, kind) ? DECISION_FIELDS_BY_KIND[kind] : null;
   const extra = fields ? Object.keys(decision).filter((field) => !fields.includes(field)).sort(compareOrdinal) : [];
   const missing = fields ? fields.filter((field) => !Object.hasOwn(decision, field)) : [];
   if (!fields || extra.length > 0 || missing.length > 0) {
@@ -242,14 +246,9 @@ export const checkStructuredDecision = ({ entry, entryClass, site, builtin, cust
   const invalid =
     kind === STRUCTURED_ENTRY_DECISIONS.mergeFields
       ? checkMergeData({ declaration, site, builtin, custom, takeBuiltin: decision.takeBuiltin })
-      : checkAlongsideData({ site, key: decision.key, keysInCollection, alongsideKeys });
+      : checkAlongsideData({ site, key: decision.key, keysInCollection });
   if (invalid) {
     return { problem: PROBLEMS.invalidDecision, detail: `The ${kind} decision does not fit the entry: ${invalid}` };
-  }
-
-  if (kind === STRUCTURED_ENTRY_DECISIONS.addAlongside) {
-    const id = containerId(site);
-    alongsideKeys.set(id, new Set([...(alongsideKeys.get(id) ?? []), stableStringify(decision.key)]));
   }
   return null;
 };

@@ -633,7 +633,10 @@ Never declarable: `members` entries (membership has no fields and no second form
 - a field absent from the side a group is taken from is absent from the result.
 
 **add-alongside** `{ "kind": "add-alongside", "key": … }`, on a `builtin-changed` or `both-changed` record whose collection declares `addAlongside`. The Custom record stays as it is, and the Builtin record is added with its key field set to `key`:
-- `key` is a scalar of the record key's type (a non-empty string for a string key), present in neither the Builtin nor the Custom collection it would join, and not used by another add-alongside decision in that collection. The user supplies it; suite core never derives one.
+- `key` is a scalar of the record key's type (a non-empty string for a string key), present in neither the Builtin nor the Custom collection it would join. The user supplies it; suite core never derives one.
+- Keys requested by add-alongside decisions are unique per collection. This is a constraint on the collection, not on one entry: when several decisions request the same key, **every** one of them is `invalid-decision`, so the result does not depend on document order.
+
+**Untrusted input.** The document is user data. A structured decision's `kind`, and a record's `class`, select a shape only when they name one; any other string, `__proto__` and `constructor` included, is an unknown value reported as `malformed`, never a crash.
 
 **Checked when.** `decisions-check` (and `update`'s check) refuses a structured decision the class or collection does not accept (`unsupported-decision`), and one whose data does not fit the entry (`invalid-decision`), before anything is written. Whether the resulting registry is valid (for example a new key's references, or a merged record's own rules) is decided by the slice's registry-set validation when the decision is applied (§12.5 item 4).
 
