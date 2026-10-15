@@ -278,8 +278,8 @@ For each item the user chooses: keep theirs, take Builtin, merge selected fields
 **Ownership.** The owning slice declares the path and owns each step's transform: a deterministic, pure function from a payload at the step's `from` version to a payload at its `to` version. It reads no file, no state and no `activeSet`, and it never sees Builtin. Defaults for a new required field, renames, and how an old shape maps to the new one are decided by the transform, never by suite core. Suite core only discovers the path, binds it to its inputs, runs it mechanically, checks its output, previews it and, once accepted, commits it. It never infers a default, a rename or a mapping, and never copies a Builtin value into a migrated payload.
 
 **Declaration.** A registry's inventory entry (§9.1) lists `migrations`, a list of steps `{ from, to, transform, fromDescriptor }`:
-- `from` and `to` are distinct, non-empty `version` strings;
-- `transform` is the id of the step's transform in the slice's transforms. Transforms are code, so they live in the slice's migration module, which suite core reaches through a static bridge, the same way it reaches slice validation (§9.3);
+- `from` and `to` are distinct, non-empty `version` strings without surrounding whitespace;
+- `transform` is the id of the step's transform, a non-empty string without surrounding whitespace (versions and ids become manifest provenance, §4.3) in the slice's transforms. Transforms are code, so they live in the slice's migration module, which suite core reaches through a static bridge, the same way it reaches slice validation (§9.3);
 - `fromDescriptor` is the canonical-form descriptor (§5) of payloads at version `from`, so a Baseline copy or Custom registry at that version stays verifiable.
 
 The versions a registry can be migrated from (the `from` of its steps) are separate from its `readableVersions`, which the runtime reads. The declaration is checked against the slice's transforms, and each of these is a programming error:

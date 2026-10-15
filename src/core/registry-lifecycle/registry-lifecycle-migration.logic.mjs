@@ -14,7 +14,9 @@ import { ComparisonExtractionError, walkComparisonEntries } from './registry-lif
 const STEP_FIELDS = Object.freeze(['from', 'fromDescriptor', 'to', 'transform']);
 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
+// Versions and transform ids are written into the manifest as provenance (spec §4.3), which accepts
+// only non-empty strings without surrounding whitespace.
+const isProvenanceString = (value) => typeof value === 'string' && value.length > 0 && value === value.trim();
 const compareOrdinal = (left, right) => (left === right ? 0 : left < right ? -1 : 1);
 const describeStep = (step) => `${JSON.stringify(step.from)} → ${JSON.stringify(step.to)}`;
 
@@ -40,10 +42,13 @@ export const assertMigrationDeclaration = (entry, transforms = {}) => {
     if (fields.join() !== STEP_FIELDS.join()) {
       fail(`${JSON.stringify(step)} must be { from, to, transform, fromDescriptor } and nothing else.`);
     }
-    if (!isNonEmptyString(step.from) || !isNonEmptyString(step.to) || step.from === step.to) {
-      fail(`step ${describeStep(step)} needs two different non-empty version strings.`);
+    if (!isProvenanceString(step.from) || !isProvenanceString(step.to) || step.from === step.to) {
+      fail(`step ${describeStep(step)} needs two different non-empty version strings without surrounding whitespace.`);
     }
-    if (!isNonEmptyString(step.transform) || !Object.hasOwn(transforms, step.transform) || typeof transforms[step.transform] !== 'function') {
+    if (!isProvenanceString(step.transform)) {
+      fail(`step ${describeStep(step)} needs a non-empty transform id without surrounding whitespace.`);
+    }
+    if ( !Object.hasOwn(transforms, step.transform) || typeof transforms[step.transform] !== 'function') {
       fail(`step ${describeStep(step)} names transform ${JSON.stringify(step.transform)}, which the slice does not provide.`);
     }
     if (!isPlainObject(step.fromDescriptor)) {

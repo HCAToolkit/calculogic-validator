@@ -608,3 +608,26 @@ test('migrate never reads or changes the active set', () => {
     });
   }
 });
+
+test('a transform id or version that could not be written as manifest provenance is refused before anything is written', () => {
+  for (const [label, step, transforms] of [
+    ['a padded transform id', { ...STEP_1_TO_2, transform: ' thing-1-to-2 ' }, { ' thing-1-to-2 ': migrate1to2 }],
+    ['a whitespace-only transform id', { ...STEP_1_TO_2, transform: ' ' }, { ' ': migrate1to2 }],
+  ]) {
+    withMigrateFixture(({ release, migrate, paths }) => {
+      const released = release({ [THING_T]: '2' });
+      const slices = released.map((slice) => ({
+        ...slice,
+        inventory: slice.inventory.map((entry) => (entry.registryId === THING_T ? { ...entry, migrations: [step] } : entry)),
+      }));
+      const before = snapshotTree(paths.lifecycleRoot);
+      const plan = { kind: 'calculogic-registry-migration-plan', schemaVersion: '1', registries: [] };
+      assert.throws(
+        () => migrate(slices, plan, { migrationTransforms: { ...TRANSFORMS, tree: transforms } }),
+        /non-empty transform id without surrounding whitespace/u,
+        label,
+      );
+      assert.deepEqual(snapshotTree(paths.lifecycleRoot), before, label);
+    });
+  }
+});
