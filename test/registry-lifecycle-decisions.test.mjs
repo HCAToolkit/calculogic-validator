@@ -12,7 +12,6 @@ import { buildRegistryLifecycleDiff } from '../src/core/registry-lifecycle/regis
 import { buildRegistryLifecycleStatus } from '../src/core/registry-lifecycle/registry-lifecycle-status.logic.mjs';
 import { initCustomRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-init.logic.mjs';
 import { useRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-use.logic.mjs';
-import { applyRegistryUpdateDecisions } from '../src/core/registry-lifecycle/registry-lifecycle-update.logic.mjs';
 import { resolveRegistryLifecyclePaths } from '../src/core/registry-lifecycle/registry-lifecycle-state.logic.mjs';
 import {
   ENTRY_DECISIONS_BY_CLASS,
@@ -564,8 +563,8 @@ test('the template offers merge-fields only where the collection declares it and
   });
 });
 
-test('a well-formed merge-fields decision is valid and complete, and update skips its record as not yet supported', () => {
-  withDecisionsFixture(({ paths, builtinFile, customFile, slices, targetRoot, template, check }) => {
+test('a well-formed merge-fields decision is valid and complete, with or without the informative choices', () => {
+  withDecisionsFixture(({ builtinFile, customFile, template, check }) => {
     const { first, second } = changeRoleGroups({ builtinFile, customFile });
     const document = decideRoles(template(), {
       [roleAddress(first)]: { kind: 'merge-fields', takeBuiltin: ['definition'] },
@@ -579,16 +578,6 @@ test('a well-formed merge-fields decision is valid and complete, and update skip
     const bare = clone(document);
     bare.registries.forEach((record) => record.entries.forEach((entry) => delete entry.choices));
     assert.deepEqual(check(bare).problems, []);
-
-    const before = snapshotTree(paths.lifecycleRoot);
-    const updated = applyRegistryUpdateDecisions({
-      loadDocument: () => document,
-      targetRoot,
-      slices,
-      validatorVersion: '9.9.9-test',
-    });
-    assert.deepEqual(updated, { applied: [], skipped: [{ registryId: 'naming/roles', reason: 'not-yet-supported' }] });
-    assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
   });
 });
 

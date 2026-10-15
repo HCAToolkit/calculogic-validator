@@ -388,3 +388,168 @@ test('every Builtin change taken makes the candidate equal Builtin in comparison
     Object.fromEntries(extractComparisonEntries(builtin, ENTRY)),
   );
 });
+
+// ---- merge-fields (spec §12.6, §12.7) ------------------------------------------------------------
+
+// A registry declaring merge-fields on keyed records (groups [label], [match, target], [note]) and on
+// an object-value map (groups [x], [y]).
+const MERGE_ENTRY = Object.freeze({
+  registryId: 'test/merge',
+  descriptor: {},
+  comparison: [
+    { kind: 'keyed', path: 'rules', key: 'id' },
+    { kind: 'value', path: 'settings.*' },
+    { kind: 'members', path: 'tags' },
+  ],
+  reconciliation: [
+    { path: 'rules', mergeFields: [['label'], ['match', 'target'], ['note']] },
+    { path: 'settings.*', mergeFields: [['x'], ['y']] },
+  ],
+});
+const MERGE_BASELINE = Object.freeze({
+  version: '1',
+  rules: [
+    { id: 'r0', label: 'zero', match: 'm0', target: 't0' },
+    { id: 'r1', label: 'one', match: 'm1', target: 't1', note: 'base note' },
+    { id: 'r2', label: 'two', match: 'm2', target: 't2' },
+  ],
+  settings: { s: { x: 1, y: 2 } },
+  tags: ['a'],
+});
+
+const mergeClasses = (baseline, builtin, custom) => {
+  const [b, bi, c] = [baseline, builtin, custom].map((payload) => extractComparisonEntries(payload, MERGE_ENTRY));
+  return new Map(
+    [...new Set([...b.keys(), ...bi.keys(), ...c.keys()])]
+      .map((address) => [address, classifyEntry(b.get(address), bi.get(address), c.get(address))])
+      .filter(([, entryClass]) => entryClass !== null),
+  );
+};
+const buildMerge = ({ builtin, custom = MERGE_BASELINE, decisionsByAddress, fallback = 'keep-custom' }) =>
+  buildRegistryUpdateCandidate({
+    entry: MERGE_ENTRY,
+    baselinePayload: MERGE_BASELINE,
+    builtinPayload: builtin,
+    customPayload: custom,
+    decisions: [...mergeClasses(MERGE_BASELINE, builtin, custom)]
+      .filter(([, entryClass]) => Object.hasOwn(ENTRY_DECISIONS_BY_CLASS, entryClass))
+      .map(([address, entryClass]) => ({ address, class: entryClass, decision: decisionsByAddress[address] ?? fallback })),
+  });
+const merge = (...takeBuiltin) => ({ kind: 'merge-fields', takeBuiltin });
+const ruleOf = (payload, id) => payload.rules.find((rule) => rule.id === id);
+
+test('merge-fields on a builtin-changed record takes the listed group from Builtin and keeps the rest, in place', () => {
+  const builtin = edit(MERGE_BASELINE, (payload) => {
+    Object.assign(ruleOf(payload, 'r1'), { label: 'ONE', match: 'M1', target: 'T1' });
+  });
+  assert.equal(mergeClasses(MERGE_BASELINE, builtin, MERGE_BASELINE).get('rules[id="r1"]'), 'builtin-changed');
+  const { payload, changed } = buildMerge({ builtin, decisionsByAddress: { 'rules[id="r1"]': merge('label') } });
+  assert.equal(changed, true);
+  assert.deepEqual(payload.rules.map((rule) => rule.id), ['r0', 'r1', 'r2'], 'the record keeps its identity and position');
+  assert.deepEqual(ruleOf(payload, 'r1'), { id: 'r1', label: 'ONE', match: 'm1', target: 't1', note: 'base note' });
+
+  // Against the new Baseline (Builtin), the merged record is custom-only and differs only in the
+  // group kept from Custom.
+  const after = mergeClasses(builtin, builtin, payload);
+  assert.deepEqual(Object.fromEntries(after), { 'rules[id="r1"]': 'custom-only' });
+});
+
+test('merge-fields on a both-changed record holds the taken Builtin group and the kept Custom group', () => {
+  const builtin = edit(MERGE_BASELINE, (payload) => {
+    ruleOf(payload, 'r1').label = 'builtin label';
+  });
+  const custom = edit(MERGE_BASELINE, (payload) => {
+    Object.assign(ruleOf(payload, 'r1'), { match: 'custom match', target: 'custom target' });
+  });
+  assert.equal(mergeClasses(MERGE_BASELINE, builtin, custom).get('rules[id="r1"]'), 'both-changed');
+  const { payload } = buildMerge({ builtin, custom, decisionsByAddress: { 'rules[id="r1"]': merge('label') } });
+  assert.deepEqual(ruleOf(payload, 'r1'), {
+    id: 'r1',
+    label: 'builtin label',
+    match: 'custom match',
+    target: 'custom target',
+    note: 'base note',
+  });
+  assert.deepEqual(Object.fromEntries(mergeClasses(builtin, builtin, payload)), { 'rules[id="r1"]': 'custom-only' });
+});
+
+test('merge-fields on an object value takes the listed field and keeps the other', () => {
+  const builtin = edit(MERGE_BASELINE, (payload) => {
+    payload.settings.s = { x: 10, y: 20 };
+  });
+  const { payload } = buildMerge({ builtin, decisionsByAddress: { 'settings["s"]': merge('y') } });
+  assert.deepEqual(payload.settings, { s: { x: 1, y: 20 } });
+  assert.deepEqual(Object.fromEntries(mergeClasses(builtin, builtin, payload)), { 'settings["s"]': 'custom-only' });
+});
+
+test('a taken field absent from Builtin is removed, and one present only in Builtin is added', () => {
+  // Builtin drops r1's note and changes its label; Custom keeps the note.
+  const dropsNote = edit(MERGE_BASELINE, (payload) => {
+    delete ruleOf(payload, 'r1').note;
+    ruleOf(payload, 'r1').label = 'ONE';
+  });
+  const removed = buildMerge({ builtin: dropsNote, decisionsByAddress: { 'rules[id="r1"]': merge('note') } }).payload;
+  assert.deepEqual(ruleOf(removed, 'r1'), { id: 'r1', label: 'one', match: 'm1', target: 't1' });
+
+  // Builtin adds a note to r2 and changes its label; Custom has no note.
+  const addsNote = edit(MERGE_BASELINE, (payload) => {
+    Object.assign(ruleOf(payload, 'r2'), { note: 'builtin note', label: 'TWO' });
+  });
+  const added = buildMerge({ builtin: addsNote, decisionsByAddress: { 'rules[id="r2"]': merge('note') } }).payload;
+  assert.deepEqual(ruleOf(added, 'r2'), { id: 'r2', label: 'two', match: 'm2', target: 't2', note: 'builtin note' });
+});
+
+test('merge-fields mixes with keep-custom and take-builtin in one registry, each entry exactly as decided', () => {
+  const builtin = edit(MERGE_BASELINE, (payload) => {
+    Object.assign(ruleOf(payload, 'r0'), { label: 'ZERO', match: 'M0', target: 'T0' });
+    Object.assign(ruleOf(payload, 'r1'), { label: 'ONE', match: 'M1', target: 'T1' });
+    Object.assign(ruleOf(payload, 'r2'), { label: 'TWO', match: 'M2', target: 'T2' });
+    payload.tags.push('b');
+  });
+  const { payload } = buildMerge({
+    builtin,
+    decisionsByAddress: {
+      'rules[id="r0"]': 'take-builtin',
+      'rules[id="r1"]': merge('match', 'target'),
+      'rules[id="r2"]': 'keep-custom',
+      'tags["b"]': 'take-builtin',
+    },
+  });
+  assert.deepEqual(payload.rules, [
+    { id: 'r0', label: 'ZERO', match: 'M0', target: 'T0' },
+    { id: 'r1', label: 'one', match: 'M1', target: 'T1', note: 'base note' },
+    { id: 'r2', label: 'two', match: 'm2', target: 't2' },
+  ]);
+  assert.deepEqual(payload.tags, ['a', 'b']);
+  assert.deepEqual(Object.fromEntries(mergeClasses(builtin, builtin, payload)), {
+    'rules[id="r1"]': 'custom-only',
+    'rules[id="r2"]': 'custom-only',
+  });
+});
+
+test('the engine applies only a merge-fields decision the shared §12.7 rules accept, and never add-alongside', () => {
+  const builtin = edit(MERGE_BASELINE, (payload) => {
+    Object.assign(ruleOf(payload, 'r1'), { label: 'ONE', match: 'M1', target: 'T1' });
+  });
+  for (const [label, decision, pattern] of [
+    // A merge that takes nothing would be keep-custom: refused, so a valid merge always changes Custom.
+    ['takes nothing', merge(), /takes no field from Builtin; record keep-custom/u],
+    ['takes every differing group', merge('label', 'match', 'target'), /record take-builtin instead/u],
+    ['a partial group', merge('match'), /\[match, target\] is taken whole or not at all/u],
+    ['the key field', merge('id'), /in no declared merge group/u],
+    ['add-alongside', { kind: 'add-alongside', key: 'r9' }, /add-alongside is not applied by update/u],
+    ['an unknown kind', { kind: '__proto__' }, /"kind" is merge-fields or add-alongside/u],
+  ]) {
+    assert.throws(
+      () => buildMerge({ builtin, decisionsByAddress: { 'rules[id="r1"]': decision } }),
+      (error) => error instanceof RegistryUpdateCandidateError && pattern.test(error.message),
+      label,
+    );
+  }
+  // merge-fields only where declared: the members collection declares nothing.
+  const tagged = edit(MERGE_BASELINE, (payload) => payload.tags.push('b'));
+  assert.throws(
+    () => buildMerge({ builtin: tagged, decisionsByAddress: { 'tags["b"]': merge('x') } }),
+    /applies to builtin-changed and both-changed/u,
+  );
+});

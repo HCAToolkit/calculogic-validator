@@ -5,8 +5,9 @@
  * Responsibility: The update candidate (lifecycle spec §12.6): the Custom payload that a complete
  *   `differs` decisions record describes, constructed from the Baseline, current Builtin and current
  *   Custom payloads.
- * Invariants: pure, with no file access; applies the slice-owned comparison declaration mechanically
- *   and never interprets registry content; `keep-custom` changes nothing; a candidate whose extracted
+ * Invariants: pure, with no file access; applies the slice-owned comparison and reconciliation
+ *   declarations mechanically and never interprets registry content; `keep-custom` changes nothing;
+ *   merge-fields is checked and applied by the one shared rule (§12.7); a candidate whose extracted
  *   entries are not exactly the decided ones is refused, never repaired; the inputs are not mutated.
  */
 import { stableStringify } from '../validator-report-meta.logic.mjs';
@@ -16,7 +17,8 @@ import {
   extractComparisonEntries,
   walkComparisonEntries,
 } from './registry-lifecycle-comparison.logic.mjs';
-import { ENTRY_DECISIONS, ENTRY_DECISIONS_BY_CLASS } from './registry-lifecycle.contracts.mjs';
+import { checkStructuredDecision, mergeFieldsForm } from './registry-lifecycle-reconciliation.logic.mjs';
+import { ENTRY_DECISIONS, ENTRY_DECISIONS_BY_CLASS, STRUCTURED_ENTRY_DECISIONS } from './registry-lifecycle.contracts.mjs';
 
 // [5.2.13] cfg-registryLifecycle · Primitive · "RegistryUpdateCandidateError"
 // `mismatches` lists `{ address, expected?, actual? }` when the candidate is not the decided image.
@@ -168,6 +170,31 @@ const takeBuiltin = ({ candidate, builtinPayload, site, inBuiltin }) => {
   }
 };
 
+const isMergeFields = (decision) => isPlainObject(decision) && decision.kind === STRUCTURED_ENTRY_DECISIONS.mergeFields;
+
+// merge-fields at one site (spec §12.6 item 3, §12.7): the record or object value keeps its place
+// and is replaced by `mergeFieldsForm` over its raw Custom form and the raw Builtin form at the same
+// site. A missing form is left alone; the exact-image check refuses it.
+const mergeAt = ({ candidate, builtinPayload, site, takeBuiltin }) => {
+  const { container } = site;
+  if (site.kind === 'value') {
+    const holder = holderOf(candidate, container, false);
+    const custom = holder?.[container.at(-1)];
+    const builtin = readAt(builtinPayload, container);
+    if (holder && Object.hasOwn(holder, container.at(-1)) && isPlainObject(custom) && isPlainObject(builtin)) {
+      setOwn(holder, container.at(-1), mergeFieldsForm({ custom, builtin, takeBuiltin }));
+    }
+    return;
+  }
+
+  const list = listAt(candidate, container, false);
+  const index = list ? list.findIndex(hasKey(site)) : -1;
+  const builtin = readAt(builtinPayload, container)?.find?.(hasKey(site));
+  if (index !== -1 && isPlainObject(builtin)) {
+    list[index] = mergeFieldsForm({ custom: list[index], builtin, takeBuiltin });
+  }
+};
+
 // Arranges one ordered collection by its decided key sequence, or removes it when the decided
 // order is absent and it is empty (spec §12.6 item 4). A collection whose records are not exactly
 // the sequence's keys is left as it is; the exact-image check refuses it.
@@ -197,8 +224,10 @@ const applyOrder = ({ candidate, site, decidedOrder }) => {
 };
 
 // Step 1 (spec §12.6 item 1): the decided addresses are exactly the decidable ones, each with a
-// decision its class accepts. Returns the decision by address.
-const checkDecisions = ({ classes, decisions }) => {
+// string decision its class accepts or a merge-fields decision the §12.7 rules accept (the same
+// `checkStructuredDecision` `decisions-check` runs). add-alongside is never applied here. Returns
+// the decision by address.
+const checkDecisions = ({ entry, classes, decisions, values, sites }) => {
   const problems = [];
   const decisionByAddress = new Map();
   for (const { address, class: entryClass, decision } of decisions) {
@@ -209,6 +238,22 @@ const checkDecisions = ({ classes, decisions }) => {
       problems.push(`${address}: not a decidable entry of the comparison`);
     } else if (entryClass !== currentClass) {
       problems.push(`${address}: recorded as ${entryClass}, currently ${currentClass}`);
+    } else if (isPlainObject(decision)) {
+      const result =
+        decision.kind === STRUCTURED_ENTRY_DECISIONS.addAlongside
+          ? { detail: 'add-alongside is not applied by update' }
+          : checkStructuredDecision({
+              entry,
+              entryClass: currentClass,
+              site: sites.get(address),
+              builtin: values.builtin.get(address),
+              custom: values.custom.get(address),
+              decision,
+              keysInCollection: new Set(),
+            });
+      if (result) {
+        problems.push(`${address}: ${result.detail}`);
+      }
     } else if (!ENTRY_DECISIONS_BY_CLASS[currentClass].includes(decision)) {
       problems.push(`${address}: ${JSON.stringify(decision)} is not a decision for ${currentClass}`);
     }
@@ -248,8 +293,9 @@ export const buildRegistryUpdateCandidate = ({ entry, baselinePayload, builtinPa
       classifyEntry(values.baseline.get(address), values.builtin.get(address), values.custom.get(address)),
     ]),
   );
-  const decisionByAddress = checkDecisions({ classes, decisions });
+  const decisionByAddress = checkDecisions({ entry, classes, decisions, values, sites });
   const takesBuiltin = (address) => decisionByAddress.get(address) === ENTRY_DECISIONS.takeBuiltin;
+  const mergeOf = (address) => (isMergeFields(decisionByAddress.get(address)) ? decisionByAddress.get(address) : null);
 
   // Steps 2 and 3: start from Custom; group additions, then values, members and records, then group
   // removals, so a record never needs a group that is added later or loses one removed earlier.
@@ -264,6 +310,10 @@ export const buildRegistryUpdateCandidate = ({ entry, baselinePayload, builtinPa
   };
   for (const address of [...taken].sort((left, right) => phase(left) - phase(right) || compareOrdinal(left, right))) {
     takeBuiltin({ candidate, builtinPayload, site: sites.get(address), inBuiltin: values.builtin.has(address) });
+  }
+  // merge-fields entries (records and object values) exist in both forms, so no container changes.
+  for (const address of addresses.filter((candidateAddress) => mergeOf(candidateAddress))) {
+    mergeAt({ candidate, builtinPayload, site: sites.get(address), takeBuiltin: mergeOf(address).takeBuiltin });
   }
 
   // Step 4: order entries last.
@@ -283,8 +333,17 @@ export const buildRegistryUpdateCandidate = ({ entry, baselinePayload, builtinPa
     }
     throw error;
   }
+  const expectedAt = (address) => {
+    if (takesBuiltin(address)) {
+      return values.builtin.get(address);
+    }
+    const merge = mergeOf(address);
+    return merge
+      ? mergeFieldsForm({ custom: values.custom.get(address), builtin: values.builtin.get(address), takeBuiltin: merge.takeBuiltin })
+      : values.custom.get(address);
+  };
   const mismatches = [...new Set([...addresses, ...candidateValues.keys()])].sort(compareOrdinal).flatMap((address) => {
-    const expected = takesBuiltin(address) ? values.builtin.get(address) : values.custom.get(address);
+    const expected = expectedAt(address);
     const actual = candidateValues.get(address);
     return keyOf(expected) === keyOf(actual)
       ? []
