@@ -280,6 +280,7 @@ Every registry-bearing slice declares a registry inventory. For each registry, i
 - readable `version` values (every registry in the inventory carries a `version` field);
 - the canonical-form descriptor (§5): set-like array paths, their sort keys and omittable optional fields;
 - the comparison identity declaration (§8.4): what an entry is and how it is addressed;
+- the reconciliation capability declaration (§12.7): which comparison collections accept the entry choices merge-fields and add-alongside, and on which terms;
 - reference edges to other registries of the same slice (§9.3);
 - a **registry-set validation entry point**, slice-owned (§9.3).
 
@@ -452,7 +453,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices:
 1. `diff` (§12.3);
 2. the update decisions document (§12.4);
-3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance and the entry decisions `keep-custom` and `take-builtin` (§12.6); the other entry choices (§8.2), migration and the other commands follow. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
+3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance and the entry decisions `keep-custom` and `take-builtin` (§12.6). The other entry choices, merge-fields and add-alongside, have their contract and slice-owned capability declarations (§12.7); applying them, migration and the other commands follow. Interactive prompting may only generate or edit the document; it is never a separate source of decisions.
 
 ### 12.3 `diff` (read-only)
 
@@ -485,13 +486,20 @@ Both need a Custom set and write nothing.
 ```json
 {
   "kind": "calculogic-registry-update-decisions",
-  "schemaVersion": "1",
+  "schemaVersion": "2",
   "registries": [
     {
       "registryId": "naming/roles",
       "class": "differs",
       "basedOn": { "baselineDigest": "…", "builtinDigest": "…", "customDigest": "…" },
-      "entries": [{ "address": "roles[role=\"adapter\"]", "class": "builtin-changed", "decision": null }]
+      "entries": [
+        {
+          "address": "roles[role=\"adapter\"]",
+          "class": "builtin-changed",
+          "choices": ["keep-custom", "take-builtin", { "kind": "merge-fields", "fieldGroups": [["definition"], ["status"]] }],
+          "decision": null
+        }
+      ]
     },
     {
       "registryId": "naming/new-thing",
@@ -513,10 +521,13 @@ Both need a Custom set and write nothing.
   | Applies to | Decisions |
   |---|---|
   | `registry-added` (registry level) | `inherit` |
-  | `builtin-added`, `builtin-changed`, `builtin-removed`, `both-changed` (entry level) | `keep-custom`, `take-builtin` |
+  | `builtin-added`, `builtin-removed` (entry level) | `keep-custom`, `take-builtin` |
+  | `builtin-changed`, `both-changed` (entry level) | `keep-custom`, `take-builtin`, and where the entry's collection declares them (§12.7), `{ "kind": "merge-fields", "takeBuiltin": [field…] }` and `{ "kind": "add-alongside", "key": … }` |
   | `custom-only`, `aligned` | none: kept, or counted as decided (§8.2); never listed |
 
-  `null` is the only spelling of "no decision". `keep-custom` is an explicit choice, recorded the same way as `take-builtin`. The other §8.2 choices (merge selected fields, add the Builtin form alongside) are later additions to this vocabulary.
+  `null` is the only spelling of "no decision". `keep-custom` is an explicit choice, recorded the same way as `take-builtin`. A structured decision (merge-fields, add-alongside) is an object with exactly the fields shown, and is valid only in schema version `"2"`.
+- **Schema versions.** The template writes `"2"`. The check also reads `"1"`, the schema before structured decisions: in a `"1"` document every decision is a string or `null` and entries have no `choices`.
+- **`choices`** (template only, informative): every decision the check would accept for the entry, with each merge-fields offer listing the field groups that differ (§12.7). The check ignores it, and a document without it is equally valid. It is never an authority.
 - **Identity.** Registries are named by id and entries by their §8.4 comparison address, never by array position or file layout. Document order carries no meaning; the template and every check result are in ordinal order.
 - **Binding.** `basedOn` records the canonical digests of the three inputs the record was made against: the Baseline digest from the manifest, the current Builtin digest and the Custom digest, as `status` reports them (`null` where there is none). The binding is per registry: a record whose digests no longer match is `stale`, while other registries' records stay usable.
 - **Independence of the active set.** The document has no `activeSet`, and neither command reads or changes it (§12.1 activation rule). Neither reads `registry-state.json`, so a malformed state file does not stop them; `diff` and `status`, which print `activeSet`, still report it.
@@ -535,7 +546,8 @@ Both need a Custom set and write nothing.
   | `duplicate-entry` | the address is listed more than once |
   | `missing-entry` | a decidable entry is absent; undecided entries are recorded as `null`, not omitted |
   | `entry-class-mismatch` | the entry's recorded class differs from its current class |
-  | `unsupported-decision` | the decision is not one the class accepts |
+  | `unsupported-decision` | the decision is not one the class accepts, or a structured decision the entry's collection does not declare (§12.7) |
+  | `invalid-decision` | a structured decision whose data does not fit the entry (§12.7) |
 
 - `registries` summarizes each record without a problem: `{ registryId, class, decided, undecided, complete }`. A record with a problem is never summarized, so it never reads as complete.
 - `valid` is true when there is no problem. `complete` is true when the document is valid and nothing in it is undecided.
@@ -554,7 +566,9 @@ Both need a Custom set and write nothing.
 2. **Check** the document exactly as `decisions-check` does, against the current comparison. A document that is not `valid` is refused before anything is written, and its problems are printed.
 3. **Select.**
    - Every complete record is selected: a `registry-added` record decided `inherit`, and a `differs` record with every entry decided, including one with no entries (every Builtin change `aligned`).
-   - Every other record is listed under `skipped` with reason `undecided`: its decision, or one of its entry decisions, is still `null`. Nothing is ever inferred from `null`, and an undecided record is never pulled into an update.
+   - Every other record is listed under `skipped` with a reason, and is never pulled into an update:
+     - `undecided`: its decision, or one of its entry decisions, is still `null`. Nothing is ever inferred from `null`;
+     - `not-yet-supported`: a complete record with a merge-fields or add-alongside decision. Their contracts are fixed (§12.7), and applying them is a later #60 slice.
    - Selected records are grouped by their owning slice. **The slice is the unit of update:** its registry-set validation (§9.3) decides whether its registries are valid together, so its selected registries are validated and committed together. Slices are applied in ordinal slice-id order, and the registries within one in ordinal registry-id order.
 4. **Prepare each slice** (§4.6 item 1). The slice is refused, before its transaction, unless every selected registry passes its own checks and the slice passes as a whole. Per registry:
    - **Builtin source:** the Builtin file resolves inside its slice's Builtin root and parses. Its canonical digest (§5) equals the record's `basedOn.builtinDigest`, so the bytes written are exactly the ones the document authorized. Its `version` is one this engine reads.
@@ -602,6 +616,31 @@ For a complete `differs` record, `update` constructs the **candidate**: the Cust
 
 Nothing else is created, merged or reordered.
 
+### 12.7 Reconciliation capabilities: merge-fields and add-alongside
+
+`keep-custom` and `take-builtin` mean the same thing for every entry. The other two §8.2 choices do not: whether two forms of an entry can be combined, or can coexist, is registry meaning. So it is **slice-owned**, declared per comparison collection in the slice inventory, and suite core only records, checks and (later) applies what a slice declares. Suite core never infers mergeable fields, never invents an identity and never reinterprets registry content. A collection without a declaration accepts neither choice.
+
+**Declaration.** A registry's `reconciliation` lists `{ path, mergeFields?, addAlongside? }`, where `path` names one of its comparison collections (§8.4):
+- `mergeFields`: the collection's **field groups**, a list of disjoint, non-empty lists of field names. A group is the unit of a merge: fields that only make sense together (a matcher and what it matches, a severity and its classification) form one group. The keyed collection's key field is never in a group. Allowed on a `keyed` collection (its records) and on a `value` collection whose values are objects.
+- `addAlongside: true`: the Builtin form of a record may be added next to the Custom form under a new key. Allowed on an unordered `keyed` collection only.
+
+Never declarable: `members` entries (membership has no fields and no second form), order entries (a sequence has one form), group-presence entries, `value` entries for add-alongside (a path holds one value), and add-alongside on an ordered collection (the new record would have no decided position). The declaration is checked against the comparison declaration; an invalid one is a programming error.
+
+**merge-fields** `{ "kind": "merge-fields", "takeBuiltin": [field…] }`, on a `builtin-changed` or `both-changed` entry whose collection declares `mergeFields`. The result is the Custom form with the listed fields taken from Builtin:
+- both forms are objects, and every field either form has (the key aside) belongs to a declared group: a field outside every group cannot be decided by a merge;
+- `takeBuiltin` lists field names in ordinal order without repetition, and consists of whole groups: a group is taken whole or not at all;
+- each taken group differs between Builtin and Custom, and at least one differing group stays Custom. Taking every differing group is `take-builtin` and taking none is `keep-custom`; those are recorded as such, so one outcome has one spelling;
+- a field absent from the side a group is taken from is absent from the result.
+
+**add-alongside** `{ "kind": "add-alongside", "key": … }`, on a `builtin-changed` or `both-changed` record whose collection declares `addAlongside`. The Custom record stays as it is, and the Builtin record is added with its key field set to `key`:
+- `key` is a scalar of the record key's type (a non-empty string for a string key), present in neither the Builtin nor the Custom collection it would join, and not used by another add-alongside decision in that collection. The user supplies it; suite core never derives one.
+
+**Checked when.** `decisions-check` (and `update`'s check) refuses a structured decision the class or collection does not accept (`unsupported-decision`), and one whose data does not fit the entry (`invalid-decision`), before anything is written. Whether the resulting registry is valid (for example a new key's references, or a merged record's own rules) is decided by the slice's registry-set validation when the decision is applied (§12.5 item 4).
+
+**After the update.** Against the new Baseline, a merged entry differs only in the groups kept from Custom and is `custom-only`; with add-alongside, both the kept record and the added one are `custom-only`.
+
+**Current declarations.** The inventory audit (`doc/Audits/registry-reconciliation-capabilities.audit.md`) records the decision for every collection of every registry. merge-fields is declared on the keyed collections whose records separate descriptive fields from matching or identity fields, and on two value maps. No current collection declares add-alongside: every keyed collection either keys records by a vocabulary term other registries or loaders refer to, constrains another field to be unique, or is ordered.
+
 ## 13) Implementation slices
 
 1. **Spec/NL (this document):** `nl-config/cfg-registryLifecycle.md` and aligned specs.
@@ -639,7 +678,7 @@ Nothing else is created, merged or reordered.
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), and `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom` and `take-builtin` (§12.6) through the lifecycle transaction (§4.6). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check` and `registry:update`. Not implemented yet (#60): the entry choices merge-fields and add-alongside, `migrate`, `edit`, `trace`, `import`/`export` and preview.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), and `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom` and `take-builtin` (§12.6) through the lifecycle transaction (§4.6). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check` and `registry:update`. The reconciliation capability declarations (§12.7) are in every slice inventory, and the decisions document (schema `"2"`) records and checks merge-fields and add-alongside; `update` skips such records as `not-yet-supported`. Not implemented yet (#60): applying merge-fields and add-alongside, `migrate`, `edit`, `trace`, `import`/`export` and preview.
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.

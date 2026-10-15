@@ -378,7 +378,7 @@ test('decisions-template and decisions-check print JSON, write nothing, and exit
     const template = run(registryBinPath, ['decisions-template'], targetRoot);
     assert.equal(template.status, 0, template.stderr);
     const document = JSON.parse(template.stdout);
-    assert.deepEqual(document, { kind: 'calculogic-registry-update-decisions', schemaVersion: '1', registries: [] });
+    assert.deepEqual(document, { kind: 'calculogic-registry-update-decisions', schemaVersion: '2', registries: [] });
 
     const documentPath = path.join(targetRoot, 'decisions.json');
     fs.writeFileSync(documentPath, template.stdout);
@@ -485,8 +485,8 @@ test('update applies entry decisions through the bin, and the declined entries r
     const document = JSON.parse(run(registryBinPath, ['decisions-template'], targetRoot).stdout);
     assert.deepEqual(document.registries.map((record) => record.entries), [
       [
-        { address: 'reportableExtensions[".jsx"]', class: 'builtin-added', decision: null },
-        { address: 'reportableExtensions[".tsx"]', class: 'builtin-added', decision: null },
+        { address: 'reportableExtensions[".jsx"]', class: 'builtin-added', choices: ['keep-custom', 'take-builtin'], decision: null },
+        { address: 'reportableExtensions[".tsx"]', class: 'builtin-added', choices: ['keep-custom', 'take-builtin'], decision: null },
       ],
     ]);
     document.registries[0].entries[0].decision = 'keep-custom';

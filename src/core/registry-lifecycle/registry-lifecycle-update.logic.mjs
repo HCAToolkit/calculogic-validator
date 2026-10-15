@@ -292,8 +292,9 @@ const prepareSliceUpdate = ({ paths, slice, selections, validatorVersion }) => {
   ];
 };
 
-// The complete records to apply, and the undecided ones skipped (spec §12.5 item 3). A checked
-// document holds only decisions its classes accept, so a record without `null` is complete.
+// The complete records to apply, and the ones skipped (spec §12.5 item 3): undecided records, and
+// complete records with a structured decision (merge-fields, add-alongside; §12.7), which this
+// release checks but does not apply. A checked document holds only decisions its classes accept.
 const selectRecords = (document) => {
   const apply = [];
   const skipped = [];
@@ -301,6 +302,8 @@ const selectRecords = (document) => {
     const decisions = record.class === 'registry-added' ? [record.decision] : record.entries.map((entry) => entry.decision);
     if (decisions.includes(null)) {
       skipped.push({ registryId: record.registryId, reason: UPDATE_SKIP_REASONS.undecided });
+    } else if (decisions.some((decision) => typeof decision !== 'string')) {
+      skipped.push({ registryId: record.registryId, reason: UPDATE_SKIP_REASONS.notYetSupported });
     } else {
       apply.push(record);
     }

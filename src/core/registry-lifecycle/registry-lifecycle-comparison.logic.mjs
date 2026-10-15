@@ -136,10 +136,11 @@ const isScalar = (value) => value === null || ['string', 'number', 'boolean'].in
 // [5.2.9] cfg-registryLifecycle · Derived value · "walkComparisonEntries"
 // The one owner of the address grammar (spec §8.4). Returns `[{ address, value, site }]` in ordinal
 // address order, where `value` is the canonical entry value and `site` the structured location the
-// address names: `{ kind, container }` plus `member` (members), `keyField`, `key` and `grouped`
+// address names: `{ kind, collectionPath, container }` plus `member` (members), `keyField`, `key` and `grouped`
 // (records), or `keyField` and `grouped` (order). `kind` is `value`, `member`, `record`, `group` or
 // `order`; `container` is the field path to the value, the members list, the keyed list or the group
-// property; `grouped` marks a keyed list that is a group of a wildcard map, itself an entry.
+// property; `collectionPath` is the declaring collection's `path`; `grouped` marks a keyed list
+// that is a group of a wildcard map, itself an entry.
 export const walkComparisonEntries = (payload, { descriptor, comparison, registryId }) => {
   assertComparisonDeclaration(comparison, registryId);
   if (!isPlainObject(payload)) {
@@ -149,14 +150,13 @@ export const walkComparisonEntries = (payload, { descriptor, comparison, registr
   const canonicalPayload = canonicalizeRegistryPayload(payload, descriptor);
   assertCoverage(canonicalPayload, comparison);
   const entries = new Map();
-  const addEntry = (address, value, site) => {
-    if (entries.has(address)) {
-      fail(`Comparison address "${address}" occurs twice.`);
-    }
-    entries.set(address, { address, value, site });
-  };
-
   for (const collection of comparison) {
+    const addEntry = (address, value, site) => {
+      if (entries.has(address)) {
+        fail(`Comparison address "${address}" occurs twice.`);
+      }
+      entries.set(address, { address, value, site: { ...site, collectionPath: collection.path } });
+    };
     for (const { base, node, container, isGroup } of locateCollection(canonicalPayload, collection)) {
       if (collection.kind === 'value') {
         addEntry(base, node, { kind: 'value', container });

@@ -17,7 +17,9 @@ export const NAMING_BUILTIN_REGISTRY_ROOT = fileURLToPath(new URL('./_builtin/',
 const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 
 // `comparison` is the registry's entry identity for three-way comparison (spec §8.4).
-const defineNamingRegistry = (name, descriptor, comparison) =>
+// `reconciliation` declares which of its collections accept merge-fields or add-alongside (spec
+// §12.7); the reasons are recorded in doc/Audits/registry-reconciliation-capabilities.audit.md.
+const defineNamingRegistry = (name, descriptor, comparison, reconciliation = []) =>
   Object.freeze({
     registryId: `${NAMING_REGISTRY_SLICE_ID}/${name}`,
     name,
@@ -25,18 +27,28 @@ const defineNamingRegistry = (name, descriptor, comparison) =>
     readableVersions: READABLE_VERSIONS_V1,
     descriptor: Object.freeze(descriptor),
     comparison: Object.freeze(comparison.map((collection) => Object.freeze(collection))),
+    reconciliation: Object.freeze(
+      reconciliation.map((declaration) =>
+        Object.freeze({
+          ...declaration,
+          ...(declaration.mergeFields
+            ? { mergeFields: Object.freeze(declaration.mergeFields.map((group) => Object.freeze([...group]))) }
+            : {}),
+        }),
+      ),
+    ),
   });
 
 // [6.1] cfg-registryLifecycle · Container · "Naming registry inventory"
 export const NAMING_REGISTRY_INVENTORY = Object.freeze([
   defineNamingRegistry('agnostic-core-meanings', { setLike: [{ path: 'meanings', key: 'meaning' }] }, [
     { kind: 'keyed', path: 'meanings', key: 'meaning' },
-  ]),
+  ], [{ path: 'meanings', mergeFields: [['status'], ['definition']] }]),
   // One case policy for semantic names.
   defineNamingRegistry('case-rules', {}, [{ kind: 'value', path: 'semanticName' }]),
   defineNamingRegistry('categories', { setLike: [{ path: 'categories', key: 'category' }] }, [
     { kind: 'keyed', path: 'categories', key: 'category' },
-  ]),
+  ], [{ path: 'categories', mergeFields: [['status'], ['definition']] }]),
   defineNamingRegistry('category-role-perspective', {
     setLike: [
       { path: 'rolesByCategory.*', key: 'role' },
@@ -48,7 +60,10 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
     // A declared category may have no roles, so each category is also a group-presence entry.
     { kind: 'keyed', path: 'rolesByCategory.*', key: 'role' },
   ]),
-  defineNamingRegistry('finding-policy', {}, [{ kind: 'value', path: 'outcomes.*' }]),
+  // An outcome's code, severity and classification are its behavior; the rest is display text.
+  defineNamingRegistry('finding-policy', {}, [{ kind: 'value', path: 'outcomes.*' }], [
+    { path: 'outcomes.*', mergeFields: [['classification', 'code', 'severity'], ['message'], ['ruleRef'], ['suggestedFix']] },
+  ]),
   // The projection indexes active patterns by their unique folder name and sorts its observations,
   // so pattern order carries no meaning; `tokenOrder` stays ordered.
   defineNamingRegistry('folder-composition-patterns', {
@@ -59,6 +74,20 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
   }, [
     { kind: 'keyed', path: 'folderCompositionPatterns', key: 'patternId' },
     { kind: 'keyed', path: 'folderSemanticContextPatterns', key: 'patternId' },
+  ], [
+    // The matching fields of a pattern move together.
+    {
+      path: 'folderCompositionPatterns',
+      mergeFields: [
+        ['status'],
+        ['definition'],
+        ['compositionKind', 'confidence', 'folderName', 'qualification', 'semanticQualifier', 'structuralRoleToken', 'tokenOrder'],
+      ],
+    },
+    {
+      path: 'folderSemanticContextPatterns',
+      mergeFields: [['status'], ['definition'], ['confidence', 'folderName', 'qualification', 'semanticContext']],
+    },
   ]),
   // Detection is first-match, so pattern order is part of the policy.
   defineNamingRegistry('missing-role-patterns', {
@@ -73,7 +102,7 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
   defineNamingRegistry('roles', {
     setLike: [{ path: 'roles', key: 'role' }],
     omitEmpty: ['roles[].notes'],
-  }, [{ kind: 'keyed', path: 'roles', key: 'role' }]),
+  }, [{ kind: 'keyed', path: 'roles', key: 'role' }], [{ path: 'roles', mergeFields: [['status'], ['definition'], ['notes']] }]),
   // `specialCases` is first-match ordered; its match lists are membership tests.
   // Its records have no stable key, so the ordered list is compared as one value.
   defineNamingRegistry('special-cases', {
