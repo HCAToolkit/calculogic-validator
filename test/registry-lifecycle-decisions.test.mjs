@@ -12,6 +12,7 @@ import { buildRegistryLifecycleDiff } from '../src/core/registry-lifecycle/regis
 import { buildRegistryLifecycleStatus } from '../src/core/registry-lifecycle/registry-lifecycle-status.logic.mjs';
 import { initCustomRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-init.logic.mjs';
 import { useRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-use.logic.mjs';
+import { applyRegistryUpdateDecisions } from '../src/core/registry-lifecycle/registry-lifecycle-update.logic.mjs';
 import { resolveRegistryLifecyclePaths } from '../src/core/registry-lifecycle/registry-lifecycle-state.logic.mjs';
 import {
   ENTRY_DECISIONS_BY_CLASS,
@@ -45,7 +46,8 @@ const NEW_REGISTRY = Object.freeze({
 // A target root with an initialized Custom set and private copies of every Builtin root, so a test
 // can change "Builtin" as a later release would. With `withNewRegistry`, the later Builtin also adds
 // `naming/new-thing`.
-const withDecisionsFixture = (run, { withNewRegistry = false } = {}) => {
+// `mapSlices` adjusts the inventory the commands see, for a capability no registry declares.
+const withDecisionsFixture = (run, { withNewRegistry = false, mapSlices = (slices) => slices } = {}) => {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'registry-lifecycle-decisions-'));
   const targetRoot = path.join(fixtureRoot, 'target');
   fs.mkdirSync(targetRoot);
@@ -57,11 +59,13 @@ const withDecisionsFixture = (run, { withNewRegistry = false } = {}) => {
 
   try {
     initCustomRegistrySet({ targetRoot, validatorVersion: '0.0.0-test', slices: initialSlices });
-    const slices = withNewRegistry
-      ? initialSlices.map((slice) =>
-          slice.sliceId === NEW_REGISTRY.sliceId ? { ...slice, inventory: [...slice.inventory, NEW_REGISTRY.entry] } : slice,
-        )
-      : initialSlices;
+    const slices = mapSlices(
+      withNewRegistry
+        ? initialSlices.map((slice) =>
+            slice.sliceId === NEW_REGISTRY.sliceId ? { ...slice, inventory: [...slice.inventory, NEW_REGISTRY.entry] } : slice,
+          )
+        : initialSlices,
+    );
     if (withNewRegistry) {
       writeJson(path.join(fixtureRoot, 'builtin', 'naming', NEW_REGISTRY.entry.fileName), { version: '1', items: ['a'] });
     }
@@ -186,11 +190,12 @@ test('the template lists decidable entries by address, every decision null, boun
           customDigest: rolesStatus.customDigest,
         },
         // custom-only and aligned entries are not listed: they take no decision (spec §8.2).
+        // Only one merge group (`definition`) differs anywhere, so no entry offers merge-fields.
         entries: [
-          { address: roleAddress(first), class: 'builtin-changed', decision: null },
-          { address: roleAddress(third), class: 'builtin-removed', decision: null },
-          { address: roleAddress(fifth), class: 'both-changed', decision: null },
-          { address: roleAddress('zz-new-role'), class: 'builtin-added', decision: null },
+          { address: roleAddress(first), class: 'builtin-changed', choices: ['keep-custom', 'take-builtin'], decision: null },
+          { address: roleAddress(third), class: 'builtin-removed', choices: ['keep-custom', 'take-builtin'], decision: null },
+          { address: roleAddress(fifth), class: 'both-changed', choices: ['keep-custom', 'take-builtin'], decision: null },
+          { address: roleAddress('zz-new-role'), class: 'builtin-added', choices: ['keep-custom', 'take-builtin'], decision: null },
         ].sort((left, right) => (left.address < right.address ? -1 : 1)),
       },
     ]);
@@ -462,7 +467,8 @@ test('the document shape is strict, so a typo never reads as no decision', () =>
     const rolesLevel = [['naming/roles', null, UPDATE_DECISIONS_PROBLEMS.malformed]];
 
     assert.deepEqual(malformed((candidate) => (candidate.kind = 'something-else')), documentLevel);
-    assert.deepEqual(malformed((candidate) => (candidate.schemaVersion = '2')), documentLevel);
+    assert.deepEqual(malformed((candidate) => (candidate.schemaVersion = '3')), documentLevel);
+    assert.deepEqual(malformed((candidate) => (candidate.schemaVersion = 2)), documentLevel);
     assert.deepEqual(malformed((candidate) => (candidate.activeSet = 'custom')), documentLevel);
     assert.deepEqual(malformed((candidate) => (candidate.registries = {})), documentLevel);
     assert.deepEqual(problemCodes(check(null)), documentLevel);
@@ -502,4 +508,319 @@ test('template and check need a Custom set', () => {
   } finally {
     fs.rmSync(targetRoot, { recursive: true, force: true });
   }
+});
+
+// ---- structured decisions: merge-fields and add-alongside (spec §12.7) ---------------------------
+
+// naming/roles in Builtin and Custom: the first role's status and definition both change in Builtin
+// (two merge groups differ: builtin-changed); the second role's definition changes in Builtin and
+// its status in Custom (both-changed); a role is added in Builtin.
+const changeRoleGroups = ({ builtinFile, customFile }) => {
+  const [first, second] = readJson(builtinFile('naming/roles')).roles.map((entry) => entry.role);
+  updateJson(builtinFile('naming/roles'), (payload) => ({
+    ...payload,
+    roles: [
+      ...payload.roles.map((entry) =>
+        entry.role === first
+          ? { ...entry, status: 'deprecated', definition: 'Builtin wording.' }
+          : entry.role === second
+            ? { ...entry, definition: 'Builtin wording.' }
+            : entry,
+      ),
+      { role: 'zz-new-role', status: 'active', definition: 'Added by Builtin.' },
+    ],
+  }));
+  updateJson(customFile('naming/roles'), (payload) => ({
+    ...payload,
+    roles: payload.roles.map((entry) => (entry.role === second ? { ...entry, status: 'deprecated' } : entry)),
+  }));
+  return { first, second };
+};
+
+const entryOf = (document, address) => recordOf(document, 'naming/roles').entries.find((entry) => entry.address === address);
+const decideRoles = (document, decisionsByAddress) => {
+  for (const entry of recordOf(document, 'naming/roles').entries) {
+    entry.decision = Object.hasOwn(decisionsByAddress, entry.address) ? decisionsByAddress[entry.address] : 'keep-custom';
+  }
+  return document;
+};
+
+test('the template offers merge-fields only where the collection declares it and two field groups differ', () => {
+  withDecisionsFixture(({ builtinFile, customFile, template }) => {
+    const { first, second } = changeRoleGroups({ builtinFile, customFile });
+    const document = template();
+    assert.equal(document.schemaVersion, '2');
+    assert.deepEqual(entryOf(document, roleAddress(first)).choices, [
+      'keep-custom',
+      'take-builtin',
+      { kind: 'merge-fields', fieldGroups: [['status'], ['definition']] },
+    ]);
+    assert.deepEqual(entryOf(document, roleAddress(second)).choices, [
+      'keep-custom',
+      'take-builtin',
+      { kind: 'merge-fields', fieldGroups: [['status'], ['definition']] },
+    ]);
+    assert.deepEqual(entryOf(document, roleAddress('zz-new-role')).choices, ['keep-custom', 'take-builtin'], 'builtin-added');
+  });
+});
+
+test('a well-formed merge-fields decision is valid and complete, and update skips its record as not yet supported', () => {
+  withDecisionsFixture(({ paths, builtinFile, customFile, slices, targetRoot, template, check }) => {
+    const { first, second } = changeRoleGroups({ builtinFile, customFile });
+    const document = decideRoles(template(), {
+      [roleAddress(first)]: { kind: 'merge-fields', takeBuiltin: ['definition'] },
+      [roleAddress(second)]: { kind: 'merge-fields', takeBuiltin: ['definition'] },
+    });
+    const result = check(document);
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.complete, true);
+
+    // A document without the informative `choices` is equally valid.
+    const bare = clone(document);
+    bare.registries.forEach((record) => record.entries.forEach((entry) => delete entry.choices));
+    assert.deepEqual(check(bare).problems, []);
+
+    const before = snapshotTree(paths.lifecycleRoot);
+    const updated = applyRegistryUpdateDecisions({
+      loadDocument: () => document,
+      targetRoot,
+      slices,
+      validatorVersion: '9.9.9-test',
+    });
+    assert.deepEqual(updated, { applied: [], skipped: [{ registryId: 'naming/roles', reason: 'not-yet-supported' }] });
+    assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
+  });
+});
+
+test('merge-fields data that does not fit the entry is invalid-decision, and each refusal says why', () => {
+  withDecisionsFixture(({ builtinFile, customFile, template, check }) => {
+    const { first, second } = changeRoleGroups({ builtinFile, customFile });
+    const cases = {
+      'takes nothing (that is keep-custom)': [first, [], /takes no field from Builtin; record keep-custom/u],
+      'takes every differing group (that is take-builtin)': [first, ['definition', 'status'], /record take-builtin instead/u],
+      'lists fields out of order': [first, ['status', 'definition'], /ordinal order without repetition/u],
+      'repeats a field': [first, ['definition', 'definition'], /ordinal order without repetition/u],
+      'names a field in no group': [first, ['category'], /in no declared merge group/u],
+      'takes a group that does not differ': [second, ['notes'], /\[notes\] is the same in Builtin and Custom/u],
+    };
+    for (const [label, [role, takeBuiltin, pattern]] of Object.entries(cases)) {
+      const result = check(decideRoles(template(), { [roleAddress(role)]: { kind: 'merge-fields', takeBuiltin } }));
+      assert.deepEqual(problemCodes(result), [['naming/roles', roleAddress(role), 'invalid-decision']], label);
+      assert.match(result.problems[0].detail, pattern, label);
+    }
+  });
+});
+
+test('a field group is taken whole, and a field outside every group blocks a merge', () => {
+  withDecisionsFixture(({ builtinFile, customFile, template, check }) => {
+    // finding-policy groups [classification, code, severity]; Builtin changes the message and the
+    // severity of one outcome.
+    const outcome = Object.keys(readJson(builtinFile('naming/finding-policy')).outcomes)[0];
+    updateJson(builtinFile('naming/finding-policy'), (payload) => ({
+      ...payload,
+      outcomes: { ...payload.outcomes, [outcome]: { ...payload.outcomes[outcome], severity: 'error', message: 'Builtin message.' } },
+    }));
+    const address = `outcomes[${JSON.stringify(outcome)}]`;
+    const decide = (decision) => {
+      const document = template();
+      recordOf(document, 'naming/finding-policy').entries.find((entry) => entry.address === address).decision = decision;
+      return check(document);
+    };
+    assert.deepEqual(decide({ kind: 'merge-fields', takeBuiltin: ['message'] }).problems, []);
+    const partial = decide({ kind: 'merge-fields', takeBuiltin: ['severity'] });
+    assert.deepEqual(problemCodes(partial), [['naming/finding-policy', address, 'invalid-decision']]);
+    assert.match(partial.problems[0].detail, /\[classification, code, severity\] is taken whole or not at all/u);
+    assert.deepEqual(decide({ kind: 'merge-fields', takeBuiltin: ['classification', 'code', 'severity'] }).problems, []);
+
+    // A field no declared group covers: the merge cannot decide it, so it is refused and not offered.
+    updateJson(builtinFile('naming/finding-policy'), (payload) => ({
+      ...payload,
+      outcomes: { ...payload.outcomes, [outcome]: { ...payload.outcomes[outcome], extraNote: 'x' } },
+    }));
+    const uncovered = decide({ kind: 'merge-fields', takeBuiltin: ['message'] });
+    assert.match(uncovered.problems[0].detail, /extraNote are in no declared merge group/u);
+    assert.deepEqual(
+      recordOf(template(), 'naming/finding-policy').entries.find((entry) => entry.address === address).choices,
+      ['keep-custom', 'take-builtin'],
+    );
+  });
+});
+
+test('structured decisions where the class or collection does not declare them are unsupported-decision', () => {
+  withDecisionsFixture(({ builtinFile, customFile, template, check }) => {
+    const { first } = changeRoleGroups({ builtinFile, customFile });
+    updateJson(builtinFile('suite/exit-policy'), (payload) => ({
+      ...payload,
+      policies: payload.policies.map((policy, index) => (index === 0 ? { ...policy, exitCode: 9 } : policy)),
+    }));
+    const cases = [
+      ['naming/roles', roleAddress('zz-new-role'), { kind: 'merge-fields', takeBuiltin: ['definition'] }, /applies to builtin-changed and both-changed/u],
+      ['naming/roles', roleAddress(first), { kind: 'add-alongside', key: 'zz-copy' }, /does not declare add-alongside/u],
+    ];
+    const exitAddress = recordOf(template(), 'suite/exit-policy').entries[0].address;
+    cases.push(['suite/exit-policy', exitAddress, { kind: 'merge-fields', takeBuiltin: ['exitCode'] }, /does not declare merge-fields/u]);
+    for (const [registryId, address, decision, pattern] of cases) {
+      const document = template();
+      recordOf(document, registryId).entries.find((entry) => entry.address === address).decision = decision;
+      const result = check(document);
+      assert.deepEqual(problemCodes(result), [[registryId, address, 'unsupported-decision']], address);
+      assert.match(result.problems[0].detail, pattern, address);
+    }
+  });
+});
+
+test('a structured decision has exactly its fields and a known kind, and only schema 2 holds one', () => {
+  withDecisionsFixture(({ builtinFile, customFile, template, check }) => {
+    const { first } = changeRoleGroups({ builtinFile, customFile });
+    const address = roleAddress(first);
+    const malformed = [
+      { kind: 'merge', takeBuiltin: ['definition'] },
+      { kind: 'merge-fields', takeBuiltin: ['definition'], note: 'x' },
+      { kind: 'merge-fields' },
+      { kind: 'merge-fields', takeBuiltin: 'definition' },
+      { kind: 'add-alongside' },
+      {},
+    ];
+    for (const decision of malformed) {
+      assert.deepEqual(problemCodes(check(decideRoles(template(), { [address]: decision }))), [['naming/roles', address, 'malformed']], JSON.stringify(decision));
+    }
+
+    // Schema "1" is still read: string decisions only, and entries without `choices`.
+    const v1 = decideRoles(template(), {});
+    v1.schemaVersion = '1';
+    v1.registries.forEach((record) => record.entries.forEach((entry) => delete entry.choices));
+    assert.deepEqual(check(v1).problems, []);
+    const v1Structured = clone(v1);
+    entryOf(v1Structured, address).decision = { kind: 'merge-fields', takeBuiltin: ['definition'] };
+    assert.match(check(v1Structured).problems[0].detail, /Structured decisions need "schemaVersion": "2"/u);
+    const v1Choices = clone(v1);
+    entryOf(v1Choices, address).choices = ['keep-custom'];
+    assert.deepEqual(problemCodes(check(v1Choices)), [['naming/roles', address, 'malformed']]);
+  });
+});
+
+// A capability no current registry declares: roles here declares add-alongside.
+const withAlongsideRoles = (slices) =>
+  slices.map((slice) =>
+    slice.sliceId === 'naming'
+      ? {
+          ...slice,
+          inventory: slice.inventory.map((entry) =>
+            entry.registryId === 'naming/roles' ? { ...entry, reconciliation: [...entry.reconciliation.map((declaration) => ({ ...declaration, addAlongside: true }))] } : entry,
+          ),
+        }
+      : slice,
+  );
+
+test('add-alongside, where declared, needs a new key of the key type that no record or other decision uses', () => {
+  withDecisionsFixture(
+    ({ builtinFile, customFile, template, check }) => {
+      const { first, second } = changeRoleGroups({ builtinFile, customFile });
+      assert.deepEqual(entryOf(template(), roleAddress(first)).choices.at(-1), { kind: 'add-alongside' });
+      const alongside = (key) => ({ kind: 'add-alongside', key });
+
+      assert.deepEqual(check(decideRoles(template(), { [roleAddress(first)]: alongside('zz-first-builtin') })).problems, []);
+      const cases = {
+        'an empty key': ['', /must be a non-empty string/u],
+        'a key of another type': [7, /must be a non-empty string/u],
+        'a key the collection has': [second, /is already a "role" of the collection/u],
+        'a key only Builtin has': ['zz-new-role', /is already a "role" of the collection/u],
+      };
+      for (const [label, [key, pattern]] of Object.entries(cases)) {
+        const result = check(decideRoles(template(), { [roleAddress(first)]: alongside(key) }));
+        assert.deepEqual(problemCodes(result), [['naming/roles', roleAddress(first), 'invalid-decision']], label);
+        assert.match(result.problems[0].detail, pattern, label);
+      }
+
+    },
+    { mapSlices: withAlongsideRoles },
+  );
+});
+
+// Builtin also changes a third role, so three entries can request add-alongside keys.
+const changeThreeRoles = ({ builtinFile, customFile }) => {
+  const { first, second } = changeRoleGroups({ builtinFile, customFile });
+  const third = readJson(builtinFile('naming/roles')).roles[2].role;
+  updateJson(builtinFile('naming/roles'), (payload) => ({
+    ...payload,
+    roles: payload.roles.map((entry) => (entry.role === third ? { ...entry, definition: 'Builtin third.' } : entry)),
+  }));
+  return { first, second, third };
+};
+
+test('add-alongside keys are a collection-wide constraint: every decision sharing a key is invalid, in any document order', () => {
+  withDecisionsFixture(
+    ({ builtinFile, customFile, template, check }) => {
+      const { first, second, third } = changeThreeRoles({ builtinFile, customFile });
+      const alongside = (key) => ({ kind: 'add-alongside', key });
+      const reversed = (document) => {
+        const copy = clone(document);
+        copy.registries.forEach((record) => record.entries.reverse());
+        return copy;
+      };
+
+      // Two decisions share a key; the third has its own and stays valid.
+      const pair = decideRoles(template(), {
+        [roleAddress(first)]: alongside('zz-same'),
+        [roleAddress(second)]: alongside('zz-same'),
+        [roleAddress(third)]: alongside('zz-own'),
+      });
+      const pairResult = check(pair);
+      const sharedAddresses = [roleAddress(first), roleAddress(second)].sort();
+      assert.deepEqual(
+        problemCodes(pairResult),
+        sharedAddresses.map((address) => ['naming/roles', address, 'invalid-decision']),
+      );
+      for (const item of pairResult.problems) {
+        assert.equal(
+          item.detail,
+          `The add-alongside decision does not fit the entry: "zz-same" is requested by more than one add-alongside decision in the collection (${sharedAddresses.join(', ')}).`,
+        );
+      }
+      assert.deepEqual(check(reversed(pair)), pairResult, 'document order carries no meaning');
+
+      // Three decisions share a key: all three are invalid, not one pair.
+      const triple = decideRoles(template(), {
+        [roleAddress(first)]: alongside('zz-same'),
+        [roleAddress(second)]: alongside('zz-same'),
+        [roleAddress(third)]: alongside('zz-same'),
+      });
+      const tripleResult = check(triple);
+      assert.deepEqual(
+        problemCodes(tripleResult),
+        [roleAddress(first), roleAddress(second), roleAddress(third)].sort().map((address) => ['naming/roles', address, 'invalid-decision']),
+      );
+      assert.deepEqual(check(reversed(triple)), tripleResult, 'document order carries no meaning');
+
+      // Distinct keys: all valid.
+      const distinct = decideRoles(template(), {
+        [roleAddress(first)]: alongside('zz-a'),
+        [roleAddress(second)]: alongside('zz-b'),
+        [roleAddress(third)]: alongside('zz-c'),
+      });
+      assert.deepEqual(check(distinct).problems, []);
+      assert.equal(check(distinct).complete, true);
+    },
+    { mapSlices: withAlongsideRoles },
+  );
+});
+
+test('a document never selects a lookup through an inherited property: __proto__ or constructor is just unknown', () => {
+  withDecisionsFixture(({ builtinFile, customFile, template, check }) => {
+    const { first } = changeRoleGroups({ builtinFile, customFile });
+    const address = roleAddress(first);
+    // JSON.parse keeps "__proto__" as an own data property, as a document read from a file does.
+    for (const kind of ['__proto__', 'constructor', 'prototype', 'toString', 'hasOwnProperty']) {
+      const document = decideRoles(template(), {});
+      entryOf(document, address).decision = JSON.parse(`{"kind": ${JSON.stringify(kind)}, "takeBuiltin": ["definition"]}`);
+      const result = check(document);
+      assert.deepEqual(problemCodes(result), [['naming/roles', address, 'malformed']], kind);
+      assert.match(result.problems[0].detail, /"kind" is merge-fields or add-alongside/u, kind);
+    }
+    for (const registryClass of ['__proto__', 'constructor', 'toString']) {
+      const document = template();
+      recordOf(document, 'naming/roles').class = registryClass;
+      assert.deepEqual(problemCodes(check(document)), [['naming/roles', null, 'malformed']], registryClass);
+    }
+  });
 });

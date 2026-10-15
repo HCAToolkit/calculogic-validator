@@ -16,7 +16,9 @@ export const SUITE_BUILTIN_REGISTRY_ROOT = fileURLToPath(new URL('./_builtin/', 
 const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 
 // `comparison` is the registry's entry identity for three-way comparison (spec §8.4).
-const defineSuiteRegistry = (name, descriptor, comparison) =>
+// `reconciliation` declares which of its collections accept merge-fields or add-alongside (spec
+// §12.7); the reasons are recorded in doc/Audits/registry-reconciliation-capabilities.audit.md.
+const defineSuiteRegistry = (name, descriptor, comparison, reconciliation = []) =>
   Object.freeze({
     registryId: `${SUITE_REGISTRY_SLICE_ID}/${name}`,
     name,
@@ -24,6 +26,16 @@ const defineSuiteRegistry = (name, descriptor, comparison) =>
     readableVersions: READABLE_VERSIONS_V1,
     descriptor: Object.freeze(descriptor),
     comparison: Object.freeze(comparison.map((collection) => Object.freeze(collection))),
+    reconciliation: Object.freeze(
+      reconciliation.map((declaration) =>
+        Object.freeze({
+          ...declaration,
+          ...(declaration.mergeFields
+            ? { mergeFields: Object.freeze(declaration.mergeFields.map((group) => Object.freeze([...group]))) }
+            : {}),
+        }),
+      ),
+    ),
   });
 
 // [6.1] cfg-registryLifecycle · Container · "Suite registry inventory"
@@ -33,7 +45,7 @@ export const SUITE_REGISTRY_INVENTORY = Object.freeze([
   // Each scope profile is one entry.
   defineSuiteRegistry('scope-profiles', { setLike: [{ path: 'profiles.*.includeRootFiles' }] }, [
     { kind: 'value', path: 'profiles.*' },
-  ]),
+  ], [{ path: 'profiles.*', mergeFields: [['includeRoots'], ['includeRootFiles']] }]),
 ]);
 
 // [6.1] cfg-registryLifecycle · Container · "Suite retired registry inventory"

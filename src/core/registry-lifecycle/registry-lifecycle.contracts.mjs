@@ -73,7 +73,9 @@ export const DIFF_REGISTRY_CLASSES = Object.freeze([
 
 // [6.3] cfg-registryLifecycle · Primitive · "Update decisions document" (spec §12.4)
 export const UPDATE_DECISIONS_KIND = 'calculogic-registry-update-decisions';
-export const UPDATE_DECISIONS_SCHEMA_VERSION = '1';
+export const UPDATE_DECISIONS_SCHEMA_VERSION = '2';
+// Schema `"1"` predates structured decisions: every decision is a string or null (spec §12.4).
+export const UPDATE_DECISIONS_READABLE_SCHEMA_VERSIONS = Object.freeze(['1', UPDATE_DECISIONS_SCHEMA_VERSION]);
 
 // [6.3] cfg-registryLifecycle · Primitive · "Registry-level decisions by diff registry class" (spec §12.4)
 // Only `registry-added` takes a registry-level decision; `differs` registries are decided per entry.
@@ -83,6 +85,12 @@ export const REGISTRY_DECISIONS_BY_CLASS = Object.freeze({
 
 // [6.3] cfg-registryLifecycle · Primitive · "Entry decisions" (spec §12.4)
 export const ENTRY_DECISIONS = Object.freeze({ keepCustom: 'keep-custom', takeBuiltin: 'take-builtin' });
+
+// [6.3] cfg-registryLifecycle · Primitive · "Structured entry decision kinds" (spec §12.7)
+// Accepted only where the entry's collection declares them, and only on these classes, where both
+// a Builtin and a Custom form exist.
+export const STRUCTURED_ENTRY_DECISIONS = Object.freeze({ mergeFields: 'merge-fields', addAlongside: 'add-alongside' });
+export const STRUCTURED_DECISION_CLASSES = Object.freeze(['builtin-changed', 'both-changed']);
 
 // [6.3] cfg-registryLifecycle · Primitive · "Entry decisions by entry class" (spec §12.4)
 // The decidable entry classes and the choices each accepts. `custom-only` is kept and `aligned`
@@ -107,6 +115,7 @@ export const UPDATE_DECISIONS_PROBLEMS = Object.freeze({
   missingEntry: 'missing-entry',
   entryClassMismatch: 'entry-class-mismatch',
   unsupportedDecision: 'unsupported-decision',
+  invalidDecision: 'invalid-decision',
 });
 
 // [6.3] cfg-registryLifecycle · Primitive · "Lifecycle transaction" (spec §4.6)
@@ -119,6 +128,7 @@ export const LIFECYCLE_TRANSACTION_OUTCOMES = Object.freeze({ committed: 'commit
 // [6.3] cfg-registryLifecycle · Primitive · "update skip reasons" (spec §12.5)
 export const UPDATE_SKIP_REASONS = Object.freeze({
   undecided: 'undecided',
+  notYetSupported: 'not-yet-supported',
 });
 
 // [6.3] cfg-registryLifecycle · Primitive · "Missing-set blocking condition" (spec §7.1 item 1)

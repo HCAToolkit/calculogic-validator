@@ -14,6 +14,7 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 2: the update decisions document, its template and its check (5.2.10, 5.3, 6.3). Read-only.
 - #60 slice 3: the lifecycle transaction (5.2.11) and `update` for `registry-added` inheritance (5.2.12, 5.3). The first command that changes an existing Custom set.
 - #60 slice 4: entry decisions `keep-custom` and `take-builtin` in `update`, through the pure update candidate (5.2.13) and the lifecycle transaction (5.2.12).
+- #60 slice 5: reconciliation capability declarations in every slice inventory (6.1, 5.2.14), and the decisions document's schema `"2"` with structured merge-fields and add-alongside decisions, checked read-only (5.2.10). `update` skips them as `not-yet-supported`.
 - Follow-ons: the rest of the advanced management surface (#60): the entry choices merge-fields and add-alongside, `migrate` and the other commands; and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
@@ -53,6 +54,7 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
   - readable `version` values;
   - canonical-form descriptor (set-like array paths, their sort keys, omittable optional fields);
   - comparison identity declaration (what an entry is and how it is addressed; spec §8.4);
+  - reconciliation capability declaration (which collections accept merge-fields or add-alongside, with their field groups; spec §12.7);
   - same-slice reference edges;
   - a slice-owned registry-set validation entry point (shape and reference checks over a given root; spec §9.3).
 - **Validator package version.**
@@ -169,8 +171,8 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 
 `registry-lifecycle-decisions.logic.mjs` (spec §12.4). Both functions take the comparison from `compareRegistryLifecycle` (5.2.9), which returns the comparison together with the assessment's per-registry status entries, so the bound digests and the classes come from one assessment. It never reads `registry-state.json`; only `buildRegistryLifecycleDiff` reads it, to add `activeSet`.
 - **Decidable registries:** `registry-added`, and `differs` with at least one entry that is not `custom-only`. A `registry-added` record has a registry-level `decision`; a `differs` record lists its entries whose class is in `ENTRY_DECISIONS_BY_CLASS` (6.3).
-- **`buildRegistryUpdateDecisionsTemplate`:** the document with every decision `null` and `basedOn` set from the status digests.
-- **`checkRegistryUpdateDecisions`:** strict shape check, then per registry: known id, no duplicate, decidable now, same class and `basedOn` digests (otherwise `stale`), then per entry: known decidable address, no duplicate, same class, a decision the class accepts or `null`, and no decidable entry missing. Problems are collected, never thrown, and sorted ordinally. Only records without a problem are summarized.
+- **`buildRegistryUpdateDecisionsTemplate`:** the document (schema `"2"`) with every decision `null`, `basedOn` set from the status digests, and each entry's informative `choices` from `entryChoices` (5.2.14).
+- **`checkRegistryUpdateDecisions`:** strict shape check (schema `"1"` or `"2"`; a record's `class` selects a shape only as an own key of the shape table), then per registry: known id, no duplicate, decidable now, same class and `basedOn` digests (otherwise `stale`), then per entry: known decidable address, no duplicate, same class, a decision the class accepts or `null`, and no decidable entry missing. A structured decision (schema `"2"` only) is checked by `checkStructuredDecision` (5.2.14): `unsupported-decision` when the class or collection does not accept its kind, `invalid-decision` when its data does not fit the entry. `choices` is accepted and ignored. Problems are collected, never thrown, and sorted ordinally. Only records without a problem are summarized.
 - Neither reads nor writes `activeSet`, so a malformed state file does not stop them, and nothing is written.
 
 #### 5.2.11 Workflow: lifecycle transaction
@@ -205,7 +207,8 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 2. Check the document (5.2.10). If it is not valid, return its problems.
 3. Select records:
    - complete records → apply: `registry-added` + `inherit`, and `differs` with every entry decided (an empty `entries` list included);
-   - any `null` → skipped as `undecided`; never pulled into an update.
+   - any `null` → skipped as `undecided`; never pulled into an update;
+   - a complete record with a merge-fields or add-alongside decision → skipped as `not-yet-supported`.
 
    Group the selected records by owning slice (ordinal slice id; registries in ordinal id order). The slice is the unit of update.
 4. For each slice: prepare every selected registry (`prepareRegistryInheritance` or `prepareRegistryReconciliation`, returning its Baseline write, its Custom write when it changes Custom, and its manifest entry), validate the slice once (`assertSliceValid`), then run one transaction:
@@ -226,6 +229,14 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 4. Exact image: extract the candidate; every address must hold the Builtin value (`take-builtin`) or the Custom value (otherwise), present or absent alike. Any difference throws `RegistryUpdateCandidateError` listing each `{ address, expected, actual }`. Nothing is repaired.
 
 Returns `{ payload, changed }`, where `changed` is false when the candidate equals the Custom payload exactly.
+
+#### 5.2.14 Derived value: reconciliation capabilities
+
+`registry-lifecycle-reconciliation.logic.mjs` (spec §12.7). Suite core records and checks what slices declare; it never infers mergeable fields or invents keys.
+- **`assertReconciliationDeclaration(entry)`:** every `{ path, mergeFields?, addAlongside? }` names a comparison collection of the entry, at most once; `mergeFields` only on `keyed` or `value` collections, as disjoint non-empty groups of field names without the key field; `addAlongside: true` only on an unordered `keyed` collection. Throws on anything else (a programming error, covered by the inventory tests).
+- **`entryChoices({ entry, address, entryClass, sites, builtin, custom })`:** the decisions the check accepts for one diff entry: `keep-custom` and `take-builtin`, plus for `builtin-changed` and `both-changed` a record or object value in a declaring collection: merge-fields when both forms are objects, every field is in a group and at least two groups differ (offered with the differing groups), and add-alongside on a declaring record. The template's `choices` and the check share it.
+- **`checkStructuredDecision(...)`:** the spec §12.7 rules for one structured decision on its own, returning `{ problem, detail }` or null. Its `kind` selects a shape only when it is an own key of the shape table (document input: `__proto__` or `constructor` is an unknown kind, `malformed`). add-alongside keys are checked against the keys of the Builtin and Custom collection the record would join (sites from `walkComparisonEntries`, which carry `collectionPath`).
+- **Collection-wide add-alongside keys:** `checkRegistryUpdateDecisions` gathers every add-alongside decision that passes on its own, groups them by `alongsideKeyGroup` (collection and key), and reports every member of a group with more than one decision as `invalid-decision`, with one detail naming all of them. Document order never decides which one fails.
 
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
@@ -257,7 +268,7 @@ The runner and direct slice CLIs call 5.2.5 once per run, before slice execution
 - `tree/src/registries/tree-registry-inventory.knowledge.mjs`
 - `src/registries/suite-registry-inventory.knowledge.mjs`
 
-Each is owned by its slice and lists only that slice's registries. Every entry carries both a canonical-form `descriptor` (spec §5) and a `comparison` identity declaration (spec §8.4); the two are separate concerns, and identity is never inferred from `descriptor.setLike`. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
+Each is owned by its slice and lists only that slice's registries. Every entry carries a canonical-form `descriptor` (spec §5), a `comparison` identity declaration (spec §8.4) and a `reconciliation` capability declaration (spec §12.7, possibly empty); they are separate concerns, identity is never inferred from `descriptor.setLike`, and capabilities are never inferred from either. The reasons behind each declaration are recorded in `doc/Audits/registry-reconciliation-capabilities.audit.md`. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
 
 ### 6.2 Suite inventory aggregate
 
@@ -265,7 +276,7 @@ Each is owned by its slice and lists only that slice's registries. Every entry c
 
 ### 6.3 Constants
 
-Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary; the comparison kinds and entry and `diff` registry classes; and the update decisions document's `kind`, `schemaVersion`, decisions by class (`REGISTRY_DECISIONS_BY_CLASS`, `ENTRY_DECISIONS_BY_CLASS`) and problem codes; the lifecycle transaction's directory, journal name, schema version and outcomes; and the `update` skip reason (`undecided`).
+Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary; the comparison kinds and entry and `diff` registry classes; and the update decisions document's `kind`, `schemaVersion`, decisions by class (`REGISTRY_DECISIONS_BY_CLASS`, `ENTRY_DECISIONS_BY_CLASS`) and problem codes; the lifecycle transaction's directory, journal name, schema version and outcomes; the entry decisions and structured decision kinds; and the `update` skip reasons (`undecided`, `not-yet-supported`).
 
 ## 7.0 Results Concern (Outputs)
 
@@ -313,6 +324,7 @@ src/core/registry-lifecycle/
   registry-lifecycle-transaction.logic.mjs         5.2.11
   registry-lifecycle-update.logic.mjs              5.2.12
   registry-lifecycle-update-candidate.logic.mjs    5.2.13
+  registry-lifecycle-reconciliation.logic.mjs      5.2.14
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)

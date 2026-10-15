@@ -16,7 +16,9 @@ export const TREE_BUILTIN_REGISTRY_ROOT = fileURLToPath(new URL('./_builtin/', i
 const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 
 // `comparison` is the registry's entry identity for three-way comparison (spec §8.4).
-const defineTreeRegistry = (name, descriptor, comparison) =>
+// `reconciliation` declares which of its collections accept merge-fields or add-alongside (spec
+// §12.7); the reasons are recorded in doc/Audits/registry-reconciliation-capabilities.audit.md.
+const defineTreeRegistry = (name, descriptor, comparison, reconciliation = []) =>
   Object.freeze({
     registryId: `${TREE_REGISTRY_SLICE_ID}/${name}`,
     name,
@@ -24,23 +26,38 @@ const defineTreeRegistry = (name, descriptor, comparison) =>
     readableVersions: READABLE_VERSIONS_V1,
     descriptor: Object.freeze(descriptor),
     comparison: Object.freeze(comparison.map((collection) => Object.freeze(collection))),
+    reconciliation: Object.freeze(
+      reconciliation.map((declaration) =>
+        Object.freeze({
+          ...declaration,
+          ...(declaration.mergeFields
+            ? { mergeFields: Object.freeze(declaration.mergeFields.map((group) => Object.freeze([...group]))) }
+            : {}),
+        }),
+      ),
+    ),
   });
 
 // [6.1] cfg-registryLifecycle · Container · "Tree registry inventory"
 export const TREE_REGISTRY_INVENTORY = Object.freeze([
   defineTreeRegistry('folder-kinds', { setLike: [{ path: 'folderKinds', key: 'folderKind' }] }, [
     { kind: 'keyed', path: 'folderKinds', key: 'folderKind' },
-  ]),
+  ], [{ path: 'folderKinds', mergeFields: [['status'], ['definition']] }]),
   defineTreeRegistry('repo-shape-policy', { setLike: [{ path: 'allowedTopLevelDirectories' }] }, [
     { kind: 'members', path: 'allowedTopLevelDirectories' },
   ]),
   defineTreeRegistry('semantic-home-policy', { setLike: [{ path: 'semanticHomePolicy', key: 'policyId' }] }, [
     { kind: 'keyed', path: 'semanticHomePolicy', key: 'policyId' },
-  ]),
+  ], [{ path: 'semanticHomePolicy', mergeFields: [['status'], ['definition'], ['derivationMeaning', 'guardrails', 'inputLane']] }]),
   // At most one rule can match (relationshipPerspective is unique), so order carries no meaning.
   defineTreeRegistry('semantic-naming-folder-type-relationships', {
     setLike: [{ path: 'semanticNamingFolderTypeRelationships', key: 'relationshipPerspective' }],
-  }, [{ kind: 'keyed', path: 'semanticNamingFolderTypeRelationships', key: 'relationshipPerspective' }]),
+  }, [{ kind: 'keyed', path: 'semanticNamingFolderTypeRelationships', key: 'relationshipPerspective' }], [
+    {
+      path: 'semanticNamingFolderTypeRelationships',
+      mergeFields: [['status'], ['definition'], ['namingPerspective', 'repoShapeCondition', 'structuralHomeCondition', 'treeFolderType']],
+    },
+  ]),
   // The loader converts all six vocabularies to Sets.
   defineTreeRegistry('shim-detection-signals', {
     setLike: [
@@ -65,16 +82,18 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
   ]),
   defineTreeRegistry('structural-home-signal-policy', { setLike: [{ path: 'structuralHomeSignalPolicy', key: 'token' }] }, [
     { kind: 'keyed', path: 'structuralHomeSignalPolicy', key: 'token' },
-  ]),
+  ], [{ path: 'structuralHomeSignalPolicy', mergeFields: [['status'], ['definition'], ['notes'], ['evidenceMeaning', 'signalCategory']] }]),
   defineTreeRegistry('structural-homes', { setLike: [{ path: 'structuralHomes', key: 'structuralHome' }] }, [
     { kind: 'keyed', path: 'structuralHomes', key: 'structuralHome' },
-  ]),
+  ], [{ path: 'structuralHomes', mergeFields: [['status'], ['definition']] }]),
   defineTreeRegistry('structural-role-tokens', { setLike: [{ path: 'structuralRoleTokens', key: 'token' }] }, [
     { kind: 'keyed', path: 'structuralRoleTokens', key: 'token' },
-  ]),
+  ], [{ path: 'structuralRoleTokens', mergeFields: [['status'], ['definition'], ['relationshipPerspective', 'structuralRole']] }]),
   defineTreeRegistry('surface-structural-home-perspective', {
     setLike: [{ path: 'structuralHomesBySurface.*', key: 'structuralHome' }],
-  }, [{ kind: 'keyed', path: 'structuralHomesBySurface.*', key: 'structuralHome' }]),
+  }, [{ kind: 'keyed', path: 'structuralHomesBySurface.*', key: 'structuralHome' }], [
+    { path: 'structuralHomesBySurface.*', mergeFields: [['rationale'], ['relationshipStatus', 'signalStrength']] },
+  ]),
   // Both consumers test the matchers with .some(), so order and repetition carry no meaning.
   defineTreeRegistry('validator-owned-signals', { setLike: [{ path: 'validatorOwnedBasenameSignals', key: 'pattern' }] }, [
     { kind: 'keyed', path: 'validatorOwnedBasenameSignals', key: 'pattern' },
