@@ -232,7 +232,7 @@ These are reported (§11), never blocking:
 - **Builtin drift:** Custom is complete, compatible and valid, but the current Builtin content differs from Custom's Baseline. The run proceeds on Custom.
 - **Orphan registry:** Custom contains a registry absent from the current Builtin inventory, for example one removed or renamed in a later release. The engine does not read it. It is listed for review.
 
-A lifecycle check runs on every validation run, whichever set is active. It is read-only. When `activeSet` is `builtin`, problems in an existing Custom set are reported as `registrySet.customIssues` (§11.1), not blocking, because Custom is not being used. Those problems are §7.1 items 2–5, except a malformed `registry-state.json`. This way a user validating with Builtin can see why their retained Custom set could not be activated.
+A lifecycle check runs on every validation run, whichever set is active. It is read-only. When `activeSet` is `builtin`, problems in an existing Custom set are reported as `registrySet.customIssues` (§11.1), not blocking, because Custom is not being used. Those problems are §7.1 items 2–6, except a malformed `registry-state.json`. This way a user validating with Builtin can see why their retained Custom set could not be activated.
 
 ## 8) Builtin updates and Custom inheritance
 
@@ -816,6 +816,7 @@ Interactive editors, CLI helpers or a registry management UI may only produce an
 ```
 
 - **Editable registries.** A record names a current Builtin registry whose Custom registry is present, contained, parses, yields its comparison entries (§8.4), and is at a `version` this engine reads (§9.1). A registry at another version is migrated first (§12.8); one absent from Custom is inherited first (§12.4). Orphans are not editable. A Custom registry that currently fails its slice's validation is editable: an edit may be how the user repairs it.
+- **Operations per record.** `operations` is a non-empty list: a record names a registry because it changes it. Together with the rules below (no `change` to the current value, the exact image), every Custom file an edit writes differs from its current bytes, so a transaction's commit point is never a file that already holds its new content (§4.6 item 8).
 - **Binding.** `basedOn.customDigest` is the Custom registry's canonical digest, as `status` reports it (§12.1). Every operation of a record shares that one binding. A record whose Custom digest changed is stale, while other records stay usable. An edit never reads the Baseline or Builtin into the result and never writes them, so they are not bound.
 - **Addresses.** An operation names exactly one entry by its comparison address (§8.4), the same addresses `diff` and the decisions document use; there is no other addressing. An address for an entry that does not exist yet must still be one the registry's comparison declaration produces: a declared collection, the kind that collection has, and for a record the declared key field. `version` is not an entry and is never edited; changing it is a migration (§8.3).
 - **Operations.** `op` is one of:
@@ -849,7 +850,7 @@ Interactive editors, CLI helpers or a registry management UI may only produce an
 
   | Problem | Meaning |
   |---|---|
-  | `malformed` | the document, a record or an operation does not have the shape above, unknown fields and an unknown `op` included |
+  | `malformed` | the document, a record or an operation does not have the shape above, unknown fields, an unknown `op` and an empty `operations` list included |
   | `unknown-registry` | the id is not a current Builtin registry |
   | `duplicate-registry` | the registry is listed more than once |
   | `not-editable` | the Custom registry is absent, unreadable, has no valid comparison entries or is at a version this engine does not read; `detail` names which |
