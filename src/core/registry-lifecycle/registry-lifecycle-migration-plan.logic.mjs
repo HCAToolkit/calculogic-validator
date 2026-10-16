@@ -13,14 +13,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { stableStringify } from '../validator-report-meta.logic.mjs';
 import { digestRegistryPayload } from './registry-lifecycle-canonical-digest.logic.mjs';
-import { ComparisonExtractionError, walkComparisonEntries } from './registry-lifecycle-comparison.logic.mjs';
+import { walkComparisonEntries } from './registry-lifecycle-comparison.logic.mjs';
 import { compareRegistryLifecycle, summarizeEntryDiff } from './registry-lifecycle-diff.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
 import {
   assertMigrationDeclaration,
   descriptorForPayload,
+  migrateRegistryPayload,
   migrationPath,
-  runMigrationPath,
 } from './registry-lifecycle-migration.logic.mjs';
 import { SLICE_MIGRATION_TRANSFORMS } from './registry-lifecycle-slice-migrations.logic.mjs';
 import {
@@ -58,27 +58,6 @@ const hasFields = (value, required, optional = []) =>
 
 const transformsOf = (migrationTransforms, sliceId) =>
   Object.hasOwn(migrationTransforms, sliceId) ? migrationTransforms[sliceId] : {};
-
-const describeStep = (step) =>
-  `step ${JSON.stringify(step.from)} → ${JSON.stringify(step.to)} (transform ${JSON.stringify(step.transform)})`;
-
-// Runs the path over one input and extracts its comparison entries. Returns `{ payload, walked }` or
-// `{ failure }`, the detail of a `transform-failed` reason.
-const migrateInput = ({ entry, path: steps, transforms, payload, label }) => {
-  const run = runMigrationPath(steps, transforms, payload);
-  if (run.failure) {
-    return { failure: `The ${label} input: ${describeStep(run.failure.step)}: ${run.failure.detail}` };
-  }
-
-  try {
-    return { payload: run.payload, walked: walkComparisonEntries(run.payload, entry) };
-  } catch (error) {
-    if (error instanceof ComparisonExtractionError) {
-      return { failure: `The migrated ${label} payload has no valid comparison entries: ${error.message}` };
-    }
-    throw error;
-  }
-};
 
 const toValues = (walked) => new Map(walked.map(({ address, value }) => [address, value]));
 
@@ -120,6 +99,14 @@ const planRegistryMigration = ({ paths, slice, entry, statusEntry, manifestEntry
   }
 
   const baselinePayload = readJsonFile(baselinePath);
+  // A copy can match its manifest digest yet be at another version than its manifest entry (a
+  // hand-repaired set); the path is chosen by the entry's version, so the copy must be at it.
+  if (baselinePayload?.version !== fromVersion) {
+    return notMigratable(
+      REASONS.baselineMismatch,
+      `The .baseline copy is at version ${JSON.stringify(baselinePayload?.version ?? null)}, its manifest entry at ${JSON.stringify(fromVersion)}.`,
+    );
+  }
   const customPayload = readJsonFile(customPath);
   if (customPayload?.version !== fromVersion) {
     return notMigratable(
@@ -128,11 +115,11 @@ const planRegistryMigration = ({ paths, slice, entry, statusEntry, manifestEntry
     );
   }
 
-  const baseline = migrateInput({ entry, path: steps, transforms, payload: baselinePayload, label: 'Baseline' });
+  const baseline = migrateRegistryPayload({ entry, path: steps, transforms, payload: baselinePayload, label: 'Baseline' });
   if (baseline.failure) {
     return notMigratable(REASONS.transformFailed, baseline.failure);
   }
-  const custom = migrateInput({ entry, path: steps, transforms, payload: customPayload, label: 'Custom' });
+  const custom = migrateRegistryPayload({ entry, path: steps, transforms, payload: customPayload, label: 'Custom' });
   if (custom.failure) {
     return notMigratable(REASONS.transformFailed, custom.failure);
   }

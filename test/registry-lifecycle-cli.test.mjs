@@ -48,6 +48,7 @@ test('package.json declares the registry lifecycle bin and repository scripts', 
   assert.match(packageJson.scripts['registry:update'], /registry-lifecycle\.host\.mjs update$/u);
   assert.match(packageJson.scripts['registry:migrate-plan'], /registry-lifecycle\.host\.mjs migrate-plan$/u);
   assert.match(packageJson.scripts['registry:migrate-check'], /registry-lifecycle\.host\.mjs migrate-check$/u);
+  assert.match(packageJson.scripts['registry:migrate'], /registry-lifecycle\.host\.mjs migrate$/u);
 });
 
 test('status prints the Builtin-only state as JSON without writing lifecycle files', () => {
@@ -563,5 +564,47 @@ test('update applies entry decisions through the bin, and the declined entries r
     ]);
     assert.deepEqual(JSON.parse(run(registryBinPath, ['status'], targetRoot).stdout).customIssues, []);
     assert.deepEqual(JSON.parse(run(registryBinPath, ['decisions-template'], targetRoot).stdout).registries, []);
+  });
+});
+
+test('migrate applies a checked migration plan through the bin, refuses an invalid one and recovers first', () => {
+  withTargetRepository((targetRoot) => {
+    assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
+    const lifecycleRoot = path.join(targetRoot, '.calculogic/registries');
+    const snapshot = () =>
+      fs
+        .readdirSync(lifecycleRoot, { recursive: true })
+        .sort()
+        .map((relativePath) => {
+          const filePath = path.join(lifecycleRoot, relativePath);
+          return [relativePath, fs.statSync(filePath).isFile() ? fs.readFileSync(filePath, 'base64') : null];
+        });
+    const before = snapshot();
+
+    // No registry has changed shape, so the plan is empty and applying it changes nothing.
+    fs.writeFileSync(path.join(targetRoot, 'plan.json'), run(registryBinPath, ['migrate-plan'], targetRoot).stdout);
+    const applied = run(registryBinPath, ['migrate', 'plan.json'], targetRoot);
+    assert.equal(applied.status, 0, applied.stderr);
+    assert.deepEqual(JSON.parse(applied.stdout), { command: 'migrate', applied: [], skipped: [] });
+
+    fs.writeFileSync(path.join(targetRoot, 'plan.json'), JSON.stringify({ kind: 'calculogic-registry-update-decisions' }));
+    const refused = run(registryBinPath, ['migrate', 'plan.json'], targetRoot);
+    assert.equal(refused.status, 1);
+    assert.deepEqual(JSON.parse(refused.stdout).problems.map((item) => item.problem), ['malformed']);
+    assert.deepEqual(snapshot(), before);
+
+    const transactionRoot = path.join(lifecycleRoot, '.lifecycle-transaction');
+    fs.mkdirSync(transactionRoot);
+    const unreadable = run(registryBinPath, ['migrate', 'missing.json'], targetRoot);
+    assert.equal(unreadable.status, 1);
+    assert.equal(unreadable.stdout, '');
+    assert.match(unreadable.stderr, /Cannot read the migration plan: .*recovered first \(rolled-back\)/u);
+    assert.equal(fs.existsSync(transactionRoot), false);
+
+    for (const args of [['migrate'], ['migrate', 'a.json', 'b.json']]) {
+      const usage = run(registryBinPath, args, targetRoot);
+      assert.equal(usage.status, 1);
+      assert.match(usage.stderr, /needs exactly one document path/u);
+    }
   });
 });

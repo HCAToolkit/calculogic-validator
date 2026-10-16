@@ -2,7 +2,7 @@
 
 - **Classification:** Normative target contract for the suite-level registry lifecycle. Sections marked *Current implementation reality* or *Historical* are Informative.
 - **Ownership:** suite-owned lifecycle mechanics; slice-owned registry meaning (§9).
-- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document `update` (`registry-added` inheritance, and the entry decisions `keep-custom`, `take-builtin` and merge-fields) and the read-only migration plan are implemented; its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
+- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document, `update` (`registry-added` inheritance, and the entry decisions `keep-custom`, `take-builtin` and merge-fields), the migration plan and `migrate` are implemented; its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
 - **Report-only note:** the lifecycle selects registry inputs and discloses them in report metadata. It adds no enforcement mode and no fix execution.
 - **Issue lineage:** Refs #41; parent Refs #39. Decision record: #41 comments "Decision record (before the spec PR)", "Decision record: section 9 resolved" and "Decision record: activation, and the earlier customization draft".
 
@@ -125,6 +125,8 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 
   When `update` advances the registry's Baseline to the current Builtin (§8.2), the entry is rewritten without `migration`. `validatorVersion` never doubles as a migration marker.
 
+  `migration`, when present, is exactly `{ fromVersion, fromDigest, path }`: `fromVersion` a non-empty string without surrounding whitespace, `fromDigest` a SHA-256 (64 lowercase hex characters), and `path` a non-empty list of such strings. Anything else makes the manifest malformed (§7.1 item 5). It is provenance only: it never changes how the entry's digest is trusted or how the registry is classified.
+
   ```json
   "naming/roles": {
     "validatorVersion": "0.1.0", "version": "2", "digest": "<B0′ sha256-hex>",
@@ -154,11 +156,11 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 
 ### 4.6 Write protocol: lifecycle transactions
 
-Commands that change an existing Custom set write through one suite-owned **lifecycle transaction**. That is `update` (§12.5) now, and later `migrate`, `edit` and `import`. `init-custom` keeps its own protocol, because it creates `custom/` whole: it stages the set and renames the directory into place (§12.1).
+Commands that change an existing Custom set write through one suite-owned **lifecycle transaction**. That is `update` (§12.5) and `migrate` (§12.9) now, and later `edit` and `import`. `init-custom` keeps its own protocol, because it creates `custom/` whole: it stages the set and renames the directory into place (§12.1).
 
 A transaction replaces an ordered list of files. Its last file is the **commit point**, which is always `registry-set.manifest.json`: until the manifest names a file's digest, no lifecycle check trusts that file as Baseline.
 
-1. **Prepare.** Every new file content is computed and checked before anything is written (for `update`, §12.5). Every target, every directory the transaction creates, and the transaction directory itself must be contained (§4.1), and each target's nearest existing ancestor must be a directory.
+1. **Prepare.** Every new file content is computed and checked before anything is written (for `update`, §12.5; for `migrate`, §12.9). Every target, every directory the transaction creates, and the transaction directory itself must be contained (§4.1), and each target's nearest existing ancestor must be a directory.
 2. **Stage.** The transaction directory `.calculogic/registries/.lifecycle-transaction/` is created exclusively. It sits outside `custom/`, so it is never part of the portable set.
    - The new contents are written into it.
    - So is a journal. The journal lists, in commit order, each target with the identity of the entry it replaces (`original`: a file's SHA-256 or a symlink's link text, or `null` when the target is new) and the SHA-256 of its new bytes (`sha256`), then the directories to create. The commit point's `sha256` is the commit digest.
@@ -178,7 +180,7 @@ A transaction replaces an ordered list of files. Its last file is the **commit p
    - The next writing lifecycle command recovers first, from the journal. Every journal path is checked, lexically and by realpath (§4.1), before the commit point is read or anything is touched, and the transaction directory and its backup directory must exist as ordinary directories and the journal as an ordinary file, never symlinks. The transaction directory must hold exactly what the transaction wrote: `staged/` with regular files and `backup/` with files or symlinks, each named by a journaled step index (a backup only for a step that replaced an entry), and the journal. Both directories are created before the journal, so a journaled transaction without either has been altered, as has one with any other entry, name or type. Likewise, every step must be in a state its own commit sequence can produce, with every entry identified by the journal: an original is the journaled `original` exactly, and a new entry is a regular file holding the step's journaled `sha256`. A step replacing an entry is unstarted (original at the target, staged copy), backed up (original as the backup, staged copy) or applied (original as the backup, new entry at the target); a step creating an entry is unstarted (staged copy, no entry) or applied (new entry, no staged copy). Any other state has lost an original, or finds at a target something the journal does not identify (another entry, or a journal naming another target), and recovery refuses rather than report a rollback it cannot make or delete or overwrite an entry it did not write. Rollback records each step in `rolling-back/<i>` before undoing it; a marked step may also be already undone (the original restored at the target, a created entry removed), so an interrupted rollback is resumed by repeating the marked steps, which is idempotent. A committed transaction never has `rolling-back/`. A journal or directory that fails these checks is refused and kept. If the commit point holds its journaled `sha256`, the transaction committed and only its directory is removed. Otherwise it is rolled back as in item 4.
    - Recovery never reads or writes `registry-state.json`.
    - Lifecycle commands are not run concurrently against one target.
-6. **Scope.** A transaction advances its command's atomic unit, every file of which it lists; for `update` that unit is the selected registries of one slice (§12.5). A command that advances several units runs one transaction per unit, in a deterministic order. A failure stops the command: earlier units stay advanced and later ones are untouched.
+6. **Scope.** A transaction advances its command's atomic unit, every file of which it lists; for `update` and `migrate` that unit is the selected registries of one slice (§12.5, §12.9). A command that advances several units runs one transaction per unit, in a deterministic order. A failure stops the command: earlier units stay advanced and later ones are untouched.
 7. **Outside this guarantee:** durability against power loss (fsync), and anything else modifying the repository while a lifecycle command runs. Containment (§4.1) is checked before staging and again by recovery; a symlink retargeted between that check and a rename is a concurrent modification, which no in-process check can exclude (Node offers no rename relative to a held directory handle). So is a journal rewritten consistently after a crash: recovery checks the journal against the entries it names, so it never deletes or overwrites an entry the journal does not identify, but a journal cannot authenticate itself; a step redirected to an absent path while its original sits in `backup/` restores that original to the path the journal names.
 8. **A committed transaction** applied every step, so recovery accepts the commit point only when every step is in its applied state (item 5), checked by identity: every target, not only the commit point, is a regular file holding its step's journaled `sha256`, every replaced original is in its backup, nothing is left in `staged/`, and there is no `rolling-back/`. Otherwise the directory was altered and is refused and kept. Every journaled digest must be a SHA-256 (64 lowercase hex characters), and an `original` is exactly `{ kind: "file", sha256 }` or `{ kind: "symlink", link }`. The commit point's staged copy is consumed exactly when the commit point is applied, so a consumed staged copy with a commit point that does not hold the journaled bytes is refused rather than rolled back.
 
@@ -276,8 +278,8 @@ For each item the user chooses: keep theirs, take Builtin, merge selected fields
 **Ownership.** The owning slice declares the path and owns each step's transform: a deterministic, pure function from a payload at the step's `from` version to a payload at its `to` version. It reads no file, no state and no `activeSet`, and it never sees Builtin. Defaults for a new required field, renames, and how an old shape maps to the new one are decided by the transform, never by suite core. Suite core only discovers the path, binds it to its inputs, runs it mechanically, checks its output, previews it and, once accepted, commits it. It never infers a default, a rename or a mapping, and never copies a Builtin value into a migrated payload.
 
 **Declaration.** A registry's inventory entry (§9.1) lists `migrations`, a list of steps `{ from, to, transform, fromDescriptor }`:
-- `from` and `to` are distinct, non-empty `version` strings;
-- `transform` is the id of the step's transform in the slice's transforms. Transforms are code, so they live in the slice's migration module, which suite core reaches through a static bridge, the same way it reaches slice validation (§9.3);
+- `from` and `to` are distinct, non-empty `version` strings without surrounding whitespace;
+- `transform` is the id of the step's transform, a non-empty string without surrounding whitespace (versions and ids become manifest provenance, §4.3) in the slice's transforms. Transforms are code, so they live in the slice's migration module, which suite core reaches through a static bridge, the same way it reaches slice validation (§9.3);
 - `fromDescriptor` is the canonical-form descriptor (§5) of payloads at version `from`, so a Baseline copy or Custom registry at that version stays verifiable.
 
 The versions a registry can be migrated from (the `from` of its steps) are separate from its `readableVersions`, which the runtime reads. The declaration is checked against the slice's transforms, and each of these is a programming error:
@@ -290,7 +292,7 @@ So exactly one ordered chain leads from each declared version. The **path** from
 
 **Running a path.** Each step receives a deep-frozen copy of the previous payload, and must return a plain JSON object whose `version` is the step's `to`. A throw (an attempted mutation included), a non-JSON value or a wrong `version` is a failed transform. The final payload must yield the comparison entries of the registry's declaration (§8.4).
 
-**Sequencing.** The migration plan (§12.8) is read-only. Applying an accepted plan writes B0′ to `.baseline/`, C0′ to Custom and the manifest entry of §4.3, through a lifecycle transaction (§4.6). It is the next #60 slice, which also decides how the slice's registry-set validation (§9.3) gates the migrated image.
+**Sequencing.** The migration plan (§12.8) is read-only. `migrate` (§12.9) applies its accepted records: it writes B0′ to `.baseline/`, C0′ to Custom and the manifest entry of §4.3, through a lifecycle transaction (§4.6). The slice's registry-set validation (§9.3) gates the migrated Custom image only: C0′ is the runtime policy being created, while B0′ is a merge base and provenance, checked mechanically against the plan (§12.9 item 4) but never validated as a usable set.
 
 ### 8.4 Entry identity: comparison declarations
 
@@ -493,7 +495,7 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and 
 1. `diff` (§12.3);
 2. the update decisions document (§12.4);
 3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6, §12.7). add-alongside has its contract and capability declaration (§12.7) and is applied once a slice declares it;
-4. the migration declaration (§8.3) and the read-only migration plan (§12.8). Applying an accepted plan is the next slice; the other commands follow.
+4. the migration declaration (§8.3), the read-only migration plan (§12.8) and `migrate` (§12.9), which applies its accepted records. The other commands follow.
 
 Interactive prompting may only generate or edit these documents; it is never a separate source of decisions.
 
@@ -725,7 +727,7 @@ Both need a Custom set and write nothing. Neither reads or changes `activeSet` a
   | Reason | Applies when |
   |---|---|
   | `no-migration-path` | the declaration (§8.3) has no path from the Baseline version to the Builtin version. Without one, this release also has no descriptor for the Baseline's version (§5), so its copy is unverifiable rather than mismatched. |
-  | `baseline-mismatch` | the `.baseline/` copy is missing, escapes the target or does not match its manifest digest (§4.4). Nothing is migrated from an untrusted merge base. |
+  | `baseline-mismatch` | the `.baseline/` copy is missing, escapes the target, does not match its manifest digest (§4.4), or is not at its manifest entry's `version`, which selects the path. Nothing is migrated from an untrusted merge base. |
   | `missing` | Custom lacks the registry |
   | `invalid` | the Custom registry cannot be read or parsed |
   | `custom-version-mismatch` | the Custom registry's `version` is not the Baseline's: B0 and C0 must take the same path |
@@ -753,7 +755,31 @@ Both need a Custom set and write nothing. Neither reads or changes `activeSet` a
 - `registries` summarizes each record without a problem: `{ registryId, fromVersion, toVersion, accepted }`.
 - `valid` is true when there is no problem. `complete` is true when the plan is valid and every record in it is accepted.
 
-**Applying it** is the next #60 slice (§8.3 "Sequencing"). It refuses a plan that is not valid, before writing anything, migrates only accepted records, and never changes `activeSet`.
+**Applying it** is `migrate` (§12.9). It refuses a plan that is not valid, before writing anything, migrates only accepted records, and never changes `activeSet`.
+
+### 12.9 `migrate`
+
+`calculogic-validator-registry migrate <file>` applies a migration plan (§12.8). The path is resolved from the working directory. The plan is the only authority for what is migrated.
+
+1. **Recover** an interrupted transaction (§4.6 item 5), before the plan is even read. A Custom set must exist.
+2. **Check** the plan exactly as `migrate-check` does, against the current state. A plan that is not `valid` is refused before anything is written, and its problems are printed.
+3. **Select.** Every record decided `"accept"` is selected. Every record decided `null` is listed under `skipped` with reason `undecided`; nothing is ever inferred from `null`, and the plan need not be complete. Selected records are grouped by owning slice: **the slice is the unit of migration**, as it is of `update` (§12.5 item 3), in the same order.
+4. **Prepare each slice** (§4.6 item 1). The slice is refused, before its transaction, unless every selected registry passes these checks and the slice passes as a whole. Per registry:
+   - **The authorized inputs.** The manifest entry has the record's `basedOn.baselineDigest` and its `version` is the record's `fromVersion`; the `.baseline/` copy and the Custom file are contained, parse, have the record's Baseline and Custom digests (§5: each canonicalized with the descriptor of its version) and are at `fromVersion`; the Builtin file is contained in its slice's Builtin root, parses, has the record's Builtin digest and is at `toVersion`, a version this engine reads.
+   - **The authorized path.** The declared path from `fromVersion` to `toVersion` (§8.3) is the record's `path`.
+   - **Recomputed results.** The slice's transforms run again, separately, over the authorized Baseline copy and the authorized Custom file (§8.3 "Running a path"). The plan's `preview` is never read for this: what is written comes from the same pure machinery that made the plan. B0′ and C0′ must each have the record's `result` digest.
+
+   Otherwise the record is stale. Then, for the slice:
+   - **Valid together:** the slice's registry-set validation (§9.3) runs once over the slice's final Custom image: every selected registry's C0′ in place, every other registry's current Custom file unchanged. It must report no failure it does not already report for the current Custom slice. A migration that is valid only together with an undecided record's migration is refused for the whole slice; the undecided record is never pulled in. B0′ is not validated as a set: it is the historical merge base, not policy any run will use.
+5. **Transaction** (§4.6): one per slice, in this order:
+   1. for each selected registry, `custom/.baseline/<slice>/<file>`: B0′;
+   2. for each selected registry, `custom/<slice>/<file>`: C0′;
+   3. the manifest, once, with each selected registry's entry as §4.3 describes: its previous `validatorVersion`, `version` `toVersion`, B0′'s canonical digest, and `migration`, extending an earlier migration's provenance. Every other entry and field is unchanged.
+
+   B0′ and C0′ are written as two-space JSON with a final newline. Within a slice, every selected registry migrates or none does. A failed slice stops the command; earlier slices stay migrated, later ones are untouched.
+6. **Result.** After a successful `migrate`, a migrated registry is no longer `version-changed`: `diff` compares B0′, the current Builtin and C0′ as an ordinary same-version registry (§8.3 "Model"). A shape-only migration is `unchanged`; a Builtin content change that shipped with the new shape is offered by `decisions-template`, and `update` reconciles it like any other, rewriting the manifest entry without `migration`. `registry-state.json` is never read or written.
+
+**Output** is JSON on stdout, shaped as `update`'s (§12.5): `{ command, recovered?, applied, skipped }` and exit 0; a refused plan, `{ command, recovered?, applied: [], problems }` and exit 1; a failed slice, with `failed: { sliceId, registryIds, detail }` and exit 1.
 
 ## 13) Implementation slices
 
@@ -792,7 +818,7 @@ Both need a Custom set and write nothing. Neither reads or changes `activeSet` a
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6) through the lifecycle transaction (§4.6), and the read-only `migrate-plan` and `migrate-check` (§12.8). The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check`, `registry:update`, `registry:migrate-plan` and `registry:migrate-check`. The reconciliation capability declarations (§12.7) are in every slice inventory, the decisions document (schema `"2"`) records and checks merge-fields and add-alongside, and `update` applies merge-fields; it skips add-alongside records as `not-yet-supported`. Every inventory entry carries a migration declaration (§8.3); all are empty, because every current registry is at `version` `"1"` and no release has changed a registry's shape, so the slices' transform maps are empty too and the migration plan is exercised by synthetic test registries only. Not implemented yet (#60): applying an accepted migration plan, applying add-alongside (no collection declares it), `edit`, `trace`, `import`/`export` and preview.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6) through the lifecycle transaction (§4.6), the read-only `migrate-plan` and `migrate-check` (§12.8), and `migrate` (§12.9) through the same transaction. The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check`, `registry:update`, `registry:migrate-plan`, `registry:migrate-check` and `registry:migrate`. The reconciliation capability declarations (§12.7) are in every slice inventory, the decisions document (schema `"2"`) records and checks merge-fields and add-alongside, and `update` applies merge-fields; it skips add-alongside records as `not-yet-supported`. Every inventory entry carries a migration declaration (§8.3); all are empty, because every current registry is at `version` `"1"` and no release has changed a registry's shape, so the slices' transform maps are empty too and the migration plan and `migrate` are exercised by synthetic test registries only. Not implemented yet (#60): applying add-alongside (no collection declares it), `edit`, `trace`, `import`/`export` and preview.
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.
