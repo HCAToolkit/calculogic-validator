@@ -18,7 +18,8 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 6: `update` applies merge-fields through the update candidate (5.2.13), with `mergeFieldsForm` (5.2.14) as the one merge rule; add-alongside records stay skipped as `not-yet-supported`.
 - #60 slice 7: migration declarations in every slice inventory (6.1), the slice transforms bridge and the declaration check (5.2.15), the version-aware descriptor (5.2.15) used wherever a payload is digested, and the read-only migration plan with `migrate-plan` and `migrate-check` (5.2.16, 5.3). No migration is written.
 - #60 slice 8: `migrate` applies the accepted records of a checked migration plan (5.2.18, 5.3) through the slice-atomic application mechanics it shares with `update` (5.2.17); the manifest reader accepts the optional `migration` provenance (5.2.1).
-- Follow-ons: the rest of the advanced management surface (#60): applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
+- #60 slice 9 (contract only): the edit document, `edit-check` and `edit` (spec §12.10), and the `interrupted-transaction` condition (spec §4.6 item 5, §7.1 item 6), specified for the next slice (5.2.19). No runtime change.
+- Follow-ons: the rest of the advanced management surface (#60): implementing edit (5.2.19), applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
 
@@ -39,7 +40,7 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- The rest of the advanced management surface (follow-on): applying add-alongside, and the `edit`, `trace`, `import`/`export` and preview commands.
+- The rest of the advanced management surface (follow-on): implementing edit (specified, 5.2.19), applying add-alongside, and the `edit`, `trace`, `import`/`export` and preview commands.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present
@@ -286,6 +287,15 @@ Neither reads `registry-state.json` or writes anything.
 5. The manifest entry (`migratedManifestEntry`): the previous `validatorVersion`, `toVersion`, B0′'s digest, and `migration` with the previous provenance's `fromVersion` and `fromDigest` (or the previous entry's `version` and `digest` for a first migration) and its `path` extended by the applied transform ids.
 
 `migrationTransforms`, `validateSlice` and `onTransactionStep` are options; the last two are internal test seams.
+
+#### 5.2.19 Planned: edit (spec §12.10; not implemented)
+
+The contract is fixed; the implementation slice follows. Intended shape, reusing what exists rather than adding a third model:
+- **Addresses:** an address parser owned by `registry-lifecycle-comparison.logic.mjs`, beside `walkComparisonEntries`, so the grammar keeps one owner: it maps an address to the site it would name under the comparison declaration (collection, kind, container, key), for entries that do not exist yet too.
+- **Construction:** a pure edited-payload construction from the Custom payload, the comparison declaration and the operations, applying them at their sites in the update candidate's fixed order (5.2.13) and ending with the same exact-image check.
+- **Check:** `edit-check` beside the decisions and migration-plan checks: strict shape, per-record binding, per-operation problems, duplicate addresses as a group, then the exact image and the slice image (`assertSliceImageValid`, 5.2.17).
+- **Apply:** `edit` through `openLifecycleWrite` and `applyBySlice` (5.2.17), one transaction per slice writing only Custom files; the last one is the commit point.
+- **Interrupted transaction:** the assessment (5.2.4) reports `interrupted-transaction` while the transaction directory exists, and resolution (5.2.5) blocks an active Custom run on it. It never recovers; only writing commands do (5.2.11).
 
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
