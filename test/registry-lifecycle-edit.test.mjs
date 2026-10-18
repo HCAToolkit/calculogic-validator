@@ -548,6 +548,56 @@ test('interrupted-transaction: reported while a transaction is pending, blocks a
   });
 });
 
+test('interrupted-transaction: stays reported and blocking without a Custom set, and init-custom refuses while it is pending', () => {
+  withEditFixture(({ document, edit, paths, slices, targetRoot, status }) => {
+    // Two files of one slice, so the crash after the first falls before the commit point.
+    const doc = document({
+      [THING_A]: [{ op: 'change', address: 'title', value: 'A' }],
+      [THING_B]: [{ op: 'change', address: 'title', value: 'B' }],
+    });
+    const crash = (step) => {
+      if (step === 'step-0:applied') {
+        throw Object.assign(new Error('crash'), { [LIFECYCLE_TRANSACTION_SIMULATED_CRASH]: true });
+      }
+    };
+    assert.throws(() => edit(doc, { onTransactionStep: crash }), /crash/u);
+    const asideRoot = `${paths.customRoot}-aside`;
+    fs.renameSync(paths.customRoot, asideRoot);
+
+    const reported = status();
+    assert.equal(reported.customExists, false);
+    assert.deepEqual(
+      reported.customIssues.map(({ registryId, condition }) => [registryId, condition]),
+      [[null, 'interrupted-transaction']],
+    );
+    assert.ok(
+      resolveActiveRegistrySet({ targetRoot, slices }).registrySet.customIssues.some(
+        (item) => item.condition === 'interrupted-transaction',
+      ),
+    );
+    assert.throws(
+      () => useRegistrySet({ targetRoot, activeSet: 'custom', slices }),
+      (error) =>
+        ['missing-set', 'interrupted-transaction'].every((condition) =>
+          error.conditions.some((item) => item.condition === condition),
+        ),
+    );
+
+    // init-custom would create files at the paths the pending journal names; it refuses first.
+    const before = snapshotTree(paths.lifecycleRoot);
+    assert.throws(
+      () => initCustomRegistrySet({ targetRoot, validatorVersion: '0.0.0-test', slices }),
+      /interrupted lifecycle transaction is pending/u,
+    );
+    assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
+
+    // With the set back in place, the next writing command recovers it.
+    fs.renameSync(asideRoot, paths.customRoot);
+    assert.deepEqual(edit(doc), { recovered: { outcome: 'rolled-back' }, applied: [THING_A, THING_B] });
+    assert.deepEqual(status().customIssues, []);
+  });
+});
+
 test('edit-check and edit never read or change the active set', () => {
   for (const state of ['{ not json', '{"schemaVersion":"1","activeSet":"custom"}\n']) {
     withEditFixture(({ document, check, edit, paths }) => {

@@ -132,7 +132,7 @@ Compares Custom with the current Builtin inventory and the Baseline. Produces:
 - `baselineMismatch` for every registry the trusted manifest lists, orphans included (spec §4.4, §12.1). An orphan is canonicalized with its slice's retired descriptor; an orphan without one has a `null` digest and `baselineMismatch` (unverifiable, never a mismatch);
 - Baseline copy verification against manifest digests, giving `baseline-mismatch` (spec §4.4).
 
-While a lifecycle transaction directory exists, the assessment adds `interrupted-transaction` (`registryId: null`) to `customIssues`: recovery is required, and the set is not called corrupt. It never recovers. `findCustomSetBlockers` (5.2.5) treats it as blocking, like every condition but `baseline-mismatch`, so activation and active-Custom runs refuse while a Builtin-active run reports it.
+While a lifecycle transaction directory exists (`lifecycleTransactionPending`, 5.2.11), the assessment adds `interrupted-transaction` (`registryId: null`) to `customIssues`, with or without a Custom set: recovery is required, and the set is not called corrupt. It never recovers. Without a set it is the only issue. `findCustomSetBlockers` (5.2.5) treats it as blocking, like every condition but `baseline-mismatch`, so activation and active-Custom runs refuse while a Builtin-active run reports it.
 
 Every current-inventory payload (Builtin, Custom, `.baseline/`) is digested with the descriptor of its own `version` (`descriptorForPayload`, 5.2.15; spec §5), so an old-version Baseline copy stays verifiable. A copy whose manifest `version` this release has no descriptor for (`isVersionDescribed`, 5.2.15) is not verified: `baselineMismatch` is `null`, unverifiable rather than mismatched.
 
@@ -140,14 +140,14 @@ Every current-inventory payload (Builtin, Custom, `.baseline/`) is digested with
 
 Runs 5.2.1 and 5.2.4.
 - `builtin`: returns the package Builtin root of every slice. An existing Custom set is assessed and reported (`customIssues`), never read.
-- `custom`: the blocking conditions are a missing set and every `customIssues` condition except `baseline-mismatch` (`missing`, `version-incompatible`, `invalid`, `manifest-malformed`; spec §7.1). If any holds, it raises a lifecycle error naming each failing registry and the two ways forward (5.2.8). Otherwise it returns `custom/<slice>` for every slice, Custom digests as the resolved digests, and provenance with `source: custom`.
+- `custom`: the blocking conditions are a missing set and every `customIssues` condition except `baseline-mismatch` (`missing`, `version-incompatible`, `invalid`, `manifest-malformed`, `interrupted-transaction`; spec §7.1). A missing set is reported with a pending transaction, if any. If any holds, it raises a lifecycle error naming each failing registry and the two ways forward (5.2.8). Otherwise it returns `custom/<slice>` for every slice, Custom digests as the resolved digests, and provenance with `source: custom`.
 - In both cases it returns one resolved registry root per slice, plus the provenance inputs for 7.1.
 
 Slice-shape and reference validation failures raised by slice loaders while loading an active Custom set are reported through the same lifecycle error path.
 
 #### 5.2.6 Workflow: `initCustomRegistrySet`
 
-- Refuses if `custom/` exists.
+- Refuses if `custom/` exists, or while a lifecycle transaction is pending (5.2.11): a new set would sit at the paths its journal names.
 - Copies every inventory registry from Builtin into `custom/<slice>/` and `custom/.baseline/<slice>/`.
 - Writes the manifest.
 - Writes `registry-state.json` with `activeSet: builtin` only if the file is absent.
@@ -191,7 +191,7 @@ Shared by 5.2.5 and 5.2.7 (`registry-lifecycle-resolution.logic.mjs`). One `Regi
 
 #### 5.2.11 Workflow: lifecycle transaction
 
-`registry-lifecycle-transaction.logic.mjs` (spec §4.6). `runLifecycleTransaction({ paths, writes })` replaces `writes` (`[{ targetPath, contents }]`) in order; the last is the commit point.
+`registry-lifecycle-transaction.logic.mjs` (spec §4.6). `runLifecycleTransaction({ paths, writes })` replaces `writes` (`[{ targetPath, contents }]`) in order; the last is the commit point. `lifecycleTransactionPending(paths)` says, read-only, whether a transaction directory exists (5.2.4, 5.2.6).
 - **Stage:** create `.calculogic/registries/.lifecycle-transaction/` exclusively (an existing one is an interrupted transaction). Write `staged/<i>` for every write, then the journal (`journal.json`, written to a temporary name and renamed):
   - `steps: [{ target, original, sha256 }]`, with targets relative to the lifecycle root, `original` the identity of the entry the step replaces (`{ kind: "file", sha256 }` or `{ kind: "symlink", link }`, never following the link; `null` for a new target), and `sha256` the SHA-256 of the step's new bytes (the last step's is the commit digest);
   - `createdDirectories`.

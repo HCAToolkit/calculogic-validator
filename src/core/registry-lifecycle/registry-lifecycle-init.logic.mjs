@@ -3,7 +3,7 @@
  * Concern File: Logic
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.2.6)
  * Responsibility: Creates a complete Custom set, its Baseline copy and its manifest from Builtin.
- * Invariants: refuses when `custom/` exists; copies every inventory registry byte for byte; never
+ * Invariants: refuses when `custom/` exists or a lifecycle transaction is pending; copies every inventory registry byte for byte; never
  *   changes the active set (writes the state file only when absent, with `builtin`); builds the
  *   set in a temporary directory and renames it into place; writes only inside the validation
  *   target (lifecycle spec §4, §4.1 "Containment", §12.1).
@@ -13,6 +13,7 @@ import path from 'node:path';
 import { digestRegistryPayload } from './registry-lifecycle-canonical-digest.logic.mjs';
 import { descriptorForPayload } from './registry-lifecycle-migration.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
+import { lifecycleTransactionPending } from './registry-lifecycle-transaction.logic.mjs';
 import {
   RegistryLifecycleError,
   customSetExists,
@@ -55,6 +56,14 @@ export const initCustomRegistrySet = ({
   if (customSetExists(paths)) {
     throw new RegistryLifecycleError(
       `A Custom registry set already exists (${paths.customRoot}). init-custom never overwrites it.`,
+    );
+  }
+
+  // A pending transaction journals Custom paths; a new set at those paths would be what its
+  // recovery restores or removes (spec §4.6 item 5).
+  if (lifecycleTransactionPending(paths)) {
+    throw new RegistryLifecycleError(
+      `An interrupted lifecycle transaction is pending (${paths.lifecycleRoot}). init-custom refuses until it is recovered: the next update, migrate or edit recovers it before anything else.`,
     );
   }
 

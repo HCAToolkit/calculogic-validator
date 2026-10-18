@@ -64,13 +64,19 @@ const getCustomRegistryRoots = ({ paths, slices }) =>
 // [5.2.5] cfg-registryLifecycle · Primitive · "findCustomSetBlockers"
 // The §7.1 blocking conditions of a Custom set: a missing set, and every reported issue except the
 // non-blocking `baseline-mismatch` (`missing`, `version-incompatible`, `invalid`,
-// `manifest-malformed`). An empty list means the set resolves validly (spec §7.1, §11.1, §11.3).
+// `manifest-malformed`, `interrupted-transaction`). Without a set, the only reported issue is a
+// pending transaction, named after the missing set. An empty list means the set resolves validly
+// (spec §7.1, §11.1, §11.3).
 export const findCustomSetBlockers = (assessment) => {
+  const blockingIssues = assessment.customIssues.filter((issue) => issue.condition !== CUSTOM_ISSUE_CONDITIONS.baselineMismatch);
   if (!assessment.customExists) {
-    return [{ registryId: null, condition: CUSTOM_SET_MISSING_CONDITION, detail: 'No Custom registry set exists; run `registry:init-custom` to create one.' }];
+    return [
+      { registryId: null, condition: CUSTOM_SET_MISSING_CONDITION, detail: 'No Custom registry set exists; run `registry:init-custom` to create one.' },
+      ...blockingIssues,
+    ];
   }
 
-  return assessment.customIssues.filter((issue) => issue.condition !== CUSTOM_ISSUE_CONDITIONS.baselineMismatch);
+  return blockingIssues;
 };
 
 // [5.2.8] cfg-registryLifecycle · Primitive · "Active-Custom blocking notice"
