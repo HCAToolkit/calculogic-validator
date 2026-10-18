@@ -3,7 +3,8 @@
  * Concern File: Logic
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.3, §7.3)
  * Responsibility: The lifecycle command interface: `init-custom`, `use`, `status`, `diff`,
- *   `decisions-template`, `decisions-check`, `update`, `migrate-plan`, `migrate-check` and `migrate`.
+ *   `decisions-template`, `decisions-check`, `update`, `migrate-plan`, `migrate-check`, `migrate`,
+ *   `edit-check` and `edit`.
  * Invariants: operates on the validation target root; prints deterministic JSON on stdout;
  *   usage and lifecycle errors go to stderr with exit code 1.
  */
@@ -23,6 +24,7 @@ import {
   buildRegistryUpdateDecisionsTemplate,
   checkRegistryUpdateDecisions,
 } from './registry-lifecycle-decisions.logic.mjs';
+import { applyRegistryEditDocument, checkRegistryEditDocument } from './registry-lifecycle-edit.logic.mjs';
 import { applyRegistryMigrationPlan } from './registry-lifecycle-migrate.logic.mjs';
 import {
   buildRegistryMigrationPlan,
@@ -62,6 +64,12 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '                         copy and Custom registry migrated by the slice\'s transforms, and the manifest.',
   '                         Undecided records are skipped. The registries of a slice advance together;',
   '                         the active set never changes.',
+  '  edit-check <file>      Check an edit document (add, change and remove operations on Custom entries,',
+  '                         named by comparison address) against the Custom set, including each slice\'s',
+  '                         final Custom registries, and print the result as JSON. Exits 1 when it has',
+  '                         problems. Writes nothing.',
+  '  edit <file>            Apply a checked edit document. Only Custom files change; the registries of a',
+  '                         slice change together; the Baseline, manifest and active set never change.',
   '',
   'Repository scripts:',
   '  npm run registry:init-custom',
@@ -74,6 +82,8 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '  npm run -s registry:migrate-plan -- [registryId...] > <file>',
   '  npm run registry:migrate-check -- <file>',
   '  npm run registry:migrate -- <file>',
+  '  npm run registry:edit-check -- <file>',
+  '  npm run registry:edit -- <file>',
 ]);
 
 const writeJson = (value) => {
@@ -136,7 +146,7 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
     return { exitCode: 0 };
   }
 
-  if (command === 'decisions-check' || command === 'update' || command === 'migrate-check' || command === 'migrate') {
+  if (['decisions-check', 'update', 'migrate-check', 'migrate', 'edit-check', 'edit'].includes(command)) {
     const [documentPath, ...extra] = rest;
     if (documentPath === undefined || extra.length > 0) {
       printValidatorUsageErrorToStderr(`"${command}" needs exactly one document path.`, REGISTRY_LIFECYCLE_USAGE_LINES);
@@ -144,8 +154,8 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
     }
 
     // The document is an ordinary input file, resolved from the working directory (spec §12.4).
-    // `update` and `migrate` read it only after recovering an interrupted transaction (spec §12.5,
-    // §12.9).
+    // `update`, `migrate` and `edit` read it only after recovering an interrupted transaction (spec
+    // §12.5, §12.9, §12.10).
     const loadDocument = () => JSON.parse(fs.readFileSync(path.resolve(documentPath), 'utf8'));
     try {
       if (command === 'update') {
@@ -154,8 +164,9 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
         return { exitCode: result.problems || result.failed ? 1 : 0 };
       }
 
-      if (command === 'migrate') {
-        const result = applyRegistryMigrationPlan({ loadDocument, targetRoot });
+      if (command === 'migrate' || command === 'edit') {
+        const apply = command === 'migrate' ? applyRegistryMigrationPlan : applyRegistryEditDocument;
+        const result = apply({ loadDocument, targetRoot });
         writeJson({ command, ...result });
         return { exitCode: result.problems || result.failed ? 1 : 0 };
       }
@@ -168,7 +179,11 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
         return { exitCode: 1 };
       }
 
-      const check = command === 'migrate-check' ? checkRegistryMigrationPlan : checkRegistryUpdateDecisions;
+      const check = {
+        'decisions-check': checkRegistryUpdateDecisions,
+        'migrate-check': checkRegistryMigrationPlan,
+        'edit-check': checkRegistryEditDocument,
+      }[command];
       const result = check({ document, targetRoot });
       writeJson(result);
       return { exitCode: result.valid ? 0 : 1 };

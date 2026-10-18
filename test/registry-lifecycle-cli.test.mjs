@@ -49,6 +49,8 @@ test('package.json declares the registry lifecycle bin and repository scripts', 
   assert.match(packageJson.scripts['registry:migrate-plan'], /registry-lifecycle\.host\.mjs migrate-plan$/u);
   assert.match(packageJson.scripts['registry:migrate-check'], /registry-lifecycle\.host\.mjs migrate-check$/u);
   assert.match(packageJson.scripts['registry:migrate'], /registry-lifecycle\.host\.mjs migrate$/u);
+  assert.match(packageJson.scripts['registry:edit-check'], /registry-lifecycle\.host\.mjs edit-check$/u);
+  assert.match(packageJson.scripts['registry:edit'], /registry-lifecycle\.host\.mjs edit$/u);
 });
 
 test('status prints the Builtin-only state as JSON without writing lifecycle files', () => {
@@ -602,6 +604,69 @@ test('migrate applies a checked migration plan through the bin, refuses an inval
     assert.equal(fs.existsSync(transactionRoot), false);
 
     for (const args of [['migrate'], ['migrate', 'a.json', 'b.json']]) {
+      const usage = run(registryBinPath, args, targetRoot);
+      assert.equal(usage.status, 1);
+      assert.match(usage.stderr, /needs exactly one document path/u);
+    }
+  });
+});
+
+test('edit-check and edit check and apply an edit document through the bin, writing only the edited Custom file', () => {
+  withTargetRepository((targetRoot) => {
+    assert.equal(run(registryBinPath, ['init-custom'], targetRoot).status, 0);
+    const lifecycleRoot = path.join(targetRoot, '.calculogic/registries');
+    const rolesPath = path.join(lifecycleRoot, 'custom/naming/roles.registry.json');
+    const snapshotOthers = () =>
+      fs
+        .readdirSync(lifecycleRoot, { recursive: true })
+        .sort()
+        .filter((relativePath) => relativePath !== path.join('custom', 'naming', 'roles.registry.json'))
+        .map((relativePath) => {
+          const filePath = path.join(lifecycleRoot, relativePath);
+          return [relativePath, fs.statSync(filePath).isFile() ? fs.readFileSync(filePath, 'base64') : null];
+        });
+    const status = JSON.parse(run(registryBinPath, ['status'], targetRoot).stdout);
+    const customDigest = status.registries.find((entry) => entry.registryId === 'naming/roles').customDigest;
+    const role = JSON.parse(fs.readFileSync(rolesPath, 'utf8')).roles[0];
+    const document = {
+      kind: 'calculogic-registry-edit',
+      schemaVersion: '1',
+      registries: [
+        {
+          registryId: 'naming/roles',
+          basedOn: { customDigest },
+          operations: [{ op: 'change', address: `roles[role=${JSON.stringify(role.role)}]`, value: { ...role, definition: 'Edited by the bin.' } }],
+        },
+      ],
+    };
+    fs.writeFileSync(path.join(targetRoot, 'edit.json'), JSON.stringify(document));
+    const before = snapshotOthers();
+
+    const checked = run(registryBinPath, ['edit-check', 'edit.json'], targetRoot);
+    assert.equal(checked.status, 0, checked.stderr);
+    assert.deepEqual(JSON.parse(checked.stdout), { valid: true, problems: [], registries: [{ registryId: 'naming/roles', operations: 1 }] });
+
+    const applied = run(registryBinPath, ['edit', 'edit.json'], targetRoot);
+    assert.equal(applied.status, 0, applied.stderr);
+    assert.deepEqual(JSON.parse(applied.stdout), { command: 'edit', applied: ['naming/roles'] });
+    assert.equal(JSON.parse(fs.readFileSync(rolesPath, 'utf8')).roles[0].definition, 'Edited by the bin.');
+    assert.deepEqual(snapshotOthers(), before);
+
+    // The same document is now stale.
+    const stale = run(registryBinPath, ['edit', 'edit.json'], targetRoot);
+    assert.equal(stale.status, 1);
+    assert.deepEqual(JSON.parse(stale.stdout).problems.map((item) => item.problem), ['stale']);
+
+    const transactionRoot = path.join(lifecycleRoot, '.lifecycle-transaction');
+    fs.mkdirSync(transactionRoot);
+    const reported = JSON.parse(run(registryBinPath, ['status'], targetRoot).stdout);
+    assert.ok(reported.customIssues.some((item) => item.condition === 'interrupted-transaction'));
+    const unreadable = run(registryBinPath, ['edit', 'missing.json'], targetRoot);
+    assert.equal(unreadable.status, 1);
+    assert.match(unreadable.stderr, /Cannot read the edit document: .*recovered first \(rolled-back\)/u);
+    assert.equal(fs.existsSync(transactionRoot), false);
+
+    for (const args of [['edit-check'], ['edit', 'a.json', 'b.json']]) {
       const usage = run(registryBinPath, args, targetRoot);
       assert.equal(usage.status, 1);
       assert.match(usage.stderr, /needs exactly one document path/u);

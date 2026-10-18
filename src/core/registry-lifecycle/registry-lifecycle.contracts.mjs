@@ -32,6 +32,7 @@ export const CUSTOM_ISSUE_CONDITIONS = Object.freeze({
   invalid: 'invalid',
   manifestMalformed: 'manifest-malformed',
   baselineMismatch: 'baseline-mismatch',
+  interruptedTransaction: 'interrupted-transaction',
 });
 
 // [6.3] cfg-registryLifecycle · Primitive · "status classifications in precedence order" (spec §12.1)
@@ -156,12 +157,35 @@ export const MIGRATION_PLAN_PROBLEMS = Object.freeze({
   unsupportedDecision: 'unsupported-decision',
 });
 
+// [6.3] cfg-registryLifecycle · Primitive · "Edit document" (spec §12.10)
+export const EDIT_DOCUMENT_KIND = 'calculogic-registry-edit';
+export const EDIT_DOCUMENT_SCHEMA_VERSION = '1';
+export const EDIT_OPERATIONS = Object.freeze({ add: 'add', change: 'change', remove: 'remove' });
+
+// [6.3] cfg-registryLifecycle · Primitive · "Edit document problems" (spec §12.10)
+export const EDIT_DOCUMENT_PROBLEMS = Object.freeze({
+  malformed: 'malformed',
+  unknownRegistry: 'unknown-registry',
+  duplicateRegistry: 'duplicate-registry',
+  notEditable: 'not-editable',
+  stale: 'stale',
+  invalidAddress: 'invalid-address',
+  unsupportedOperation: 'unsupported-operation',
+  duplicateAddress: 'duplicate-address',
+  absentEntry: 'absent-entry',
+  presentEntry: 'present-entry',
+  invalidValue: 'invalid-value',
+  inconsistentOperations: 'inconsistent-operations',
+  invalidResult: 'invalid-result',
+});
+
 // [6.3] cfg-registryLifecycle · Primitive · "migrate skip reasons" (spec §12.9)
 export const MIGRATE_SKIP_REASONS = Object.freeze({ undecided: 'undecided' });
 
 // [6.3] cfg-registryLifecycle · Primitive · "Missing-set blocking condition" (spec §7.1 item 1)
 // Blocks activation and an active-Custom run when no Custom set exists. It is not a `customIssues`
-// condition, because `customIssues` describe an existing set.
+// condition, because `customIssues` describe an existing set; the one exception,
+// `interrupted-transaction`, belongs to the lifecycle root and is reported either way.
 export const CUSTOM_SET_MISSING_CONDITION = 'missing-set';
 
 // [6.3] cfg-registryLifecycle · Primitive · "Lifecycle error code"

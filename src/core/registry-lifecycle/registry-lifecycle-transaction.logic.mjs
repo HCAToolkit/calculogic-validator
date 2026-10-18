@@ -172,6 +172,11 @@ const entryPresent = (entryPath) => {
   }
 };
 
+// [5.2.11] cfg-registryLifecycle · Primitive · "lifecycleTransactionPending"
+// Whether a transaction directory exists: a lifecycle command stopped mid-way and recovery is
+// required (spec §4.6 item 5). Read-only; whether or not a Custom set exists.
+export const lifecycleTransactionPending = (paths) => entryPresent(transactionRootOf(paths));
+
 const isFile = (filePath) => {
   try {
     return fs.lstatSync(filePath).isFile();
