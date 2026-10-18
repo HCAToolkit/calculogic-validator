@@ -205,6 +205,119 @@ export const walkComparisonEntries = (payload, { descriptor, comparison, registr
   return [...entries.values()].sort((left, right) => compareOrdinal(left.address, right.address));
 };
 
+// Reads one JSON scalar token at `index` (a string, number, boolean or null, as `JSON.stringify`
+// writes it) and returns `{ value, end }`, or null.
+const readScalarToken = (text, index) => {
+  let end = index;
+  if (text[index] === '"') {
+    end += 1;
+    while (end < text.length && text[end] !== '"') {
+      end += text[end] === '\\' ? 2 : 1;
+    }
+    end += 1;
+  } else {
+    while (end < text.length && text[end] !== ']') {
+      end += 1;
+    }
+  }
+  try {
+    const value = JSON.parse(text.slice(index, end));
+    return isScalar(value) ? { value, end } : null;
+  } catch {
+    return null;
+  }
+};
+
+// The site an address names under one collection, or null (the grammar of `walkComparisonEntries`).
+const parseUnderCollection = (address, collection) => {
+  const segments = collection.path.split('.');
+  const isWildcard = segments.at(-1) === WILDCARD;
+  const literalSegments = isWildcard ? segments.slice(0, -1) : segments;
+  const literalBase = literalSegments.join('.');
+  if (!address.startsWith(literalBase)) {
+    return null;
+  }
+
+  let position = literalBase.length;
+  let base = literalBase;
+  let container = literalSegments;
+  if (isWildcard) {
+    if (address[position] !== '[') {
+      return null;
+    }
+    const property = readScalarToken(address, position + 1);
+    if (!property || typeof property.value !== 'string' || address[property.end] !== ']') {
+      return null;
+    }
+    position = property.end + 1;
+    base = `${literalBase}[${JSON.stringify(property.value)}]`;
+    container = [...literalSegments, property.value];
+  }
+
+  const tail = address.slice(position);
+  const site = (() => {
+    if (collection.kind === 'value') {
+      return tail === '' ? { kind: 'value', container, rebuilt: base } : null;
+    }
+    if (collection.kind === 'members') {
+      const member = tail.startsWith('[') ? readScalarToken(tail, 1) : null;
+      return member && member.end === tail.length - 1 && tail.endsWith(']')
+        ? { kind: 'member', container, member: member.value, rebuilt: `${base}[${JSON.stringify(member.value)}]` }
+        : null;
+    }
+    const keyField = collection.key;
+    if (tail === '') {
+      return isWildcard ? { kind: 'group', container, rebuilt: base } : null;
+    }
+    if (tail === ORDER_SUFFIX) {
+      return collection.ordered ? { kind: 'order', container, keyField, grouped: isWildcard, rebuilt: `${base}${ORDER_SUFFIX}` } : null;
+    }
+    const prefix = `[${keyField}=`;
+    const key = tail.startsWith(prefix) ? readScalarToken(tail, prefix.length) : null;
+    return key && key.value !== null && key.end === tail.length - 1 && tail.endsWith(']')
+      ? {
+          kind: 'record',
+          container,
+          keyField,
+          key: key.value,
+          grouped: isWildcard,
+          rebuilt: `${base}[${keyField}=${JSON.stringify(key.value)}]`,
+        }
+      : null;
+  })();
+  // Only the address `walkComparisonEntries` would write for this entry is accepted.
+  if (!site || site.rebuilt !== address) {
+    return null;
+  }
+  const { rebuilt, ...rest } = site;
+  return { ...rest, collectionPath: collection.path };
+};
+
+// [5.2.9] cfg-registryLifecycle · Derived value · "parseComparisonAddress"
+// The site an address names under the registry's comparison declaration, in the shape
+// `walkComparisonEntries` gives (spec §8.4), whether or not the entry exists; null when the
+// declaration cannot produce the address. The edit document names entries it adds this way (§12.10).
+export const parseComparisonAddress = (address, { comparison, registryId }) => {
+  assertComparisonDeclaration(comparison, registryId);
+  if (typeof address !== 'string') {
+    return null;
+  }
+  for (const collection of comparison) {
+    const site = parseUnderCollection(address, collection);
+    if (site) {
+      return site;
+    }
+  }
+  return null;
+};
+
+// [5.2.9] cfg-registryLifecycle · Derived value · "impliedOrderAddress"
+// The order entry that comes and goes with a group of an ordered keyed map (spec §12.10), or null.
+export const impliedOrderAddress = (address, site, { comparison }) => {
+  const collection = comparison.find((candidate) => candidate.path === site.collectionPath);
+  return site.kind === 'group' && collection?.ordered ? `${address}${ORDER_SUFFIX}` : null;
+};
+
 // [5.2.9] cfg-registryLifecycle · Derived value · "extractComparisonEntries"
 // Returns a Map from address to canonical entry value, in ordinal address order.
 export const extractComparisonEntries = (payload, entry) =>

@@ -20,6 +20,7 @@ import {
 import {
   BASELINE_DIRNAME,
   CUSTOM_ISSUE_CONDITIONS,
+  LIFECYCLE_TRANSACTION_DIRNAME,
   REGISTRY_FILENAME_SUFFIX,
 } from './registry-lifecycle.contracts.mjs';
 
@@ -121,6 +122,15 @@ const listOrphanRegistries = ({ paths, slices }) => {
   }
 
   return orphans.sort((left, right) => compareOrdinal(left.registryId, right.registryId));
+};
+
+const transactionDirectoryExists = (paths) => {
+  try {
+    fs.lstatSync(path.join(paths.lifecycleRoot, LIFECYCLE_TRANSACTION_DIRNAME));
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const describeBaselineMismatch = (baseline) => {
@@ -335,6 +345,18 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
       registryId: null,
       condition: CUSTOM_ISSUE_CONDITIONS.manifestMalformed,
       detail: manifestError,
+    });
+  }
+
+  // A transaction directory means a lifecycle command stopped mid-way, so some Custom files may hold
+  // its new content while others do not (spec §4.6 item 5, §7.1 item 6). Recovery is required; the
+  // set is not called corrupt. Only writing lifecycle commands recover; an assessment only reads.
+  if (transactionDirectoryExists(paths)) {
+    customIssues.push({
+      registryId: null,
+      condition: CUSTOM_ISSUE_CONDITIONS.interruptedTransaction,
+      detail:
+        'A lifecycle transaction was interrupted. Recovery is required: the next writing lifecycle command (update, migrate or edit) recovers it before anything else.',
     });
   }
 

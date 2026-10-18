@@ -55,6 +55,8 @@
     "registry:migrate-plan": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs migrate-plan",
     "registry:migrate-check": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs migrate-check",
     "registry:migrate": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs migrate",
+    "registry:edit-check": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs edit-check",
+    "registry:edit": "node --experimental-strip-types scripts/registry-lifecycle.host.mjs edit",
     "report:naming:repo": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-repo -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=repo",
     "report:naming:app": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-app -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=app",
     "report:naming:docs": "calculogic-report-capture --json --dir ./.reports --keep 20 --prefix naming-docs -- node --experimental-strip-types scripts/validate-naming.host.mjs --scope=docs",

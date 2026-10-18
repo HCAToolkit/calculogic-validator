@@ -106,11 +106,12 @@ export const readTrustedManifest = (paths, refuse) => {
 // How a command writes a payload it constructed: two-space JSON with a final newline.
 export const serializeRegistryPayload = (payload) => `${JSON.stringify(payload, null, 2)}\n`;
 
+// [5.2.17] cfg-registryLifecycle · Derived value · "introducedSliceFailures"
 // The slice failures the new files introduce: validation over one scratch copy of the Custom slice,
 // before and after writing every new file (`files`: file name → bytes), at the same root so failure
 // details compare exactly. Only contained files are copied: nothing is read through an escaping path
 // (spec §4.1), so an escaping file is absent from both runs and fails the same way in each.
-const newSliceFailures = ({ paths, slice, files, validateSlice }) => {
+export const introducedSliceFailures = ({ paths, slice, files, validateSlice = validateSliceRegistrySet }) => {
   const customSliceRoot = path.join(paths.customRoot, slice.sliceId);
   const scratchRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'calculogic-registry-slice-'));
   try {
@@ -141,7 +142,7 @@ const newSliceFailures = ({ paths, slice, files, validateSlice }) => {
 // Custom file unchanged (spec §12.5 item 4, §12.9). Nothing it does not already report for the
 // current Custom slice. Only Custom files are validated: a Baseline copy is a merge base, not policy.
 export const assertSliceImageValid = ({ paths, slice, files, registryIds, label, validateSlice = validateSliceRegistrySet }) => {
-  const introduced = newSliceFailures({ paths, slice, files, validateSlice });
+  const introduced = introducedSliceFailures({ paths, slice, files, validateSlice });
   if (introduced.length > 0) {
     throw new RegistryLifecycleError(
       `the ${slice.sliceId} registry-set validation fails with the ${label} registries (${registryIds.join(', ')}): ${introduced
