@@ -2,7 +2,7 @@
 
 - **Classification:** Normative target contract for the suite-level registry lifecycle. Sections marked *Current implementation reality* or *Historical* are Informative.
 - **Ownership:** suite-owned lifecycle mechanics; slice-owned registry meaning (§9).
-- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document, `update` (`registry-added` inheritance, and the entry decisions `keep-custom`, `take-builtin` and merge-fields), the migration plan, `migrate`, and the edit document with `edit-check` and `edit` are implemented; its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
+- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document, `update` (`registry-added` inheritance, and the entry decisions `keep-custom`, `take-builtin` and merge-fields), the migration plan, `migrate`, and the edit document with `edit-check` and `edit` are implemented, and the reference edge contract (§12.11) is specified; its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
 - **Report-only note:** the lifecycle selects registry inputs and discloses them in report metadata. It adds no enforcement mode and no fix execution.
 - **Issue lineage:** Refs #41; parent Refs #39. Decision record: #41 comments "Decision record (before the spec PR)", "Decision record: section 9 resolved" and "Decision record: activation, and the earlier customization draft".
 
@@ -324,7 +324,7 @@ Every registry-bearing slice declares a registry inventory. For each registry, i
 - the comparison identity declaration (§8.4): what an entry is and how it is addressed;
 - the reconciliation capability declaration (§12.7): which comparison collections accept the entry choices merge-fields and add-alongside, and on which terms;
 - the migration declaration (§8.3): the steps from older `version` values, each naming a transform of the slice's migration module and the descriptor of its source version;
-- reference edges to other registries of the same slice (§9.3);
+- the reference edge declaration (§12.11): the entries of other registries of the same slice that its entries name, each edge with an id, a target registry and a target `keyed` collection, interpreted by the slice's reference resolver;
 - a **registry-set validation entry point**, slice-owned (§9.3).
 
 The inventory is the only list of registries the lifecycle knows. A slice that adds a registry adds it to its inventory, and the registry then belongs to both sets automatically. Slices with few registries today are expected to gain more as policy moves from code into registries; the lifecycle needs no change for that.
@@ -339,7 +339,8 @@ Suite core (`src/core/registry-lifecycle/`, a new semantic area) owns:
 - the three facts, completeness and version checks, and drift detection;
 - whole-set resolution into resolved registry roots;
 - the report provenance shape (§11);
-- the lifecycle commands (§12).
+- the lifecycle commands (§12);
+- the mechanics of reference edges (§12.11): checking declarations and resolver output, forming target addresses, joining references to target entries, indexing and reporting. It never reads a field to find a reference.
 
 Suite core does **not** interpret registry content. Its canonicalization is **comparison canonicalization** only (§5): descriptor-driven, used solely for digests and equality, and never handed to slices as runtime input. Runtime-form canonicalization (trimming, normalizing, deduplicating, converting) stays in slice loaders (§9.3). Suite core does not validate slice-specific shapes or decide what an entry means. This is set selection, not the universal policy-state layer that `ValidatorLoaderConverterRuntimeOwnership-Contract.md` §6.4 rules out.
 
@@ -348,7 +349,8 @@ Suite core does **not** interpret registry content. Its canonicalization is **co
 Each slice keeps:
 
 - payload shape validation, canonicalization into runtime form, and conversion;
-- reference edges between its registries, validated against the **resolved** set. For example, Naming roles reference Naming categories, so a Custom categories registry is what Custom roles are checked against;
+- reference edges between its registries, validated against the **resolved** set. For example, the Naming category-role perspective names Naming categories (its `rolesByCategory` keys), so a Custom categories registry is what the Custom perspective is checked against;
+- the reference resolver (§12.11), which turns its declared edges into references from a source payload alone, and whose output its validation must agree with;
 - the **registry-set validation entry point** declared in its inventory (§9.1):
   - Given a slice registry root, it runs the slice's own shape and reference validation over that root. It returns a deterministic list of `{ registryId, detail }` failures and builds no runtime state.
   - Suite core calls it on the active root before validation (failures block, §7.1 item 4).
@@ -494,12 +496,13 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 
 ### 12.2 Advanced management surface (#60)
 
-Diff, edit (add, change, remove), inherit/update (§8.2), trace (references and affected slices), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices:
+Diff, edit (add, change, remove), inherit/update (§8.2), trace (declared references and their direct dependents, §12.11), import/export of convention sets, candidate preview and migrate (§8.3). Their contracts are fixed by this spec, and #60 implements them in slices:
 1. `diff` (§12.3);
 2. the update decisions document (§12.4);
 3. `update` (§12.5), which consumes that document as its only authority for choices. It applies `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6, §12.7). add-alongside has its contract and capability declaration (§12.7) and is applied once a slice declares it;
 4. the migration declaration (§8.3), the read-only migration plan (§12.8) and `migrate` (§12.9), which applies its accepted records;
-5. the edit document, `edit-check` and `edit` (§12.10). `trace`, `import`/`export` and preview follow, each scoped on its own.
+5. the edit document, `edit-check` and `edit` (§12.10);
+6. reference edges and `trace` (§12.11): first the contract, then the slice declarations and resolvers with their conformance tests, then `trace`. `import`/`export` and preview follow, each scoped on its own.
 
 Interactive prompting may only generate or edit these documents; it is never a separate source of decisions.
 
@@ -875,6 +878,93 @@ Interactive editors, CLI helpers or a registry management UI may only produce an
 
 **Output** is JSON on stdout, shaped as `update`'s (§12.5): `{ command, recovered?, applied }` and exit 0; a refused document, `{ command, recovered?, applied: [], problems }` and exit 1; a failed slice, with `failed: { sliceId, registryIds, detail }` and exit 1.
 
+### 12.11 Reference edges and `trace`
+
+A registry can name an entry of another registry of the same slice: a perspective names a category, a role, a meaning. These relationships are slice semantics (§9.3), already enforced by each slice's registry-set validation. This section makes them **declared, addressable and reportable**, so that `trace` and later consumers can show them without decoding registry content and without taking over validation. *Not implemented yet (#60):* the declarations, the resolvers and `trace` land in later slices (§12.2 item 6). Until then the slice inventories keep their informative edge lists, superseded below.
+
+**Ownership.**
+
+| Responsibility | Owner |
+|---|---|
+| Declaring which relationships exist | the slice, in its inventory (§9.1) |
+| Interpreting fields, composite identities and conditions into references | the slice, in its reference resolver |
+| Checking declarations and resolver output mechanically, forming canonical addresses, joining references to target entries, indexing and reporting | suite core |
+| Deciding whether a reference makes a registry set invalid | the slice's registry-set validation (§9.3), never `trace` |
+
+Suite core never reads a registry field to find a reference, never infers a relationship from shapes, names or validation code, and never decides what a category, role or meaning is.
+
+**Declaration.** An edge is declared on its **source** registry's inventory entry, as one item of `references`:
+
+```js
+references: [{ edgeId: 'naming/perspective-category', to: 'naming/categories', targetCollection: 'categories' }]
+```
+
+- `edgeId` is a provenance string (non-empty, no surrounding whitespace), written `<sliceId>/<name>` and unique across all inventories.
+- The source registry is the entry the declaration sits on. `to` is a registry of the **same** slice's current inventory; it may be the source registry itself. Relationships between slices are cross-slice compatibility (§9.4, #61), not edges.
+- `targetCollection` is the path of a `keyed` collection of the target registry's comparison declaration (§8.4). Every target is a keyed record: `value`, `members`, group-presence and order entries are not targets.
+- Nothing else is declared. There is no field pattern, cardinality or optionality: whether a reference exists and how many there are is resolver output, and the slice's validation decides what an absent target means. A treatment such as a fallback target is a later contract extension, made only when a real edge needs it.
+
+**Resolver.** Each slice that declares an edge provides one reference resolver, reached through a static bridge as the migration transforms are (§8.3):
+
+```text
+resolveReferences({ registryId, payload }) → [{ edgeId, source, target: { groups, key } }]
+```
+
+- **Pure and source-only.** It receives the parsed source payload, deep-frozen, and nothing else: never the target registry, another registry, the file system or the active set. The same payload always gives the same references. It handles every `version` the slice declares readable for the source registry.
+- **Output.** One item per reference, at most once per `(edgeId, source, target)`:
+  - `edgeId` is declared on this registry;
+  - `source` is the comparison address of the referring entry, an entry the payload has (a record, a group-presence entry or a value);
+  - `target` identifies the target entry relative to `targetCollection`. `groups` holds one string per `*` in the collection path, in order (so §8.4 allows zero or one), and `key` is the record's key-field value, a string. Suite core forms the target address from them with the comparison grammar (§8.4), for example `{ groups: ["concern-core"], key: "build" }` in `rolesByCategory.*` with key field `role` is `rolesByCategory["concern-core"][role="build"]`.
+- **Interpretation stays here.** Which field holds a reference, how a composite value such as `inheritsFrom: { category, role }` becomes `{ groups, key }`, that a value listed in several fields of one record is one reference, and when a reference exists at all (an absent optional field emits none) are the slice's decisions.
+
+**Reference states.** References are resolved over **one whole set**, Builtin or Custom, never mixing registries across sets (§6). For each emitted reference, suite core looks up its target address among the target registry's comparison entries:
+- **resolved:** the target entry exists;
+- **unresolved:** the target entry does not exist.
+
+*Not emitted* is not a state: an entry the resolver emits no reference for has no edge, and appears in no forward or reverse list. Keys are compared exactly, as addresses are; the slice's validation already rejects keys the runtime would normalize (§9.3).
+
+An unresolved reference is a fact about the data, not a verdict. It is reported so that a broken relationship in an invalid Custom set can be inspected; whether the set is invalid is decided by the slice's validation and reported by `status` (§7.2), never by `trace`.
+
+**Availability.** An edge is evaluated only when both its source and target registries are present, contained, parsed, at a readable version (§9.1) and yield their comparison entries. Otherwise the edge is **unavailable**, with the registry that is not and why (the `status` condition, §12.1), and none of its references are listed: an unreadable target is never reported as a set of unresolved references. Unavailability is a fact about an edge, not a reference state.
+
+**Declaration problems are programming errors.** They are never data findings and never part of `trace` output: suite core refuses to evaluate the slice, and the conformance tests below fail. They are:
+- a malformed declaration, or an `edgeId` that is not a provenance string, not prefixed by its slice id or not unique;
+- `to` not a registry of the same slice's current inventory, or `targetCollection` not a `keyed` collection of it;
+- a slice that declares edges without a resolver;
+- resolver output naming an `edgeId` not declared on the registry, a `source` that is not an address of an entry the payload has, a `target` whose `groups` count does not match the collection path or whose values are not strings, or the same reference twice.
+
+There is no ambiguous target: a keyed collection with a duplicate key yields no comparison entries (§8.4), so its registry is unavailable, never ambiguous.
+
+**Views.** `trace` reports declared relationships only, in three views, sorted by edge id, then source address, then target address, in ordinal order:
+- **direct:** for an entry, the references whose `source` it is, each with its target address and state;
+- **reverse:** for an entry address, present or not, the references whose target address it is, each with its source and state. The reverse view of an absent address lists the references left unresolved by its absence;
+- **potential impact:** for an entry, the distinct source entries of its reverse view, one step only. These are the entries a change could affect through a declared relationship; they are not a prediction that validation fails. Whether a change breaks them stays the slice's decision. Transitive impact is not part of this contract.
+
+The command, its arguments and its output shape are fixed by the slice that implements `trace`.
+
+**Conformance.** Each declared edge has fixture-backed tests owned with its slice's declarations:
+- a **resolved** case: the fixture's references of that edge are all resolved, and the slice's validation passes;
+- an **unresolved** case: removing one target leaves exactly the expected references unresolved, and the slice's validation rejects the set;
+- over the Builtin set, every edge is available and every reference resolved, and Builtin passes validation.
+
+Resolver and validation must agree on each fixture. No test tries to discover references from validation code: the declarations are maintained with the slice, and their fixtures are the contract.
+
+**The initial edges.** The edges are exactly those the slices enforce today, recorded with their validation evidence in `doc/Audits/registry-reference-edges.audit.md`:
+
+| Edge | Source entry | Target |
+|---|---|---|
+| `naming/perspective-category` | `category-role-perspective` group `rolesByCategory["c"]` | `categories` · `categories`, `{ groups: [], key: c }` |
+| `naming/perspective-role-definition` | `category-role-perspective` record | `roles` · `roles`, `{ groups: [], key: role }` |
+| `naming/perspective-meaning` | `category-role-perspective` record, one reference per distinct value of `agnosticCoreMeanings`, `baseMeanings` and `overlayMeanings` | `agnostic-core-meanings` · `meanings`, `{ groups: [], key: meaning }` |
+| `naming/perspective-inherits-from` | `category-role-perspective` record with `inheritsFrom` | `category-role-perspective` · `rolesByCategory.*`, `{ groups: [category], key: role }` |
+| `tree/perspective-structural-home` | `surface-structural-home-perspective` record | `structural-homes` · `structuralHomes`, `{ groups: [], key: structuralHome }` |
+
+Every one requires its target: Naming's and Tree's validation reject each unresolved case. None has an alternative target.
+
+**Supersession of the informative edge lists.** Today `NAMING_REGISTRY_REFERENCE_EDGES` and `TREE_REGISTRY_REFERENCE_EDGES` describe these five relationships as `{ from, to, via }`, with `via` as prose, and nothing reads them. The declaration slice replaces each list with the `references` declarations and the resolver in the same change, and removes the `via` prose. From then on one description exists per relationship: its declaration, and the resolver that interprets it.
+
+*Runtime tolerance (Informative).* Naming's role loader keeps three compatibility paths: a perspective entry's own `status`, a `roles` file in the older grouped `rolesByCategory` shape, and `roles` as the membership source when the perspective file is missing. The lifecycle rejects all three: Naming's registry-set validation allows no `status` on a perspective entry, requires a `roles` array and requires a `roles` entry for every perspective role, and completeness requires the perspective registry (§7.1 item 2). That validation runs on the active root before every run (§7.1). So no validated set reaches them, and they are not reference alternatives. They stay unchanged and outside the reference model.
+
 ## 13) Implementation slices
 
 1. **Spec/NL (this document):** `nl-config/cfg-registryLifecycle.md` and aligned specs.
@@ -912,7 +1002,7 @@ Interactive editors, CLI helpers or a registry management UI may only produce an
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6) through the lifecycle transaction (§4.6), the read-only `migrate-plan` and `migrate-check` (§12.8), `migrate` (§12.9), and `edit-check` and `edit` (§12.10), through the same transaction. The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check`, `registry:update`, `registry:migrate-plan`, `registry:migrate-check`, `registry:migrate`, `registry:edit-check` and `registry:edit`. The reconciliation capability declarations (§12.7) are in every slice inventory, the decisions document (schema `"2"`) records and checks merge-fields and add-alongside, and `update` applies merge-fields; it skips add-alongside records as `not-yet-supported`. Every inventory entry carries a migration declaration (§8.3); all are empty, because every current registry is at `version` `"1"` and no release has changed a registry's shape, so the slices' transform maps are empty too and the migration plan and `migrate` are exercised by synthetic test registries only. A pending lifecycle transaction is reported as `interrupted-transaction` (§4.6 item 5, §7.1 item 6) by `status` and every run, with or without a Custom set, blocks activation and active-Custom runs, and makes `init-custom` refuse, until the next writing command recovers it. Not implemented yet (#60): applying add-alongside (no collection declares it), `trace`, `import`/`export` and preview.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6) through the lifecycle transaction (§4.6), the read-only `migrate-plan` and `migrate-check` (§12.8), `migrate` (§12.9), and `edit-check` and `edit` (§12.10), through the same transaction. The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check`, `registry:update`, `registry:migrate-plan`, `registry:migrate-check`, `registry:migrate`, `registry:edit-check` and `registry:edit`. The reconciliation capability declarations (§12.7) are in every slice inventory, the decisions document (schema `"2"`) records and checks merge-fields and add-alongside, and `update` applies merge-fields; it skips add-alongside records as `not-yet-supported`. Every inventory entry carries a migration declaration (§8.3); all are empty, because every current registry is at `version` `"1"` and no release has changed a registry's shape, so the slices' transform maps are empty too and the migration plan and `migrate` are exercised by synthetic test registries only. A pending lifecycle transaction is reported as `interrupted-transaction` (§4.6 item 5, §7.1 item 6) by `status` and every run, with or without a Custom set, blocks activation and active-Custom runs, and makes `init-custom` refuse, until the next writing command recovers it. Not implemented yet (#60): applying add-alongside (no collection declares it), the reference edge declarations and resolvers and `trace` (§12.11), `import`/`export` and preview. Naming and Tree still carry informative `{ from, to, via }` edge lists (`NAMING_REGISTRY_REFERENCE_EDGES`, `TREE_REGISTRY_REFERENCE_EDGES`) that nothing reads; §12.11 supersedes them.
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.
