@@ -318,6 +318,28 @@ export const impliedOrderAddress = (address, site, { comparison }) => {
   return site.kind === 'group' && collection?.ordered ? `${address}${ORDER_SUFFIX}` : null;
 };
 
+// [5.2.9] cfg-registryLifecycle · Derived value · "keyedEntryAddress"
+// The address of the entry a structured identity names in a `keyed` collection (spec §12.11):
+// `groups` holds one string per `*` in the collection path; with `key`, a string, it is a record,
+// and without it the group-presence entry, which only a path ending in `*` has. Written as
+// `walkComparisonEntries` writes it, whether or not the entry exists; null when the collection is not a
+// declared `keyed` collection or the identity does not fit it.
+export const keyedEntryAddress = ({ comparison, registryId }, { collection: collectionPath, groups, key }) => {
+  assertComparisonDeclaration(comparison, registryId);
+  const collection = comparison.find((candidate) => candidate.kind === 'keyed' && candidate.path === collectionPath);
+  if (!collection || !Array.isArray(groups) || !groups.every((group) => typeof group === 'string')) {
+    return null;
+  }
+  const segments = collection.path.split('.');
+  const isWildcard = segments.at(-1) === WILDCARD;
+  if (groups.length !== (isWildcard ? 1 : 0) || (key === undefined ? !isWildcard : typeof key !== 'string')) {
+    return null;
+  }
+  const literalBase = (isWildcard ? segments.slice(0, -1) : segments).join('.');
+  const base = `${literalBase}${groups.map((group) => `[${JSON.stringify(group)}]`).join('')}`;
+  return key === undefined ? base : `${base}[${collection.key}=${JSON.stringify(key)}]`;
+};
+
 // [5.2.9] cfg-registryLifecycle · Derived value · "extractComparisonEntries"
 // Returns a Map from address to canonical entry value, in ordinal address order.
 export const extractComparisonEntries = (payload, entry) =>

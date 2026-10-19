@@ -2,11 +2,12 @@
 
 **Authority:** audit snapshot.
 
-**Classification:** Informative. It records the reference edges the slices enforce today, the validation that enforces each one, and how each maps to the reference edge contract. The normative contract is `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` §12.11. The declarations will live in the slice inventories, which will then be the authority:
+**Classification:** Informative. It records the reference edges the slices enforce today, the validation that enforces each one, and how each maps to the reference edge contract. The normative contract is `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` §12.11. The declarations live in the slice inventories, which are the authority, and the slice resolvers interpret them:
 - `naming/src/registries/naming-registry-inventory.knowledge.mjs`;
-- `tree/src/registries/tree-registry-inventory.knowledge.mjs`.
+- `tree/src/registries/tree-registry-inventory.knowledge.mjs`;
+- resolvers: `naming/src/registries/naming-registry-references.logic.mjs` and `tree/src/registries/tree-registry-references.logic.mjs`.
 
-Line references are to `main` at `16dd6f4`.
+Line references are to `main` at `16dd6f4`. Since then the informative lists of §2 have been replaced by the declarations (#60 slice 12), and `test/registry-lifecycle-references.test.mjs` checks every edge: the Builtin set resolves completely, and each edge's unresolved fixture is rejected by its slice's validation.
 
 ## 1. Purpose and scope
 
@@ -20,7 +21,7 @@ Suite core declares no edges. Suite-core registries (`scope-profiles`, `exit-pol
 
 ## 2. Current informative declarations
 
-Today the edges are informative lists that nothing reads:
+Before the declarations, the edges were informative lists that nothing read (removed in #60 slice 12):
 - `NAMING_REGISTRY_REFERENCE_EDGES` (`naming-registry-inventory.knowledge.mjs:139`): four `{ from, to, via }` items;
 - `TREE_REGISTRY_REFERENCE_EDGES` (`tree-registry-inventory.knowledge.mjs:117`): one.
 

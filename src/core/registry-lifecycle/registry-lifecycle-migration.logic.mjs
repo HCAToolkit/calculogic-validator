@@ -112,7 +112,10 @@ export const migrationPath = (entry, fromVersion, toVersion) => {
   return path.length > 0 ? path : null;
 };
 
-const deepFreeze = (value) => {
+// [5.2.15] cfg-registryLifecycle · Primitive · "deepFreeze"
+// Freezes a parsed JSON value in place, so a slice-owned function handed it cannot change it.
+// Migration transforms and reference resolvers receive their payload this way.
+export const deepFreeze = (value) => {
   if (value !== null && typeof value === 'object') {
     for (const child of Object.values(value)) {
       deepFreeze(child);

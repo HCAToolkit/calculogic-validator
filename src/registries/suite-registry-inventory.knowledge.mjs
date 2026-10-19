@@ -20,8 +20,9 @@ const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 // §12.7); the reasons are recorded in doc/Audits/registry-reconciliation-capabilities.audit.md.
 // `migrations` declares the steps from older `version` values, each naming a transform of the
 // slice's migration module and the descriptor of its source version (spec §8.3). Empty while no
-// registry has changed shape.
-const defineSuiteRegistry = (name, descriptor, comparison, reconciliation = [], migrations = []) =>
+// registry has changed shape. `references` declares the entries of other registries of the same slice
+// that this registry's entries name (spec §12.11). Empty: no suite registry names another's entries.
+const defineSuiteRegistry = (name, descriptor, comparison, reconciliation = [], migrations = [], references = []) =>
   Object.freeze({
     registryId: `${SUITE_REGISTRY_SLICE_ID}/${name}`,
     name,
@@ -42,6 +43,7 @@ const defineSuiteRegistry = (name, descriptor, comparison, reconciliation = [], 
     migrations: Object.freeze(
       migrations.map((step) => Object.freeze({ ...step, fromDescriptor: Object.freeze(step.fromDescriptor) })),
     ),
+    references: Object.freeze(references.map((edge) => Object.freeze({ ...edge }))),
   });
 
 // [6.1] cfg-registryLifecycle · Container · "Suite registry inventory"
