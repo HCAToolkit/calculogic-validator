@@ -217,6 +217,13 @@ test('an unreadable registry makes its edges unavailable, never unresolved', () 
     assert.equal(edgeOf(result, 'naming/perspective-role-definition').unavailable.condition, 'invalid');
     assert.deepEqual(unresolvedOf(result), []);
 
+    // A number outside the finite JSON range parses to Infinity and fails canonicalization.
+    fs.writeFileSync(fileOf('naming/roles'), fs.readFileSync(path.join(entrySliceRoot('naming'), 'roles.registry.json'), 'utf8').replace('"version": "1",', '"version": "1", "size": 1e400,'));
+    result = resolve();
+    assert.equal(edgeOf(result, 'naming/perspective-role-definition').unavailable.condition, 'invalid');
+    assert.match(edgeOf(result, 'naming/perspective-role-definition').unavailable.detail, /finite JSON range/u);
+    assert.deepEqual(unresolvedOf(result), []);
+
     // A missing source: every edge it declares is unavailable, naming the source.
     fs.rmSync(fileOf('naming/category-role-perspective'));
     result = resolve();
@@ -318,11 +325,12 @@ test('resolver output problems are programming errors', () => {
     ['a malformed target', [item({ target: { groups: [] } })], /malformed source or target identity/u],
     ['a value source', [item({ source: { collection: 'title', groups: [] } })], /does not fit a keyed collection/u],
     ['a missing group', [item({ source: { collection: 'items.*', groups: [], key: 'x' } })], /does not fit a keyed collection/u],
-    ['a non-string key', [item({ source: { collection: 'items.*', groups: ['a'], key: 1 } })], /does not fit a keyed collection/u],
+    ['a non-string key', [item({ source: { collection: 'items.*', groups: ['a'], key: 1 } })], /malformed source or target identity/u],
     ['an absent source entry', [item({ source: { collection: 'items.*', groups: ['a'], key: 'nope' } })], /source entry the payload does not have \(items\["a"\]\[id="nope"\]\)/u],
     ['an absent source group', [item({ source: { collection: 'items.*', groups: ['zz'] } })], /source entry the payload does not have/u],
     ['a target with groups', [item({ target: { groups: ['g'], key: 't1' } })], /target identity that does not fit test\/target things/u],
-    ['a non-string target key', [item({ target: { groups: [], key: null } })], /target identity that does not fit/u],
+    ['a non-string target key', [item({ target: { groups: [], key: null } })], /malformed source or target identity/u],
+    ['an explicit undefined source key', [item({ source: { collection: 'items.*', groups: ['a'], key: undefined } })], /malformed source or target identity/u],
     ['a repeated reference', [item(), item()], /repeats a reference/u],
   ];
   withSynthetic({}, ({ slices, inputOf }) => {
@@ -357,6 +365,19 @@ test('resolver output problems are programming errors', () => {
         ],
       },
     ]);
+  });
+});
+
+test('a target in a wildcard collection needs a string key: an undefined key never names its group', () => {
+  const references = [{ edgeId: 'test/item-item', to: 'test/source', targetCollection: 'items.*' }];
+  withSynthetic({ references }, ({ slices, inputOf }) => {
+    const output = (target) => [{ edgeId: 'test/item-item', source: { collection: 'items.*', groups: ['a'], key: 'x' }, target }];
+    assert.throws(
+      () => resolveRegistryReferences({ slices, inputOf, resolvers: resolverOf(output({ groups: ['b'], key: undefined })) }),
+      (error) => error instanceof ReferenceDeclarationError && /malformed source or target identity/u.test(error.message),
+    );
+    const result = resolveRegistryReferences({ slices, inputOf, resolvers: resolverOf(output({ groups: ['a'], key: 'x' })) });
+    assert.deepEqual(result.edges[0].references, [{ source: 'items["a"][id="x"]', target: 'items["a"][id="x"]', state: 'resolved' }]);
   });
 });
 

@@ -14,7 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { stableStringify } from '../validator-report-meta.logic.mjs';
-import { ComparisonExtractionError, keyedEntryAddress, walkComparisonEntries } from './registry-lifecycle-comparison.logic.mjs';
+import { assertComparisonDeclaration, keyedEntryAddress, walkComparisonEntries } from './registry-lifecycle-comparison.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
 import { deepFreeze, descriptorForPayload } from './registry-lifecycle-migration.logic.mjs';
 import { SLICE_REFERENCE_RESOLVERS } from './registry-lifecycle-slice-references.logic.mjs';
@@ -110,14 +110,15 @@ const readAvailable = (entry, inputOf) => {
       },
     };
   }
+  // A malformed declaration is the slice's programming error, so it is checked first and raised. Any
+  // failure after that comes from the payload: canonicalization (a number outside the finite JSON
+  // range, such as `1e400`) or extraction (an uncovered field, a duplicate key).
+  assertComparisonDeclaration(entry.comparison, entry.registryId);
   try {
     const entries = new Set(walkComparisonEntries(payload, { ...entry, descriptor: descriptorForPayload(entry, payload) }).map(({ address }) => address));
     return { payload, entries };
   } catch (error) {
-    if (error instanceof ComparisonExtractionError) {
-      return { unavailable: { registryId: entry.registryId, condition: CUSTOM_ISSUE_CONDITIONS.invalid, detail: error.message } };
-    }
-    throw error;
+    return { unavailable: { registryId: entry.registryId, condition: CUSTOM_ISSUE_CONDITIONS.invalid, detail: error.message } };
   }
 };
 
@@ -139,7 +140,14 @@ const resolveSourceReferences = ({ entry, payload, sourceEntries, resolver, edge
     if (!edge) {
       problem('names an edge not declared on the registry');
     }
-    if (!hasExactKeys(item.source, ['collection', 'groups'], ['key']) || !hasExactKeys(item.target, ['groups', 'key'])) {
+    // A present `key` is a string: an explicit `undefined` must not turn a record into a group.
+    const keyIsValid = (identity) => !Object.hasOwn(identity, 'key') || typeof identity.key === 'string';
+    if (
+      !hasExactKeys(item.source, ['collection', 'groups'], ['key']) ||
+      !hasExactKeys(item.target, ['groups', 'key']) ||
+      !keyIsValid(item.source) ||
+      !keyIsValid(item.target)
+    ) {
       problem('has a malformed source or target identity');
     }
     const source = keyedEntryAddress(entry, item.source);
