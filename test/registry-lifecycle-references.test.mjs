@@ -184,6 +184,21 @@ for (const testCase of UNRESOLVED_CASES) {
   });
 }
 
+test('an identical repeated source record is one entry, so its references are emitted once', () => {
+  withBuiltinCopy(({ change, resolve }) => {
+    const before = resolve();
+    change('naming/category-role-perspective', (payload) => {
+      const roles = payload.rolesByCategory['concern-style'];
+      roles.push(structuredClone(roles.find((entry) => entry.role === 'build-style')));
+    });
+    change('tree/surface-structural-home-perspective', (payload) => {
+      const [surface] = Object.keys(payload.structuralHomesBySurface);
+      payload.structuralHomesBySurface[surface].push(structuredClone(payload.structuralHomesBySurface[surface][0]));
+    });
+    assert.deepEqual(resolve(), before);
+  });
+});
+
 test('an unreadable registry makes its edges unavailable, never unresolved', () => {
   withBuiltinCopy(({ fileOf, change, resolve }) => {
     // An unparseable target: only its edge is unavailable.

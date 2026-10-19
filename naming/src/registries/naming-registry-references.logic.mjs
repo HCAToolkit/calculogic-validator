@@ -5,7 +5,7 @@
  * Responsibility: Naming's reference resolver (lifecycle spec §12.11): turns a Naming source
  *   payload into the references its inventory's `references` declarations name.
  * Invariants: pure and source-only; reads only the payload it is given, never a target registry;
- *   emits structured identities, never address syntax; a value that is not a string emits no
+ *   emits structured identities, never address syntax, each reference once; a value that is not a string emits no
  *   reference, and whether its registry is valid stays with Naming's registry-set validation.
  */
 const PERSPECTIVE_REGISTRY_ID = 'naming/category-role-perspective';
@@ -14,6 +14,16 @@ const MEANING_FIELDS = Object.freeze(['agnosticCoreMeanings', 'baseMeanings', 'o
 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isString = (value) => typeof value === 'string';
+
+// A payload may repeat an identical record. Comparison canonicalization collapses it (it is one
+// entry), so the resolver emits each reference once (lifecycle spec §12.11 "Output").
+const uniqueReferences = (references) => {
+  const seen = new Set();
+  return references.filter((reference) => {
+    const identity = JSON.stringify([reference.edgeId, reference.source, reference.target]);
+    return seen.has(identity) ? false : (seen.add(identity), true);
+  });
+};
 
 // The perspective's references: each category key names a category; each role names its definition
 // in `roles`; each distinct meaning across a role's three meaning lists names one agnostic core
@@ -50,7 +60,7 @@ const resolvePerspectiveReferences = (payload) => {
       }
     }
   }
-  return references;
+  return uniqueReferences(references);
 };
 
 const RESOLVERS_BY_REGISTRY = Object.freeze({ [PERSPECTIVE_REGISTRY_ID]: resolvePerspectiveReferences });
