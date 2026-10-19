@@ -22,6 +22,7 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 10: the edit document implemented: `parseComparisonAddress` and `impliedOrderAddress` (5.2.9), the shared entry placement (5.2.13), the edit construction, `edit-check` and `edit` (5.2.19, 5.3), and the `interrupted-transaction` condition (5.2.4, 5.2.5).
 - #60 slice 11 (contract only): reference edges (spec §12.11): slice-owned declarations and resolvers, suite-owned joining and indexing, and the semantics `trace` will report (5.2.20). No runtime change.
 - #60 slice 12: reference edges implemented: the `references` declarations (6.1) replacing the informative edge lists, the Naming and Tree resolvers and their bridge, `keyedEntryAddress` (5.2.9), and `resolveRegistryReferences` (5.2.20), with per-edge conformance tests. The source identity became structured (spec §12.11 correction). No command consumes it yet.
+- #60 slice 13: the read-only `trace` (5.2.21, 5.3): one set's references, whole or for one entry, with Custom read through the assessment's containment-checked reader (`customReferenceInputs`, 5.2.20).
 - Follow-ons: the rest of the advanced management surface (#60): applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
@@ -38,12 +39,12 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 - Initialization of the Custom set, active-set selection and status.
 - Whole-set resolution into one resolved registry root per slice, with completeness, version and validity checks before validation.
 - Set-level and per-registry provenance.
-- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields, with the lifecycle transaction it writes through; the migration plan (`migrate-plan`, `migrate-check`) and `migrate`; the edit document (`edit-check`, `edit`); and reference edge declarations, resolvers and resolution (5.2.20), without `trace`.
+- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields, with the lifecycle transaction it writes through; the migration plan (`migrate-plan`, `migrate-check`) and `migrate`; the edit document (`edit-check`, `edit`); and reference edge declarations, resolvers and resolution (5.2.20) with the read-only `trace` (5.2.21).
 
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- The rest of the advanced management surface (follow-on): applying add-alongside, `trace`, and the `import`/`export` and preview commands.
+- The rest of the advanced management surface (follow-on): applying add-alongside, and the `import`/`export` and preview commands.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present
@@ -87,7 +88,7 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 - Validation runs never write Custom, the manifest or the state file.
 - The active set is loaded whole. No registry is read from the non-active set during a run.
 - An active Custom set that is missing, incomplete, version-incompatible or invalid stops the run before validation. There is no Builtin fallback.
-- Only `use` changes `activeSet`. `init-custom`, `update`, `migrate` and `edit` never do; `update`, `migrate`, `edit-check` and `edit` never even read `registry-state.json`.
+- Only `use` changes `activeSet`. `init-custom`, `update`, `migrate` and `edit` never do; `update`, `migrate`, `edit-check`, `edit` and `trace` never even read `registry-state.json`.
 - Only `update`, `migrate` and `edit` change an existing Custom set, and only through a lifecycle transaction (5.2.11): the selected registries of one slice advance completely or not at all.
 - Every lifecycle path read or written resolves by realpath inside the validation target root (spec §4.1).
 - `migrate-plan` and `migrate-check` write nothing, never read `registry-state.json`, and never advance a Baseline. A migration transform is pure: it receives a deep-frozen payload and nothing else.
@@ -305,14 +306,22 @@ Spec §12.10. Reuses the comparison grammar, the entry placement and the slice-a
 
 #### 5.2.20 Workflow: reference edges (`resolveRegistryReferences`)
 
-Spec §12.11. Implemented: the declarations, the resolvers and the resolution below. *Not implemented yet:* `trace` and its views.
+Spec §12.11. The declarations, the resolvers and the resolution below; `trace` (5.2.21) consumes the resolution.
 - **Slice-owned:** the `references` declaration on each source registry's inventory entry (`{ edgeId, to, targetCollection }`; `edgeId` is `<sliceId>/<name>`, `to` a registry of the same slice, `targetCollection` a `keyed` collection of it), and one pure resolver per slice, reached through a static bridge like the migration transforms (5.2.15): `resolveReferences({ registryId, payload }) → [{ edgeId, source: { collection, groups, key? }, target: { groups, key } }]`, with the versions it reads. It reads only the deep-frozen source payload. Which fields hold references, composite identities (`inheritsFrom`) and duplicates across fields are its decisions. Source and target are structured identities (a keyed record, or for a source also a group-presence entry); the slice never writes address syntax. This corrects the first contract, which had the source as an address string a slice could only produce by duplicating the grammar or importing lifecycle modules.
-- **Suite-owned, mechanical only** (`registry-lifecycle-references.logic.mjs`): `assertReferenceDeclarations` checks the declarations and the resolvers' versions; `resolveRegistryReferences({ slices, resolvers, inputOf })` reads each source and target through `inputOf` (a whole set's `{ payload }` or `{ condition, detail }`), requires a readable version and extractable comparison entries, calls each source's resolver once with a deep-frozen copy (`deepFreeze`, 5.2.15), checks every output item, forms each source and target address with `keyedEntryAddress` (5.2.9), and states each reference against the target's entries. Returns `{ edges }` sorted by edge id, each with `references` sorted by source then target, or `unavailable: { registryId, condition, detail }`. `builtinReferenceInputs` is the input function of the Builtin set. It never reads a field to find a reference. Indexing and reporting for `trace` come with `trace`.
+- **Suite-owned, mechanical only** (`registry-lifecycle-references.logic.mjs`): `assertReferenceDeclarations` checks the declarations and the resolvers' versions; `resolveRegistryReferences({ slices, resolvers, inputOf })` reads each source and target through `inputOf` (a whole set's `{ payload }` or `{ condition, detail }`), requires a readable version and extractable comparison entries, calls each source's resolver once with a deep-frozen copy (`deepFreeze`, 5.2.15), checks every output item, forms each source and target address with `keyedEntryAddress` (5.2.9), and states each reference against the target's entries. Returns `{ edges }` sorted by edge id, each with `references` sorted by source then target, or `unavailable: { registryId, condition, detail }`. `builtinReferenceInputs` is the input function of the Builtin set, and `customReferenceInputs({ paths, slices })` that of the Custom set, through the assessment's `readCustomSetFile` (5.2.4): absent is `missing`, unparseable or escaping (never read) is `invalid`. `inspectReferenceRegistry` is the same readability check for one registry, which `trace` uses for an entry's presence. It never reads a field to find a reference.
 - **States:** an emitted reference is `resolved` or `unresolved`; an entry with no emitted reference has no edge. An edge whose source or target registry cannot be read or extracted is unavailable, with no references listed. There is no fallback and no ambiguity (a duplicate key yields no comparison entries).
 - **Errors:** declaration and resolver-output problems are programming errors, refused before evaluation and caught by the conformance tests, never `trace` findings. An unresolved reference is data; whether it invalidates the set stays with the slice's validation (spec §9.3).
 - **Views:** direct, reverse (also for an absent address) and one-step potential impact, never a prediction that validation fails. Cross-slice relationships stay with #61.
 - **Conformance:** per edge, a resolved fixture that the slice's validation accepts, an unresolved fixture it rejects, and over Builtin every edge available and resolved.
 - **Initial edges:** the five Naming and Tree relationships the slices enforce today, recorded with their validation evidence in `doc/Audits/registry-reference-edges.audit.md`. Naming's role loader keeps three compatibility paths that validation rejects; they stay unchanged and outside the model.
+
+#### 5.2.21 Workflow: `buildRegistryTrace` (`trace`, read-only)
+
+Spec §12.11 "`trace`". `registry-lifecycle-trace.logic.mjs`, `buildRegistryTrace({ set, registryId?, address?, targetRoot })`.
+- **Request:** `set` is `builtin` or `custom`; an entry is a current-inventory registry id and an address `parseComparisonAddress` (5.2.9) accepts, present or not. Anything else throws `RegistryTraceUsageError`, which the CLI reports as a usage error.
+- **Set:** Builtin is read through `builtinReferenceInputs` and is never intermediate (`interruptedTransaction: false`). Custom needs the lifecycle root and `custom/` contained and the set to exist (else a lifecycle error), is read through `customReferenceInputs`, and reports `interruptedTransaction` from `lifecycleTransactionPending` (5.2.11). It never recovers and never reads `registry-state.json`.
+- **One resolution:** each registry is read once (memoized `inputOf`), then `resolveRegistryReferences` (5.2.20) runs once. The whole-set form adds `counts` per available edge; the entry form only selects from the same edges: `direct` (references whose source is the address), `reverse` (whose target is it), `impact` (distinct reverse sources) and `unavailable` (edges into or out of the registry). `inspectReferenceRegistry` on the same input gives `present`: `true`, `false`, or `null` with the reason, in which case the three views are `null`.
+- **Ordering:** edges by id; views by address, then registry id and edge id; impact by registry id, then address. It writes nothing.
 
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
@@ -328,10 +337,11 @@ Spec §12.11. Implemented: the declarations, the resolvers and the resolution be
 - `migrate <file>` → 5.2.18. Prints `{ command, recovered?, applied, skipped }`, or with `problems` or `failed` and exit 1. The path is resolved from the working directory.
 - `edit-check <file>` → 5.2.19. Read-only. Prints the check result and exits 1 when it has problems; an unreadable or unparseable file is an error on stderr.
 - `edit <file>` → 5.2.19. Prints `{ command, recovered?, applied }`, or with `problems` or `failed` and exit 1. The path is resolved from the working directory.
+- `trace --set <builtin|custom> [<registryId> <address>]` → 5.2.21. Read-only; prints the trace and exits 0, unresolved references and unavailable edges included. A missing or unknown `--set`, an unknown registry id, an address the declaration cannot produce or other arguments are usage errors; no Custom set or an escaping lifecycle root is a lifecycle error.
 
 Usage errors and lifecycle errors go to stderr with a non-zero exit.
 
-Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status`, `npm run registry:diff`, `npm run registry:decisions-template`, `npm run registry:decisions-check`, `npm run registry:update`, `npm run registry:migrate-plan`, `npm run registry:migrate-check`, `npm run registry:migrate`, `npm run registry:edit-check` and `npm run registry:edit` (`scripts/registry-lifecycle.host.mjs`).
+Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status`, `npm run registry:diff`, `npm run registry:decisions-template`, `npm run registry:decisions-check`, `npm run registry:update`, `npm run registry:migrate-plan`, `npm run registry:migrate-check`, `npm run registry:migrate`, `npm run registry:edit-check`, `npm run registry:edit` and `npm run registry:trace` (`scripts/registry-lifecycle.host.mjs`).
 
 ### 5.4 Wiring into validation runs
 
@@ -416,6 +426,7 @@ src/core/registry-lifecycle/
   registry-lifecycle-edit.logic.mjs                5.2.19
   registry-lifecycle-references.logic.mjs          5.2.20
   registry-lifecycle-slice-references.logic.mjs    5.2.20 (each slice's reference resolver)
+  registry-lifecycle-trace.logic.mjs               5.2.21
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)

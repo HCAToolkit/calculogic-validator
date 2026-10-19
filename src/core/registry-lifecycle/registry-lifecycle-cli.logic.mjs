@@ -4,7 +4,7 @@
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.3, §7.3)
  * Responsibility: The lifecycle command interface: `init-custom`, `use`, `status`, `diff`,
  *   `decisions-template`, `decisions-check`, `update`, `migrate-plan`, `migrate-check`, `migrate`,
- *   `edit-check` and `edit`.
+ *   `edit-check`, `edit` and `trace`.
  * Invariants: operates on the validation target root; prints deterministic JSON on stdout;
  *   usage and lifecycle errors go to stderr with exit code 1.
  */
@@ -30,6 +30,7 @@ import {
   buildRegistryMigrationPlan,
   checkRegistryMigrationPlan,
 } from './registry-lifecycle-migration-plan.logic.mjs';
+import { RegistryTraceUsageError, buildRegistryTrace } from './registry-lifecycle-trace.logic.mjs';
 import { ACTIVE_SET_VALUES } from './registry-lifecycle.contracts.mjs';
 
 export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
@@ -70,6 +71,11 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '                         problems. Writes nothing.',
   '  edit <file>            Apply a checked edit document. Only Custom files change; the registries of a',
   '                         slice change together; the Baseline, manifest and active set never change.',
+  '  trace --set <builtin|custom> [<registryId> <address>]',
+  '                         Print the declared references of one set as JSON: every edge, or for one entry',
+  '                         its direct and reverse references and their direct dependents. Unresolved',
+  '                         references are reported, never judged. Writes nothing and never reads the',
+  '                         active set.',
   '',
   'Repository scripts:',
   '  npm run registry:init-custom',
@@ -84,6 +90,7 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '  npm run registry:migrate -- <file>',
   '  npm run registry:edit-check -- <file>',
   '  npm run registry:edit -- <file>',
+  '  npm run registry:trace -- --set <builtin|custom> [<registryId> <address>]',
 ]);
 
 const writeJson = (value) => {
@@ -144,6 +151,27 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
 
     writeJson(output);
     return { exitCode: 0 };
+  }
+
+  if (command === 'trace') {
+    const [flag, set, ...entry] = rest;
+    if (flag !== '--set' || set === undefined || (entry.length !== 0 && entry.length !== 2)) {
+      printValidatorUsageErrorToStderr('"trace" needs --set <builtin|custom>, optionally followed by <registryId> <address>.', REGISTRY_LIFECYCLE_USAGE_LINES);
+      return { exitCode: 1 };
+    }
+
+    const [registryId, address] = entry;
+    try {
+      writeJson(buildRegistryTrace({ set, registryId, address, targetRoot }));
+      return { exitCode: 0 };
+    } catch (error) {
+      if (error instanceof RegistryTraceUsageError) {
+        printValidatorUsageErrorToStderr(error.message, REGISTRY_LIFECYCLE_USAGE_LINES);
+      } else {
+        console.error(error.message);
+      }
+      return { exitCode: 1 };
+    }
   }
 
   if (['decisions-check', 'update', 'migrate-check', 'migrate', 'edit-check', 'edit'].includes(command)) {

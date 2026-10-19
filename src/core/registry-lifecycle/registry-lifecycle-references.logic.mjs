@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { stableStringify } from '../validator-report-meta.logic.mjs';
 import { assertComparisonDeclaration, keyedEntryAddress, walkComparisonEntries } from './registry-lifecycle-comparison.logic.mjs';
+import { readCustomSetFile } from './registry-lifecycle-assessment.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
 import { deepFreeze, descriptorForPayload } from './registry-lifecycle-migration.logic.mjs';
 import { SLICE_REFERENCE_RESOLVERS } from './registry-lifecycle-slice-references.logic.mjs';
@@ -92,10 +93,12 @@ export const assertReferenceDeclarations = ({ slices = REGISTRY_LIFECYCLE_SLICES
   }
 };
 
-// The registry's payload and comparison entries, or why its edges cannot be evaluated: absent or
-// unparseable (as `inputOf` reports it), at a version the inventory does not declare readable, or
-// not extractable by its comparison declaration.
-const readAvailable = (entry, inputOf) => {
+// [5.2.20] cfg-registryLifecycle · Derived value · "inspectReferenceRegistry"
+// The registry's payload and comparison entry addresses (`{ payload, entries }`), or why its edges
+// cannot be evaluated (`{ unavailable: { registryId, condition, detail } }`): absent or unparseable
+// (as `inputOf` reports it), at a version the inventory does not declare readable, or not
+// extractable by its comparison declaration. `trace` uses it for an entry's presence.
+export const inspectReferenceRegistry = (entry, inputOf) => {
   const input = inputOf(entry.registryId);
   if (!Object.hasOwn(input, 'payload')) {
     return { unavailable: { registryId: entry.registryId, condition: input.condition, detail: input.detail } };
@@ -184,7 +187,7 @@ export const resolveRegistryReferences = ({ slices = REGISTRY_LIFECYCLE_SLICES, 
     const available = new Map();
     const availableOf = (registryId) => {
       if (!available.has(registryId)) {
-        available.set(registryId, readAvailable(entriesById.get(registryId), inputOf));
+        available.set(registryId, inspectReferenceRegistry(entriesById.get(registryId), inputOf));
       }
       return available.get(registryId);
     };
@@ -246,5 +249,28 @@ export const builtinReferenceInputs = ({ slices = REGISTRY_LIFECYCLE_SLICES } = 
     } catch (error) {
       return { condition: CUSTOM_ISSUE_CONDITIONS.invalid, detail: `The registry file does not parse: ${error.message}` };
     }
+  };
+};
+
+// [5.2.20] cfg-registryLifecycle · Derived value · "customReferenceInputs"
+// `inputOf` for the Custom set: each registry read through the assessment's containment-checked reader
+// (5.2.4). An absent file is `missing`; one that does not parse, or resolves outside the validation
+// target and so is never read, is `invalid`. Versions and extraction are checked by the resolution.
+export const customReferenceInputs = ({ paths, slices = REGISTRY_LIFECYCLE_SLICES }) => {
+  const sourcesById = new Map(
+    slices.flatMap((slice) =>
+      slice.inventory.map((entry) => [entry.registryId, { entry, filePath: path.join(paths.customRoot, slice.sliceId, entry.fileName) }]),
+    ),
+  );
+  return (registryId) => {
+    const { entry, filePath } = sourcesById.get(registryId);
+    const file = readCustomSetFile(paths, filePath, (payload) => descriptorForPayload(entry, payload));
+    if (!file.present) {
+      return { condition: CUSTOM_ISSUE_CONDITIONS.missing, detail: 'The Custom registry file is absent.' };
+    }
+    if (file.parseError !== undefined) {
+      return { condition: CUSTOM_ISSUE_CONDITIONS.invalid, detail: file.parseError };
+    }
+    return { payload: file.payload };
   };
 };
