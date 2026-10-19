@@ -21,6 +21,7 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 9 (contract only): the edit document, `edit-check` and `edit` (spec §12.10), and the `interrupted-transaction` condition (spec §4.6 item 5, §7.1 item 6), specified for the next slice (5.2.19). No runtime change.
 - #60 slice 10: the edit document implemented: `parseComparisonAddress` and `impliedOrderAddress` (5.2.9), the shared entry placement (5.2.13), the edit construction, `edit-check` and `edit` (5.2.19, 5.3), and the `interrupted-transaction` condition (5.2.4, 5.2.5).
 - #60 slice 11 (contract only): reference edges (spec §12.11): slice-owned declarations and resolvers, suite-owned joining and indexing, and the semantics `trace` will report (5.2.20). No runtime change.
+- #60 slice 12: reference edges implemented: the `references` declarations (6.1) replacing the informative edge lists, the Naming and Tree resolvers and their bridge, `keyedEntryAddress` (5.2.9), and `resolveRegistryReferences` (5.2.20), with per-edge conformance tests. The source identity became structured (spec §12.11 correction). No command consumes it yet.
 - Follow-ons: the rest of the advanced management surface (#60): applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
@@ -37,12 +38,12 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 - Initialization of the Custom set, active-set selection and status.
 - Whole-set resolution into one resolved registry root per slice, with completeness, version and validity checks before validation.
 - Set-level and per-registry provenance.
-- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields, with the lifecycle transaction it writes through; the migration plan (`migrate-plan`, `migrate-check`) and `migrate`; the edit document (`edit-check`, `edit`); and the reference edge contract (5.2.20), not yet implemented.
+- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields, with the lifecycle transaction it writes through; the migration plan (`migrate-plan`, `migrate-check`) and `migrate`; the edit document (`edit-check`, `edit`); and reference edge declarations, resolvers and resolution (5.2.20), without `trace`.
 
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- The rest of the advanced management surface (follow-on): applying add-alongside, the reference edge declarations, resolvers and `trace`, and the `import`/`export` and preview commands.
+- The rest of the advanced management surface (follow-on): applying add-alongside, `trace`, and the `import`/`export` and preview commands.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present
@@ -62,7 +63,7 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
   - comparison identity declaration (what an entry is and how it is addressed; spec §8.4);
   - reconciliation capability declaration (which collections accept merge-fields or add-alongside, with their field groups; spec §12.7);
   - migration declaration (steps `{ from, to, transform, fromDescriptor }` from older versions; spec §8.3);
-  - reference edge declaration (`references`: each edge's `edgeId`, target registry and target `keyed` collection, same slice only; spec §12.11), interpreted by the slice's reference resolver. Not declared yet: Naming and Tree still carry informative `{ from, to, via }` lists, which it supersedes;
+  - reference edge declaration (`references`: each edge's `edgeId`, target registry and target `keyed` collection, same slice only; spec §12.11), interpreted by the slice's reference resolver (`naming-registry-references.logic.mjs`, `tree-registry-references.logic.mjs`), reached through the static bridge `registry-lifecycle-slice-references.logic.mjs`. Empty except on the two perspective registries;
   - a slice-owned registry-set validation entry point (shape and reference checks over a given root; spec §9.3).
 - **Slice migration transforms:** each slice's map of transform ids to pure functions, reached through the static bridge `registry-lifecycle-slice-migrations.logic.mjs` (5.2.15). Empty for every slice today.
 - **Validator package version.**
@@ -302,11 +303,11 @@ Spec §12.10. Reuses the comparison grammar, the entry placement and the slice-a
 
 `validateSlice` and `onTransactionStep` are internal test seams.
 
-#### 5.2.20 Derived value: reference edges (contract only)
+#### 5.2.20 Workflow: reference edges (`resolveRegistryReferences`)
 
-Spec §12.11. *Not implemented yet:* the declarations, the resolvers and `trace` land in later #60 slices.
-- **Slice-owned:** the `references` declaration on each source registry's inventory entry (`{ edgeId, to, targetCollection }`; `edgeId` is `<sliceId>/<name>`, `to` a registry of the same slice, `targetCollection` a `keyed` collection of it), and one pure resolver per slice, reached through a static bridge like the migration transforms (5.2.15): `resolveReferences({ registryId, payload }) → [{ edgeId, source, target: { groups, key } }]`. It reads only the deep-frozen source payload. Which fields hold references, composite identities (`inheritsFrom`) and duplicates across fields are its decisions.
-- **Suite-owned, mechanical only:** checking the declarations and the resolver output; forming each target address from `targetCollection`, `groups` (one string per `*`) and `key` with the comparison grammar (5.2.9); looking it up among the target registry's comparison entries of the same set; indexing direct and reverse; and reporting. It never reads a field to find a reference.
+Spec §12.11. Implemented: the declarations, the resolvers and the resolution below. *Not implemented yet:* `trace` and its views.
+- **Slice-owned:** the `references` declaration on each source registry's inventory entry (`{ edgeId, to, targetCollection }`; `edgeId` is `<sliceId>/<name>`, `to` a registry of the same slice, `targetCollection` a `keyed` collection of it), and one pure resolver per slice, reached through a static bridge like the migration transforms (5.2.15): `resolveReferences({ registryId, payload }) → [{ edgeId, source: { collection, groups, key? }, target: { groups, key } }]`, with the versions it reads. It reads only the deep-frozen source payload. Which fields hold references, composite identities (`inheritsFrom`) and duplicates across fields are its decisions. Source and target are structured identities (a keyed record, or for a source also a group-presence entry); the slice never writes address syntax. This corrects the first contract, which had the source as an address string a slice could only produce by duplicating the grammar or importing lifecycle modules.
+- **Suite-owned, mechanical only** (`registry-lifecycle-references.logic.mjs`): `assertReferenceDeclarations` checks the declarations and the resolvers' versions; `resolveRegistryReferences({ slices, resolvers, inputOf })` reads each source and target through `inputOf` (a whole set's `{ payload }` or `{ condition, detail }`), requires a readable version and extractable comparison entries, calls each source's resolver once with a deep-frozen copy (`deepFreeze`, 5.2.15), checks every output item, forms each source and target address with `keyedEntryAddress` (5.2.9), and states each reference against the target's entries. Returns `{ edges }` sorted by edge id, each with `references` sorted by source then target, or `unavailable: { registryId, condition, detail }`. `builtinReferenceInputs` is the input function of the Builtin set. It never reads a field to find a reference. Indexing and reporting for `trace` come with `trace`.
 - **States:** an emitted reference is `resolved` or `unresolved`; an entry with no emitted reference has no edge. An edge whose source or target registry cannot be read or extracted is unavailable, with no references listed. There is no fallback and no ambiguity (a duplicate key yields no comparison entries).
 - **Errors:** declaration and resolver-output problems are programming errors, refused before evaluation and caught by the conformance tests, never `trace` findings. An unresolved reference is data; whether it invalidates the set stays with the slice's validation (spec §9.3).
 - **Views:** direct, reverse (also for an absent address) and one-step potential impact, never a prediction that validation fails. Cross-slice relationships stay with #61.
@@ -348,7 +349,7 @@ The runner and direct slice CLIs call 5.2.5 once per run, before slice execution
 - `tree/src/registries/tree-registry-inventory.knowledge.mjs`
 - `src/registries/suite-registry-inventory.knowledge.mjs`
 
-Each is owned by its slice and lists only that slice's registries. Every entry carries a canonical-form `descriptor` (spec §5), a `comparison` identity declaration (spec §8.4), a `reconciliation` capability declaration (spec §12.7, possibly empty) and a `migrations` declaration (spec §8.3, empty for every current registry); a `references` declaration (spec §12.11) is specified and not yet added. They are separate concerns, identity is never inferred from `descriptor.setLike`, and capabilities are never inferred from either. The reasons behind each declaration are recorded in `doc/Audits/registry-reconciliation-capabilities.audit.md`. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
+Each is owned by its slice and lists only that slice's registries. Every entry carries a canonical-form `descriptor` (spec §5), a `comparison` identity declaration (spec §8.4), a `reconciliation` capability declaration (spec §12.7, possibly empty) a `migrations` declaration (spec §8.3, empty for every current registry) and a `references` declaration (spec §12.11; the five Naming and Tree edges on their source registries, empty elsewhere). They are separate concerns, identity is never inferred from `descriptor.setLike`, and capabilities are never inferred from either. The reasons behind the reconciliation declarations are recorded in `doc/Audits/registry-reconciliation-capabilities.audit.md`, and the reference edges with their validation evidence in `doc/Audits/registry-reference-edges.audit.md`. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
 
 ### 6.2 Suite inventory aggregate
 
@@ -413,6 +414,8 @@ src/core/registry-lifecycle/
   registry-lifecycle-migrate.logic.mjs             5.2.18
   registry-lifecycle-edit-candidate.logic.mjs      5.2.19
   registry-lifecycle-edit.logic.mjs                5.2.19
+  registry-lifecycle-references.logic.mjs          5.2.20
+  registry-lifecycle-slice-references.logic.mjs    5.2.20 (each slice's reference resolver)
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)
@@ -420,6 +423,8 @@ scripts/registry-lifecycle.host.mjs                5.3 (repository scripts)
 naming/src/registries/naming-registry-inventory.knowledge.mjs   6.1
 tree/src/registries/tree-registry-inventory.knowledge.mjs       6.1
 src/registries/suite-registry-inventory.knowledge.mjs           6.1
+naming/src/registries/naming-registry-references.logic.mjs      5.2.20 (Naming reference resolver)
+tree/src/registries/tree-registry-references.logic.mjs          5.2.20 (Tree reference resolver)
 naming/src/registries/registry-state.logic.mjs     Naming entry point (validateNamingRegistrySet)
 tree/src/registries/tree-registry-set.logic.mjs    Tree entry point (validateTreeRegistrySet)
 tree/src/registries/tree-runtime-registries.logic.mjs   Tree runtime registries from one resolved root (5.4)

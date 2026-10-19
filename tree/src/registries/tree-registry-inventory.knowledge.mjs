@@ -20,8 +20,11 @@ const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 // §12.7); the reasons are recorded in doc/Audits/registry-reconciliation-capabilities.audit.md.
 // `migrations` declares the steps from older `version` values, each naming a transform of the
 // slice's migration module and the descriptor of its source version (spec §8.3). Empty while no
-// registry has changed shape.
-const defineTreeRegistry = (name, descriptor, comparison, reconciliation = [], migrations = []) =>
+// registry has changed shape. `references` declares the entries of other registries of the same slice
+// that this registry's entries name (spec §12.11): each edge's id, target registry and target `keyed`
+// collection. The slice's reference resolver interprets them; the edges are recorded with the
+// validation that enforces them in doc/Audits/registry-reference-edges.audit.md.
+const defineTreeRegistry = (name, descriptor, comparison, reconciliation = [], migrations = [], references = []) =>
   Object.freeze({
     registryId: `${TREE_REGISTRY_SLICE_ID}/${name}`,
     name,
@@ -42,6 +45,7 @@ const defineTreeRegistry = (name, descriptor, comparison, reconciliation = [], m
     migrations: Object.freeze(
       migrations.map((step) => Object.freeze({ ...step, fromDescriptor: Object.freeze(step.fromDescriptor) })),
     ),
+    references: Object.freeze(references.map((edge) => Object.freeze({ ...edge }))),
   });
 
 // [6.1] cfg-registryLifecycle · Container · "Tree registry inventory"
@@ -99,6 +103,8 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
     setLike: [{ path: 'structuralHomesBySurface.*', key: 'structuralHome' }],
   }, [{ kind: 'keyed', path: 'structuralHomesBySurface.*', key: 'structuralHome' }], [
     { path: 'structuralHomesBySurface.*', mergeFields: [['rationale'], ['relationshipStatus', 'signalStrength']] },
+  ], [], [
+    { edgeId: 'tree/perspective-structural-home', to: 'tree/structural-homes', targetCollection: 'structuralHomes' },
   ]),
   // Both consumers test the matchers with .some(), so order and repetition carry no meaning.
   defineTreeRegistry('validator-owned-signals', { setLike: [{ path: 'validatorOwnedBasenameSignals', key: 'pattern' }] }, [
@@ -111,13 +117,3 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
 // orphan's Baseline copy from an earlier release can still be verified (lifecycle spec §12.1). Empty
 // until a tree registry is retired.
 export const TREE_RETIRED_REGISTRY_INVENTORY = Object.freeze([]);
-
-// [6.1] cfg-registryLifecycle · Primitive · "Tree reference edges" (spec §9.3; informative,
-// enforced by Tree's registry-set validation entry point)
-export const TREE_REGISTRY_REFERENCE_EDGES = Object.freeze([
-  Object.freeze({
-    from: 'tree/surface-structural-home-perspective',
-    to: 'tree/structural-homes',
-    via: 'structuralHomesBySurface[].structuralHome',
-  }),
-]);

@@ -21,8 +21,11 @@ const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 // §12.7); the reasons are recorded in doc/Audits/registry-reconciliation-capabilities.audit.md.
 // `migrations` declares the steps from older `version` values, each naming a transform of the
 // slice's migration module and the descriptor of its source version (spec §8.3). Empty while no
-// registry has changed shape.
-const defineNamingRegistry = (name, descriptor, comparison, reconciliation = [], migrations = []) =>
+// registry has changed shape. `references` declares the entries of other registries of the same slice
+// that this registry's entries name (spec §12.11): each edge's id, target registry and target `keyed`
+// collection. The slice's reference resolver interprets them; the edges are recorded with the
+// validation that enforces them in doc/Audits/registry-reference-edges.audit.md.
+const defineNamingRegistry = (name, descriptor, comparison, reconciliation = [], migrations = [], references = []) =>
   Object.freeze({
     registryId: `${NAMING_REGISTRY_SLICE_ID}/${name}`,
     name,
@@ -43,6 +46,7 @@ const defineNamingRegistry = (name, descriptor, comparison, reconciliation = [],
     migrations: Object.freeze(
       migrations.map((step) => Object.freeze({ ...step, fromDescriptor: Object.freeze(step.fromDescriptor) })),
     ),
+    references: Object.freeze(references.map((edge) => Object.freeze({ ...edge }))),
   });
 
 // [6.1] cfg-registryLifecycle · Container · "Naming registry inventory"
@@ -65,6 +69,11 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
   }, [
     // A declared category may have no roles, so each category is also a group-presence entry.
     { kind: 'keyed', path: 'rolesByCategory.*', key: 'role' },
+  ], [], [], [
+    { edgeId: 'naming/perspective-category', to: 'naming/categories', targetCollection: 'categories' },
+    { edgeId: 'naming/perspective-role-definition', to: 'naming/roles', targetCollection: 'roles' },
+    { edgeId: 'naming/perspective-meaning', to: 'naming/agnostic-core-meanings', targetCollection: 'meanings' },
+    { edgeId: 'naming/perspective-inherits-from', to: 'naming/category-role-perspective', targetCollection: 'rolesByCategory.*' },
   ]),
   // An outcome's code, severity and classification are its behavior; the rest is display text.
   defineNamingRegistry('finding-policy', {}, [{ kind: 'value', path: 'outcomes.*' }], [
@@ -133,16 +142,3 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
 // orphan's Baseline copy from an earlier release can still be verified (lifecycle spec §12.1). Empty
 // until a naming registry is retired.
 export const NAMING_RETIRED_REGISTRY_INVENTORY = Object.freeze([]);
-
-// [6.1] cfg-registryLifecycle · Primitive · "Naming reference edges" (spec §9.3; informative,
-// enforced by Naming's registry-set validation entry point)
-export const NAMING_REGISTRY_REFERENCE_EDGES = Object.freeze([
-  Object.freeze({ from: 'naming/category-role-perspective', to: 'naming/categories', via: 'rolesByCategory keys' }),
-  Object.freeze({ from: 'naming/category-role-perspective', to: 'naming/roles', via: 'role status' }),
-  Object.freeze({
-    from: 'naming/category-role-perspective',
-    to: 'naming/agnostic-core-meanings',
-    via: 'agnosticCoreMeanings, baseMeanings and overlayMeanings values',
-  }),
-  Object.freeze({ from: 'naming/category-role-perspective', to: 'naming/category-role-perspective', via: 'inheritsFrom' }),
-]);
