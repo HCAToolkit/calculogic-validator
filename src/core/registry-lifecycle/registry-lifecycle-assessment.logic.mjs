@@ -52,9 +52,11 @@ const readRegistryFile = (filePath, descriptorOf) => {
 
 const ESCAPING_PATH_DETAIL = 'Resolves outside the validation target; the Validator does not read through it.';
 
-// Reads one Custom-set file. A path that resolves outside the validation target is never read: it
-// is reported as present but unreadable (lifecycle spec §4.1 "Containment").
-const readCustomSetFile = (paths, filePath, descriptorOf) =>
+// [5.2.4] cfg-registryLifecycle · Primitive · "readCustomSetFile"
+// Reads one Custom-set file as `{ present, payload?, digest, parseError?, escapes? }`. A path that
+// resolves outside the validation target is never read: it is reported as present but unreadable
+// (lifecycle spec §4.1 "Containment"). The assessment and `trace` (5.2.20) read Custom through it.
+export const readCustomSetFile = (paths, filePath, descriptorOf) =>
   isLifecyclePathContained(paths, filePath)
     ? readRegistryFile(filePath, descriptorOf)
     : { present: true, digest: null, parseError: ESCAPING_PATH_DETAIL, escapes: true };
