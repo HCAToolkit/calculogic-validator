@@ -52,6 +52,9 @@ test('package.json declares the registry lifecycle bin and repository scripts', 
   assert.match(packageJson.scripts['registry:edit-check'], /registry-lifecycle\.host\.mjs edit-check$/u);
   assert.match(packageJson.scripts['registry:edit'], /registry-lifecycle\.host\.mjs edit$/u);
   assert.match(packageJson.scripts['registry:trace'], /registry-lifecycle\.host\.mjs trace$/u);
+  assert.match(packageJson.scripts['registry:export'], /registry-lifecycle\.host\.mjs export$/u);
+  assert.match(packageJson.scripts['registry:import-check'], /registry-lifecycle\.host\.mjs import-check$/u);
+  assert.match(packageJson.scripts['registry:import'], /registry-lifecycle\.host\.mjs import$/u);
 });
 
 test('status prints the Builtin-only state as JSON without writing lifecycle files', () => {

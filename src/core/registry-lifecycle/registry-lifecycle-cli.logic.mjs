@@ -4,7 +4,7 @@
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.3, §7.3)
  * Responsibility: The lifecycle command interface: `init-custom`, `use`, `status`, `diff`,
  *   `decisions-template`, `decisions-check`, `update`, `migrate-plan`, `migrate-check`, `migrate`,
- *   `edit-check`, `edit` and `trace`.
+ *   `edit-check`, `edit`, `trace`, `export`, `import-check` and `import`.
  * Invariants: operates on the validation target root; prints deterministic JSON on stdout;
  *   usage and lifecycle errors go to stderr with exit code 1.
  */
@@ -31,6 +31,7 @@ import {
   checkRegistryMigrationPlan,
 } from './registry-lifecycle-migration-plan.logic.mjs';
 import { RegistryTraceUsageError, buildRegistryTrace } from './registry-lifecycle-trace.logic.mjs';
+import { checkPortableSet, exportPortableSet, importPortableSet } from './registry-lifecycle-portable-set.logic.mjs';
 import { ACTIVE_SET_VALUES } from './registry-lifecycle.contracts.mjs';
 
 export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
@@ -76,6 +77,13 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '                         its direct and reverse references and their direct dependents. Unresolved',
   '                         references are reported, never judged. Writes nothing and never reads the',
   '                         active set.',
+  '  export                 Print the Custom set as one portable artifact (exact file bytes and their',
+  '                         SHA-256) on stdout. Writes nothing.',
+  '  import-check <file>    Check a portable artifact against this repository and print the result, with',
+  '                         the status the set would have once installed, as JSON. Exits 1 when it cannot',
+  '                         be imported. Writes nothing.',
+  '  import <file>          Install a checked artifact as a new Custom set. Refuses if a Custom set exists.',
+  '                         Installed is not valid: run status, and use custom to activate it.',
   '',
   'Repository scripts:',
   '  npm run registry:init-custom',
@@ -91,6 +99,9 @@ export const REGISTRY_LIFECYCLE_USAGE_LINES = Object.freeze([
   '  npm run registry:edit-check -- <file>',
   '  npm run registry:edit -- <file>',
   '  npm run registry:trace -- --set <builtin|custom> [<registryId> <address>]',
+  '  npm run -s registry:export > <file>',
+  '  npm run registry:import-check -- <file>',
+  '  npm run registry:import -- <file>',
 ]);
 
 const writeJson = (value) => {
@@ -174,7 +185,7 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
     }
   }
 
-  if (['decisions-check', 'update', 'migrate-check', 'migrate', 'edit-check', 'edit'].includes(command)) {
+  if (['decisions-check', 'update', 'migrate-check', 'migrate', 'edit-check', 'edit', 'import-check', 'import'].includes(command)) {
     const [documentPath, ...extra] = rest;
     if (documentPath === undefined || extra.length > 0) {
       printValidatorUsageErrorToStderr(`"${command}" needs exactly one document path.`, REGISTRY_LIFECYCLE_USAGE_LINES);
@@ -207,6 +218,18 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
         return { exitCode: 1 };
       }
 
+      if (command === 'import-check') {
+        const result = checkPortableSet({ document, targetRoot });
+        writeJson(result);
+        return { exitCode: result.valid && result.environment.length === 0 ? 0 : 1 };
+      }
+
+      if (command === 'import') {
+        const result = importPortableSet({ document, targetRoot });
+        writeJson({ command, ...result });
+        return { exitCode: result.installed ? 0 : 1 };
+      }
+
       const check = {
         'decisions-check': checkRegistryUpdateDecisions,
         'migrate-check': checkRegistryMigrationPlan,
@@ -235,6 +258,11 @@ export const runRegistryLifecycleCli = ({ argv, targetRoot }) => {
 
     if (command === 'status') {
       writeJson(buildRegistryLifecycleStatus({ targetRoot }));
+      return { exitCode: 0 };
+    }
+
+    if (command === 'export') {
+      writeJson(exportPortableSet({ targetRoot, validatorVersion: getValidatorToolVersion() }));
       return { exitCode: 0 };
     }
   } catch (error) {
