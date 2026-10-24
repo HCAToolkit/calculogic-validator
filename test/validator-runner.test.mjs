@@ -2,9 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { listRegisteredValidators } from '../src/core/validator-registry.knowledge.mjs';
+import { getValidatorById, listRegisteredValidators } from '../src/core/validator-registry.knowledge.mjs';
+import { prepareNamingTreeStagingInputs, runNamingValidator } from '../naming/src/naming-validator.host.mjs';
+import { NAMING_BUILTIN_REGISTRY_ROOT } from '../naming/src/registries/naming-registry-inventory.knowledge.mjs';
+import { getBuiltinRegistryRoots } from '../src/core/registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
 import { runValidatorRunner } from '../src/core/validator-runner.logic.mjs';
 
 test('registry lists validators deterministically', () => {
@@ -162,5 +166,69 @@ test('runner excludes ambiguity-flagged naming observations from stronger tree b
     );
   } finally {
     await fs.rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('runner transports the Naming-owned Tree staging inputs to Tree unchanged', async () => {
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'validator-runner-tree-staging-'));
+  const treeEntry = getValidatorById('tree-structure-advisor');
+  const originalRun = treeEntry.run;
+  let treeOptions = null;
+  treeEntry.run = (repositoryRoot, options) => {
+    treeOptions = options;
+    return originalRun(repositoryRoot, options);
+  };
+
+  try {
+    await fs.mkdir(path.join(fixtureRoot, 'src', 'build'), { recursive: true });
+    await fs.writeFile(path.join(fixtureRoot, 'src', 'build', 'build-surface.logic.mjs'), 'export {};\n', 'utf8');
+
+    runValidatorRunner(fixtureRoot, { validators: ['tree-structure-advisor'], scope: 'repo' });
+    const expected = prepareNamingTreeStagingInputs(
+      runNamingValidator(fixtureRoot, { scope: 'repo', registryResolution: treeOptions.registryResolution }),
+    );
+
+    assert.deepEqual(treeOptions.namingSemanticFamilyBridge, expected.namingSemanticFamilyBridge);
+    assert.deepEqual(treeOptions.namingSemanticEvidenceEnrichment, expected.namingSemanticEvidenceEnrichment);
+    assert.equal(treeOptions.namingSemanticEvidenceEnrichment.records.length, 1);
+    assert.equal(typeof treeOptions.interpretFolderLabel, 'function');
+    assert.deepEqual(treeOptions.interpretFolderLabel('build'), expected.interpretFolderLabel('build'));
+  } finally {
+    treeEntry.run = originalRun;
+    await fs.rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('runner binds the staged folder-label interpreter to the run registryResolution, not the Builtin set', async () => {
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'validator-runner-tree-case-rules-'));
+  const namingRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'validator-runner-naming-root-'));
+  const treeEntry = getValidatorById('tree-structure-advisor');
+  const originalRun = treeEntry.run;
+  // The Naming run has finished when Tree starts; only the interpreter reads case rules after that.
+  treeEntry.run = (repositoryRoot, options) => {
+    fsSync.writeFileSync(
+      path.join(namingRoot, 'case-rules.registry.json'),
+      `${JSON.stringify({ version: '1', semanticName: { style: 'camelCase' } })}\n`,
+    );
+    return originalRun(repositoryRoot, options);
+  };
+
+  try {
+    await fs.cp(NAMING_BUILTIN_REGISTRY_ROOT, namingRoot, { recursive: true });
+    await fs.mkdir(path.join(fixtureRoot, 'src', 'build'), { recursive: true });
+    await fs.writeFile(path.join(fixtureRoot, 'src', 'build', 'build-surface.logic.mjs'), 'export {};\n', 'utf8');
+
+    assert.throws(
+      () => runValidatorRunner(fixtureRoot, {
+        validators: ['tree-structure-advisor'],
+        scope: 'repo',
+        registryResolution: { activeSet: 'builtin', registryRoots: { ...getBuiltinRegistryRoots(), naming: namingRoot } },
+      }),
+      /Invalid case-rules registry/,
+    );
+  } finally {
+    treeEntry.run = originalRun;
+    await fs.rm(fixtureRoot, { recursive: true, force: true });
+    await fs.rm(namingRoot, { recursive: true, force: true });
   }
 });
