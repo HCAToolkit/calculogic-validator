@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   prepareTreeNamingOccurrenceAddressJoinEvidence,
   prepareTreeNamingOccurrenceBridgeIntake,
   prepareTreeSemanticHomeEvidenceInputFromJoinedOccurrence,
 } from '../src/tree-naming-occurrence-intake.logic.mjs';
 import { collectNamingSemanticFamilyBridgeFindings } from '../src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs';
+import { prepareTreeStructureAdvisorInputs, runTreeStructureAdvisor } from '../src/tree-structure-advisor.wiring.mjs';
+import { runNamingValidator, projectNamingSemanticFamilyBridge } from '../../naming/src/naming-validator.host.mjs';
 
 const pathKeyedSemanticBridge = {
   observations: [
@@ -1246,4 +1251,52 @@ test('Tree prepared semantic-home input falls back to v1 joined observation when
 test('Tree prepared semantic-home helper rejects malformed joined entries without synthesizing Naming semantics', () => {
   assert.equal(prepareTreeSemanticHomeEvidenceInputFromJoinedOccurrence(null), null);
   assert.equal(prepareTreeSemanticHomeEvidenceInputFromJoinedOccurrence({ identityTuple: { occurrenceAddress: 'A.1' } }), null);
+});
+
+// #87: Tree does not consume the Naming semantic-evidence enrichment section yet (bridge contract
+// §4.4 rule 2, §4.5). A payload carrying it must produce exactly the Tree intake, evidence, and
+// findings that the same payload produces without it.
+test('Tree ignores the Naming semantic-evidence enrichment section: intake, evidence, and findings are unchanged', () => {
+
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tree-ignores-semantic-evidence-section-'));
+  try {
+    fs.writeFileSync(path.join(fixtureDir, 'package.json'), '{"name":"fixture","private":true}\n');
+    fs.mkdirSync(path.join(fixtureDir, 'src', 'build'), { recursive: true });
+    for (const filePath of ['src/build/build-surface.logic.mjs', 'src/build/build-surface.knowledge.mjs', 'src/order-payment-flow-step.logic.mjs']) {
+      fs.writeFileSync(path.join(fixtureDir, filePath), 'export {};\n');
+    }
+
+    const { structuralAddressSnapshot, preparedDependencies } = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo' });
+    const namingOutput = runNamingValidator(fixtureDir, {
+      scope: 'repo',
+      addressedOccurrenceNamespace: {
+        addressProfileId: preparedDependencies.addressedNamingOccurrenceBridge.addressProfileId,
+        addressedSnapshotId: preparedDependencies.addressedNamingOccurrenceBridge.addressedSnapshotId,
+        occurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
+      },
+    });
+    const namingSemanticFamilyBridge = projectNamingSemanticFamilyBridge(namingOutput);
+    const withSection = namingOutput.namingOccurrenceBridge;
+    const { namingSemanticEvidenceEnrichment, ...withoutSection } = withSection;
+    assert.equal(namingSemanticEvidenceEnrichment.recordCount, 3);
+
+    const prepare = (namingOccurrenceBridge) =>
+      prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', namingSemanticFamilyBridge, namingOccurrenceBridge }).preparedDependencies;
+    const preparedWith = prepare(withSection);
+    const preparedWithout = prepare(withoutSection);
+    for (const key of [
+      'treeNamingOccurrenceBridgeIntake',
+      'addressedNamingSemanticEvidenceBridge',
+      'treeSemanticHomeEvidence',
+      'treeSemanticNamingFolderTypeRelationshipEvidence',
+    ]) {
+      assert.deepEqual(preparedWith[key], preparedWithout[key], `${key} must not change`);
+    }
+
+    const run = (namingOccurrenceBridge) =>
+      runTreeStructureAdvisor(fixtureDir, { scope: 'repo', namingSemanticFamilyBridge, namingOccurrenceBridge });
+    assert.deepEqual(run(withSection), run(withoutSection));
+  } finally {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
 });

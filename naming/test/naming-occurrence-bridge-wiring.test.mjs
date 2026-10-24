@@ -225,3 +225,61 @@ test('projectNamingOccurrenceBridge forwards evidenceLimitNotes from canonical f
   ]);
   assert.equal(Object.hasOwn(occurrenceBridge.observations[0], 'evidenceLimitNotes'), false);
 });
+
+test('runNamingValidator with an addressed namespace carries the Naming semantic-evidence enrichment section (#87)', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'naming-semantic-evidence-wiring-'));
+  try {
+    fs.mkdirSync(path.join(tempRoot, 'src'));
+    fs.writeFileSync(path.join(tempRoot, 'src', 'build-surface.logic.mjs'), 'export const value = true;\n');
+
+    const withoutNamespace = runNamingValidator(tempRoot, { scope: 'repo' });
+    assert.equal(Object.hasOwn(withoutNamespace, 'namingOccurrenceBridge'), false);
+
+    const { namingOccurrenceBridge } = runNamingValidator(tempRoot, {
+      scope: 'repo',
+      addressedOccurrenceNamespace: validNamespace,
+    });
+    assert.deepEqual(namingOccurrenceBridge.namingSemanticEvidenceEnrichment, {
+      contractVersion: 'naming-semantic-evidence-enrichment.v1',
+      producerId: 'naming-semantic-evidence-enrichment',
+      source: 'calculogic-validator/naming',
+      identityTupleFields: ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress'],
+      recordCount: 1,
+      records: [
+        {
+          addressProfileId: 'tree-codebase',
+          addressedSnapshotId: 'snapshot-001',
+          occurrenceAddress: 'A.1',
+          repoRelativePath: 'src/build-surface.logic.mjs',
+          semanticTokens: ['build', 'surface'],
+          role: 'logic',
+          roleCategory: 'concern-core',
+          roleStatus: 'active',
+        },
+      ],
+    });
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('projectNamingOccurrenceBridge honors a caller-supplied enrichment source and leaves the path-keyed bridge unchanged', () => {
+  const runtimeOutput = createRuntimeOutput();
+  const pathKeyedBridgeBefore = projectNamingSemanticFamilyBridge(runtimeOutput);
+
+  const derived = projectNamingOccurrenceBridge(runtimeOutput, { addressedOccurrenceNamespace: validNamespace });
+  // The runtime output carries no tokens or role facts, so Naming's own projection yields no section.
+  assert.equal(Object.hasOwn(derived, 'namingSemanticEvidenceEnrichment'), false);
+
+  const supplied = projectNamingOccurrenceBridge(runtimeOutput, {
+    addressedOccurrenceNamespace: validNamespace,
+    namingSemanticEvidenceEnrichment: {
+      records: [{ path: 'src/build-surface.logic.mjs', semanticTokens: ['build', 'surface'] }],
+    },
+  });
+  assert.deepEqual(
+    supplied.namingSemanticEvidenceEnrichment.records.map(({ occurrenceAddress, semanticTokens }) => ({ occurrenceAddress, semanticTokens })),
+    [{ occurrenceAddress: 'A.1', semanticTokens: ['build', 'surface'] }],
+  );
+  assert.deepEqual(projectNamingSemanticFamilyBridge(runtimeOutput), pathKeyedBridgeBefore);
+});

@@ -448,3 +448,251 @@ test('createNamingOccurrenceBridgePayload keeps same-family nested observations 
   assert.equal(new Set(result.observations.map((observation) => observation.semanticFamily)).size, 1);
   assert.equal(new Set(result.observations.map((observation) => observation.occurrenceAddress)).size, 2);
 });
+
+// Naming semantic-evidence enrichment section (bridge contract §4.4, §4.5; #87).
+
+const enrichmentNamespace = {
+  addressProfileId: 'tree-codebase',
+  addressedSnapshotId: 'snapshot-001',
+  occurrenceRecords: [
+    { occurrenceAddress: 'A.2', addressPath: 'A.2', path: 'src/zeta-alpha.logic.mjs', occurrenceType: 'file' },
+    { occurrenceAddress: 'A.1', addressPath: 'A.1', path: 'src/build-surface.logic.mjs', occurrenceType: 'file' },
+    { occurrenceAddress: 'A', addressPath: 'A', path: 'naming-src', occurrenceType: 'folder' },
+  ],
+};
+
+const enrichmentSemanticBridge = {
+  observations: [
+    { path: 'src/zeta-alpha.logic.mjs', semanticName: 'zeta-alpha', semanticFamily: 'zeta', familyRoot: 'zeta', familySubgroup: 'alpha' },
+    { path: 'src/build-surface.logic.mjs', semanticName: 'build-surface', semanticFamily: 'build', familyRoot: 'build', familySubgroup: 'surface' },
+    {
+      path: 'naming-src',
+      semanticName: 'naming',
+      semanticFamily: 'naming',
+      familyRoot: 'naming',
+      semanticEvidenceKind: 'folder-semantic-structural-composition',
+    },
+  ],
+};
+
+const roleFacts = { role: 'logic', roleCategory: 'concern-core', roleStatus: 'active' };
+
+const enrichmentSource = (records) => ({ records });
+
+const createEnrichedPayload = (records, overrides = {}) =>
+  createNamingOccurrenceBridgePayload({
+    namingSemanticFamilyBridge: enrichmentSemanticBridge,
+    addressedOccurrenceNamespace: enrichmentNamespace,
+    namingSemanticEvidenceEnrichment: enrichmentSource(records),
+    ...overrides,
+  });
+
+test('enrichment section: versioned envelope, tuple-sorted records, file observations only', () => {
+  const result = createEnrichedPayload([
+    { path: 'src/zeta-alpha.logic.mjs', semanticTokens: ['zeta', 'alpha'], ...roleFacts },
+    { path: 'src/build-surface.logic.mjs', semanticTokens: ['build', 'surface'] },
+    // A source record for a folder observation's path must never enrich it.
+    { path: 'naming-src', semanticTokens: ['naming', 'src'] },
+  ]);
+
+  assert.deepEqual(result.namingSemanticEvidenceEnrichment, {
+    contractVersion: 'naming-semantic-evidence-enrichment.v1',
+    producerId: 'naming-semantic-evidence-enrichment',
+    source: 'calculogic-validator/naming',
+    identityTupleFields: ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress'],
+    recordCount: 2,
+    records: [
+      {
+        addressProfileId: 'tree-codebase',
+        addressedSnapshotId: 'snapshot-001',
+        occurrenceAddress: 'A.1',
+        repoRelativePath: 'src/build-surface.logic.mjs',
+        semanticTokens: ['build', 'surface'],
+      },
+      {
+        addressProfileId: 'tree-codebase',
+        addressedSnapshotId: 'snapshot-001',
+        occurrenceAddress: 'A.2',
+        repoRelativePath: 'src/zeta-alpha.logic.mjs',
+        semanticTokens: ['zeta', 'alpha'],
+        ...roleFacts,
+      },
+    ],
+  });
+});
+
+test('enrichment section leaves every other payload field byte-identical and carries no Tree conclusions', () => {
+  const withoutSection = createNamingOccurrenceBridgePayload({
+    namingSemanticFamilyBridge: enrichmentSemanticBridge,
+    addressedOccurrenceNamespace: enrichmentNamespace,
+  });
+  const withSection = createEnrichedPayload([
+    { path: 'src/zeta-alpha.logic.mjs', semanticTokens: ['zeta', 'alpha'], ...roleFacts },
+  ]);
+
+  assert.equal('namingSemanticEvidenceEnrichment' in withoutSection, false);
+  const { namingSemanticEvidenceEnrichment, ...rest } = withSection;
+  assert.ok(namingSemanticEvidenceEnrichment);
+  assert.deepEqual(rest, withoutSection);
+  assert.deepEqual(Object.keys(withSection.compatibility), Object.keys(withoutSection.compatibility));
+
+  const serialized = JSON.stringify(namingSemanticEvidenceEnrichment);
+  assert.equal(serialized.includes('evidenceStrength'), false);
+  for (const field of treeOwnedFields) {
+    assert.equal(serialized.includes(`"${field}"`), false, `${field} must not appear in the section`);
+  }
+});
+
+test('enrichment section is omitted without input, with an invalid namespace, or with no records', () => {
+  const records = [{ path: 'src/zeta-alpha.logic.mjs', semanticTokens: ['zeta', 'alpha'] }];
+
+  assert.equal(
+    'namingSemanticEvidenceEnrichment' in createNamingOccurrenceBridgePayload({
+      namingSemanticFamilyBridge: enrichmentSemanticBridge,
+      addressedOccurrenceNamespace: enrichmentNamespace,
+    }),
+    false,
+  );
+  assert.equal(
+    'namingSemanticEvidenceEnrichment' in createEnrichedPayload(records, {
+      addressedOccurrenceNamespace: { ...enrichmentNamespace, addressedSnapshotId: undefined },
+    }),
+    false,
+  );
+  assert.equal('namingSemanticEvidenceEnrichment' in createEnrichedPayload([]), false);
+  assert.equal(
+    'namingSemanticEvidenceEnrichment' in createEnrichedPayload([{ path: 'src/unknown.logic.mjs', semanticTokens: ['unknown', 'x'] }]),
+    false,
+  );
+});
+
+test('enrichment section never attaches without an emitted v1 observation: no path fallback, no synthesized address', () => {
+  const result = createNamingOccurrenceBridgePayload({
+    namingSemanticFamilyBridge: {
+      observations: [
+        ...enrichmentSemanticBridge.observations,
+        // Naming evidence whose occurrence is not in the addressed snapshot: v1 omits it.
+        { path: 'src/outside-scope.logic.mjs', semanticName: 'outside-scope', semanticFamily: 'outside', familyRoot: 'outside' },
+      ],
+    },
+    addressedOccurrenceNamespace: enrichmentNamespace,
+    namingSemanticEvidenceEnrichment: enrichmentSource([
+      { path: 'src/outside-scope.logic.mjs', semanticTokens: ['outside', 'scope'] },
+      { path: 'src/build-surface.logic.mjs', semanticTokens: ['build', 'surface'] },
+    ]),
+  });
+
+  assert.ok(result.diagnostics.some((diagnostic) => diagnostic.reason === 'unmatched-occurrence-record'));
+  assert.deepEqual(
+    result.namingSemanticEvidenceEnrichment.records.map((record) => record.repoRelativePath),
+    ['src/build-surface.logic.mjs'],
+  );
+  assert.equal('diagnostics' in result.namingSemanticEvidenceEnrichment, false);
+});
+
+test('enrichment section rejects duplicate or conflicting source records for one path deterministically', () => {
+  const conflicting = [
+    { path: 'src/zeta-alpha.logic.mjs', semanticTokens: ['zeta', 'alpha'] },
+    { path: 'src/zeta-alpha.logic.mjs', semanticTokens: ['zeta', 'other'] },
+    { path: 'src/build-surface.logic.mjs', semanticTokens: ['build', 'surface'] },
+  ];
+  const identical = [
+    { path: 'src/zeta-alpha.logic.mjs', semanticTokens: ['zeta', 'alpha'] },
+    { path: 'src/zeta-alpha.logic.mjs', semanticTokens: ['zeta', 'alpha'] },
+    { path: 'src/build-surface.logic.mjs', semanticTokens: ['build', 'surface'] },
+  ];
+
+  for (const records of [conflicting, identical, [...conflicting].reverse()]) {
+    const section = createEnrichedPayload(records).namingSemanticEvidenceEnrichment;
+    assert.deepEqual(section.records.map((record) => record.repoRelativePath), ['src/build-surface.logic.mjs']);
+    assert.deepEqual(section.diagnostics, [
+      { diagnosticType: 'unattached-enrichment-source', reason: 'duplicate-source-path', repoRelativePath: 'src/zeta-alpha.logic.mjs' },
+    ]);
+  }
+});
+
+test('enrichment section rejects a source path shared by more than one Naming source observation', () => {
+  const result = createNamingOccurrenceBridgePayload({
+    namingSemanticFamilyBridge: {
+      observations: [
+        ...enrichmentSemanticBridge.observations,
+        { path: 'src/zeta-alpha.logic.mjs', semanticName: 'zeta-alpha', semanticFamily: 'zeta-alpha', familyRoot: 'zeta' },
+      ],
+    },
+    addressedOccurrenceNamespace: enrichmentNamespace,
+    namingSemanticEvidenceEnrichment: enrichmentSource([
+      { path: 'src/zeta-alpha.logic.mjs', semanticTokens: ['zeta', 'alpha'] },
+      { path: 'src/build-surface.logic.mjs', semanticTokens: ['build', 'surface'] },
+    ]),
+  });
+
+  assert.equal(result.observations.filter((observation) => observation.repoRelativePath === 'src/zeta-alpha.logic.mjs').length, 2);
+  assert.deepEqual(
+    result.namingSemanticEvidenceEnrichment.records.map((record) => record.repoRelativePath),
+    ['src/build-surface.logic.mjs'],
+  );
+  assert.deepEqual(result.namingSemanticEvidenceEnrichment.diagnostics, [
+    { diagnosticType: 'unattached-enrichment-source', reason: 'ambiguous-source-observation', repoRelativePath: 'src/zeta-alpha.logic.mjs' },
+  ]);
+});
+
+test('enrichment section drops only an invalid field group and reports it', () => {
+  const section = createEnrichedPayload([
+    { path: 'src/zeta-alpha.logic.mjs', semanticTokens: 'zeta-alpha', ...roleFacts },
+    { path: 'src/build-surface.logic.mjs', semanticTokens: ['build', 'surface'], role: 'logic', roleCategory: 'concern-core', roleStatus: 'retired' },
+  ]).namingSemanticEvidenceEnrichment;
+
+  assert.deepEqual(
+    section.records.map(({ repoRelativePath, semanticTokens, role }) => ({ repoRelativePath, semanticTokens, role })),
+    [
+      { repoRelativePath: 'src/build-surface.logic.mjs', semanticTokens: ['build', 'surface'], role: undefined },
+      { repoRelativePath: 'src/zeta-alpha.logic.mjs', semanticTokens: undefined, role: 'logic' },
+    ],
+  );
+  assert.deepEqual(section.diagnostics, [
+    { diagnosticType: 'invalid-enrichment-field-group', fieldGroup: 'role-facts', repoRelativePath: 'src/build-surface.logic.mjs' },
+    { diagnosticType: 'invalid-enrichment-field-group', fieldGroup: 'semantic-tokens', repoRelativePath: 'src/zeta-alpha.logic.mjs' },
+  ]);
+  for (const record of section.records) {
+    assert.equal(['role', 'roleCategory', 'roleStatus'].filter((field) => field in record).length % 3, 0);
+  }
+});
+
+// Codex review on #88: ambiguity must be judged against Naming's source observations, before
+// identity attachment filters any of them out. Otherwise enrichment meant for an omitted source
+// observation would attach to a surviving observation that shares its path.
+test('enrichment section never transfers enrichment from an omitted source observation to a surviving one', () => {
+  const result = createNamingOccurrenceBridgePayload({
+    namingSemanticFamilyBridge: {
+      observations: [
+        { path: 'p', repoRelativePath: 'missing', semanticName: 'omitted-source', semanticFamily: 'omitted', familyRoot: 'omitted' },
+        { path: 'p', semanticName: 'kept-source', semanticFamily: 'kept', familyRoot: 'kept' },
+        { path: 'q', semanticName: 'other-source', semanticFamily: 'other', familyRoot: 'other' },
+      ],
+    },
+    addressedOccurrenceNamespace: {
+      addressProfileId: 'tree-codebase',
+      addressedSnapshotId: 'snapshot-001',
+      occurrenceRecords: [
+        { occurrenceAddress: 'A.1', addressPath: 'A.1', path: 'p', occurrenceType: 'file' },
+        { occurrenceAddress: 'A.2', addressPath: 'A.2', path: 'q', occurrenceType: 'file' },
+      ],
+    },
+    namingSemanticEvidenceEnrichment: {
+      records: [
+        { path: 'p', semanticTokens: ['omitted', 'source'] },
+        { path: 'q', semanticTokens: ['other', 'source'] },
+      ],
+    },
+  });
+
+  // The v1 payload is unchanged: the first observation is still omitted for missing identity.
+  assert.deepEqual(result.observations.map((observation) => observation.repoRelativePath), ['p', 'q']);
+  assert.ok(result.diagnostics.some((diagnostic) => diagnostic.reason === 'unmatched-occurrence-record'));
+
+  const section = result.namingSemanticEvidenceEnrichment;
+  assert.deepEqual(section.records.map((record) => record.occurrenceAddress), ['A.2']);
+  assert.deepEqual(section.diagnostics, [
+    { diagnosticType: 'unattached-enrichment-source', reason: 'ambiguous-source-observation', repoRelativePath: 'p' },
+  ]);
+});
