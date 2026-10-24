@@ -418,6 +418,7 @@ Current runner production path (shipped behavior):
 - tree receives only `namingSemanticFamilyBridge.observations[]` through tree wiring; tree never receives raw naming runtime internals from runner staging
 - `validate:naming` remains naming-only output
 - `validate:tree` and `validate:all` now automatically include naming-produced bridge evidence for tree advisories through the shared runner path
+- contract, not current runtime truth (calculogic-validator#93, Tree slice spec "Folder-level semantic-home evidence, Stage 1", S1.1): a Naming-owned staging function will give the runner the semantic-family bridge, the semantic-evidence enrichment source records, and a folder-label interpreter bound to the run's effective case rules; the runner transports them unchanged, and Tree wiring passes the last two to the Naming-owned bridge payload producer. Naming remains the only producer and interpreter of both sections
 
 ### Special-case subtype metadata
 

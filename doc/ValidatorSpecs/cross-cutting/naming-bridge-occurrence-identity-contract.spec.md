@@ -185,7 +185,7 @@ An invalid value in one field group invalidates only that field group, never the
 - Role facts are Naming source facts about the role slot and its registry metadata, not naming-validity verdicts; validity stays in the Naming report classification. Role-like hints remain in existing v1 disambiguation evidence and `disambiguationNotes`; role-like fields stay deferred (§6.2).
 - Tree may consume the section only as evidence under Tree-owned rules.
 
-**Current consumers.** Current Tree code reads only the payload envelope fields, `observations`, and `occurrenceContextEnrichment`, so it ignores this section. Emitting the section does not change Tree joins, evidence, or findings.
+**Current consumers.** Current Tree code reads only the payload envelope fields, `observations`, and `occurrenceContextEnrichment`, so it ignores this section. Emitting the section does not change Tree joins, evidence, or findings. Tree's planned consumption, including transport on the default Tree path, is specified by the Tree slice spec, "Folder-level semantic-home evidence, Stage 1" (calculogic-validator#93); it is not current runtime truth.
 
 ### 4.6 Naming folder-label observation section
 
@@ -260,7 +260,7 @@ There is no path fallback: a record that cannot be associated through the identi
 - Tree may consume records only as evidence under Tree-owned rules, and never parses folder labels itself.
 - The folder-composition patterns, folder-semantic-context patterns and package-root projection are unchanged by this section.
 
-**Current consumers.** Current Tree code reads only the payload envelope fields, `observations`, and `occurrenceContextEnrichment`, so it would ignore this section. Emitting it would not change Tree joins, evidence, or findings.
+**Current consumers.** Current Tree code reads only the payload envelope fields, `observations`, and `occurrenceContextEnrichment`, so it would ignore this section. Emitting it would not change Tree joins, evidence, or findings. Tree's planned consumption, including transport on the default Tree path, is specified by the Tree slice spec, "Folder-level semantic-home evidence, Stage 1" (calculogic-validator#93); it is not current runtime truth.
 
 ## 5. Ownership boundaries
 

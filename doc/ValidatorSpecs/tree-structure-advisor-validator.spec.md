@@ -154,6 +154,202 @@ Current implementation reality includes a guarded Tree-owned prepared-evidence j
 
 Current runner transport passes the path-keyed `namingSemanticFamilyBridge` to Tree and does not make address-keyed joins the only Tree path. Current Tree behavior remains path-keyed through the semantic-family bridge, and Tree must not re-derive Naming semantic-family interpretation from filenames or from occurrence bridge observations.
 
+Contract (calculogic-validator#93; not current runtime truth): the next section defines how the Naming semantic-evidence enrichment section (N1) and the Naming folder-label observation section (N2) reach Tree on the default path and how Tree validates and records them. Current runtime truth is unchanged until Stage 1A lands.
+
+### Folder-level semantic-home evidence, Stage 1 (Status: Contract, calculogic-validator#93; not current runtime truth)
+
+This section is the contract for Tree Stage 1 of folder-level Semantic Home development (tracking: calculogic-validator#85). It defines how Tree receives the two Naming evidence sections on its default execution path, how Tree validates them, how Tree records evidence availability, and how Tree assembles folder-level **evidence**: candidates, composition observations, candidate-relative containment relationships and counts-only facets.
+
+Stage 1 makes no Semantic Home eligibility, strength, placement or finding decision. Those belong to Stage 2. Tree findings, finding codes, counts, severity, report payload and exit behavior are unchanged by every Stage 1 slice.
+
+Sources this section builds on:
+
+- Naming bridge occurrence identity contract (`doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md`): §4.4 envelope sections, §4.5 `namingSemanticEvidenceEnrichment` (N1), §4.6 `namingFolderLabelObservations` (N2), §6.3 N2 fields.
+- Naming semantic interpretation spec (`doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md`) §13: folder-label interpretation.
+
+#### S1.1 Transport on the default Tree path
+
+Current runtime truth: the suite runner runs Naming without an addressed occurrence namespace (Tree builds the addressed snapshot itself) and stages only the path-keyed semantic-family bridge (R1) into Tree. Tree wiring builds its own bridge payload without an N1 source or a folder-label interpreter, so neither section reaches Tree on the default path.
+
+Stage 1 adopts this route:
+
+1. **Naming prepares the staging inputs.** A Naming-owned staging function, exposed by Naming wiring, takes the staged Naming run output and the `registryResolution` of the run and returns three opaque values:
+   - `namingSemanticFamilyBridge`: R1, exactly as staged today (`projectNamingSemanticFamilyBridge`);
+   - `namingSemanticEvidenceEnrichment`: the N1 source records (`projectNamingSemanticEvidenceEnrichment`, `naming/src/naming-semantic-evidence-enrichment-projection.logic.mjs`);
+   - `interpretFolderLabel`: a function from a folder label to a folder-label interpretation, built by Naming around `interpretNamingFolderLabel` (`naming/src/rules/naming-rule-interpret-folder-label.logic.mjs`).
+2. **The case-rule authority is the Naming run.** `interpretFolderLabel` is bound to the case-rules runtime that Naming prepares from the same `registryResolution` the runner gave the Naming run, so a custom registry set produces the same folder-label interpretation on the Naming path and the Tree path. Naming builds that binding; neither the runner nor Tree receives, inspects or constructs a case-rules runtime.
+3. **The runner only transports.** The runner passes the three values to Tree unchanged. It does not interpret, filter, merge or derive anything from them.
+4. **Tree wiring calls the Naming-owned producer.** Tree wiring passes `namingSemanticEvidenceEnrichment` and `interpretFolderLabel`, with its own addressed occurrence namespace, to `createNamingOccurrenceBridgePayload` (`naming/src/naming-occurrence-bridge-payload.logic.mjs`) when it builds its internal bridge payload. That call is the only place the sections are produced on the default path.
+5. **Tree never interprets Naming material itself.** Tree must not call `interpretNamingFolderLabel`, `splitSemanticTokens` or any other Naming rule, must not build a case-rules runtime, must not tokenize labels or semantic names, and must not substitute its own interpretation when a staging input is missing.
+6. **Caller-supplied bridge.** When a caller supplies a complete `namingOccurrenceBridge` payload (current intake option), Tree uses it as supplied, including any sections it carries, instead of building one.
+7. **Standalone Tree.** When Tree runs without staged Naming input (for example, a direct `runTreeStructureAdvisor` call without staging), the sections are not produced. That is run-level unavailability (S1.3), not an error.
+8. **Unchanged.** R1 staging and every current R1 consumer (the bridge contributor and the legacy semantic-home evidence) are unchanged.
+
+Why this route: the addressed snapshot is built once, by Tree; occurrence identity stays with Structural Addressing through that snapshot; Naming stays the sole producer of both sections; and the runner gains only opaque transport.
+
+#### S1.2 Section intake (consumer side)
+
+Tree validates each section exactly as the bridge contract specifies for supporting consumers: §4.4 rules 2–4 and 6 for the envelope (a malformed supported section is invalid as a whole), §4.5 consumer identity rules for N1, and §4.6 consumer identity rules for N2. Field groups are validated separately from identity. There is no path fallback.
+
+Intake produces Tree-owned **intake diagnostics** that name the section, the rejection reason and the identity tuple when one exists. Intake diagnostics are prepared evidence. They are not Tree findings and do not affect report counts or exit behavior.
+
+#### S1.3 Evidence availability
+
+Availability is recorded at three levels, so that a comparison that was not performed, or could not be performed, is never represented as one that was performed and found nothing.
+
+**Run level, per section (N1 and N2) and for the v1 bridge itself:**
+
+| State | Meaning |
+| --- | --- |
+| `available` | The section was received and its envelope is valid |
+| `not-staged` | No Naming input reached Tree for this run |
+| `section-absent` | Naming input reached Tree, but the producer emitted no section (for example, an invalid namespace or no records) |
+| `section-unsupported` | A section with an unsupported contract version was received |
+| `section-invalid` | A supported section with a malformed envelope was received |
+
+**Record level:** each record is `accepted` or `rejected` with its intake reason (S1.2).
+
+**Fact level, per occurrence:**
+
+| Fact | States |
+| --- | --- |
+| Folder label (N2) | `parsed`; `not-parsed` (with Naming's reasons); `absent`, with the reason: `run-unavailable`, `record-rejected` or `no-record` |
+| File semantic identity (v1 observation) | `semantic-observation`; `no-semantic-observation`; `rejected`; `unavailable` |
+| File tokens (N1) | `available`; `not-provided`; `rejected`; `unavailable` |
+
+- `no-semantic-observation` means the v1 bridge is available and accepted for the run and contains no observation for this file. Until the deferred Naming evaluation-status track on #85 lands, it merges "Naming evaluated the file without producing a semantic identity" with "the file was outside Naming's scan".
+- `not-provided` means N1 is available for the run and contains no record for this file.
+- `unavailable` means the run-level state for the source is anything but `available`.
+- `rejected` means the occurrence's record was rejected at intake.
+
+**Comparison rule.** A comparison is `evaluated` only when every fact it needs is available. Otherwise it is `not-evaluated` with one reason, chosen in this order: run-level unavailability, then record rejection, then a missing fact (`no-semantic-observation`, `not-provided`). A `not-evaluated` comparison is never counted as a match or as foreign evidence, and never as contradiction.
+
+#### S1.4 Candidates
+
+A candidate is permission to investigate one interpretation of one folder. It is not evidence that the interpretation is correct, and file contents never propose one.
+
+**Sources (closed list):**
+
+| `candidateSource` | Proposed from | `labelObservationRef` |
+| --- | --- | --- |
+| `naming-folder-label` | An accepted N2 record with `parseOutcome: parsed` | The folder occurrence's identity tuple |
+| `naming-folder-semantic-context` | An accepted Naming `folder-semantic-context` observation | That observation's identity tuple |
+| `naming-package-root` | An accepted Naming `semantic-family-root-folder` observation with `familyRootQualification: package-root-folder` | That observation's identity tuple; the candidate is always `bounded` |
+| consumer-supplied context | Reserved; not produced in Stage 1 | Defined when introduced |
+
+A folder whose label is `not-parsed` gets no `naming-folder-label` candidate. It still gets a composition observation (S1.8) and can still receive candidates from other sources.
+
+**Identity and fields.** A candidate is identified by `(folderAddressPath, candidateSource, labelObservationRef)`. Each candidate records:
+
+- its identity;
+- `lexicalRoot` and, for `naming-folder-label`, `labelTokens`, both copied from the Naming record;
+- `rootAncestry`: `anchored` when an ancestor folder has a candidate with the same `lexicalRoot`, otherwise `unanchored`;
+- references to other candidates on the same folder and to Tree's existing folder-kind and structural evidence for the folder, recorded alongside and never used to suppress the candidate.
+
+Multiple candidates may coexist on one folder.
+
+#### S1.5 Matching channels
+
+Each candidate is compared with each member file occurrence (S1.6) on two channels, recorded separately:
+
+| Channel | Comparison | Needs | Applies to |
+| --- | --- | --- | --- |
+| `root` | The file's v1 `familyRoot` equals the candidate's `lexicalRoot` | File semantic identity | Every candidate |
+| `prefix` | The file's N1 `semanticTokens` begin with the candidate's `labelTokens` | File semantic identity and N1 tokens | `naming-folder-label` candidates with two or more label tokens |
+
+Each comparison is `match`, `foreign` or `not-evaluated` (S1.3). Ambiguity facts on the file's v1 observation are carried into the facet counts. They do not change the comparison.
+
+#### S1.6 Candidate-relative containment
+
+Relationships describe a member's relation to one candidate. They are not properties of a folder, and they are kept separate from evidence availability.
+
+**Members.** The members of candidate C at folder F are the file occurrences in F's subtree, from the addressed snapshot. A member's **lineage** relative to C is the ordered list of folders strictly below F down to and including the member's parent folder; for a direct member it is empty.
+
+**Boundary facts.** For each folder f in a lineage, relative to C:
+
+| Fact | Established when | Status in Stage 1 |
+| --- | --- | --- |
+| `terminate` | f has an accepted `naming-package-root` observation | Established |
+| `narrow` | f has a `naming-folder-label` candidate whose `lexicalRoot` equals C's | Established, as attribution only |
+| `provisional-redirect` | f has a candidate whose `lexicalRoot` differs from C's | Provisional |
+| (role-category redirect) | Deferred: needs the Naming decision on which role categories are named by subject (#85) | Not produced |
+
+Why a nested foreign candidate is only provisional: every parsed folder label proposes a candidate, including labels such as `src`, `test`, `registries`, `rules` and `cli`. Whether a nested candidate genuinely redirects meaning depends on whether it is supported, which is a Stage 2 question. Treating it as an established redirect in Stage 1 would, for example, redirect every member of `naming/` behind `naming/src` and `naming/test` (S1.10).
+
+**Per-member algorithm.** For candidate C and member m:
+
+1. Collect every boundary fact on m's full lineage relative to C, in order from F downward. Evaluation never stops at the first fact found.
+2. If any `terminate` fact exists, m's relationship to C is `terminated`, established at the shallowest `terminate` folder. Every other fact on the lineage, including any redirect above or below it, is kept as provenance.
+3. Otherwise, if an established redirect fact exists, the relationship is `redirected`. No established redirect basis exists in Stage 1.
+4. Otherwise, the relationship is `preserved`, with status `provisional`. The member record lists its `narrow` attributions and its `provisional-redirect` boundaries.
+
+A deeper `terminate` therefore always overrides a redirect found higher on the lineage.
+
+**Relationship is not support.** `preserved (provisional)` only records that no stronger relationship was established. It never counts as support by itself. Only an evaluated channel `match` is evidence for a candidate, and every count keeps the member's relationship and its provisional boundaries visible, so Stage 2 can decide what they mean.
+
+#### S1.7 Accounting
+
+- A member contributes to candidate C at most once per channel. `terminated` members are counted separately and never as matches or foreign evidence for C.
+- Every count is attributed to the **branch**: the immediate child folder of F on the member's lineage, or `direct` for a direct member. Branch counts sum to the candidate's totals.
+- A member below a `narrow` folder counts once for C and once for the narrowing candidate, with the narrowing candidate recorded on C's branch row. It is never counted twice within one candidate.
+
+#### S1.8 Composition observations
+
+There is one logical composition observation per addressed folder occurrence, whether or not the folder has a candidate. It records:
+
+- direct-member tallies by v1 `familyRoot`, by N1 `roleCategory`, and by the fact-level availability states in S1.3;
+- the folder's label state (`parsed`, `not-parsed` or `absent`);
+- references to its child folders' composition observations.
+
+Subtree tallies are a deterministic **derived view** over these records, not stored duplicates. Member-level facts are held once, keyed by occurrence identity.
+
+#### S1.9 Facets and output
+
+**Facets per candidate are counts only:**
+
+- per channel: `match` (singular or ambiguous, direct or descendant), `foreign` by root and by branch, and `not-evaluated` by reason;
+- `terminated` members by terminating folder;
+- `provisional-redirect` boundaries, each with the nested candidate's reference and the number of members behind it;
+- `narrow` attributions;
+- corroboration references (S1.4).
+
+No ratio, threshold, eligibility, strength or placement value is produced in Stage 1.
+
+**Output.** The evidence is one Tree-owned prepared-evidence record in Tree's prepared dependencies, next to the existing Tree evidence. It holds run-level availability, intake diagnostics, candidates with facets, member relationship records and composition observations. It is not part of the report payload and does not change findings. All collections are sorted deterministically by occurrence identity, then by `candidateSource`.
+
+**Legacy evidence.** The file-level `semanticHome` field in `tree/src/tree-semantic-home-evidence.logic.mjs` (the file's own `semanticFamily`) is legacy evidence pending migration in Stage 2. Stage 1 neither reads nor changes it.
+
+#### S1.10 Worked examples (this repository at `repo` scope, `main` at `cd6b2c0`)
+
+These counts were computed from the merged Naming producers against Tree's own addressed snapshot. They illustrate the contract; they are not stored expectations. There are no package-root observations in this repository, so no member is `terminated`.
+
+| Folder | Label | Candidates | `root` channel | `prefix` channel | Not evaluated | Lineage boundaries |
+| --- | --- | --- | --- | --- | --- | --- |
+| `tree` | parsed, root `tree` | `naming-folder-label`, `naming-folder-semantic-context` | 42 match (32 ambiguous), 11 foreign, all through `tree/src` (the `_builtin` payloads, for example roots `structural` 4 and `semantic` 2) | n/a (single token) | 27 (`no-semantic-observation`; test files) | `provisional-redirect` at `tree/src` (53 members), `tree/src/registries` (25), `tree/src/contributors` (3), `tree/test` (27) |
+| `naming` | parsed, root `naming` | `naming-folder-label`, `naming-folder-semantic-context` | 33 match (20 ambiguous), 12 foreign, all through `naming/src` (registry payloads and `registry-state`) | n/a | 28 (`no-semantic-observation`) | `provisional-redirect` at `naming/src` (47), `naming/test` (26), `naming/src/registries` (23), and others |
+| `src/core/registry-lifecycle` | parsed, tokens `registry`, `lifecycle`; `unanchored` | `naming-folder-label` | 31 match (10 ambiguous), 0 foreign | 31 evaluated, 31 match | 0 | none; all 31 members are direct |
+| `doc/ValidatorSpecs/tree-owned` | parsed, tokens `tree`, `owned` | `naming-folder-label` | 7 match (4 ambiguous), 2 foreign (`validator`, direct) | 9 evaluated, 0 match | 3 (`no-semantic-observation`) | none |
+| `structural-addressing` | parsed, tokens `structural`, `addressing` | `naming-folder-label` | 5 match (4 ambiguous), 0 foreign | 5 evaluated, 5 match | 6 (`no-semantic-observation`) | `provisional-redirect` at `structural-addressing/src` (5), `structural-addressing/test` (6) |
+| `doc/Audits` | not-parsed (`label-has-uppercase`) | none from labels | n/a | n/a | n/a | Composition observation only |
+| `naming/src/registries/_builtin` | not-parsed (`label-has-unsupported-character`) | none from labels | n/a | n/a | n/a | Composition observation only; no boundary fact, so its members stay `preserved (provisional)` relative to `naming` |
+
+What the examples show:
+
+- **`tree-owned`:** the two channels disagree (7 root matches, 0 prefix matches). Stage 1 records both; what an owner-qualified label means is a Stage 2 question.
+- **`naming` and `tree`:** most of their members sit behind folders whose labels propose other candidates. Recording those folders as provisional keeps their evidence visible to Stage 2 instead of redirecting it away in Stage 1.
+- **`_builtin`:** a not-parsed folder creates no boundary, so its foreign roots stay visible in `naming`'s foreign counts on the `naming/src` branch.
+
+#### S1.11 Implementation slicing
+
+Stage 1 is implemented in two bounded slices. Each keeps Tree findings byte-identical at `repo`, `validator` and `app` scope.
+
+| Slice | Delivers |
+| --- | --- |
+| **Stage 1A** | The Naming-owned staging function, runner transport, Tree wiring's call to the Naming producer (S1.1); section intake and intake diagnostics (S1.2); run- and record-level availability (S1.3). No candidate or facet model. |
+| **Stage 1B** | Fact-level availability (S1.3), candidates, channels, the containment algorithm, accounting, composition observations, facets and the output record (S1.4–S1.9). |
+
+Stage 1A gives an independent checkpoint: both sections can be verified to reach Tree correctly before Tree assembles any folder-level evidence from them.
+
 ### Naming-bridge folder-kind interpretation + placement model (Status: Bounded modeling note)
 
 Classification: Informative
