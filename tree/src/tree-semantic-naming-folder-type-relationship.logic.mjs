@@ -1,3 +1,5 @@
+import { deriveTreeNamingEvidenceStrength } from './tree-naming-evidence-strength.logic.mjs';
+
 const SOURCE_ID = 'tree-semantic-naming-folder-type-relationship';
 
 const toIdentityKeys = (record) => {
@@ -192,7 +194,7 @@ const toEstablishedSemanticContext = (ancestorLineage, ancestorSemanticContextLo
       semanticContext: contextRecord.semanticContext,
       source: contextRecord.evidenceSource ?? 'addressed-naming-semantic-context-evidence',
       qualification: contextRecord.semanticContextQualification ?? null,
-      confidence: contextRecord.semanticContextConfidence ?? contextRecord.evidenceStrength ?? 'bounded',
+      confidence: contextRecord.semanticContextConfidence ?? deriveTreeNamingEvidenceStrength(contextRecord),
       evidenceAddressPath: contextRecord.addressPath ?? null,
       evidenceOccurrenceAddress: contextRecord.occurrenceAddress ?? null,
       evidenceProvenance: contextRecord.evidenceProvenance ? { ...contextRecord.evidenceProvenance } : null,
@@ -345,7 +347,7 @@ export const prepareTreeSemanticNamingFolderTypeRelationshipEvidence = (input) =
       occurrenceType: occurrenceRecord.occurrenceType ?? null,
       relationshipPerspective: rule.relationshipPerspective,
       relationshipSource: SOURCE_ID,
-      relationshipEvidenceStrength: namingRecord.evidenceStrength ?? 'bounded',
+      relationshipEvidenceStrength: deriveTreeNamingEvidenceStrength(namingRecord),
       namingPerspective: rule.namingPerspective,
       treeFolderType: rule.treeFolderType,
       structuralHomeCondition: rule.structuralHomeCondition,

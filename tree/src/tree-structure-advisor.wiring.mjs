@@ -135,16 +135,15 @@ export const prepareTreeStructureAdvisorInputs = (
   const namingFolderCompositionPatternsRegistry = loadNamingFolderCompositionPatternsRegistryFromRegistryRoot(
     registryRoots?.[NAMING_REGISTRY_SLICE_ID] ?? NAMING_BUILTIN_REGISTRY_ROOT,
   );
-  const namingSemanticEvidenceBridge = namingSemanticFamilyBridge
-    ? prepareNamingSemanticEvidenceBridge(namingSemanticFamilyBridge)
-    : { observations: [] };
   const namingFolderCompositionBridge = projectNamingFolderCompositionBridge({
     folderOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
     folderCompositionPatternsRegistry: namingFolderCompositionPatternsRegistry,
   });
-  const combinedNamingSemanticEvidenceBridge = {
+  // The occurrence bridge is built from Naming's source observations, never from prepared evidence:
+  // preparation is a consumer view, and the producer copies only source fields (#82).
+  const combinedNamingSemanticObservations = {
     observations: [
-      ...(namingSemanticEvidenceBridge.observations ?? []),
+      ...(Array.isArray(namingSemanticFamilyBridge?.observations) ? namingSemanticFamilyBridge.observations : []),
       ...namingFolderCompositionBridge.observations,
     ],
   };
@@ -154,7 +153,7 @@ export const prepareTreeStructureAdvisorInputs = (
     occurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
   };
   const addressedNamingOccurrenceBridge = namingOccurrenceBridge ?? createNamingOccurrenceBridgePayload({
-    namingSemanticFamilyBridge: combinedNamingSemanticEvidenceBridge,
+    namingSemanticFamilyBridge: combinedNamingSemanticObservations,
     addressedOccurrenceNamespace,
   });
   const addressedNamingSemanticEvidenceBridge = prepareNamingSemanticEvidenceBridge(addressedNamingOccurrenceBridge);

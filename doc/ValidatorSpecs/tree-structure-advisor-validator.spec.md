@@ -109,6 +109,8 @@ Bounded consumable naming bridge surfaces include:
 - optional `ambiguityFlags[]`
 - optional `splitFamilyFlags[]`
 
+Ambiguity facts and evidence strength (#82): Naming supplies `ambiguityFlags[]` and `splitFamilyFlags[]` as separate source facts. Every preparation of Naming evidence for Tree keeps both unchanged, so preparing prepared evidence again yields the same record, and it carries no Naming-authored strength (the bridge identity contract rejects Naming-authored `evidenceStrength`). The occurrence bridge payload is built from Naming's source observations, never from prepared evidence. Tree derives the strength of Naming evidence for its own reasoning with one Tree-owned rule (`deriveTreeNamingEvidenceStrength`, `tree/src/tree-naming-evidence-strength.logic.mjs`) that lists each limiting fact separately: today either fact limits the evidence to `bounded`, and evidence with neither is `high`. Semantic-home and relationship evidence strengths use that rule. *Correction (#82):* prepared Naming evidence first replaced both flags with one `splitMarkers` list and a Naming-derived `evidenceStrength`; the default Tree path prepared it twice, which dropped the ambiguity and reported ambiguous evidence as `high`.
+
 Tree advisor does **not** re-own naming validity judgments. Naming validity remains owned by naming conventions/specs and the naming validator slice.
 
 Tree now also consumes repository-top folder observations from that same Naming-owned evidence surface when Naming supplies semantic-family-root evidence for folder occurrences. Tree does not parse those folder names into semantic identity. Tree evaluates a Tree-owned relationship perspective between the Naming evidence and the folder occurrence context.

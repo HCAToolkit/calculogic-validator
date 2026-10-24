@@ -1,3 +1,8 @@
+import {
+  TREE_NAMING_EVIDENCE_STRENGTHS,
+  deriveTreeNamingEvidenceStrength,
+} from './tree-naming-evidence-strength.logic.mjs';
+
 const SOURCE_ID = 'tree-semantic-home-evidence';
 
 const assertValidInput = (input) => {
@@ -116,6 +121,14 @@ const toRelationshipRecordsByPath = (relationshipRecords = []) => {
   return recordsByPath;
 };
 
+// A Naming record's strength comes from its ambiguity facts (#82). A relationship record is Tree's own
+// interpretation and carries no Naming facts; it stays bounded, as before, until folder-level
+// semantic-home reasoning defines how relationship evidence is weighed.
+const toSemanticHomeEvidenceStrength = (namingRecord) =>
+  typeof namingRecord.relationshipPerspective === 'string'
+    ? TREE_NAMING_EVIDENCE_STRENGTHS.BOUNDED
+    : deriveTreeNamingEvidenceStrength(namingRecord);
+
 const toEvidenceRecord = (occurrenceRecord, namingRecord) => ({
   addressPath: occurrenceRecord.addressPath ?? null,
   parentAddressPath: occurrenceRecord.parentAddressPath ?? null,
@@ -124,7 +137,7 @@ const toEvidenceRecord = (occurrenceRecord, namingRecord) => ({
   occurrenceType: occurrenceRecord.occurrenceType ?? null,
   semanticHome: namingRecord.semanticFamily,
   semanticHomeSource: SOURCE_ID,
-  semanticHomeEvidenceStrength: namingRecord.evidenceStrength ?? 'bounded',
+  semanticHomeEvidenceStrength: toSemanticHomeEvidenceStrength(namingRecord),
   semanticName: namingRecord.semanticName,
   semanticFamily: namingRecord.semanticFamily,
   familyRoot: namingRecord.familyRoot,
