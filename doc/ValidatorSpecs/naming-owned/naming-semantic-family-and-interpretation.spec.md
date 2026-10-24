@@ -371,3 +371,92 @@ Classification: Normative
 - No registry payload mutation requirements.
 
 Classification: Normative
+
+## 13) Folder-label interpretation (calculogic-validator#89)
+
+- **Status:** contract-approved by calculogic-validator#89; **not current runtime truth** until an implementation slice emits and tests it.
+- **Transport:** the `namingFolderLabelObservations` section (`naming-folder-label-observation.v1`) defined in the cross-cutting Naming bridge occurrence identity contract, §4.6 and §6.3.
+
+This section defines how Naming interprets a folder's label as lexical material. It does not define, and Naming does not decide, what a folder is for. Whether a folder is a semantic home, who owns it, how deep it should be, or what a qualifier in its label means are Tree interpretations.
+
+### 13.1 Definitions
+
+- **Folder label:** the name of one addressed folder occurrence, exactly as Structural Addressing supplies it.
+- **Label token:** one segment of a parsed folder label, produced by the same semantic tokenization as `semantic-token` (§4.2).
+- **Lexical label root:** the first label token of a parsed label. It is a lexical fact only. It is not a `family-root` (§4.4) and does not assert a semantic family.
+
+### 13.2 Context-free rule
+
+A folder label is interpreted as an isolated string. The only input is the label itself. Interpretation never uses the folder's parent, children, siblings, depth, path, address, contents, or any other occurrence. The same label therefore always yields the same interpretation, wherever it occurs.
+
+### 13.3 Interpretation procedure
+
+1. **Case and character rule.** The label is checked against the effective semantic-name case rule from the Naming `case-rules` registry, the same rule applied to filename semantic names. Today that rule is `kebab-case`, applied as `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
+2. **Parsed.** When the label satisfies the rule, Naming produces:
+   - `labelTokens`: the semantic tokenization of the label, in source order, with duplicates kept in position;
+   - `labelRoot`: the first label token;
+   - `labelFacts`: the lexical facts in §13.5 that apply, if any.
+3. **Not parsed.** When the label does not satisfy the rule, Naming produces only the not-parsed reasons in §13.4 that apply.
+
+### 13.4 Not-parsed reasons
+
+The reason vocabulary is bounded. Every reason that applies is reported, sorted and without duplicates:
+
+| Reason | Applies when the label |
+| --- | --- |
+| `label-empty` | is empty |
+| `label-has-uppercase` | contains an uppercase letter `A`–`Z` |
+| `label-has-unsupported-character` | contains a character other than `A`–`Z`, `a`–`z`, `0`–`9` or `-` |
+| `label-has-malformed-separator` | starts or ends with `-`, or contains `--` |
+
+The vocabulary decomposes the current `kebab-case` rule. If the `case-rules` registry style changes, this vocabulary must be reviewed in the same change.
+
+Not-parsed reasons are lexical facts about the label. They are not naming-validity findings, and Naming emits no naming findings for folders.
+
+**A not-parsed record carries no label tokens, no lexical label root and no label facts.** It never retains a partial or best-effort interpretation, so a not-parsed label can never be mistaken for a successful parse or used as one.
+
+### 13.5 Label facts (parsed labels only)
+
+The fact vocabulary is bounded:
+
+| Fact | Applies when |
+| --- | --- |
+| `contains-connector-token` | a connector token (`and`, `or`, `with`; the same set as filename interpretation) appears after the first label token |
+
+A label fact records what the label contains. It never says what that content means.
+
+### 13.6 Which filename rules apply to folder labels
+
+| Filename rule | Folder labels | Reason |
+| --- | --- | --- |
+| Semantic tokenization (§4.2) | Shared | Same linguistic material |
+| Semantic-name case rule (`case-rules` registry) | Shared | A failure gives `not-parsed` with reasons (§13.4), never a validity finding |
+| First token as anchor | Shared, as the **lexical** label root only | Not a `family-root`; no semantic family is asserted |
+| Connector tokens | Folder-specific lexical fact (§13.5) | For filenames a connector shapes family derivation; for a folder label it is only recorded |
+| Four-or-more-token family boundary heuristic (`family-boundary-heuristic`) and subgroup derivation | **Not applied** | Designed for filename semantics. No `semanticFamily`, `familySubgroup` or ambiguity flag is produced for folder labels. Extending family derivation to folders needs its own justified folder policy |
+| Role and extension grammar, role registry, missing or deprecated role, special cases | Not applicable | Folder labels have no role or extension slot |
+| Related semantic names (§4.6), split-family (§4.8) | Not applicable | These are relationships between filename interpretations |
+| Role-like tokens, qualifier classes | Deferred | Any later classification stays linguistic; its meaning stays with Tree |
+
+### 13.7 Worked examples
+
+Labels from this repository at `repo` scope, plus two illustrative labels:
+
+| Label | Outcome | Result |
+| --- | --- | --- |
+| `bin` | parsed | tokens `[bin]`, root `bin` |
+| `registry-lifecycle` | parsed | tokens `[registry, lifecycle]`, root `registry` |
+| `tree-owned` | parsed | tokens `[tree, owned]`, root `tree`. What `owned` means is Tree's decision |
+| `legacy-in-package-custom-set` | parsed | tokens `[legacy, in, package, custom, set]`, root `legacy`. No family boundary heuristic is applied, so no family is derived |
+| `Audits`, `ConventionRoutines`, `Indexes`, `ValidatorSpecs` | not-parsed | `[label-has-uppercase]` |
+| `_builtin` | not-parsed | `[label-has-unsupported-character]` |
+| `tree-and-naming` (illustrative) | parsed | tokens `[tree, and, naming]`, root `tree`, facts `[contains-connector-token]` |
+| `-draft` (illustrative) | not-parsed | `[label-has-malformed-separator]` |
+
+### 13.8 Boundaries
+
+- Naming emits lexical facts only: label tokens, the lexical label root, label facts, and not-parsed reasons.
+- Naming never emits home, ownership, responsibility, placement, folder-kind or qualifier-meaning conclusions for a folder.
+- The existing folder-composition patterns, folder-semantic-context patterns and package-root projection are unchanged by this section.
+
+Classification: Normative
