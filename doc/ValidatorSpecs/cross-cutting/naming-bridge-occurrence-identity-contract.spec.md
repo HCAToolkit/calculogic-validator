@@ -3,7 +3,7 @@
 - **Classification:** Normative for the Naming occurrence bridge identity, field-eligibility, existing v1 context/compatibility, enrichment, versioning, and migration contract; descriptive only where explicitly labeled as **current runtime truth**.
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
-- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. Tracking: calculogic-validator#85.
+- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. Tracking: calculogic-validator#85.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
 - **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
@@ -35,6 +35,7 @@ Current runtime truth from the issue #648 / PR #649 audit:
 - The bridge does not currently emit new enriched context partition fields such as `parentAddressPath`, `depth`, `orderIndex`, `lineageKey`, `contextPartitionKey`, `siblingContextKey`, `subtreeContextKey`, `semanticTokens`, `role`, `role-like fields`, `disambiguationNotes`, `evidenceStrength`, or `evidenceLimitNotes` merely because they may be useful.
 - Current runtime truth added since this spec was first written: the bridge producer also emits the separately named `occurrenceContextEnrichment` sidecar (`naming-occurrence-bridge-enrichment.v1`) carrying `parentOccurrenceAddress`, `occurrenceDepth`, `occurrenceOrderIndex`, `disambiguationNotes`, and `evidenceLimitNotes` keyed by the identity tuple, and Tree intake reads it through a dedicated sidecar intake path. The v1 observations themselves are unchanged by that sidecar.
 - `semanticTokens` and role facts (`role`, `roleCategory`, `roleStatus`) are emitted only in the separately named `namingSemanticEvidenceEnrichment` section (§4.5), never on v1 observations. Current runtime truth since calculogic-validator#87: the Naming occurrence-bridge path (`projectNamingOccurrenceBridge`, and so `runNamingValidator` with an addressed namespace) emits the section; the bridge payload that Tree wiring builds internally does not carry it, and no consumer reads it yet.
+- No folder-label observations are emitted. §4.6 approves them for a separately named section that is not yet current runtime truth. Folders are currently described only by the folder-composition, folder-semantic-context and package-root observations.
 - Tree staged intake and address-keyed join preparation may inspect the v1 bridge, but current Tree contributor behavior preserves fallback to path-keyed semantic-family evidence unless address-keyed evidence is clean and usable under Tree-owned policy.
 
 ## 3. Canonical occurrence identity contract
@@ -186,6 +187,81 @@ An invalid value in one field group invalidates only that field group, never the
 
 **Current consumers.** Current Tree code reads only the payload envelope fields, `observations`, and `occurrenceContextEnrichment`, so it ignores this section. Emitting the section does not change Tree joins, evidence, or findings.
 
+### 4.6 Naming folder-label observation section
+
+- **Section name:** `namingFolderLabelObservations`.
+- **Contract version:** `naming-folder-label-observation.v1`.
+- **Provenance:** `producerId: naming-folder-label-observation`, `source: calculogic-validator/naming`.
+- **Status:** contract-approved by calculogic-validator#89; **not current runtime truth** until an implementation slice emits and tests it.
+- **Interpretation rules:** Naming semantic interpretation spec (`doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md`) §13.
+- **Envelope:** §4.4 rule 5 (`contractVersion`, `producerId`, `source`, `identityTupleFields`, `recordCount`, tuple-sorted `records`, optional `diagnostics`).
+
+**Purpose.** The section describes what each addressed folder's label says, as lexical material. It is a **distinct kind of observation**, not enrichment. It does not claim that any folder is a semantic home.
+
+**Independence.** The section is independent of the v1 observations, the `occurrenceContextEnrichment` sidecar and the §4.5 section. Its records are never added to v1 observations or `NAMING_SEMANTIC_FIELDS`, and never merged into file observations. It shares only the identity framework (§3) and the envelope-section rule (§4.4) with §4.5.
+
+**Association.** A record attaches to the **addressed folder occurrence** in the payload namespace that carries the same identity tuple. It does not attach to a v1 observation, because most folders have none.
+
+**Coverage.**
+
+- Every occurrence in the addressed snapshot whose `occurrenceType` is `folder` gets exactly one record, regardless of what the folder contains. This includes folders none of whose files have a Naming semantic observation, and scope-root folders (for example, `src` and `test` at `app` scope, which Structural Addressing marks as scoped roots).
+- Scope means membership in the addressed snapshot. There is no separate scope policy.
+- **Namespace root.** A folder is covered only when Structural Addressing represents it as a folder occurrence. The current addressed snapshots do not represent the repository root as an occurrence (top-level occurrences have no parent), so it gets no record, and Naming must not manufacture one. If an address profile later represents a namespace root as a folder occurrence, the same coverage rule applies to it.
+
+**Record shape.** Each record carries the identity tuple, `repoRelativePath` as source-trace only, and one of two field groups determined by `parseOutcome` (§6.3):
+
+| `parseOutcome` | Fields | Never present |
+| --- | --- | --- |
+| `parsed` | `labelTokens`, `labelRoot`, optional `labelFacts` | `notParsedReasons` |
+| `not-parsed` | `notParsedReasons` | `labelTokens`, `labelRoot`, `labelFacts` |
+
+A not-parsed record never retains a partial interpretation (interpretation spec §13.4).
+
+**Production source.** Records are produced by Naming from the addressed folder occurrences of the supplied namespace, using the interpretation rules referenced above. They need the addressed snapshot, so they are produced where an addressed namespace is available.
+
+**Producer identity rules.**
+
+- Records come from addressed folder occurrences, so each record's identity exists by construction.
+- A folder occurrence without an occurrence address gets no record. The section records the omission as a section diagnostic.
+- When the addressed namespace is invalid, the section is omitted; the payload's existing namespace diagnostics already record the cause.
+- Naming never synthesizes an `occurrenceAddress` or infers snapshot identity (Naming address-attached rules spec §8).
+- The section is omitted when it would contain no records.
+
+**Consumer identity rules.** A supporting consumer validates records separately from v1 identity (§7, rule 13) and drops a record, with a distinguishable diagnostic, when:
+
+| Case | Diagnostic meaning |
+| --- | --- |
+| The identity tuple is missing, non-string, or empty | invalid identity |
+| The same identity tuple appears in more than one record | duplicate identity; every record carrying that tuple is dropped |
+| The record's `addressProfileId` or `addressedSnapshotId` differs from the payload namespace | namespace mismatch |
+| No addressed occurrence in the consumed snapshot carries the same tuple | unmatched record |
+| The matching addressed occurrence is not a folder | occurrence-type mismatch |
+| `parseOutcome` is missing or not one of `parsed` and `not-parsed`, or the record carries fields from the other outcome's group | invalid record shape |
+
+There is no path fallback: a record that cannot be associated through the identity tuple is dropped.
+
+**Parsed, not-parsed and absent.** These are three distinct states for a folder:
+
+- `parsed`: a usable lexical interpretation was produced.
+- `not-parsed`: Naming evaluated the label and it did not satisfy the interpretation rules. This is a positive statement about the label, with reasons. It is not missing evidence and not contradictory evidence.
+- **absent**: a consumer has no usable record for the folder, because the section is absent, unsupported or invalid, or the record was dropped. Absent evidence is unavailable, never contradictory.
+
+**Independence from §4.5.**
+
+- This section is valid without the §4.5 section.
+- Together with existing v1 `familyRoot`, it supports comparing a folder's lexical label root with file family roots.
+- Comparing label tokens with file token prefixes additionally needs the §4.5 section's `semanticTokens`.
+- When evidence from either section is unavailable, consumers must not manufacture tokens, reinterpret labels or parse folder names themselves, and must not treat an unavailable comparison as a failed one.
+
+**Ownership boundaries.**
+
+- Naming owns label interpretation (§5).
+- The section must not carry folder-kind, structural-home, semantic-home, ownership, responsibility, placement, scatter/cluster, confidence, severity, qualifier-meaning, Tree diagnostic, or finding fields (§6.2 decision standard; §7, rule 5).
+- Tree may consume records only as evidence under Tree-owned rules, and never parses folder labels itself.
+- The folder-composition patterns, folder-semantic-context patterns and package-root projection are unchanged by this section.
+
+**Current consumers.** Current Tree code reads only the payload envelope fields, `observations`, and `occurrenceContextEnrichment`, so it would ignore this section. Emitting it would not change Tree joins, evidence, or findings.
+
 ## 5. Ownership boundaries
 
 | Surface | Addressing | Naming | Tree | Suite-core |
@@ -235,11 +311,25 @@ Deferred set: `lineageKey`, `contextPartitionKey`, `siblingContextKey`, `subtree
 
 Rejected set: `evidenceStrength`.
 
+### 6.3 Naming folder-label observation fields (§4.6)
+
+These fields are approved for the §4.6 section only. They are never v1 observation fields.
+
+| Field | Owner | Source of truth | Value shape | Required / optional | Absence behavior | Normalization and deterministic order | Tree-consumption limitation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `parseOutcome` | Naming | Naming folder-label interpretation (interpretation spec §13.3) | `parsed` or `not-parsed` | Required on every record | A record without it is invalid (§4.6 consumer rules) | Exact string | An outcome, not a validity finding. `not-parsed` is a statement about the label, never contradictory evidence about the folder |
+| `labelTokens` | Naming | Semantic tokenization of the label (interpretation spec §13.3) | Non-empty array of non-empty strings | Required when `parseOutcome` is `parsed`; forbidden otherwise | Never `null` or empty | Source order; duplicates kept in position; no sorting or deduplication | Tree may compare tokens under Tree-owned rules; it must not re-tokenize the label or treat token equality as home or placement evidence by itself |
+| `labelRoot` | Naming | First label token (interpretation spec §13.1) | Non-empty string equal to `labelTokens[0]` | Required when `parsed`; forbidden otherwise | Never `null` | Exact string | A lexical root, not a `familyRoot`; it asserts no semantic family |
+| `labelFacts` | Naming | Lexical fact vocabulary (interpretation spec §13.5) | Array of codes from that vocabulary; v1 vocabulary: `contains-connector-token` | Optional when `parsed`; forbidden otherwise | Omit when no fact applies; never `null` or empty | Sorted; no duplicates | Records what the label contains, never what it means |
+| `notParsedReasons` | Naming | Not-parsed reason vocabulary (interpretation spec §13.4) | Non-empty array of codes: `label-empty`, `label-has-uppercase`, `label-has-unsupported-character`, `label-has-malformed-separator` | Required when `parseOutcome` is `not-parsed`; forbidden otherwise | Never `null` or empty | Sorted; no duplicates | Lexical facts about the label; not naming-validity findings |
+
+Not approved for the §4.6 section in v1: `semanticFamily`, `familySubgroup`, `ambiguityFlags` and `splitFamilyFlags` for folder labels (no folder family policy exists), role-like or qualifier classifications (deferred), and the raw label as a separate field (`repoRelativePath` already carries it as source-trace; consumers must not parse either).
+
 ## 7. Guardrails for approved future enrichment fields
 
 Every approved future enrichment field is governed by these rules:
 
-1. Naming remains folder-agnostic.
+1. Naming remains folder-agnostic: Naming never turns folder, path, parent, child, sibling, depth or content context into Tree-owned conclusions, and any bounded use of such context for filename disambiguation stays within the Naming address-attached rules spec §6.3. Interpreting a folder's own label as an isolated string (§4.6; interpretation spec §13.2) is consistent with this rule; folder-label interpretation uses no context at all.
 2. The field is evidence, not Tree policy.
 3. No enrichment field may replace, weaken, override, or compete with the canonical observation identity tuple: `addressProfileId + addressedSnapshotId + occurrenceAddress`.
 4. `parentOccurrenceAddress`, when present, is optional neutral Addressing-owned parent-reference / containment identity evidence; it does not replace the observation's own `occurrenceAddress`, must remain inside the same validated `addressProfileId` and `addressedSnapshotId` namespace, and must not become a second primary identity for the observation.
@@ -297,6 +387,7 @@ The following questions remain explicit follow-up work and are not resolved by r
 5. Which producer is the authoritative addressed snapshot provider for the cross-slice bridge: Tree-local addressed occurrences, structural-addressing addressed snapshots, or a later compatibility bridge between them.
 6. Whether deferred partition keys should ever be emitted, and if so whether Addressing or Naming owns the exact grouping algorithm.
 7. Resolved (was: whether deferred Naming token and role evidence should be modeled as bridge fields, a Naming-owned sidecar, or remain outside the occurrence bridge) by calculogic-validator#84: token and role evidence are modeled as the Naming-owned additive section in §4.5. Role-like fields remain deferred.
+8. Whether folder labels should ever receive a semantic-family interpretation. That needs its own folder family policy; the §4.6 section deliberately emits none (calculogic-validator#89).
 
 ## 11. Non-goals
 
