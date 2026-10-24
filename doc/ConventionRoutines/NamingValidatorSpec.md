@@ -408,6 +408,7 @@ Additive occurrence bridge staging path (current implementation reality):
 - `folder-semantic-structural-composition` observations are relationship input only; their `semanticQualifier`, `semanticName`, `semanticFamily`, and `familyRoot` fields do not assert semantic-home truth for the mixed folder occurrence
 - naming may project separate explicit `folder-semantic-context` observations for supported ancestor folder occurrences; Tree may consume these only after Addressing attaches occurrence identity and must not replace them with raw ancestor folder names or path segments
 - file occurrences with similar basenames are outside this folder-composition projection and must not receive composition observations
+- a separately versioned `namingSemanticEvidenceEnrichment` section (`naming-semantic-evidence-enrichment.v1`) is contract-approved to carry `semanticTokens` and the role-fact group `role`, `roleCategory`, `roleStatus` for file observations (the cross-cutting Naming bridge occurrence identity contract, §4.4, §4.5 and §6.2; calculogic-validator#84). It is not current runtime truth. It is produced from a separate Naming-owned projection, so the prepared bridge projection fields listed above are unchanged by it
 
 Current runner production path (shipped behavior):
 

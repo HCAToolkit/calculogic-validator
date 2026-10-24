@@ -54,7 +54,8 @@ Future address-attached Naming bridge observations may preserve these Naming-own
 | `familySubgroup` | May be preserved when Naming derives a bounded subgroup signal. | Naming-owned semantic observation; not a child structural-home conclusion. |
 | `ambiguityFlags` | May be preserved when Naming detects bounded semantic/name/family ambiguity. | Naming-owned ambiguity signal; not advisory severity or Tree placement confidence. |
 | `splitFamilyFlags` | May be preserved when Naming detects bounded split-family evidence. | Naming-owned split-family signal; not Tree scatter, cluster, or drift conclusion. |
-| role parse fields, if later included | May be included only when they represent Naming-owned role-slot or role-like-token parsing from filename semantics. | Naming-owned filename interpretation; not folder-kind, structural-home, or parent/child placement reasoning. |
+| role parse fields, if later included | May be included only when they represent Naming-owned role-slot or role-like-token parsing from filename semantics. The role-fact group `role`, `roleCategory`, `roleStatus` is approved for the separately versioned Naming semantic-evidence enrichment section only (bridge contract §4.5 and §6.2, calculogic-validator#84); role-like fields remain deferred. | Naming-owned filename interpretation; not folder-kind, structural-home, or parent/child placement reasoning. Role facts are not naming-validity verdicts. |
+| `semanticTokens`, in the Naming semantic-evidence enrichment section only | May be included as Naming's semantic tokenization of the canonical semantic name, under the bridge contract §6.2 `semanticTokens` row. Not a v1 observation field. | Naming-owned token interpretation; Tree must not re-tokenize `semanticName` or treat token equality as a home or placement conclusion. |
 | disambiguation metadata, if later included | May be included only when it records Naming-owned filename/semantic disambiguation inputs, choices, or bounded uncertainty. | Naming-owned disambiguation evidence; not Tree semantic-home selection. |
 | finding/source references, if later included | May be included only as traceability back to Naming findings, Naming report records, or source snapshots. | Traceability metadata; not additional runtime policy authority and not Tree conclusion ownership. |
 
@@ -91,6 +92,8 @@ addressProfileId + addressedSnapshotId + occurrenceAddress
 ```
 
 Naming may carry that tuple, but Naming does not define its grammar or prove its structural correctness.
+
+Records in additive envelope sections (bridge contract §4.4), including the Naming semantic-evidence enrichment section (§4.5), attach only through this tuple. They may echo `repoRelativePath` for traceability, but it is never a join key, and the path-keyed compatibility fallback does not apply to them.
 
 ## 6. Neutral context use rules
 

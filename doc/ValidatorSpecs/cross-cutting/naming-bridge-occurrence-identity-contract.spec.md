@@ -3,6 +3,7 @@
 - **Classification:** Normative for the Naming occurrence bridge identity, field-eligibility, existing v1 context/compatibility, enrichment, versioning, and migration contract; descriptive only where explicitly labeled as **current runtime truth**.
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
+- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. Tracking: calculogic-validator#85.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
 - **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
@@ -32,6 +33,8 @@ Current runtime truth from the issue #648 / PR #649 audit:
 - Current Naming bridge semantic evidence includes existing Naming-owned semantic fields such as `semanticName`, `familyRoot`, `semanticFamily`, optional `familySubgroup`, optional sorted `ambiguityFlags`, and optional sorted `splitFamilyFlags`.
 - `occurrenceType` is existing optional v1 neutral occurrence-context / compatibility evidence when the addressed occurrence record supplies it. It remains Addressing-owned occurrence-type data; Naming may echo it, and valid v1 observations containing it remain valid.
 - The bridge does not currently emit new enriched context partition fields such as `parentAddressPath`, `depth`, `orderIndex`, `lineageKey`, `contextPartitionKey`, `siblingContextKey`, `subtreeContextKey`, `semanticTokens`, `role`, `role-like fields`, `disambiguationNotes`, `evidenceStrength`, or `evidenceLimitNotes` merely because they may be useful.
+- Current runtime truth added since this spec was first written: the bridge producer also emits the separately named `occurrenceContextEnrichment` sidecar (`naming-occurrence-bridge-enrichment.v1`) carrying `parentOccurrenceAddress`, `occurrenceDepth`, `occurrenceOrderIndex`, `disambiguationNotes`, and `evidenceLimitNotes` keyed by the identity tuple, and Tree intake reads it through a dedicated sidecar intake path. The v1 observations themselves are unchanged by that sidecar.
+- `semanticTokens` and role facts (`role`, `roleCategory`, `roleStatus`) are present in Naming finding details but are not emitted anywhere in the bridge payload. §4.5 approves them for a separately named section that is not yet current runtime truth.
 - Tree staged intake and address-keyed join preparation may inspect the v1 bridge, but current Tree contributor behavior preserves fallback to path-keyed semantic-family evidence unless address-keyed evidence is clean and usable under Tree-owned policy.
 
 ## 3. Canonical occurrence identity contract
@@ -84,6 +87,8 @@ Future v2 enrichment is additive to the current Naming semantic observation payl
 
 A sidecar approach must either preserve direct linkage to the complete current semantic observation payload or define an explicit deterministic association that leaves the existing semantic payload intact. Tree must still receive Naming semantic evidence plus any approved enrichment; Tree must not be forced to reconstruct semantic-family interpretation from raw names, paths, or enrichment fields.
 
+Route decision for Naming token and role evidence (calculogic-validator#84): `semanticTokens` and role facts use the separately named additive sidecar route, as the Naming semantic-evidence enrichment section defined in §4.5 under the envelope-section rule in §4.4. They are not added to v1 observations and do not require `naming-occurrence-bridge.v2`. A coordinated bridge v2 was not chosen because current Tree intake rejects every bridge contract version other than v1; bumping the existing `naming-occurrence-bridge-enrichment.v1` sidecar was not chosen because current Tree intake would treat the whole sidecar as invalid and lose the occurrence context it carries today.
+
 ### 4.3 Version handling and unknown fields
 
 Version handling rules:
@@ -97,6 +102,89 @@ Version handling rules:
   - **unsupported enrichment:** recognized identity with a bridge version, field, or sidecar that the consumer does not interpret.
   - **unsupported version:** a bridge contract version outside the consumer's supported set.
 - Unsupported enrichment must not force fallback removal, shared-helper extraction, provider swaps, or Tree policy changes.
+- The documented intake path for additive envelope sections, including which consumers validate section records, is the envelope-section rule in §4.4.
+
+### 4.4 Additive envelope sections
+
+An additive envelope section is a separately named top-level property of a `naming-occurrence-bridge.v1` payload that carries its own contract version and its own records. Sections are additive extensions of the payload envelope. They are not changes to the `naming-occurrence-bridge.v1` observation contract.
+
+Envelope-section rules:
+
+1. **v1 is unchanged.** A section does not change `bridgeContractVersion`, the v1 envelope fields, the v1 `compatibility` block, the v1 `observations` and their fields, or the existing `occurrenceContextEnrichment` sidecar. A payload carrying sections is a valid `naming-occurrence-bridge.v1` payload.
+2. **Legacy consumers ignore unknown sections.** A consumer that does not support a section ignores it. Ignoring a section must not invalidate, drop, reorder, or alter v1 observations, the existing sidecar, or any other section.
+3. **Only supporting consumers validate.** A consumer validates a section's records only when it explicitly supports that section's contract version. An unsupported section version is unsupported enrichment under §4.3, not invalid identity; its records are ignored and nothing else in the payload is affected. A supported section whose envelope is malformed (not a plain object, `identityTupleFields` not exactly the tuple below, `records` not an array, or `recordCount` not equal to the number of records) is invalid as a whole: the consumer reports one section-level diagnostic and ignores its records, and rule 4 applies.
+4. **Sections are independent.** The absence, unsupported version, or invalidity of one section never affects v1 observations, the existing sidecar, or another section.
+5. **Section envelope.** Every section is a plain object carrying:
+   - `contractVersion`: the section's own version string;
+   - `producerId` and `source`: provenance of the producing Naming component;
+   - `identityTupleFields`: exactly `["addressProfileId", "addressedSnapshotId", "occurrenceAddress"]`, in that order;
+   - `recordCount`: the number of records;
+   - `records`: the records, sorted by `addressProfileId`, then `addressedSnapshotId`, then `occurrenceAddress`;
+   - optional `diagnostics`: section-level producer diagnostics.
+
+   Section counts and diagnostics live inside the section, never in the v1 `compatibility` block.
+6. **Identity.** Every section record carries the canonical identity tuple (§3.2). Its `addressProfileId` and `addressedSnapshotId` must equal the payload's namespace. Section records associate only through the identity tuple. `repoRelativePath` may be echoed as source-trace only and is never a join key; the §8 path fallback does not extend to section records.
+7. **Declared association.** Each section's contract states what a record attaches to (for example, an existing v1 observation, or an addressed occurrence) and which occurrence types it applies to.
+8. **Change control.** Adding a section, or a new section version, requires a contract amendment that passes the §6.2 decision standard for every field it carries.
+
+The existing `occurrenceContextEnrichment` sidecar predates this rule and keeps its established shape (`enrichmentContractVersion`, `identityTupleFields`, `enrichedObservations`). This rule does not change it.
+
+### 4.5 Naming semantic-evidence enrichment section
+
+- **Section name:** `namingSemanticEvidenceEnrichment`.
+- **Contract version:** `naming-semantic-evidence-enrichment.v1`.
+- **Provenance:** `producerId: naming-semantic-evidence-enrichment`, `source: calculogic-validator/naming`.
+- **Status:** contract-approved by calculogic-validator#84; **not current runtime truth** until an implementation slice emits and tests it.
+
+**Purpose.** The section enriches existing file observations with Naming-owned semantic tokens and role facts. It does not create observations of its own.
+
+**Association.** A record attaches to the v1 observation in the same payload that carries the same identity tuple. The section applies to file occurrences only. Folder observations (`folder-semantic-structural-composition`, `folder-semantic-context`, `semantic-family-root-folder`) are not enriched by this section.
+
+**Record shape.** Each record carries the identity tuple, optionally `repoRelativePath` as source-trace only, and at least one enrichment field group:
+
+| Field group | Fields | Rule |
+| --- | --- | --- |
+| Tokens | `semanticTokens` | §6.2 `semanticTokens` row |
+| Role facts | `role`, `roleCategory`, `roleStatus` | §6.2 `role` row; the three fields are emitted together or not at all |
+
+A record that would carry no enrichment field group is not emitted.
+
+**Production source.** Records are produced by a Naming-owned projection of the same canonical Naming findings that produce v1 file observations. The prepared path-keyed semantic-family bridge projection (`projectNamingSemanticFamilyBridge`, `NamingValidatorSpec.md` Naming→Tree bridge contract) is not changed by this section and does not gain these fields.
+
+**Producer identity rules.**
+
+- A record is emitted only for a v1 file observation the producer emitted in the same payload.
+- When the addressed namespace is invalid, the section is omitted; the payload's existing namespace diagnostics already record the cause.
+- When occurrence identity cannot be attached to a Naming source observation, no v1 observation and no section record is emitted for it. The existing `missing-occurrence-identity` payload diagnostic records the omission; the section does not duplicate it.
+- Naming never synthesizes an `occurrenceAddress` or infers snapshot identity to force attachment (Naming address-attached rules spec §8).
+- The section is omitted when it would contain no records.
+
+**Consumer identity rules.** A supporting consumer validates section records separately from v1 identity (§7, rule 13) and drops a record, with a distinguishable diagnostic, when:
+
+| Case | Diagnostic meaning |
+| --- | --- |
+| The identity tuple is missing, non-string, or empty | invalid identity |
+| The same identity tuple appears in more than one record | duplicate identity; every record carrying that tuple is dropped |
+| The record's `addressProfileId` or `addressedSnapshotId` differs from the payload namespace | namespace mismatch |
+| No v1 observation that the consumer accepted carries the same tuple | unmatched record |
+| The matching v1 observation carries an `occurrenceType` other than `file` | occurrence-type mismatch |
+
+An invalid value in one field group invalidates only that field group, never the identity tuple or the other group. There is no path fallback: a record that cannot be associated through the identity tuple is dropped.
+
+**Absence behavior.** When the section is absent, carries an unsupported version, or is invalid, consumer behavior is exactly the behavior without the section. The enrichment is then **unavailable** evidence:
+
+- consumers must not manufacture tokens or role facts, including by re-tokenizing `semanticName` or parsing paths;
+- consumers must not treat a comparison that needs unavailable enrichment as a failed comparison;
+- unavailable enrichment is never contradictory evidence.
+
+**Ownership boundaries.**
+
+- Naming owns token interpretation and role interpretation (§5).
+- The section must not carry folder-kind, structural-home, semantic-home, placement, scatter/cluster, confidence, severity, Tree diagnostic, or finding fields (§7, rule 5).
+- Role facts are Naming source facts about the role slot and its registry metadata, not naming-validity verdicts; validity stays in the Naming report classification. Role-like hints remain in existing v1 disambiguation evidence and `disambiguationNotes`; role-like fields stay deferred (§6.2).
+- Tree may consume the section only as evidence under Tree-owned rules.
+
+**Current consumers.** Current Tree code reads only the payload envelope fields, `observations`, and `occurrenceContextEnrichment`, so it ignores this section. Emitting the section does not change Tree joins, evidence, or findings.
 
 ## 5. Ownership boundaries
 
@@ -130,8 +218,8 @@ Decision standard: approve only fields with a clear current source, a narrow sem
 | `contextPartitionKey` | deferred | Naming if semantic-evidence partitioning; Addressing if opaque occurrence partitioning | No approved current source or grouping strategy | n/a | n/a | n/a | n/a | n/a | semantic evidence partition candidate | Tree must not treat it as folder/home/placement policy | A later Naming-owned contract must define the partition purpose, stable algorithm, collision behavior, and proof it is folder-agnostic and not Tree policy | n/a |
 | `siblingContextKey` | deferred | Addressing preferred; Naming only if it can prove neutral evidence partitioning | No approved current source or grouping strategy | n/a | n/a | n/a | n/a | n/a | neutral context candidate | Tree must not treat it as sibling placement quality or folder-kind evidence | Addressing must define sibling identity/group semantics, or a later Naming contract must define an opaque source-backed key without Tree-policy leakage | n/a |
 | `subtreeContextKey` | deferred | Addressing preferred; Naming only if it can prove neutral evidence partitioning | No approved current source or grouping strategy | n/a | n/a | n/a | n/a | n/a | neutral context candidate | Tree must not treat it as subtree ownership, structural home, semantic home, or placement evidence by itself | Addressing must define subtree grouping semantics and stability/collision rules, or a later sidecar must carry it as opaque evidence | n/a |
-| `semanticTokens` | deferred | Naming | Naming token interpretation model | n/a | n/a | n/a | n/a | n/a | semantic evidence candidate | Tree must not derive role/category/home policy from tokens without Tree-owned rules | Naming must define a token vocabulary, token source, normalization, ordering, duplicate handling, and relationship to `semanticName`, `familyRoot`, and `semanticFamily` | n/a |
-| `role` | deferred | Naming | Naming role parser / role registry | n/a | n/a | n/a | n/a | n/a | semantic evidence candidate | Tree must not derive folder/home/placement policy solely from role | Naming must define whether the bridge emits raw parsed role, normalized role, registry category/status, or all of these, and how provisional/deprecated roles serialize | n/a |
+| `semanticTokens` | approved for the Naming semantic-evidence enrichment section (§4.5) only; not a v1 observation field | Naming | Naming's semantic tokenization of the canonical semantic name, the same token list Naming's semantic-family derivation uses; currently present as `finding.details.semanticTokens` on canonical Naming findings | `semanticTokens` | Array of non-empty strings. Token vocabulary: open; a token is any non-empty segment of the canonical semantic name, and the token list is not checked against a registry | Optional within a record | Omit when Naming produced no token list; do not emit `null` or an empty array. Naming currently derives the token list only for semantic names with at least two tokens, which is also the condition for a v1 semantic-family observation, so every enriched observation has at least two tokens | Tokens are the canonical `semanticName` split on `-` and `.`, each segment trimmed, empty segments removed; no further case mapping, since canonical semantic names already passed Naming's case rules. Source order is preserved; duplicates are preserved in position; no sorting and no deduplication. Relationship: `familyRoot` equals the first token; `semanticFamily` equals the first one or two tokens joined by `-`, as Naming's semantic-family derivation decides; joining the tokens is not guaranteed to reproduce `semanticName` (for example when it contains `.`), so consumers must not reconstruct `semanticName` from tokens | semantic evidence | Tree may compare tokens (for example, token-prefix comparison between occurrences) only under Tree-owned rules; Tree must not re-tokenize `semanticName`, derive family/role/category from tokens, or treat token equality as home or placement evidence by itself | n/a | n/a |
+| `role` | approved for the Naming semantic-evidence enrichment section (§4.5) only, as the role-fact group `role`, `roleCategory`, `roleStatus`; not a v1 observation field | Naming | Naming's role-slot parse of the filename (`parsed.role`) and the effective Naming role metadata for that role in the run; currently present as `finding.details.role`, `roleCategory`, and `roleStatus` on canonical Naming findings | `role`, `roleCategory`, `roleStatus` | `role`: non-empty string, the parsed role slot. Naming's canonical parser takes the role slot verbatim from the filename segment before the extension, and canonical classification requires it to equal an `active` registry role key exactly, so for enriched observations the parsed role and the registry spelling are the same value and no separate normalized form exists. `roleCategory`: non-empty string from Naming's role-category vocabulary, as recorded in the effective role metadata. `roleStatus`: one of `active`, `deprecated`, `provisional` (`FileNamingMasterList-V1_1.md`, Role Status Values) | Optional within a record as a group: the three fields are emitted together or not at all | Omit the whole group when any of the three values is unavailable; do not emit `null` or partial groups | Values are copied verbatim from the parse and the effective role metadata, with no mapping to Tree vocabulary and no sorting role. Serialization of non-active statuses: the section enriches only canonical observations, and canonical classification currently requires an `active` role (deprecated and unknown or inactive roles produce non-canonical findings), so current production yields `active` only; if canonical admission ever changes, `deprecated` and `provisional` serialize verbatim without remapping | semantic evidence (role-slot fact and role registry metadata) | Role facts are source facts, not naming-validity verdicts; validity stays in the Naming report classification. They are not role-like hints, which remain in existing disambiguation evidence. Tree must not derive folder, home, or placement policy solely from role; any use of role category as redirect evidence requires a separate Naming-owned convention decision | n/a | n/a |
 | `role-like fields` | deferred | Naming | Naming disambiguation / role-like token interpretation | n/a | n/a | n/a | n/a | n/a | semantic evidence candidate | Tree must not treat role-like evidence as a role verdict or placement policy | Naming must define bounded field names and distinguish role verdicts from role-like hints, ambiguity flags, and disambiguation evidence | n/a |
 | `disambiguationNotes` | approved for a future enriched bridge version | Naming | Naming-owned disambiguation interpretation | `disambiguationNotes` | array of objects, each `{ "code": "<non-empty-kebab-case-string>", "message": "<short deterministic string>", "source": "naming" }`; no severity/confidence/verdict fields | Optional | Omit when there are no notes; empty array is allowed only when a producer intentionally serializes empty containers; `null` is not allowed | Sort by `code`, then `message`, then `source`; remove exact duplicates; messages must be deterministic and not environment-specific | diagnostic metadata / semantic evidence | Tree may consume only as Naming disambiguation evidence; Tree owns whether it is usable, diagnostic-only, or ignored | n/a | n/a |
 | `evidenceStrength` | rejected for bridge payload use | Tree, if strength/confidence is ever interpreted; Naming may own only source facts | Tree confidence/severity policy, not a Naming bridge field | n/a | n/a | n/a | n/a | n/a | rejected Tree-policy/confidence candidate | Tree must not receive Naming-authored strength as bridge policy | n/a | It would encode confidence/strength policy and blur Tree-owned clean/usable evidence assessment, confidence, severity, and findings. |
@@ -141,7 +229,9 @@ Existing optional v1 context/compatibility set: `occurrenceType`.
 
 Approved first enriched bridge set: `parentOccurrenceAddress`, `occurrenceDepth`, `occurrenceOrderIndex`, `disambiguationNotes`, and `evidenceLimitNotes`.
 
-Deferred set: `lineageKey`, `contextPartitionKey`, `siblingContextKey`, `subtreeContextKey`, `semanticTokens`, `role`, and `role-like fields`.
+Approved Naming semantic-evidence enrichment section set (§4.5, calculogic-validator#84): `semanticTokens` and the role-fact group `role`, `roleCategory`, `roleStatus`.
+
+Deferred set: `lineageKey`, `contextPartitionKey`, `siblingContextKey`, `subtreeContextKey`, and `role-like fields`.
 
 Rejected set: `evidenceStrength`.
 
@@ -162,6 +252,7 @@ Every approved future enrichment field is governed by these rules:
 11. The field must preserve current path-keyed compatibility during migration.
 12. A future implementation must not remove `path`, `repoRelativePath`, or path-keyed compatibility fallback solely because approved enrichment fields exist.
 13. A future implementation must validate enriched fields separately from the required identity tuple so unsupported enrichment can be reported without mislabeling valid identity as invalid.
+14. For fields carried in an additive envelope section (§4.4), rules 11 and 12 refer to the compatibility fields of the v1 observations, which the section leaves intact. Section records themselves associate only through the identity tuple and have no path fallback.
 
 ## 8. Fallback and migration rule
 
@@ -175,6 +266,7 @@ Future implementation slices must follow this migration rule:
 6. Future v2 enrichment does not by itself authorize provider swaps, Tree consumption changes, fallback removal, helper extraction, CLI changes, report-envelope changes, or runtime bridge production.
 7. Future v2 or sidecar migration must preserve the existing Naming-owned semantic observation payload, existing path/source-trace compatibility fields, and optional existing v1 `occurrenceType` behavior when available. It must not create an identity-and-enrichment-only payload that drops semantic evidence Tree currently consumes.
 8. Tree must continue receiving Naming semantic evidence plus any approved enrichment; it must not be forced to reconstruct semantic-family interpretation from raw names, paths, neutral occurrence context, or diagnostic metadata.
+9. The path-based compatibility fallback in rules 2–4 applies to v1 observations only. It does not extend to records in additive envelope sections (§4.4), which have no legacy path-keyed consumers.
 
 Path fallback is current implementation reality and must not be removed in this contract slice.
 
@@ -204,7 +296,7 @@ The following questions remain explicit follow-up work and are not resolved by r
 4. Which focused repeated-same-family fixtures should prove that address-keyed joins beat path/family bucket assumptions before fallback removal.
 5. Which producer is the authoritative addressed snapshot provider for the cross-slice bridge: Tree-local addressed occurrences, structural-addressing addressed snapshots, or a later compatibility bridge between them.
 6. Whether deferred partition keys should ever be emitted, and if so whether Addressing or Naming owns the exact grouping algorithm.
-7. Whether deferred Naming token and role evidence should be modeled as bridge fields, a Naming-owned sidecar, or remain outside the occurrence bridge.
+7. Resolved (was: whether deferred Naming token and role evidence should be modeled as bridge fields, a Naming-owned sidecar, or remain outside the occurrence bridge) by calculogic-validator#84: token and role evidence are modeled as the Naming-owned additive section in §4.5. Role-like fields remain deferred.
 
 ## 11. Non-goals
 
