@@ -10,7 +10,6 @@ const namingSemanticEvidenceFixture = [
     familyRoot: 'app',
     familySubgroup: 'shell',
     evidenceSource: 'namingSemanticFamilyBridge',
-    evidenceStrength: 'high',
   },
   {
     path: 'test/tree-structure-advisor.test.mjs',
@@ -18,7 +17,7 @@ const namingSemanticEvidenceFixture = [
     semanticFamily: 'tree-structure-advisor',
     familyRoot: 'tree',
     evidenceSource: 'namingSemanticFamilyBridge',
-    evidenceStrength: 'bounded',
+    ambiguityFlags: ['family-boundary-heuristic'],
     occurrenceType: 'file',
   },
 ];
@@ -44,6 +43,8 @@ test('returns deterministic evidence-only records joined by path and preserves a
   assert.equal(result.evidenceRecords[0].semanticFamily, 'app-shell');
   assert.equal(result.evidenceRecords[0].familyRoot, 'app');
   assert.equal(result.evidenceRecords[0].familySubgroup, 'shell');
+  // Tree derives strength from Naming's ambiguity facts (#82).
+  assert.deepEqual(result.evidenceRecords.map((record) => record.semanticHomeEvidenceStrength), ['high', 'bounded']);
 });
 
 test('does not emit finding/verdict/advisor or retired root-classification fields', () => {

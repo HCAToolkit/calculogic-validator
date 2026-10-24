@@ -27,10 +27,12 @@ const toNamingSemanticEvidenceRecord = (observation) => {
     return null;
   }
 
-  const splitMarkers = toSortedUniqueStringValues([
-    ...(Array.isArray(observation.ambiguityFlags) ? observation.ambiguityFlags : []),
-    ...(Array.isArray(observation.splitFamilyFlags) ? observation.splitFamilyFlags : []),
-  ]);
+  // Naming's ambiguity facts pass through unchanged and separately, so preparing a prepared record
+  // again yields the same record. How strongly they limit evidence is Tree's decision (#82).
+  const ambiguityFlags = Array.isArray(observation.ambiguityFlags) ? toSortedUniqueStringValues(observation.ambiguityFlags) : [];
+  const splitFamilyFlags = Array.isArray(observation.splitFamilyFlags)
+    ? toSortedUniqueStringValues(observation.splitFamilyFlags)
+    : [];
 
   return {
     path: observation.repoRelativePath ?? observation.path,
@@ -61,9 +63,8 @@ const toNamingSemanticEvidenceRecord = (observation) => {
     semanticNameSource: 'naming-canonical-finding',
     semanticFamilySource: 'naming-family-derivation',
     evidenceSource: 'namingSemanticFamilyBridge',
-    evidenceStrength: splitMarkers.length === 0 ? 'high' : 'bounded',
-    ambiguityStatus: splitMarkers.length === 0 ? 'none' : 'present',
-    ...(splitMarkers.length > 0 ? { splitMarkers } : {}),
+    ...(ambiguityFlags.length > 0 ? { ambiguityFlags } : {}),
+    ...(splitFamilyFlags.length > 0 ? { splitFamilyFlags } : {}),
     ...(typeof observation.semanticEvidenceKind === 'string' && observation.semanticEvidenceKind.length > 0
       ? { semanticEvidenceKind: observation.semanticEvidenceKind }
       : {}),

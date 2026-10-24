@@ -37,9 +37,7 @@ test('prepareNamingSemanticEvidenceBridge returns deterministic evidence-only ob
         semanticNameSource: 'naming-canonical-finding',
         semanticFamilySource: 'naming-family-derivation',
         evidenceSource: 'namingSemanticFamilyBridge',
-        evidenceStrength: 'bounded',
-        ambiguityStatus: 'present',
-        splitMarkers: ['family-root-observed-multiple-families'],
+        splitFamilyFlags: ['family-root-observed-multiple-families'],
       },
       {
         path: 'src/z/order-payment.logic.ts',
@@ -50,9 +48,7 @@ test('prepareNamingSemanticEvidenceBridge returns deterministic evidence-only ob
         semanticNameSource: 'naming-canonical-finding',
         semanticFamilySource: 'naming-family-derivation',
         evidenceSource: 'namingSemanticFamilyBridge',
-        evidenceStrength: 'bounded',
-        ambiguityStatus: 'present',
-        splitMarkers: ['family-boundary-heuristic'],
+        ambiguityFlags: ['family-boundary-heuristic'],
       },
     ],
   });
@@ -67,6 +63,44 @@ test('prepareNamingSemanticEvidenceBridge returns deterministic evidence-only ob
     assert.equal('isKnownTopRoot' in observation, false);
     assert.equal('structuralClass' in observation, false);
   }
+});
+
+// #82: the prepared view keeps Naming's two ambiguity facts separately and carries no strength, so
+// preparing it again (as any re-wrapping path does) cannot turn ambiguous evidence into clean evidence.
+test('prepareNamingSemanticEvidenceBridge keeps ambiguity facts separately, authors no strength, and is idempotent', () => {
+  const input = {
+    observations: [
+      { path: 'a/ambiguous.logic.mjs', semanticName: 'a-b-c-d', semanticFamily: 'a-b', familyRoot: 'a', ambiguityFlags: ['family-boundary-heuristic'] },
+      { path: 'a/split.logic.mjs', semanticName: 'a-x', semanticFamily: 'a-x', familyRoot: 'a', splitFamilyFlags: ['family-root-observed-multiple-families'] },
+      {
+        path: 'a/both.logic.mjs',
+        semanticName: 'a-y-z-w',
+        semanticFamily: 'a-y',
+        familyRoot: 'a',
+        ambiguityFlags: ['family-boundary-heuristic'],
+        splitFamilyFlags: ['family-root-observed-multiple-families'],
+      },
+      { path: 'a/clean.logic.mjs', semanticName: 'clean', semanticFamily: 'clean', familyRoot: 'clean' },
+    ],
+  };
+
+  const once = prepareNamingSemanticEvidenceBridge(input);
+  const byPath = new Map(once.observations.map((observation) => [observation.path, observation]));
+  assert.deepEqual(byPath.get('a/ambiguous.logic.mjs').ambiguityFlags, ['family-boundary-heuristic']);
+  assert.equal('splitFamilyFlags' in byPath.get('a/ambiguous.logic.mjs'), false);
+  assert.deepEqual(byPath.get('a/split.logic.mjs').splitFamilyFlags, ['family-root-observed-multiple-families']);
+  assert.equal('ambiguityFlags' in byPath.get('a/split.logic.mjs'), false);
+  assert.deepEqual(byPath.get('a/both.logic.mjs').ambiguityFlags, ['family-boundary-heuristic']);
+  assert.deepEqual(byPath.get('a/both.logic.mjs').splitFamilyFlags, ['family-root-observed-multiple-families']);
+  assert.equal('ambiguityFlags' in byPath.get('a/clean.logic.mjs'), false);
+  for (const observation of once.observations) {
+    for (const derivedField of ['evidenceStrength', 'ambiguityStatus', 'splitMarkers']) {
+      assert.equal(derivedField in observation, false, derivedField);
+    }
+  }
+
+  assert.deepEqual(prepareNamingSemanticEvidenceBridge(once), once);
+  assert.deepEqual(prepareNamingSemanticEvidenceBridge(prepareNamingSemanticEvidenceBridge(once)), once);
 });
 
 test('prepareNamingSemanticEvidenceBridge returns empty observations for empty payload', () => {
