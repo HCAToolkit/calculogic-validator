@@ -34,7 +34,7 @@ Current runtime truth from the issue #648 / PR #649 audit:
 - `occurrenceType` is existing optional v1 neutral occurrence-context / compatibility evidence when the addressed occurrence record supplies it. It remains Addressing-owned occurrence-type data; Naming may echo it, and valid v1 observations containing it remain valid.
 - The bridge does not currently emit new enriched context partition fields such as `parentAddressPath`, `depth`, `orderIndex`, `lineageKey`, `contextPartitionKey`, `siblingContextKey`, `subtreeContextKey`, `semanticTokens`, `role`, `role-like fields`, `disambiguationNotes`, `evidenceStrength`, or `evidenceLimitNotes` merely because they may be useful.
 - Current runtime truth added since this spec was first written: the bridge producer also emits the separately named `occurrenceContextEnrichment` sidecar (`naming-occurrence-bridge-enrichment.v1`) carrying `parentOccurrenceAddress`, `occurrenceDepth`, `occurrenceOrderIndex`, `disambiguationNotes`, and `evidenceLimitNotes` keyed by the identity tuple, and Tree intake reads it through a dedicated sidecar intake path. The v1 observations themselves are unchanged by that sidecar.
-- `semanticTokens` and role facts (`role`, `roleCategory`, `roleStatus`) are present in Naming finding details but are not emitted anywhere in the bridge payload. §4.5 approves them for a separately named section that is not yet current runtime truth.
+- `semanticTokens` and role facts (`role`, `roleCategory`, `roleStatus`) are emitted only in the separately named `namingSemanticEvidenceEnrichment` section (§4.5), never on v1 observations. Current runtime truth since calculogic-validator#87: the Naming occurrence-bridge path (`projectNamingOccurrenceBridge`, and so `runNamingValidator` with an addressed namespace) emits the section; the bridge payload that Tree wiring builds internally does not carry it, and no consumer reads it yet.
 - Tree staged intake and address-keyed join preparation may inspect the v1 bridge, but current Tree contributor behavior preserves fallback to path-keyed semantic-family evidence unless address-keyed evidence is clean and usable under Tree-owned policy.
 
 ## 3. Canonical occurrence identity contract
@@ -134,7 +134,7 @@ The existing `occurrenceContextEnrichment` sidecar predates this rule and keeps 
 - **Section name:** `namingSemanticEvidenceEnrichment`.
 - **Contract version:** `naming-semantic-evidence-enrichment.v1`.
 - **Provenance:** `producerId: naming-semantic-evidence-enrichment`, `source: calculogic-validator/naming`.
-- **Status:** contract-approved by calculogic-validator#84; **not current runtime truth** until an implementation slice emits and tests it.
+- **Status:** contract-approved by calculogic-validator#84; emitted by the Naming occurrence-bridge path since calculogic-validator#87. The bridge payload that Tree wiring builds internally does not carry the section, and no consumer reads it yet.
 
 **Purpose.** The section enriches existing file observations with Naming-owned semantic tokens and role facts. It does not create observations of its own.
 

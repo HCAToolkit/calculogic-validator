@@ -22,6 +22,7 @@ import {
   summarizeFindings as summarizeFindingsRuntime,
 } from './naming-validator.logic.mjs';
 import { projectNamingSemanticFamilyBridge } from './naming-semantic-family-bridge-projection.logic.mjs';
+import { projectNamingSemanticEvidenceEnrichment } from './naming-semantic-evidence-enrichment-projection.logic.mjs';
 import { createNamingOccurrenceBridgePayload } from './naming-occurrence-bridge-payload.logic.mjs';
 import { prepareNamingSemanticEvidenceBridge } from './naming-semantic-evidence-bridge.logic.mjs';
 import { normalizePath } from '../../src/core/scoped-target-paths.logic.mjs';
@@ -139,6 +140,8 @@ export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, 
     namingSemanticFamilyBridge: options.namingSemanticFamilyBridge ??
       projectNamingSemanticFamilyBridge(namingRuntimeOrReportOutput),
     addressedOccurrenceNamespace: options.addressedOccurrenceNamespace,
+    namingSemanticEvidenceEnrichment: options.namingSemanticEvidenceEnrichment ??
+      projectNamingSemanticEvidenceEnrichment(namingRuntimeOrReportOutput),
     sourceReportRef: options.sourceReportRef,
     sourceSnapshotRef: options.sourceSnapshotRef,
   });

@@ -2,6 +2,12 @@ const BRIDGE_CONTRACT_VERSION = 'naming-occurrence-bridge.v1';
 const ENRICHMENT_SIDECAR_VERSION = 'naming-occurrence-bridge-enrichment.v1';
 const BRIDGE_SOURCE = 'calculogic-validator/naming';
 const BRIDGE_PRODUCER_ID = 'naming-semantic-family-occurrence-bridge';
+const SEMANTIC_EVIDENCE_SECTION_VERSION = 'naming-semantic-evidence-enrichment.v1';
+const SEMANTIC_EVIDENCE_SECTION_PRODUCER_ID = 'naming-semantic-evidence-enrichment';
+const IDENTITY_TUPLE_FIELDS = ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress'];
+// The `roleStatus` value shape approved for the section (bridge contract §6.2 `role` row, from the
+// FileNamingMasterList role status vocabulary).
+const ROLE_STATUS_VALUES = new Set(['active', 'deprecated', 'provisional']);
 
 const NAMING_SEMANTIC_FIELDS = [
   'semanticName',
@@ -303,9 +309,122 @@ const toInvalidAddressedNamespaceDiagnostics = ({ addressProfileId, addressedSna
   return diagnostics;
 };
 
+const compareIdentityTuples = (left, right) =>
+  left.addressProfileId.localeCompare(right.addressProfileId) ||
+  left.addressedSnapshotId.localeCompare(right.addressedSnapshotId) ||
+  left.occurrenceAddress.localeCompare(right.occurrenceAddress);
+
+const toValidSemanticTokens = (value) =>
+  Array.isArray(value) && value.length > 0 && value.every((token) => toOptionalNonEmptyString(token))
+    ? [...value]
+    : null;
+
+const toValidRoleFacts = (sourceRecord) =>
+  toOptionalNonEmptyString(sourceRecord.role) &&
+  toOptionalNonEmptyString(sourceRecord.roleCategory) &&
+  ROLE_STATUS_VALUES.has(sourceRecord.roleStatus)
+    ? { role: sourceRecord.role, roleCategory: sourceRecord.roleCategory, roleStatus: sourceRecord.roleStatus }
+    : null;
+
+const hasAnyRoleFact = (sourceRecord) =>
+  sourceRecord.role !== undefined || sourceRecord.roleCategory !== undefined || sourceRecord.roleStatus !== undefined;
+
+const countByKey = (values) => {
+  const counts = new Map();
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+};
+
+// Contract §4.4 and §4.5. Source records are path-keyed Naming facts; the producer correlates each one
+// with the v1 file observation it just emitted for that path, then the section record carries that
+// observation's identity tuple, which is the only association consumers may use. A path that is not
+// unique on either side is ambiguous, so it yields no record instead of a guessed one.
+const toSemanticEvidenceEnrichmentSection = ({ sourceRecords, observations }) => {
+  const records = [];
+  const diagnostics = [];
+  const validSourceRecords = sourceRecords.filter(
+    (sourceRecord) => isPlainObject(sourceRecord) && toPathKey(sourceRecord.path),
+  );
+  const sourcePathCounts = countByKey(validSourceRecords.map((sourceRecord) => sourceRecord.path));
+  const fileObservations = observations.filter((observation) => observation.occurrenceType === 'file');
+  const observationPathCounts = countByKey(fileObservations.map((observation) => observation.repoRelativePath));
+  const fileObservationByPath = new Map(fileObservations.map((observation) => [observation.repoRelativePath, observation]));
+  const reportedPaths = new Set();
+
+  for (const sourceRecord of validSourceRecords) {
+    const repoRelativePath = sourceRecord.path;
+    const observation = fileObservationByPath.get(repoRelativePath);
+    if (!observation) {
+      continue;
+    }
+
+    const ambiguityReason = (sourcePathCounts.get(repoRelativePath) ?? 0) > 1
+      ? 'duplicate-source-path'
+      : (observationPathCounts.get(repoRelativePath) ?? 0) > 1
+        ? 'ambiguous-observation-path'
+        : null;
+    if (ambiguityReason) {
+      if (!reportedPaths.has(repoRelativePath)) {
+        reportedPaths.add(repoRelativePath);
+        diagnostics.push({ diagnosticType: 'unattached-enrichment-source', reason: ambiguityReason, repoRelativePath });
+      }
+      continue;
+    }
+
+    const semanticTokens = toValidSemanticTokens(sourceRecord.semanticTokens);
+    if (!semanticTokens && sourceRecord.semanticTokens !== undefined) {
+      diagnostics.push({ diagnosticType: 'invalid-enrichment-field-group', fieldGroup: 'semantic-tokens', repoRelativePath });
+    }
+
+    const roleFacts = toValidRoleFacts(sourceRecord);
+    if (!roleFacts && hasAnyRoleFact(sourceRecord)) {
+      diagnostics.push({ diagnosticType: 'invalid-enrichment-field-group', fieldGroup: 'role-facts', repoRelativePath });
+    }
+
+    if (!semanticTokens && !roleFacts) {
+      continue;
+    }
+
+    records.push({
+      addressProfileId: observation.addressProfileId,
+      addressedSnapshotId: observation.addressedSnapshotId,
+      occurrenceAddress: observation.occurrenceAddress,
+      repoRelativePath,
+      ...(semanticTokens ? { semanticTokens } : {}),
+      ...(roleFacts ?? {}),
+    });
+  }
+
+  if (records.length === 0) {
+    return null;
+  }
+
+  return {
+    contractVersion: SEMANTIC_EVIDENCE_SECTION_VERSION,
+    producerId: SEMANTIC_EVIDENCE_SECTION_PRODUCER_ID,
+    source: BRIDGE_SOURCE,
+    identityTupleFields: [...IDENTITY_TUPLE_FIELDS],
+    recordCount: records.length,
+    records: records.sort(compareIdentityTuples),
+    ...(diagnostics.length > 0
+      ? {
+          diagnostics: diagnostics.sort(
+            (left, right) =>
+              left.repoRelativePath.localeCompare(right.repoRelativePath) ||
+              left.diagnosticType.localeCompare(right.diagnosticType) ||
+              (left.reason ?? left.fieldGroup).localeCompare(right.reason ?? right.fieldGroup),
+          ),
+        }
+      : {}),
+  };
+};
+
 export const createNamingOccurrenceBridgePayload = ({
   namingSemanticFamilyBridge = {},
   addressedOccurrenceNamespace = {},
+  namingSemanticEvidenceEnrichment,
   sourceReportRef,
   sourceSnapshotRef,
 } = {}) => {
@@ -360,6 +479,14 @@ export const createNamingOccurrenceBridgePayload = ({
     }
   }
 
+  const semanticEvidenceEnrichmentSection =
+    hasValidAddressedNamespace && Array.isArray(namingSemanticEvidenceEnrichment?.records)
+      ? toSemanticEvidenceEnrichmentSection({
+          sourceRecords: namingSemanticEvidenceEnrichment.records,
+          observations,
+        })
+      : null;
+
   return {
     bridgeContractVersion: BRIDGE_CONTRACT_VERSION,
     bridgeSource: BRIDGE_SOURCE,
@@ -406,6 +533,7 @@ export const createNamingOccurrenceBridgePayload = ({
           },
         }
       : {}),
+    ...(semanticEvidenceEnrichmentSection ? { namingSemanticEvidenceEnrichment: semanticEvidenceEnrichmentSection } : {}),
     ...(diagnostics.length > 0 ? { diagnostics } : {}),
   };
 };
