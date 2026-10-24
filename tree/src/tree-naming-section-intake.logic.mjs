@@ -8,8 +8,14 @@ const BRIDGE_CONTRACT_VERSION = 'naming-occurrence-bridge.v1';
 const IDENTITY_TUPLE_FIELDS = Object.freeze(['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress']);
 // The roleStatus value shape approved for N1 (bridge contract §6.2 `role` row).
 const ROLE_STATUS_VALUES = new Set(['active', 'deprecated', 'provisional']);
-// The N2 label-fact vocabulary (bridge contract §6.3).
+// The N2 label-fact and not-parsed reason vocabularies (bridge contract §6.3).
 const LABEL_FACT_VALUES = new Set(['contains-connector-token']);
+const NOT_PARSED_REASON_VALUES = new Set([
+  'label-empty',
+  'label-has-uppercase',
+  'label-has-unsupported-character',
+  'label-has-malformed-separator',
+]);
 
 export const TREE_NAMING_SECTION_AVAILABILITY = Object.freeze({
   AVAILABLE: 'available',
@@ -41,6 +47,10 @@ const SECTIONS = Object.freeze({
 const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
 const isNonEmptyStringArray = (value) => Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString);
+// §6.3 code arrays: non-empty, every code from the vocabulary, sorted with no duplicates.
+const isSortedUniqueCodeArray = (value, vocabulary) =>
+  isNonEmptyStringArray(value) &&
+  value.every((code, index) => vocabulary.has(code) && (index === 0 || value[index - 1] < code));
 
 const toTupleKey = ({ addressProfileId, addressedSnapshotId, occurrenceAddress }) =>
   `${addressProfileId}\u0000${addressedSnapshotId}\u0000${occurrenceAddress}`;
@@ -187,12 +197,14 @@ const isValidFolderLabelShape = (record) => {
       record.notParsedReasons === undefined &&
       isNonEmptyStringArray(record.labelTokens) &&
       record.labelRoot === record.labelTokens[0] &&
-      (record.labelFacts === undefined ||
-        (isNonEmptyStringArray(record.labelFacts) && record.labelFacts.every((fact) => LABEL_FACT_VALUES.has(fact))))
+      (record.labelFacts === undefined || isSortedUniqueCodeArray(record.labelFacts, LABEL_FACT_VALUES))
     );
   }
   if (record.parseOutcome === 'not-parsed') {
-    return PARSED_ONLY_FIELDS.every((field) => record[field] === undefined) && isNonEmptyStringArray(record.notParsedReasons);
+    return (
+      PARSED_ONLY_FIELDS.every((field) => record[field] === undefined) &&
+      isSortedUniqueCodeArray(record.notParsedReasons, NOT_PARSED_REASON_VALUES)
+    );
   }
   return false;
 };

@@ -137,6 +137,11 @@ test('N2 intake rejects every invalid record shape', () => {
     { parseOutcome: 'parsed', labelTokens: [], labelRoot: 'src' },
     { parseOutcome: 'parsed', labelTokens: ['src'], labelRoot: 'src', labelFacts: ['means-ownership'] },
     { parseOutcome: 'not-parsed', notParsedReasons: [] },
+    { parseOutcome: 'not-parsed', notParsedReasons: ['this-is-not-a-reason'] },
+    { parseOutcome: 'not-parsed', notParsedReasons: ['label-empty', 'this-is-not-a-reason'] },
+    { parseOutcome: 'not-parsed', notParsedReasons: ['label-has-uppercase', 'label-has-malformed-separator'] },
+    { parseOutcome: 'not-parsed', notParsedReasons: ['label-has-uppercase', 'label-has-uppercase'] },
+    { parseOutcome: 'parsed', labelTokens: ['src'], labelRoot: 'src', labelFacts: ['contains-connector-token', 'contains-connector-token'] },
     { parseOutcome: 'not-parsed', notParsedReasons: ['label-empty'], labelRoot: 'src' },
   ];
   for (const shape of shapes) {
@@ -261,4 +266,15 @@ test('N1 checks the matching v1 observation occurrenceType as well as the addres
   ));
   assert.deepEqual(result.semanticEvidenceEnrichment.rejectedRecords, [{ identityTuple: tuple('A.1'), reason: 'occurrence-type-mismatch' }]);
   assert.deepEqual(result.semanticEvidenceEnrichment.acceptedRecords.map(({ occurrenceAddress }) => occurrenceAddress), ['A.2']);
+});
+
+test('N2 accepts sorted, unique codes from the §6.3 vocabularies', () => {
+  const result = intake(payload({
+    namingFolderLabelObservations: n2([
+      { ...tuple('A'), parseOutcome: 'parsed', labelTokens: ['src', 'with', 'care'], labelRoot: 'src', labelFacts: ['contains-connector-token'] },
+      { ...tuple('B'), parseOutcome: 'not-parsed', notParsedReasons: ['label-has-malformed-separator', 'label-has-unsupported-character', 'label-has-uppercase'] },
+    ]),
+  }));
+  assert.equal(result.folderLabelObservations.rejectedRecords.length, 0);
+  assert.deepEqual(result.folderLabelObservations.acceptedRecords.map(({ occurrenceAddress }) => occurrenceAddress), ['A', 'B']);
 });
