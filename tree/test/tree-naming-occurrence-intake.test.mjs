@@ -1300,3 +1300,55 @@ test('Tree ignores the Naming semantic-evidence enrichment section: intake, evid
     fs.rmSync(fixtureDir, { recursive: true, force: true });
   }
 });
+
+// #91: Tree does not consume the Naming folder-label observation section yet (bridge contract §4.4
+// rule 2, §4.6). A payload carrying it must produce exactly the Tree intake, evidence, and findings
+// that the same payload produces without it.
+test('Tree ignores the Naming folder-label observation section: intake, evidence, and findings are unchanged', () => {
+  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tree-ignores-folder-label-section-'));
+  try {
+    fs.writeFileSync(path.join(fixtureDir, 'package.json'), '{"name":"fixture","private":true}\n');
+    fs.mkdirSync(path.join(fixtureDir, 'src', 'build', '_builtin'), { recursive: true });
+    fs.mkdirSync(path.join(fixtureDir, 'tree-owned'), { recursive: true });
+    for (const filePath of ['src/build/build-surface.logic.mjs', 'src/build/_builtin/case-rules.registry.json', 'tree-owned/tree-notes.logic.mjs']) {
+      fs.writeFileSync(path.join(fixtureDir, filePath), filePath.endsWith('.json') ? '{}\n' : 'export {};\n');
+    }
+
+    const { structuralAddressSnapshot, preparedDependencies } = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo' });
+    const namingOutput = runNamingValidator(fixtureDir, {
+      scope: 'repo',
+      addressedOccurrenceNamespace: {
+        addressProfileId: preparedDependencies.addressedNamingOccurrenceBridge.addressProfileId,
+        addressedSnapshotId: preparedDependencies.addressedNamingOccurrenceBridge.addressedSnapshotId,
+        occurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
+      },
+    });
+    const namingSemanticFamilyBridge = projectNamingSemanticFamilyBridge(namingOutput);
+    const withSection = namingOutput.namingOccurrenceBridge;
+    const { namingFolderLabelObservations, ...withoutSection } = withSection;
+    assert.equal(namingFolderLabelObservations.recordCount, 4);
+    assert.deepEqual(
+      namingFolderLabelObservations.records.filter((record) => record.parseOutcome === 'not-parsed').map((record) => record.repoRelativePath),
+      ['src/build/_builtin'],
+    );
+
+    const prepare = (namingOccurrenceBridge) =>
+      prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', namingSemanticFamilyBridge, namingOccurrenceBridge }).preparedDependencies;
+    const preparedWith = prepare(withSection);
+    const preparedWithout = prepare(withoutSection);
+    for (const key of [
+      'treeNamingOccurrenceBridgeIntake',
+      'addressedNamingSemanticEvidenceBridge',
+      'treeSemanticHomeEvidence',
+      'treeSemanticNamingFolderTypeRelationshipEvidence',
+    ]) {
+      assert.deepEqual(preparedWith[key], preparedWithout[key], `${key} must not change`);
+    }
+
+    const run = (namingOccurrenceBridge) =>
+      runTreeStructureAdvisor(fixtureDir, { scope: 'repo', namingSemanticFamilyBridge, namingOccurrenceBridge });
+    assert.deepEqual(run(withSection), run(withoutSection));
+  } finally {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+  }
+});

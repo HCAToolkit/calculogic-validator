@@ -4,6 +4,8 @@ const BRIDGE_SOURCE = 'calculogic-validator/naming';
 const BRIDGE_PRODUCER_ID = 'naming-semantic-family-occurrence-bridge';
 const SEMANTIC_EVIDENCE_SECTION_VERSION = 'naming-semantic-evidence-enrichment.v1';
 const SEMANTIC_EVIDENCE_SECTION_PRODUCER_ID = 'naming-semantic-evidence-enrichment';
+const FOLDER_LABEL_SECTION_VERSION = 'naming-folder-label-observation.v1';
+const FOLDER_LABEL_SECTION_PRODUCER_ID = 'naming-folder-label-observation';
 const IDENTITY_TUPLE_FIELDS = ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress'];
 // The `roleStatus` value shape approved for the section (bridge contract §6.2 `role` row, from the
 // FileNamingMasterList role status vocabulary).
@@ -434,10 +436,65 @@ const toSemanticEvidenceEnrichmentSection = ({ sourceRecords, sourceObservations
   };
 };
 
+// Contract §4.6. Records come from the addressed folder occurrences themselves, so identity exists by
+// construction and is never recovered from a path or depth. Every folder occurrence Structural
+// Addressing supplies is covered, scope roots included; nothing is manufactured for a root that is
+// not an occurrence. The label interpreter sees only the label.
+const toFolderLabelObservationSection = ({ occurrenceRecords, addressProfileId, addressedSnapshotId, interpretFolderLabel }) => {
+  const records = [];
+  const diagnostics = [];
+
+  for (const occurrenceRecord of Array.isArray(occurrenceRecords) ? occurrenceRecords : []) {
+    if (!isPlainObject(occurrenceRecord) || occurrenceRecord.occurrenceType !== 'folder') {
+      continue;
+    }
+
+    const repoRelativePath = toPathKey(occurrenceRecord.repoRelativePath) ?? toPathKey(occurrenceRecord.path);
+    const occurrenceAddress =
+      toOptionalNonEmptyString(occurrenceRecord.occurrenceAddress) ??
+      toOptionalNonEmptyString(occurrenceRecord.address) ??
+      toOptionalNonEmptyString(occurrenceRecord.addressPath);
+    if (!occurrenceAddress) {
+      diagnostics.push({
+        diagnosticType: 'missing-occurrence-identity',
+        reason: 'missing-occurrence-address',
+        repoRelativePath: repoRelativePath ?? null,
+      });
+      continue;
+    }
+
+    const label = toOptionalNonEmptyString(occurrenceRecord.name) ?? toOptionalNonEmptyString(occurrenceRecord.actualName) ?? '';
+    records.push({
+      addressProfileId,
+      addressedSnapshotId,
+      occurrenceAddress,
+      ...(repoRelativePath ? { repoRelativePath } : {}),
+      ...interpretFolderLabel(label),
+    });
+  }
+
+  if (records.length === 0) {
+    return null;
+  }
+
+  return {
+    contractVersion: FOLDER_LABEL_SECTION_VERSION,
+    producerId: FOLDER_LABEL_SECTION_PRODUCER_ID,
+    source: BRIDGE_SOURCE,
+    identityTupleFields: [...IDENTITY_TUPLE_FIELDS],
+    recordCount: records.length,
+    records: records.sort(compareIdentityTuples),
+    ...(diagnostics.length > 0
+      ? { diagnostics: diagnostics.sort((left, right) => (left.repoRelativePath ?? '').localeCompare(right.repoRelativePath ?? '')) }
+      : {}),
+  };
+};
+
 export const createNamingOccurrenceBridgePayload = ({
   namingSemanticFamilyBridge = {},
   addressedOccurrenceNamespace = {},
   namingSemanticEvidenceEnrichment,
+  interpretFolderLabel,
   sourceReportRef,
   sourceSnapshotRef,
 } = {}) => {
@@ -503,6 +560,16 @@ export const createNamingOccurrenceBridgePayload = ({
         })
       : null;
 
+  const folderLabelObservationSection =
+    hasValidAddressedNamespace && typeof interpretFolderLabel === 'function'
+      ? toFolderLabelObservationSection({
+          occurrenceRecords: addressedOccurrenceNamespace.occurrenceRecords,
+          addressProfileId,
+          addressedSnapshotId,
+          interpretFolderLabel,
+        })
+      : null;
+
   return {
     bridgeContractVersion: BRIDGE_CONTRACT_VERSION,
     bridgeSource: BRIDGE_SOURCE,
@@ -550,6 +617,7 @@ export const createNamingOccurrenceBridgePayload = ({
         }
       : {}),
     ...(semanticEvidenceEnrichmentSection ? { namingSemanticEvidenceEnrichment: semanticEvidenceEnrichmentSection } : {}),
+    ...(folderLabelObservationSection ? { namingFolderLabelObservations: folderLabelObservationSection } : {}),
     ...(diagnostics.length > 0 ? { diagnostics } : {}),
   };
 };

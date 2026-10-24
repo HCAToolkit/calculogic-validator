@@ -10,7 +10,7 @@ export const SEMANTIC_FAMILY_SPLIT_FLAGS = Object.freeze({
   ROOT_HAS_MULTIPLE_FAMILIES: 'family-root-observed-multiple-families',
 });
 
-const splitSemanticTokens = (semanticName) =>
+export const splitSemanticTokens = (semanticName) =>
   semanticName.split(/[-.]/u).map((token) => token.trim()).filter(Boolean);
 
 const toSortedUnique = (values) => Array.from(new Set(values)).sort((left, right) => left.localeCompare(right));

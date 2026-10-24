@@ -35,7 +35,7 @@ Current runtime truth from the issue #648 / PR #649 audit:
 - The bridge does not currently emit new enriched context partition fields such as `parentAddressPath`, `depth`, `orderIndex`, `lineageKey`, `contextPartitionKey`, `siblingContextKey`, `subtreeContextKey`, `semanticTokens`, `role`, `role-like fields`, `disambiguationNotes`, `evidenceStrength`, or `evidenceLimitNotes` merely because they may be useful.
 - Current runtime truth added since this spec was first written: the bridge producer also emits the separately named `occurrenceContextEnrichment` sidecar (`naming-occurrence-bridge-enrichment.v1`) carrying `parentOccurrenceAddress`, `occurrenceDepth`, `occurrenceOrderIndex`, `disambiguationNotes`, and `evidenceLimitNotes` keyed by the identity tuple, and Tree intake reads it through a dedicated sidecar intake path. The v1 observations themselves are unchanged by that sidecar.
 - `semanticTokens` and role facts (`role`, `roleCategory`, `roleStatus`) are emitted only in the separately named `namingSemanticEvidenceEnrichment` section (§4.5), never on v1 observations. Current runtime truth since calculogic-validator#87: the Naming occurrence-bridge path (`projectNamingOccurrenceBridge`, and so `runNamingValidator` with an addressed namespace) emits the section; the bridge payload that Tree wiring builds internally does not carry it, and no consumer reads it yet.
-- No folder-label observations are emitted. §4.6 approves them for a separately named section that is not yet current runtime truth. Folders are currently described only by the folder-composition, folder-semantic-context and package-root observations.
+- Folder-label observations are emitted only in the separately named `namingFolderLabelObservations` section (§4.6). Current runtime truth since calculogic-validator#91: the Naming occurrence-bridge path (`projectNamingOccurrenceBridge`, and so `runNamingValidator` with an addressed namespace) emits the section; the bridge payload that Tree wiring builds internally does not carry it, and no consumer reads it yet. The folder-composition, folder-semantic-context and package-root observations are unchanged.
 - Tree staged intake and address-keyed join preparation may inspect the v1 bridge, but current Tree contributor behavior preserves fallback to path-keyed semantic-family evidence unless address-keyed evidence is clean and usable under Tree-owned policy.
 
 ## 3. Canonical occurrence identity contract
@@ -192,7 +192,7 @@ An invalid value in one field group invalidates only that field group, never the
 - **Section name:** `namingFolderLabelObservations`.
 - **Contract version:** `naming-folder-label-observation.v1`.
 - **Provenance:** `producerId: naming-folder-label-observation`, `source: calculogic-validator/naming`.
-- **Status:** contract-approved by calculogic-validator#89; **not current runtime truth** until an implementation slice emits and tests it.
+- **Status:** contract-approved by calculogic-validator#89; emitted by the Naming occurrence-bridge path since calculogic-validator#91. The bridge payload that Tree wiring builds internally does not carry the section, and no consumer reads it yet.
 - **Interpretation rules:** Naming semantic interpretation spec (`doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md`) §13.
 - **Envelope:** §4.4 rule 5 (`contractVersion`, `producerId`, `source`, `identityTupleFields`, `recordCount`, tuple-sorted `records`, optional `diagnostics`).
 

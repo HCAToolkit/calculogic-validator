@@ -696,3 +696,161 @@ test('enrichment section never transfers enrichment from an omitted source obser
     { diagnosticType: 'unattached-enrichment-source', reason: 'ambiguous-source-observation', repoRelativePath: 'p' },
   ]);
 });
+
+// Naming folder-label observation section (bridge contract §4.6, §6.3; #91).
+
+const folderLabelNamespace = {
+  addressProfileId: 'tree-codebase',
+  addressedSnapshotId: 'snapshot-001',
+  occurrenceRecords: [
+    // Real snapshot records carry only `addressPath`, a recognized occurrence-address alias.
+    { addressPath: 'B', path: 'tree', name: 'tree', occurrenceType: 'folder', depth: 0 },
+    { addressPath: 'A', path: 'src', name: 'src', occurrenceType: 'folder', depth: 0, isScopedRoot: true },
+    { addressPath: 'A.1', path: 'src/_builtin', name: '_builtin', occurrenceType: 'folder', depth: 1 },
+    { addressPath: 'B.1', path: 'tree/tree-owned', name: 'tree-owned', occurrenceType: 'folder', depth: 1 },
+    { addressPath: 'A.2', path: 'src/build-surface.logic.mjs', name: 'build-surface.logic.mjs', occurrenceType: 'file', depth: 1 },
+  ],
+};
+
+const recordingInterpreter = () => {
+  const calls = [];
+  const interpretFolderLabel = (...args) => {
+    calls.push(args);
+    return args[0] === '_builtin'
+      ? { parseOutcome: 'not-parsed', notParsedReasons: ['label-has-unsupported-character'] }
+      : { parseOutcome: 'parsed', labelTokens: args[0].split('-'), labelRoot: args[0].split('-')[0] };
+  };
+  return { calls, interpretFolderLabel };
+};
+
+test('folder-label section: one record per folder occurrence, scope roots included, files excluded, tuple-sorted', () => {
+  const { interpretFolderLabel } = recordingInterpreter();
+  const result = createNamingOccurrenceBridgePayload({
+    namingSemanticFamilyBridge: { observations: [] },
+    addressedOccurrenceNamespace: folderLabelNamespace,
+    interpretFolderLabel,
+  });
+
+  assert.deepEqual(result.namingFolderLabelObservations, {
+    contractVersion: 'naming-folder-label-observation.v1',
+    producerId: 'naming-folder-label-observation',
+    source: 'calculogic-validator/naming',
+    identityTupleFields: ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress'],
+    recordCount: 4,
+    records: [
+      { addressProfileId: 'tree-codebase', addressedSnapshotId: 'snapshot-001', occurrenceAddress: 'A', repoRelativePath: 'src', parseOutcome: 'parsed', labelTokens: ['src'], labelRoot: 'src' },
+      {
+        addressProfileId: 'tree-codebase',
+        addressedSnapshotId: 'snapshot-001',
+        occurrenceAddress: 'A.1',
+        repoRelativePath: 'src/_builtin',
+        parseOutcome: 'not-parsed',
+        notParsedReasons: ['label-has-unsupported-character'],
+      },
+      { addressProfileId: 'tree-codebase', addressedSnapshotId: 'snapshot-001', occurrenceAddress: 'B', repoRelativePath: 'tree', parseOutcome: 'parsed', labelTokens: ['tree'], labelRoot: 'tree' },
+      {
+        addressProfileId: 'tree-codebase',
+        addressedSnapshotId: 'snapshot-001',
+        occurrenceAddress: 'B.1',
+        repoRelativePath: 'tree/tree-owned',
+        parseOutcome: 'parsed',
+        labelTokens: ['tree', 'owned'],
+        labelRoot: 'tree',
+      },
+    ],
+  });
+  // Nothing is manufactured for the repository root, which is not an occurrence.
+  assert.equal(result.namingFolderLabelObservations.records.some((record) => !record.repoRelativePath), false);
+});
+
+test('folder-label section passes only the label to the interpreter: no path, address, parent, or depth', () => {
+  const { calls, interpretFolderLabel } = recordingInterpreter();
+  createNamingOccurrenceBridgePayload({
+    namingSemanticFamilyBridge: { observations: [] },
+    addressedOccurrenceNamespace: folderLabelNamespace,
+    interpretFolderLabel,
+  });
+
+  assert.deepEqual(calls, [['tree'], ['src'], ['_builtin'], ['tree-owned']]);
+});
+
+test('folder-label section distinguishes an address alias from a missing address and never recovers identity from the path', () => {
+  const { interpretFolderLabel } = recordingInterpreter();
+  const result = createNamingOccurrenceBridgePayload({
+    namingSemanticFamilyBridge: { observations: [] },
+    addressedOccurrenceNamespace: {
+      ...folderLabelNamespace,
+      occurrenceRecords: [
+        { occurrenceAddress: 'C', path: 'canonical', name: 'canonical', occurrenceType: 'folder' },
+        { address: 'D', path: 'aliased', name: 'aliased', occurrenceType: 'folder' },
+        { addressPath: 'E', path: 'debug-alias', name: 'debug-alias', occurrenceType: 'folder' },
+        { path: 'no-address', name: 'no-address', occurrenceType: 'folder', depth: 0 },
+      ],
+    },
+    interpretFolderLabel,
+  });
+  const section = result.namingFolderLabelObservations;
+
+  assert.deepEqual(
+    section.records.map(({ occurrenceAddress, repoRelativePath }) => [occurrenceAddress, repoRelativePath]),
+    [['C', 'canonical'], ['D', 'aliased'], ['E', 'debug-alias']],
+  );
+  assert.deepEqual(section.diagnostics, [
+    { diagnosticType: 'missing-occurrence-identity', reason: 'missing-occurrence-address', repoRelativePath: 'no-address' },
+  ]);
+});
+
+test('folder-label section is omitted without an interpreter, with an invalid namespace, or with no folder occurrences', () => {
+  const { interpretFolderLabel } = recordingInterpreter();
+  const build = (overrides) =>
+    createNamingOccurrenceBridgePayload({
+      namingSemanticFamilyBridge: { observations: [] },
+      addressedOccurrenceNamespace: folderLabelNamespace,
+      interpretFolderLabel,
+      ...overrides,
+    });
+
+  assert.equal('namingFolderLabelObservations' in build({ interpretFolderLabel: undefined }), false);
+  assert.equal(
+    'namingFolderLabelObservations' in build({ addressedOccurrenceNamespace: { ...folderLabelNamespace, addressProfileId: undefined } }),
+    false,
+  );
+  assert.equal(
+    'namingFolderLabelObservations' in build({
+      addressedOccurrenceNamespace: {
+        ...folderLabelNamespace,
+        occurrenceRecords: folderLabelNamespace.occurrenceRecords.filter((record) => record.occurrenceType === 'file'),
+      },
+    }),
+    false,
+  );
+});
+
+test('folder-label section is independent: every other payload field is byte-identical and the N1 section is unaffected', () => {
+  const { interpretFolderLabel } = recordingInterpreter();
+  const semanticBridge = {
+    observations: [{ path: 'src/build-surface.logic.mjs', semanticName: 'build-surface', semanticFamily: 'build', familyRoot: 'build' }],
+  };
+  const enrichment = { records: [{ path: 'src/build-surface.logic.mjs', semanticTokens: ['build', 'surface'] }] };
+  const build = (extra) =>
+    createNamingOccurrenceBridgePayload({ namingSemanticFamilyBridge: semanticBridge, addressedOccurrenceNamespace: folderLabelNamespace, ...extra });
+
+  const neither = build({});
+  const n1Only = build({ namingSemanticEvidenceEnrichment: enrichment });
+  const n2Only = build({ interpretFolderLabel });
+  const both = build({ namingSemanticEvidenceEnrichment: enrichment, interpretFolderLabel });
+
+  const { namingFolderLabelObservations: n2Section, ...n2Rest } = n2Only;
+  assert.ok(n2Section);
+  assert.deepEqual(n2Rest, neither);
+  assert.deepEqual(both.namingSemanticEvidenceEnrichment, n1Only.namingSemanticEvidenceEnrichment);
+  assert.deepEqual(both.namingFolderLabelObservations, n2Section);
+  const { namingFolderLabelObservations: _ignored, ...bothRest } = both;
+  assert.deepEqual(bothRest, n1Only);
+
+  const serialized = JSON.stringify(n2Section);
+  assert.equal(serialized.includes('evidenceStrength'), false);
+  for (const field of [...treeOwnedFields, 'semanticFamily', 'familySubgroup', 'ambiguityFlags', 'splitFamilyFlags']) {
+    assert.equal(serialized.includes(`"${field}"`), false, `${field} must not appear in the section`);
+  }
+});
