@@ -215,14 +215,17 @@ Availability is recorded at three levels, so that a comparison that was not perf
 | --- | --- |
 | Folder label (N2) | `parsed`; `not-parsed` (with Naming's reasons); `absent`, with the reason: `run-unavailable`, `record-rejected` or `no-record` |
 | File semantic identity (v1 observation) | `semantic-observation`; `no-semantic-observation`; `rejected`; `unavailable` |
-| File tokens (N1) | `available`; `not-provided`; `rejected`; `unavailable` |
+| File tokens (N1 token group) | `available`; `not-provided`; `invalid`; `rejected`; `unavailable` |
+| File role facts (N1 role-fact group) | `available`; `not-provided`; `invalid`; `rejected`; `unavailable` |
 
 - `no-semantic-observation` means the v1 bridge is available and accepted for the run and contains no observation for this file. Until the deferred Naming evaluation-status track on #85 lands, it merges "Naming evaluated the file without producing a semantic identity" with "the file was outside Naming's scan".
-- `not-provided` means N1 is available for the run and contains no record for this file.
+- N1 availability is recorded **per field group**, because bridge contract §4.5 lets an accepted record carry either group without the other and validates field groups separately from identity:
+  - `not-provided` means N1 is available for the run and either has no record for this file, or has an accepted record that omits this field group (for example, a record with role facts but no tokens);
+  - `invalid` means the file's record was accepted but this field group was dropped as invalid at intake. The record's other group is unaffected.
 - `unavailable` means the run-level state for the source is anything but `available`.
-- `rejected` means the occurrence's record was rejected at intake.
+- `rejected` means the occurrence's whole record was rejected at intake (an identity or envelope-level reason), so every field group of that record is `rejected`.
 
-**Comparison rule.** A comparison is `evaluated` only when every fact it needs is available. Otherwise it is `not-evaluated` with one reason, chosen in this order: run-level unavailability, then record rejection, then a missing fact (`no-semantic-observation`, `not-provided`). A `not-evaluated` comparison is never counted as a match or as foreign evidence, and never as contradiction.
+**Comparison rule.** A comparison is `evaluated` only when every fact it needs is available. Otherwise it is `not-evaluated` with one reason, chosen in this order: run-level unavailability, then record rejection, then an invalid field group, then a missing fact (`no-semantic-observation`, `not-provided`). A `not-evaluated` comparison is never counted as a match or as foreign evidence, and never as contradiction.
 
 #### S1.4 Candidates
 
@@ -255,7 +258,7 @@ Each candidate is compared with each member file occurrence (S1.6) on two channe
 | Channel | Comparison | Needs | Applies to |
 | --- | --- | --- | --- |
 | `root` | The file's v1 `familyRoot` equals the candidate's `lexicalRoot` | File semantic identity | Every candidate |
-| `prefix` | The file's N1 `semanticTokens` begin with the candidate's `labelTokens` | File semantic identity and N1 tokens | `naming-folder-label` candidates with two or more label tokens |
+| `prefix` | The file's N1 `semanticTokens` begin with the candidate's `labelTokens` | File semantic identity and the N1 token group | `naming-folder-label` candidates with two or more label tokens |
 
 Each comparison is `match`, `foreign` or `not-evaluated` (S1.3). Ambiguity facts on the file's v1 observation are carried into the facet counts. They do not change the comparison.
 
@@ -297,7 +300,7 @@ A deeper `terminate` therefore always overrides a redirect found higher on the l
 
 There is one logical composition observation per addressed folder occurrence, whether or not the folder has a candidate. It records:
 
-- direct-member tallies by v1 `familyRoot`, by N1 `roleCategory`, and by the fact-level availability states in S1.3;
+- direct-member tallies by v1 `familyRoot`, by N1 `roleCategory` (from the role-fact group, counting its availability states separately), and by the fact-level availability states in S1.3;
 - the folder's label state (`parsed`, `not-parsed` or `absent`);
 - references to its child folders' composition observations.
 
