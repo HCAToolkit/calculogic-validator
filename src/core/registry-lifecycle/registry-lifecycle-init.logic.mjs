@@ -33,6 +33,51 @@ const writeJsonFile = (filePath, value) => {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 };
 
+// [5.2.6] cfg-registryLifecycle · Primitive · "assertNewCustomSetAllowed"
+// The checks before a command creates a new Custom set (`init-custom`, `import`): a readable,
+// contained state file, a contained and absent `custom/`, and no pending transaction. Validates
+// before anything is written (spec §4.1) and returns the state (`activeSet`, `stateFileExists`).
+export const assertNewCustomSetAllowed = ({ paths, command }) => {
+  const state = readRegistryLifecycleState(paths);
+  if (!isLifecyclePathContained(paths, paths.customRoot)) {
+    throw new RegistryLifecycleError(
+      `The Custom set path resolves outside the validation target (${paths.customRoot}). ${command} writes only inside the target repository.`,
+    );
+  }
+
+  if (customSetExists(paths)) {
+    throw new RegistryLifecycleError(
+      `A Custom registry set already exists (${paths.customRoot}). ${command} never overwrites it.`,
+    );
+  }
+
+  // A pending transaction journals Custom paths; a new set at those paths would be what its
+  // recovery restores or removes (spec §4.6 item 5).
+  if (lifecycleTransactionPending(paths)) {
+    throw new RegistryLifecycleError(
+      `An interrupted lifecycle transaction is pending (${paths.lifecycleRoot}). ${command} refuses until it is recovered: the next update, migrate or edit recovers it before anything else.`,
+    );
+  }
+  return state;
+};
+
+// [5.2.6] cfg-registryLifecycle · Primitive · "installNewCustomSet"
+// Creates `custom/` whole (spec §4.6): `populate(stagingRoot)` fills a staging directory inside the
+// lifecycle root, on the same filesystem, which is then renamed into place. On any failure the
+// staging directory is removed and no `custom/` is left.
+export const installNewCustomSet = ({ paths, stagingPrefix, populate }) => {
+  fs.mkdirSync(paths.lifecycleRoot, { recursive: true });
+  const stagingRoot = fs.mkdtempSync(path.join(paths.lifecycleRoot, stagingPrefix));
+  try {
+    const result = populate(stagingRoot);
+    fs.renameSync(stagingRoot, paths.customRoot);
+    return result;
+  } catch (error) {
+    fs.rmSync(stagingRoot, { recursive: true, force: true });
+    throw error;
+  }
+};
+
 // [5.2.6] cfg-registryLifecycle · Workflow · "initCustomRegistrySet"
 export const initCustomRegistrySet = ({
   targetRoot,
@@ -45,33 +90,11 @@ export const initCustomRegistrySet = ({
   }
 
   const paths = resolveRegistryLifecyclePaths({ targetRoot, lifecycleRootOverride });
-  // Validates containment and an existing state file before writing anything (spec §4.1).
-  const { stateFileExists } = readRegistryLifecycleState(paths);
-  if (!isLifecyclePathContained(paths, paths.customRoot)) {
-    throw new RegistryLifecycleError(
-      `The Custom set path resolves outside the validation target (${paths.customRoot}). init-custom writes only inside the target repository.`,
-    );
-  }
-
-  if (customSetExists(paths)) {
-    throw new RegistryLifecycleError(
-      `A Custom registry set already exists (${paths.customRoot}). init-custom never overwrites it.`,
-    );
-  }
-
-  // A pending transaction journals Custom paths; a new set at those paths would be what its
-  // recovery restores or removes (spec §4.6 item 5).
-  if (lifecycleTransactionPending(paths)) {
-    throw new RegistryLifecycleError(
-      `An interrupted lifecycle transaction is pending (${paths.lifecycleRoot}). init-custom refuses until it is recovered: the next update, migrate or edit recovers it before anything else.`,
-    );
-  }
-
-  fs.mkdirSync(paths.lifecycleRoot, { recursive: true });
-  const stagingRoot = fs.mkdtempSync(path.join(paths.lifecycleRoot, '.custom-init-'));
+  const { stateFileExists } = assertNewCustomSetAllowed({ paths, command: 'init-custom' });
   const manifestRegistries = {};
 
-  try {
+  // Every registry is copied byte for byte into Custom and its Baseline copy.
+  const populate = (stagingRoot) => {
     for (const slice of slices) {
       const customSliceRoot = path.join(stagingRoot, slice.sliceId);
       const baselineSliceRoot = path.join(stagingRoot, BASELINE_DIRNAME, slice.sliceId);
@@ -102,12 +125,8 @@ export const initCustomRegistrySet = ({
         ),
       },
     });
-
-    fs.renameSync(stagingRoot, paths.customRoot);
-  } catch (error) {
-    fs.rmSync(stagingRoot, { recursive: true, force: true });
-    throw error;
-  }
+  };
+  installNewCustomSet({ paths, stagingPrefix: '.custom-init-', populate });
 
   if (!stateFileExists) {
     writeJsonFile(paths.statePath, {

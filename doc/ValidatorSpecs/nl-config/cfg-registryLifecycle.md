@@ -23,6 +23,7 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 11 (contract only): reference edges (spec §12.11): slice-owned declarations and resolvers, suite-owned joining and indexing, and the semantics `trace` will report (5.2.20). No runtime change.
 - #60 slice 12: reference edges implemented: the `references` declarations (6.1) replacing the informative edge lists, the Naming and Tree resolvers and their bridge, `keyedEntryAddress` (5.2.9), and `resolveRegistryReferences` (5.2.20), with per-edge conformance tests. The source identity became structured (spec §12.11 correction). No command consumes it yet.
 - #60 slice 13: the read-only `trace` (5.2.21, 5.3): one set's references, whole or for one entry, with Custom read through the assessment's containment-checked reader (`customReferenceInputs`, 5.2.20).
+- #60 slice 14: the portable set (spec §12.12): `export`, `import-check` and `import` (5.2.22, 5.3), with `init-custom`'s staging shared through `assertNewCustomSetAllowed` and `installNewCustomSet` (5.2.6). Spec §4.6 corrected: creating a set stages it; only changes to an existing set use the transaction.
 - Follow-ons: the rest of the advanced management surface (#60): applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
@@ -39,12 +40,12 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 - Initialization of the Custom set, active-set selection and status.
 - Whole-set resolution into one resolved registry root per slice, with completeness, version and validity checks before validation.
 - Set-level and per-registry provenance.
-- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields, with the lifecycle transaction it writes through; the migration plan (`migrate-plan`, `migrate-check`) and `migrate`; the edit document (`edit-check`, `edit`); and reference edge declarations, resolvers and resolution (5.2.20) with the read-only `trace` (5.2.21).
+- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields, with the lifecycle transaction it writes through; the migration plan (`migrate-plan`, `migrate-check`) and `migrate`; the edit document (`edit-check`, `edit`); and reference edge declarations, resolvers and resolution (5.2.20) with the read-only `trace` (5.2.21); and the portable set's `export`, `import-check` and `import` (5.2.22).
 
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- The rest of the advanced management surface (follow-on): applying add-alongside, and the `import`/`export` and preview commands.
+- The rest of the advanced management surface (follow-on): applying add-alongside, a replacing import, and candidate preview.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present
@@ -88,8 +89,8 @@ Logic, Knowledge and Results. There is no Build, BuildStyle or ResultsStyle conc
 - Validation runs never write Custom, the manifest or the state file.
 - The active set is loaded whole. No registry is read from the non-active set during a run.
 - An active Custom set that is missing, incomplete, version-incompatible or invalid stops the run before validation. There is no Builtin fallback.
-- Only `use` changes `activeSet`. `init-custom`, `update`, `migrate` and `edit` never do; `update`, `migrate`, `edit-check`, `edit` and `trace` never even read `registry-state.json`.
-- Only `update`, `migrate` and `edit` change an existing Custom set, and only through a lifecycle transaction (5.2.11): the selected registries of one slice advance completely or not at all.
+- Only `use` changes `activeSet`. `init-custom`, `update`, `migrate`, `edit` and `import` never do; `update`, `migrate`, `edit-check`, `edit`, `trace` and `export` never even read `registry-state.json`; `import-check` and `import` read it only to report, or refuse, a state that selects `custom`.
+- Only `update`, `migrate` and `edit` change an existing Custom set, and only through a lifecycle transaction (5.2.11): the selected registries of one slice advance completely or not at all. `init-custom` and `import` create a new set whole, by staging it inside the lifecycle root and renaming it into place (5.2.6); neither ever overwrites a set.
 - Every lifecycle path read or written resolves by realpath inside the validation target root (spec §4.1).
 - `migrate-plan` and `migrate-check` write nothing, never read `registry-state.json`, and never advance a Baseline. A migration transform is pure: it receives a deep-frozen payload and nothing else.
 
@@ -150,7 +151,8 @@ Slice-shape and reference validation failures raised by slice loaders while load
 
 #### 5.2.6 Workflow: `initCustomRegistrySet`
 
-- Refuses if `custom/` exists, or while a lifecycle transaction is pending (5.2.11): a new set would sit at the paths its journal names.
+- `assertNewCustomSetAllowed({ paths, command })`, shared with `import` (5.2.22): the state file must be readable and contained, `custom/` must be contained and absent, and no lifecycle transaction may be pending (5.2.11): a new set would sit at the paths its journal names. Returns the state (`activeSet`, `stateFileExists`).
+- `installNewCustomSet({ paths, stagingPrefix, populate })`, shared with `import`: a staging directory inside the lifecycle root (same filesystem), filled by `populate`, then renamed to `custom/`; on any failure it is removed and no `custom/` is left.
 - Copies every inventory registry from Builtin into `custom/<slice>/` and `custom/.baseline/<slice>/`.
 - Writes the manifest.
 - Writes `registry-state.json` with `activeSet: builtin` only if the file is absent.
@@ -323,6 +325,16 @@ Spec §12.11 "`trace`". `registry-lifecycle-trace.logic.mjs`, `buildRegistryTrac
 - **One resolution:** each registry is read once (memoized `inputOf`), then `resolveRegistryReferences` (5.2.20) runs once. The whole-set form adds `counts` per available edge; the entry form only selects from the same edges: `direct` (references whose source is the address), `reverse` (whose target is it), `impact` (distinct reverse sources) and `unavailable` (edges into or out of the registry). `inspectReferenceRegistry` on the same input gives `present`: `true`, `false`, or `null` with the reason, in which case the three views are `null`.
 - **Ordering:** edges by id; views by address, then registry id and edge id; impact by registry id, then address. It writes nothing.
 
+#### 5.2.22 Workflow: portable set (`export`, `import-check`, `import`)
+
+Spec §12.12. `registry-lifecycle-portable-set.logic.mjs`.
+- **Paths** (`portableSetPath`): `registry-set.manifest.json`, `<slice>/<name>.registry.json` or `.baseline/<slice>/<name>.registry.json`, with a current inventory slice id and a lowercase hyphenated name. Nothing else, so no artifact path can leave `custom/`.
+- **`exportPortableSet({ targetRoot })`:** the lifecycle root and `custom/` contained, the set present, no pending transaction; walks `custom/`, refusing any entry outside the layout, any entry that escapes (realpath, 5.2.1) and any file whose bytes are not valid UTF-8; returns the artifact with `files` in ordinal path order, each `{ path, text, sha256 }` over the exact bytes. Read-only.
+- **Artifact check** (`artifactProblems`): strict shape, schema `"1"`, allowed and unique paths, `sha256` of `Buffer.from(text, 'utf8')`.
+- **Assessment** (`assessPortableSet`): writes the files to a temporary target under the OS temp directory, runs `assessCustomRegistrySet` (5.2.4) on it, and removes it. `manifest-malformed`, `baseline-mismatch` and a current-inventory registry with a manifest entry and `baselineMismatch: null` (`baseline-unverifiable`) are problems; the rest is `status`. Temporary paths in details are rewritten to the receiving repository's paths.
+- **`checkPortableSet({ document, targetRoot })`:** `{ valid, problems, environment, status }`; `environment` is `custom-set-exists`, `transaction-pending` and `custom-selected`. Never writes the repository.
+- **`importPortableSet({ document, targetRoot })`:** `assertNewCustomSetAllowed`, refuses `custom-selected`, runs the check, then `installNewCustomSet` with the exact bytes. Returns `{ installed: true, activated: false, status }`, or `{ installed: false, problems | environment }`. Never writes `registry-state.json`.
+
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
 - `init-custom` → 5.2.6.
@@ -337,11 +349,14 @@ Spec §12.11 "`trace`". `registry-lifecycle-trace.logic.mjs`, `buildRegistryTrac
 - `migrate <file>` → 5.2.18. Prints `{ command, recovered?, applied, skipped }`, or with `problems` or `failed` and exit 1. The path is resolved from the working directory.
 - `edit-check <file>` → 5.2.19. Read-only. Prints the check result and exits 1 when it has problems; an unreadable or unparseable file is an error on stderr.
 - `edit <file>` → 5.2.19. Prints `{ command, recovered?, applied }`, or with `problems` or `failed` and exit 1. The path is resolved from the working directory.
+- `export` → 5.2.22. Read-only; prints the artifact. Refusals are lifecycle errors.
+- `import-check <file>` → 5.2.22. Read-only. Prints the check result; exits 1 unless `valid` with no `environment` condition. An unreadable or unparseable file is an error on stderr.
+- `import <file>` → 5.2.22. Prints `{ command, installed, activated, status }`, or with `installed: false` and exit 1.
 - `trace --set <builtin|custom> [<registryId> <address>]` → 5.2.21. Read-only; prints the trace and exits 0, unresolved references and unavailable edges included. A missing or unknown `--set`, an unknown registry id, an address the declaration cannot produce or other arguments are usage errors; no Custom set or an escaping lifecycle root is a lifecycle error.
 
 Usage errors and lifecycle errors go to stderr with a non-zero exit.
 
-Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status`, `npm run registry:diff`, `npm run registry:decisions-template`, `npm run registry:decisions-check`, `npm run registry:update`, `npm run registry:migrate-plan`, `npm run registry:migrate-check`, `npm run registry:migrate`, `npm run registry:edit-check`, `npm run registry:edit` and `npm run registry:trace` (`scripts/registry-lifecycle.host.mjs`).
+Repository scripts: `npm run registry:init-custom`, `npm run registry:use -- <builtin|custom>`, `npm run registry:status`, `npm run registry:diff`, `npm run registry:decisions-template`, `npm run registry:decisions-check`, `npm run registry:update`, `npm run registry:migrate-plan`, `npm run registry:migrate-check`, `npm run registry:migrate`, `npm run registry:edit-check`, `npm run registry:edit`, `npm run registry:trace`, `npm run registry:export`, `npm run registry:import-check` and `npm run registry:import` (`scripts/registry-lifecycle.host.mjs`).
 
 ### 5.4 Wiring into validation runs
 
@@ -427,6 +442,7 @@ src/core/registry-lifecycle/
   registry-lifecycle-references.logic.mjs          5.2.20
   registry-lifecycle-slice-references.logic.mjs    5.2.20 (each slice's reference resolver)
   registry-lifecycle-trace.logic.mjs               5.2.21
+  registry-lifecycle-portable-set.logic.mjs        5.2.22
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)

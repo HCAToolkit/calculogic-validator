@@ -179,6 +179,30 @@ export const EDIT_DOCUMENT_PROBLEMS = Object.freeze({
   invalidResult: 'invalid-result',
 });
 
+// [6.3] cfg-registryLifecycle · Primitive · "Portable set artifact" (spec §12.12)
+export const PORTABLE_SET_KIND = 'calculogic-registry-set';
+export const PORTABLE_SET_SCHEMA_VERSION = '1';
+
+// [6.3] cfg-registryLifecycle · Primitive · "Portable set problems" (spec §12.12), in report order.
+// Every one blocks an import.
+export const PORTABLE_SET_PROBLEMS = Object.freeze({
+  malformed: 'malformed',
+  unsupportedSchema: 'unsupported-schema',
+  unexpectedPath: 'unexpected-path',
+  integrity: 'integrity',
+  manifestMalformed: 'manifest-malformed',
+  baselineMismatch: 'baseline-mismatch',
+  baselineUnverifiable: 'baseline-unverifiable',
+});
+
+// [6.3] cfg-registryLifecycle · Primitive · "Portable set environment conditions" (spec §12.12)
+// Conditions of the receiving repository that refuse an import.
+export const PORTABLE_SET_ENVIRONMENT_CONDITIONS = Object.freeze({
+  customSetExists: 'custom-set-exists',
+  transactionPending: 'transaction-pending',
+  customSelected: 'custom-selected',
+});
+
 // [6.3] cfg-registryLifecycle · Primitive · "migrate skip reasons" (spec §12.9)
 export const MIGRATE_SKIP_REASONS = Object.freeze({ undecided: 'undecided' });
 
