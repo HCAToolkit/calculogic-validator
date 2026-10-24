@@ -220,12 +220,12 @@ Availability is recorded at three levels, so that a comparison that was not perf
 
 - `no-semantic-observation` means the v1 bridge is available and accepted for the run and contains no observation for this file. Until the deferred Naming evaluation-status track on #85 lands, it merges "Naming evaluated the file without producing a semantic identity" with "the file was outside Naming's scan".
 - N1 availability is recorded **per field group**, because bridge contract §4.5 lets an accepted record carry either group without the other and validates field groups separately from identity:
-  - `not-provided` means N1 is available for the run and either has no record for this file, or has an accepted record that omits this field group (for example, a record with role facts but no tokens);
-  - `invalid` means the file's record was accepted but this field group was dropped as invalid at intake. The record's other group is unaffected.
+  - `not-provided` means N1 is available for the run and the group is missing for this file, with one of two reasons kept on the state: `no-record` (N1 has no record for the file) or `group-omitted` (N1 has an accepted record that omits this group, for example a record with role facts but no tokens);
+  - `invalid` means the file's record was accepted but this field group was dropped as invalid at intake. The record's other group is unaffected: an invalid token group never discards valid role facts, and the reverse.
 - `unavailable` means the run-level state for the source is anything but `available`.
 - `rejected` means the occurrence's whole record was rejected at intake (an identity or envelope-level reason), so every field group of that record is `rejected`.
 
-**Comparison rule.** A comparison is `evaluated` only when every fact it needs is available. Otherwise it is `not-evaluated` with one reason, chosen in this order: run-level unavailability, then record rejection, then an invalid field group, then a missing fact (`no-semantic-observation`, `not-provided`). A `not-evaluated` comparison is never counted as a match or as foreign evidence, and never as contradiction.
+**Comparison rule.** A comparison is `evaluated` only when every fact it needs is available. Otherwise it is `not-evaluated` with one reason, chosen in this order: run-level unavailability, then record rejection, then an invalid field group, then a missing fact (`no-semantic-observation`, or `not-provided` with its `no-record` or `group-omitted` reason). For example, a `prefix` comparison for a file whose accepted N1 record carries role facts but no tokens is `not-evaluated` with reason `not-provided` / `group-omitted`; it is never foreign evidence. A `not-evaluated` comparison is never counted as a match or as foreign evidence, and never as contradiction.
 
 #### S1.4 Candidates
 
