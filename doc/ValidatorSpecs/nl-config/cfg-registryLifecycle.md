@@ -7,7 +7,7 @@
 
 ## 0.0 Version
 
-Status: **implemented through slice 3 (Issue #41)**.
+Status: **implemented through slice 3 (Issue #41) and the original scope of #60**.
 - Slice 2: inventories (6.1, 6.2), constants (6.3), 5.2.1–5.2.6, `init-custom` and `status` (5.3), the runner/Naming/suite-core wiring (5.4) and report provenance (7.1, 7.2).
 - Slice 3: active-Custom resolution (5.2.5), `useRegistrySet` (5.2.7) and the `use` command (5.3), Tree's resolved-root wiring and Tree `registryProvenance` (5.4, 7.1), and usage-text scope lists from the resolved set (5.4). The activation gate holds.
 - #60 slice 1: comparison identity declarations in every slice inventory (6.1) and the read-only `diff` (5.2.9, 5.3).
@@ -26,7 +26,7 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 14: the portable set (spec §12.12): `export`, `import-check` and `import` (5.2.22, 5.3), with `init-custom`'s staging shared through `assertNewCustomSetAllowed` and `installNewCustomSet` (5.2.6). Spec §4.6 corrected: creating a set stages it; only changes to an existing set use the transaction.
 - #60 slice 15: candidate preview (spec §12.13): `resolveCandidateRegistrySet` (5.2.23), the `--registry-candidate` option of the Validator commands (5.4), and candidate provenance (7.1), with Naming's transitional fields taken from the run's source (spec §11.3).
 - #60 correction: the conditions that refuse a new Custom set are one shared list (5.2.6), so `init-custom` also refuses while `registry-state.json` selects `custom` (spec §12.1 "No activation by creation"), as `import` did.
-- Follow-ons: the rest of the advanced management surface (#60): applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
+- The original scope of #60 is implemented. Deferred extensions, tracked separately: applying add-alongside (#78), a replacing import (#79) and optional per-run source choices (#80); and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
 
@@ -47,8 +47,8 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- The rest of the advanced management surface (follow-on): applying add-alongside, a replacing import, and per-run Builtin or configuration-file source choices.
-- The cross-slice compatibility check (follow-on).
+- Deferred extensions of the advanced management surface, outside the original scope of #60: applying add-alongside (#78), a replacing import (#79), and per-run Builtin or configuration-file source choices (#80).
+- The cross-slice compatibility check (#61).
 
 ### 1.4 Concerns present
 
