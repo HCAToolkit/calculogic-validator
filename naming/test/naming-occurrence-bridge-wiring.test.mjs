@@ -283,3 +283,61 @@ test('projectNamingOccurrenceBridge honors a caller-supplied enrichment source a
   );
   assert.deepEqual(projectNamingSemanticFamilyBridge(runtimeOutput), pathKeyedBridgeBefore);
 });
+
+const folderNamespace = {
+  addressProfileId: 'tree-codebase',
+  addressedSnapshotId: 'snapshot-001',
+  occurrenceRecords: [
+    { repoRelativePath: 'src', path: 'src', name: 'src', addressPath: 'A', occurrenceType: 'folder' },
+    { repoRelativePath: 'src/123-folder', path: 'src/123-folder', name: '123-folder', addressPath: 'A.1', occurrenceType: 'folder' },
+    { repoRelativePath: 'src/_builtin', path: 'src/_builtin', name: '_builtin', addressPath: 'A.2', occurrenceType: 'folder' },
+  ],
+};
+
+const outcomesOf = (bridge) =>
+  bridge.namingFolderLabelObservations.records.map(({ repoRelativePath, parseOutcome }) => [repoRelativePath, parseOutcome]);
+
+test('runNamingValidator with an addressed namespace carries the folder-label section (#91)', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'naming-folder-label-wiring-'));
+  try {
+    fs.mkdirSync(path.join(tempRoot, 'src', '_builtin'), { recursive: true });
+    fs.writeFileSync(path.join(tempRoot, 'src', 'build-surface.logic.mjs'), 'export const value = true;\n');
+
+    assert.equal(Object.hasOwn(runNamingValidator(tempRoot, { scope: 'repo' }), 'namingOccurrenceBridge'), false);
+
+    const { namingOccurrenceBridge } = runNamingValidator(tempRoot, { scope: 'repo', addressedOccurrenceNamespace: folderNamespace });
+    assert.equal(namingOccurrenceBridge.namingFolderLabelObservations.contractVersion, 'naming-folder-label-observation.v1');
+    assert.deepEqual(outcomesOf(namingOccurrenceBridge), [
+      ['src', 'parsed'],
+      ['src/123-folder', 'parsed'],
+      ['src/_builtin', 'not-parsed'],
+    ]);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('projectNamingOccurrenceBridge uses the supplied case rules, falls back to Builtin, and honors a caller interpreter', () => {
+  const runtimeOutput = createRuntimeOutput();
+
+  // Outside a run: Builtin case rules.
+  assert.deepEqual(outcomesOf(projectNamingOccurrenceBridge(runtimeOutput, { addressedOccurrenceNamespace: folderNamespace })), [
+    ['src', 'parsed'],
+    ['src/123-folder', 'parsed'],
+    ['src/_builtin', 'not-parsed'],
+  ]);
+
+  // A supplied case-rules runtime is the one the interpreter applies (a hand-built stricter pattern
+  // fails closed for a label the reason vocabulary cannot describe).
+  const stricterRuntime = { semanticName: { style: 'kebab-case', pattern: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/ } };
+  assert.throws(
+    () => projectNamingOccurrenceBridge(runtimeOutput, { addressedOccurrenceNamespace: folderNamespace, caseRulesRuntime: stricterRuntime }),
+    /not-parsed reason vocabulary cannot describe/,
+  );
+
+  const supplied = projectNamingOccurrenceBridge(runtimeOutput, {
+    addressedOccurrenceNamespace: folderNamespace,
+    interpretFolderLabel: () => ({ parseOutcome: 'parsed', labelTokens: ['x'], labelRoot: 'x' }),
+  });
+  assert.deepEqual(supplied.namingFolderLabelObservations.records.map((record) => record.labelRoot), ['x', 'x', 'x']);
+});

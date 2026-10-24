@@ -374,7 +374,7 @@ Classification: Normative
 
 ## 13) Folder-label interpretation (calculogic-validator#89)
 
-- **Status:** contract-approved by calculogic-validator#89; **not current runtime truth** until an implementation slice emits and tests it.
+- **Status:** contract-approved by calculogic-validator#89; implemented by calculogic-validator#91 in `naming/src/rules/naming-rule-interpret-folder-label.logic.mjs`, and emitted on the Naming occurrence-bridge path.
 - **Transport:** the `namingFolderLabelObservations` section (`naming-folder-label-observation.v1`) defined in the cross-cutting Naming bridge occurrence identity contract, §4.6 and §6.3.
 
 This section defines how Naming interprets a folder's label as lexical material. It does not define, and Naming does not decide, what a folder is for. Whether a folder is a semantic home, who owns it, how deep it should be, or what a qualifier in its label means are Tree interpretations.

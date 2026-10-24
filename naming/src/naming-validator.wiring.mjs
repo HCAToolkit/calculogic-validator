@@ -24,6 +24,7 @@ import {
 import { projectNamingSemanticFamilyBridge } from './naming-semantic-family-bridge-projection.logic.mjs';
 import { projectNamingSemanticEvidenceEnrichment } from './naming-semantic-evidence-enrichment-projection.logic.mjs';
 import { createNamingOccurrenceBridgePayload } from './naming-occurrence-bridge-payload.logic.mjs';
+import { interpretNamingFolderLabel } from './rules/naming-rule-interpret-folder-label.logic.mjs';
 import { prepareNamingSemanticEvidenceBridge } from './naming-semantic-evidence-bridge.logic.mjs';
 import { normalizePath } from '../../src/core/scoped-target-paths.logic.mjs';
 import { collectValidatorCandidatePaths } from '../../src/core/validator-candidate-collection.logic.mjs';
@@ -135,6 +136,17 @@ export const prepareNamingValidatorInputs = (
   };
 };
 
+// Folder labels use the run's case rules; outside a run, the Builtin case rules (as other helpers here).
+// The Builtin fallback is resolved on first use, so a call that interprets no folder loads nothing.
+const toFolderLabelInterpreter = (caseRulesRuntime) => {
+  let effectiveCaseRulesRuntime = caseRulesRuntime;
+  return (label) => {
+    effectiveCaseRulesRuntime ??=
+      prepareNamingRuntimeInputs({ registryResolution: BUILTIN_REGISTRY_RESOLUTION }).caseRulesRuntime;
+    return interpretNamingFolderLabel(label, { caseRulesRuntime: effectiveCaseRulesRuntime });
+  };
+};
+
 export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, options = {}) =>
   createNamingOccurrenceBridgePayload({
     namingSemanticFamilyBridge: options.namingSemanticFamilyBridge ??
@@ -142,6 +154,7 @@ export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, 
     addressedOccurrenceNamespace: options.addressedOccurrenceNamespace,
     namingSemanticEvidenceEnrichment: options.namingSemanticEvidenceEnrichment ??
       projectNamingSemanticEvidenceEnrichment(namingRuntimeOrReportOutput),
+    interpretFolderLabel: options.interpretFolderLabel ?? toFolderLabelInterpreter(options.caseRulesRuntime),
     sourceReportRef: options.sourceReportRef,
     sourceSnapshotRef: options.sourceSnapshotRef,
   });
@@ -159,7 +172,10 @@ export const runNamingValidator = (
 
   const result = runNamingValidatorRuntime(preparedInputs);
   const namingOccurrenceBridge = addressedOccurrenceNamespace !== undefined
-    ? projectNamingOccurrenceBridge(result, { addressedOccurrenceNamespace })
+    ? projectNamingOccurrenceBridge(result, {
+        addressedOccurrenceNamespace,
+        caseRulesRuntime: preparedInputs.caseRulesRuntime,
+      })
     : undefined;
 
   return {
