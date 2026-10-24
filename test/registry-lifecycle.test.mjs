@@ -19,7 +19,11 @@ import {
   assessCustomRegistrySet,
   digestBuiltinRegistrySet,
 } from '../src/core/registry-lifecycle/registry-lifecycle-assessment.logic.mjs';
-import { initCustomRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-init.logic.mjs';
+import {
+  assertNewCustomSetAllowed,
+  findNewCustomSetConditions,
+  initCustomRegistrySet,
+} from '../src/core/registry-lifecycle/registry-lifecycle-init.logic.mjs';
 import {
   getBuiltinRegistryRoots,
   resolveActiveRegistrySet,
@@ -763,6 +767,83 @@ test('init-custom also refuses an empty custom directory', () => {
   withLifecycleFixture(({ targetRoot, paths }) => {
     fs.mkdirSync(paths.customRoot, { recursive: true });
     assert.throws(() => initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES }), RegistryLifecycleError);
+  });
+});
+
+// Every file under the lifecycle root with its bytes, or null when the root does not exist.
+const lifecycleSnapshot = (paths) =>
+  fs.existsSync(paths.lifecycleRoot)
+    ? fs
+        .readdirSync(paths.lifecycleRoot, { recursive: true })
+        .map(String)
+        .sort()
+        .map((name) => {
+          const filePath = path.join(paths.lifecycleRoot, name);
+          return [name, fs.statSync(filePath).isFile() ? fs.readFileSync(filePath, 'utf8') : '<dir>'];
+        })
+    : null;
+
+test('init-custom refuses while the state selects custom: no set would be used without use custom', () => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    writeJson(paths.statePath, { schemaVersion: '1', activeSet: 'custom' });
+    const before = lifecycleSnapshot(paths);
+
+    assert.throws(
+      () => initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES }),
+      (error) =>
+        error instanceof RegistryLifecycleError &&
+        /registry-state\.json selects custom/u.test(error.message) &&
+        /`use builtin` first/u.test(error.message) &&
+        error.conditions.some((item) => item.condition === 'custom-selected'),
+    );
+    assert.deepEqual(lifecycleSnapshot(paths), before);
+    assert.equal(fs.existsSync(paths.customRoot), false);
+    assert.equal(fs.readdirSync(paths.lifecycleRoot).some((name) => name.startsWith('.custom-init-')), false);
+
+    // The run still stops on the missing set, as before init-custom was tried.
+    assert.throws(() => resolveActiveRegistrySet({ targetRoot }), RegistryLifecycleError);
+
+    // The documented way: use builtin, init-custom, then use custom activates the checked set.
+    useRegistrySet({ targetRoot, activeSet: 'builtin' });
+    initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    assert.equal(resolveActiveRegistrySet({ targetRoot }).activeSet, 'builtin');
+    useRegistrySet({ targetRoot, activeSet: 'custom' });
+    assert.equal(resolveActiveRegistrySet({ targetRoot }).activeSet, 'custom');
+  });
+});
+
+test('init-custom still succeeds with Builtin selected or no state file', () => {
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    writeJson(paths.statePath, { schemaVersion: '1', activeSet: 'builtin' });
+    const stateBytes = fs.readFileSync(paths.statePath, 'utf8');
+    const result = initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    assert.equal(result.stateFileCreated, false);
+    assert.equal(fs.readFileSync(paths.statePath, 'utf8'), stateBytes);
+    assert.equal(resolveActiveRegistrySet({ targetRoot }).activeSet, 'builtin');
+  });
+  withLifecycleFixture(({ targetRoot, paths }) => {
+    const result = initFixture({ targetRoot, slices: REGISTRY_LIFECYCLE_SLICES });
+    assert.equal(result.stateFileCreated, true);
+    assert.deepEqual(readJson(paths.statePath), { schemaVersion: '1', activeSet: 'builtin' });
+  });
+});
+
+test('one condition list refuses a new Custom set, for init-custom and import alike', () => {
+  withLifecycleFixture(({ paths }) => {
+    assert.deepEqual(findNewCustomSetConditions({ paths, command: 'init-custom' }).conditions, []);
+
+    writeJson(paths.statePath, { schemaVersion: '1', activeSet: 'custom' });
+    assert.deepEqual(findNewCustomSetConditions({ paths, command: 'init-custom' }).conditions, ['custom-selected']);
+    for (const command of ['init-custom', 'import']) {
+      assert.throws(
+        () => assertNewCustomSetAllowed({ paths, command }),
+        (error) => error instanceof RegistryLifecycleError && error.message.includes(`then ${command}`),
+      );
+    }
+
+    fs.mkdirSync(paths.customRoot, { recursive: true });
+    assert.deepEqual(findNewCustomSetConditions({ paths, command: 'import' }).conditions, ['custom-set-exists', 'custom-selected']);
+    assert.throws(() => assertNewCustomSetAllowed({ paths, command: 'import' }), /already exists/u);
   });
 });
 

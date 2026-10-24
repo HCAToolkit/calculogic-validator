@@ -199,13 +199,17 @@ export const PORTABLE_SET_PROBLEMS = Object.freeze({
   baselineUnverifiable: 'baseline-unverifiable',
 });
 
-// [6.3] cfg-registryLifecycle · Primitive · "Portable set environment conditions" (spec §12.12)
-// Conditions of the receiving repository that refuse an import.
-export const PORTABLE_SET_ENVIRONMENT_CONDITIONS = Object.freeze({
+// [6.3] cfg-registryLifecycle · Primitive · "New Custom set conditions" (spec §12.1, §12.12)
+// Conditions of the repository that refuse creating a new Custom set (`init-custom`, `import`).
+export const NEW_CUSTOM_SET_CONDITIONS = Object.freeze({
   customSetExists: 'custom-set-exists',
   transactionPending: 'transaction-pending',
   customSelected: 'custom-selected',
 });
+
+// [6.3] cfg-registryLifecycle · Primitive · "Portable set environment conditions" (spec §12.12)
+// The receiving repository's conditions that refuse an import: the new Custom set conditions.
+export const PORTABLE_SET_ENVIRONMENT_CONDITIONS = NEW_CUSTOM_SET_CONDITIONS;
 
 // [6.3] cfg-registryLifecycle · Primitive · "migrate skip reasons" (spec §12.9)
 export const MIGRATE_SKIP_REASONS = Object.freeze({ undecided: 'undecided' });

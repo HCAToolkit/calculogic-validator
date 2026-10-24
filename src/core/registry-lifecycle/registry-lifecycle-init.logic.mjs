@@ -3,8 +3,10 @@
  * Concern File: Logic
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md (§5.2.6)
  * Responsibility: Creates a complete Custom set, its Baseline copy and its manifest from Builtin.
- * Invariants: refuses when `custom/` exists or a lifecycle transaction is pending; copies every inventory registry byte for byte; never
- *   changes the active set (writes the state file only when absent, with `builtin`); builds the
+ * Invariants: refuses when `custom/` exists, a lifecycle transaction is pending or the state selects
+ *   `custom` (one condition list, shared with `import`); copies every inventory registry byte for
+ *   byte; never changes the active set (writes the state file only when absent, with `builtin`),
+ *   and never creates a set the state already selects; builds the
  *   set in a temporary directory and renames it into place; writes only inside the validation
  *   target (lifecycle spec §4, §4.1 "Containment", §12.1).
  */
@@ -23,7 +25,9 @@ import {
 } from './registry-lifecycle-state.logic.mjs';
 import {
   ACTIVE_SET_BUILTIN,
+  ACTIVE_SET_CUSTOM,
   BASELINE_DIRNAME,
+  NEW_CUSTOM_SET_CONDITIONS,
   REGISTRY_SET_MANIFEST_FILENAME,
   REGISTRY_SET_MANIFEST_SCHEMA_VERSION,
   REGISTRY_STATE_SCHEMA_VERSION,
@@ -33,11 +37,11 @@ const writeJsonFile = (filePath, value) => {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 };
 
-// [5.2.6] cfg-registryLifecycle · Primitive · "assertNewCustomSetAllowed"
-// The checks before a command creates a new Custom set (`init-custom`, `import`): a readable,
-// contained state file, a contained and absent `custom/`, and no pending transaction. Validates
-// before anything is written (spec §4.1) and returns the state (`activeSet`, `stateFileExists`).
-export const assertNewCustomSetAllowed = ({ paths, command }) => {
+// [5.2.6] cfg-registryLifecycle · Primitive · "findNewCustomSetConditions"
+// The one list of repository conditions that refuse creating a new Custom set (`init-custom`,
+// `import`), in order. The state file must be readable and contained, and `custom/` contained, or
+// it throws. Read-only. Returns `{ state, conditions }`.
+export const findNewCustomSetConditions = ({ paths, command }) => {
   const state = readRegistryLifecycleState(paths);
   if (!isLifecyclePathContained(paths, paths.customRoot)) {
     throw new RegistryLifecycleError(
@@ -45,18 +49,38 @@ export const assertNewCustomSetAllowed = ({ paths, command }) => {
     );
   }
 
-  if (customSetExists(paths)) {
-    throw new RegistryLifecycleError(
-      `A Custom registry set already exists (${paths.customRoot}). ${command} never overwrites it.`,
-    );
-  }
+  const conditions = [
+    ...(customSetExists(paths) ? [NEW_CUSTOM_SET_CONDITIONS.customSetExists] : []),
+    // A pending transaction journals Custom paths; a new set at those paths would be what its
+    // recovery restores or removes (spec §4.6 item 5).
+    ...(lifecycleTransactionPending(paths) ? [NEW_CUSTOM_SET_CONDITIONS.transactionPending] : []),
+    // A state selecting `custom` names a set that does not exist yet; a set created under it would
+    // be used by the next run without `use custom` checking it (spec §12.1).
+    ...(state.activeSet === ACTIVE_SET_CUSTOM ? [NEW_CUSTOM_SET_CONDITIONS.customSelected] : []),
+  ];
+  return { state, conditions };
+};
 
-  // A pending transaction journals Custom paths; a new set at those paths would be what its
-  // recovery restores or removes (spec §4.6 item 5).
-  if (lifecycleTransactionPending(paths)) {
-    throw new RegistryLifecycleError(
-      `An interrupted lifecycle transaction is pending (${paths.lifecycleRoot}). ${command} refuses until it is recovered: the next update, migrate or edit recovers it before anything else.`,
-    );
+const newCustomSetRefusal = (condition, { paths, command }) => {
+  switch (condition) {
+    case NEW_CUSTOM_SET_CONDITIONS.customSetExists:
+      return `A Custom registry set already exists (${paths.customRoot}). ${command} never overwrites it.`;
+    case NEW_CUSTOM_SET_CONDITIONS.transactionPending:
+      return `An interrupted lifecycle transaction is pending (${paths.lifecycleRoot}). ${command} refuses until it is recovered: the next update, migrate or edit recovers it before anything else.`;
+    default:
+      return `registry-state.json selects custom (${paths.statePath}), so a new Custom set would be used by the next run without \`use custom\` checking it. Run \`use builtin\` first, then ${command}, then \`use custom\` to activate the set.`;
+  }
+};
+
+// [5.2.6] cfg-registryLifecycle · Primitive · "assertNewCustomSetAllowed"
+// Refuses, before anything is written (spec §4.1), on the first condition that refuses a new Custom
+// set. Returns the state (`activeSet`, `stateFileExists`).
+export const assertNewCustomSetAllowed = ({ paths, command }) => {
+  const { state, conditions } = findNewCustomSetConditions({ paths, command });
+  if (conditions.length > 0) {
+    throw new RegistryLifecycleError(newCustomSetRefusal(conditions[0], { paths, command }), {
+      conditions: conditions.map((condition) => ({ condition })),
+    });
   }
   return state;
 };
