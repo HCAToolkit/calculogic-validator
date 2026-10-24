@@ -337,39 +337,52 @@ const countByKey = (values) => {
   return counts;
 };
 
-// Contract §4.4 and §4.5. Source records are path-keyed Naming facts; the producer correlates each one
-// with the v1 file observation it just emitted for that path, then the section record carries that
-// observation's identity tuple, which is the only association consumers may use. A path that is not
-// unique on either side is ambiguous, so it yields no record instead of a guessed one.
-const toSemanticEvidenceEnrichmentSection = ({ sourceRecords, observations }) => {
+// Contract §4.4 and §4.5. Enrichment source records are path-keyed Naming facts. The producer
+// correlates each one with the Naming source observation it describes, before identity attachment
+// filters any observation out, and then with the v1 file observation that source observation became.
+// The section record carries that observation's identity tuple, which is the only association
+// consumers may use. A path that matches more than one source observation, or more than one source
+// record, is ambiguous, so it yields no record instead of a guessed one.
+const toSemanticEvidenceEnrichmentSection = ({ sourceRecords, sourceObservations, emittedObservationBySource }) => {
   const records = [];
   const diagnostics = [];
   const validSourceRecords = sourceRecords.filter(
     (sourceRecord) => isPlainObject(sourceRecord) && toPathKey(sourceRecord.path),
   );
   const sourcePathCounts = countByKey(validSourceRecords.map((sourceRecord) => sourceRecord.path));
-  const fileObservations = observations.filter((observation) => observation.occurrenceType === 'file');
-  const observationPathCounts = countByKey(fileObservations.map((observation) => observation.repoRelativePath));
-  const fileObservationByPath = new Map(fileObservations.map((observation) => [observation.repoRelativePath, observation]));
+  const sourceObservationsByPath = new Map();
+  for (const sourceObservation of sourceObservations) {
+    if (!isPlainObject(sourceObservation)) continue;
+    const paths = new Set([toPathKey(sourceObservation.path), toPathKey(sourceObservation.repoRelativePath)].filter(Boolean));
+    for (const path of paths) {
+      if (!sourceObservationsByPath.has(path)) sourceObservationsByPath.set(path, []);
+      sourceObservationsByPath.get(path).push(sourceObservation);
+    }
+  }
   const reportedPaths = new Set();
 
   for (const sourceRecord of validSourceRecords) {
     const repoRelativePath = sourceRecord.path;
-    const observation = fileObservationByPath.get(repoRelativePath);
-    if (!observation) {
+    const matchingSourceObservations = sourceObservationsByPath.get(repoRelativePath) ?? [];
+    if (matchingSourceObservations.length === 0) {
       continue;
     }
 
     const ambiguityReason = (sourcePathCounts.get(repoRelativePath) ?? 0) > 1
       ? 'duplicate-source-path'
-      : (observationPathCounts.get(repoRelativePath) ?? 0) > 1
-        ? 'ambiguous-observation-path'
+      : matchingSourceObservations.length > 1
+        ? 'ambiguous-source-observation'
         : null;
     if (ambiguityReason) {
       if (!reportedPaths.has(repoRelativePath)) {
         reportedPaths.add(repoRelativePath);
         diagnostics.push({ diagnosticType: 'unattached-enrichment-source', reason: ambiguityReason, repoRelativePath });
       }
+      continue;
+    }
+
+    const observation = emittedObservationBySource.get(matchingSourceObservations[0]);
+    if (observation?.occurrenceType !== 'file') {
       continue;
     }
 
@@ -436,6 +449,7 @@ export const createNamingOccurrenceBridgePayload = ({
   const occurrenceByPath = buildOccurrenceByPath(addressedOccurrenceNamespace.occurrenceRecords);
 
   const observations = [];
+  const emittedObservationBySource = new Map();
   const enrichedObservations = [];
   const diagnostics = toInvalidAddressedNamespaceDiagnostics({ addressProfileId, addressedSnapshotId });
   const hasValidAddressedNamespace = diagnostics.length === 0;
@@ -471,6 +485,7 @@ export const createNamingOccurrenceBridgePayload = ({
       }
 
       observations.push(observation);
+      emittedObservationBySource.set(semanticObservation, observation);
 
       const enrichedObservation = toEnrichmentRecord({ observation, semanticObservation, occurrenceRecord });
       if (enrichedObservation) {
@@ -483,7 +498,8 @@ export const createNamingOccurrenceBridgePayload = ({
     hasValidAddressedNamespace && Array.isArray(namingSemanticEvidenceEnrichment?.records)
       ? toSemanticEvidenceEnrichmentSection({
           sourceRecords: namingSemanticEvidenceEnrichment.records,
-          observations,
+          sourceObservations,
+          emittedObservationBySource,
         })
       : null;
 

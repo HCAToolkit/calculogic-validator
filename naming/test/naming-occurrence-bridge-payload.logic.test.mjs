@@ -611,7 +611,7 @@ test('enrichment section rejects duplicate or conflicting source records for one
   }
 });
 
-test('enrichment section rejects a source path shared by more than one emitted v1 file observation', () => {
+test('enrichment section rejects a source path shared by more than one Naming source observation', () => {
   const result = createNamingOccurrenceBridgePayload({
     namingSemanticFamilyBridge: {
       observations: [
@@ -632,7 +632,7 @@ test('enrichment section rejects a source path shared by more than one emitted v
     ['src/build-surface.logic.mjs'],
   );
   assert.deepEqual(result.namingSemanticEvidenceEnrichment.diagnostics, [
-    { diagnosticType: 'unattached-enrichment-source', reason: 'ambiguous-observation-path', repoRelativePath: 'src/zeta-alpha.logic.mjs' },
+    { diagnosticType: 'unattached-enrichment-source', reason: 'ambiguous-source-observation', repoRelativePath: 'src/zeta-alpha.logic.mjs' },
   ]);
 });
 
@@ -656,4 +656,43 @@ test('enrichment section drops only an invalid field group and reports it', () =
   for (const record of section.records) {
     assert.equal(['role', 'roleCategory', 'roleStatus'].filter((field) => field in record).length % 3, 0);
   }
+});
+
+// Codex review on #88: ambiguity must be judged against Naming's source observations, before
+// identity attachment filters any of them out. Otherwise enrichment meant for an omitted source
+// observation would attach to a surviving observation that shares its path.
+test('enrichment section never transfers enrichment from an omitted source observation to a surviving one', () => {
+  const result = createNamingOccurrenceBridgePayload({
+    namingSemanticFamilyBridge: {
+      observations: [
+        { path: 'p', repoRelativePath: 'missing', semanticName: 'omitted-source', semanticFamily: 'omitted', familyRoot: 'omitted' },
+        { path: 'p', semanticName: 'kept-source', semanticFamily: 'kept', familyRoot: 'kept' },
+        { path: 'q', semanticName: 'other-source', semanticFamily: 'other', familyRoot: 'other' },
+      ],
+    },
+    addressedOccurrenceNamespace: {
+      addressProfileId: 'tree-codebase',
+      addressedSnapshotId: 'snapshot-001',
+      occurrenceRecords: [
+        { occurrenceAddress: 'A.1', addressPath: 'A.1', path: 'p', occurrenceType: 'file' },
+        { occurrenceAddress: 'A.2', addressPath: 'A.2', path: 'q', occurrenceType: 'file' },
+      ],
+    },
+    namingSemanticEvidenceEnrichment: {
+      records: [
+        { path: 'p', semanticTokens: ['omitted', 'source'] },
+        { path: 'q', semanticTokens: ['other', 'source'] },
+      ],
+    },
+  });
+
+  // The v1 payload is unchanged: the first observation is still omitted for missing identity.
+  assert.deepEqual(result.observations.map((observation) => observation.repoRelativePath), ['p', 'q']);
+  assert.ok(result.diagnostics.some((diagnostic) => diagnostic.reason === 'unmatched-occurrence-record'));
+
+  const section = result.namingSemanticEvidenceEnrichment;
+  assert.deepEqual(section.records.map((record) => record.occurrenceAddress), ['A.2']);
+  assert.deepEqual(section.diagnostics, [
+    { diagnosticType: 'unattached-enrichment-source', reason: 'ambiguous-source-observation', repoRelativePath: 'p' },
+  ]);
 });
