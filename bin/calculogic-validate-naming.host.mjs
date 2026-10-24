@@ -12,7 +12,8 @@ import {
 
 const repositoryRoot = resolveRepositoryRoot();
 // `--registry-candidate` selects the run's registry source before anything is resolved (spec §12.13).
-const { argv, candidate } = extractRegistryCandidateArgument(process.argv.slice(2));
+const forwardedArgv = process.argv.slice(2);
+const { argv, candidate } = extractRegistryCandidateArgument(forwardedArgv);
 const cliRegistrySet = resolveCliRegistrySet(repositoryRoot, { candidate });
 const usageLines = buildNamingCliUsageLines({
   commandPrefix: 'calculogic-validate-naming',
@@ -21,7 +22,7 @@ const usageLines = buildNamingCliUsageLines({
   registryRoots: cliRegistrySet.usageRegistryRoots,
 });
 const npmArgForwardingMessage = detectNpmArgForwardingFootgun({
-  argv,
+  argv: forwardedArgv,
   npmConfigArgvJson: process.env.npm_config_argv,
   lifecycleEvent: process.env.npm_lifecycle_event,
   expectedLifecycleEvent: 'validate:naming',

@@ -12,7 +12,8 @@ import {
 
 const repositoryRoot = resolveRepositoryRoot();
 // `--registry-candidate` selects the run's registry source before anything is resolved (spec §12.13).
-const { argv, candidate } = extractRegistryCandidateArgument(process.argv.slice(2));
+const forwardedArgv = process.argv.slice(2);
+const { argv, candidate } = extractRegistryCandidateArgument(forwardedArgv);
 const cliRegistrySet = resolveCliRegistrySet(repositoryRoot, { candidate });
 
 const usageLines = buildDirectValidatorRunnerUsageLines({
@@ -29,6 +30,7 @@ const usageLines = buildDirectValidatorRunnerUsageLines({
 
 const result = runValidatorRunnerCli({
   argv,
+  forwardedArgv,
   usageLines,
   repositoryRoot,
   cliRegistrySet,

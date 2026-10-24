@@ -305,6 +305,41 @@ test('the CLI hosts: option forms, refusals, usage, and every Validator command'
   });
 });
 
+test('npm forwarding: the guard sees the forwarded option, so a candidate-only run is not refused', () => {
+  withRepositories(({ base, writeArtifact, run }) => {
+    const artifactPath = writeArtifact(base);
+    const hosts = [
+      [validateBin, 'validate:all'],
+      [validateAllScript, 'validate:all'],
+      [validateNamingBin, 'validate:naming'],
+      [validateNamingScript, 'validate:naming'],
+      [validateTreeBin, 'validate:tree'],
+      [validateTreeScript, 'validate:tree'],
+    ];
+    for (const [script, lifecycleEvent] of hosts) {
+      for (const forwarded of [[`--registry-candidate=${artifactPath}`], ['--registry-candidate', artifactPath]]) {
+        const env = {
+          npm_lifecycle_event: lifecycleEvent,
+          npm_config_argv: JSON.stringify({ original: ['run', lifecycleEvent, '--', ...forwarded] }),
+        };
+        const label = `${path.basename(script)} ${forwarded.join(' ')}`;
+        const result = run(script, forwarded, undefined, env);
+        assert.ok([0, 2].includes(result.status), `${label}: ${result.stderr}`);
+        assert.doesNotMatch(result.stderr, /npm argument forwarding/u, label);
+      }
+
+      // Not forwarded (no `--`): npm kept the option, so the script got no arguments.
+      const env = {
+        npm_lifecycle_event: lifecycleEvent,
+        npm_config_argv: JSON.stringify({ original: ['run', lifecycleEvent, `--registry-candidate=${artifactPath}`] }),
+      };
+      const missing = run(script, [], undefined, env);
+      assert.equal(missing.status, 1, path.basename(script));
+      assert.match(missing.stderr, /Detected npm argument forwarding issue: use "npm run [a-z:]+ -- --registry-candidate=/u, path.basename(script));
+    }
+  });
+});
+
 test('the option never reaches a slice parser, and the npm guard knows it', () => {
   assert.deepEqual(extractRegistryCandidateArgument(['--scope=app', '--registry-candidate', 'a.json', '--strict']), {
     argv: ['--scope=app', '--strict'],
