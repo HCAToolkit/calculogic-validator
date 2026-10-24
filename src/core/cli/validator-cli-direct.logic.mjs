@@ -67,7 +67,7 @@ export const buildDirectValidatorRunnerUsageLines = ({
   const supportedScopesToken = buildSupportedScopeToken(supportedScopes);
 
   return [
-    `Usage: ${repoLocalNpmInvocation} [--scope=<${supportedScopesToken}>] [--target=<path>]... [--config=<path>]`,
+    `Usage: ${repoLocalNpmInvocation} [--scope=<${supportedScopesToken}>] [--target=<path>]... [--config=<path>] [--registry-candidate=<artifact.json>]`,
     'Scopes:',
     ...buildValidatorScopeUsageLinesFromRuntimeProfiles(supportedScopes, { targetRepositoryRoot: repositoryRoot, registryRoots }),
     defaultScopeLine,

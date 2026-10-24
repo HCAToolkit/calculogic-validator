@@ -42,7 +42,8 @@ const buildRegistrySetReport = ({ activeSet, assessment, resolvedDigests }) => (
 });
 
 // [7.1] cfg-registryLifecycle · Primitive · "buildRegistryProvenance"
-const buildRegistryProvenance = ({ activeSet, resolvedDigests, slices }) =>
+// `source` is the run's source: the active set, or `candidate` (spec §11.2). Shared with 5.2.23.
+export const buildRegistryProvenance = ({ source, resolvedDigests, slices }) =>
   Object.freeze(
     Object.fromEntries(
       slices.map((slice) => [
@@ -50,7 +51,7 @@ const buildRegistryProvenance = ({ activeSet, resolvedDigests, slices }) =>
         Object.fromEntries(
           slice.inventory.map((entry) => [
             entry.registryId,
-            { source: activeSet, digest: resolvedDigests[entry.registryId] },
+            { source, digest: resolvedDigests[entry.registryId] },
           ]),
         ),
       ]),
@@ -129,6 +130,6 @@ export const resolveActiveRegistrySet = ({
     registryRoots: isCustomActive ? customRegistryRoots : getBuiltinRegistryRoots({ slices }),
     ...(customRegistryRoots ? { customRegistryRoots } : {}),
     registrySet: buildRegistrySetReport({ activeSet, assessment, resolvedDigests }),
-    registryProvenance: buildRegistryProvenance({ activeSet, resolvedDigests, slices }),
+    registryProvenance: buildRegistryProvenance({ source: activeSet, resolvedDigests, slices }),
   };
 };

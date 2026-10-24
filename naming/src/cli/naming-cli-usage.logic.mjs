@@ -31,7 +31,7 @@ export const buildNamingCliUsageLines = ({
     strictExampleCommand ?? `${repoLocalNpmInvocation} --scope=repo --strict`;
 
   return [
-    `Usage: ${effectiveCommandPrefix} [--scope=<${supportedScopesToken}>] [--target=<path>]... [--config=<path>] [--strict]`,
+    `Usage: ${effectiveCommandPrefix} [--scope=<${supportedScopesToken}>] [--target=<path>]... [--config=<path>] [--strict] [--registry-candidate=<artifact.json>]`,
     'Scopes:',
     ...supportedScopes.map((scope) => {
       const profile = getContextualValidatorScopeProfile(scope, { targetRepositoryRoot: repositoryRoot, registryRoots });

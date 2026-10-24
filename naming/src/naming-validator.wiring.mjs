@@ -45,7 +45,8 @@ export const prepareNamingRuntimeInputs = ({ registryResolution = BUILTIN_REGIST
   const namingRegistryRoot = registryResolution.registryRoots[NAMING_REGISTRY_SLICE_ID];
   const registryInputs = resolveNamingRegistryInputs({
     registryRoot: namingRegistryRoot,
-    activeSet: registryResolution.activeSet,
+    // Naming's transitional fields name the run's source: the active set, or `candidate` (spec §11.3).
+    activeSet: registryResolution.activeSet ?? registryResolution.source,
     customRegistryRoot: registryResolution.customRegistryRoots?.[NAMING_REGISTRY_SLICE_ID],
   });
 

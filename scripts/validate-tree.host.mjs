@@ -4,10 +4,16 @@ import {
   parseDirectValidatorRunnerCliArgs,
 } from '../src/core/cli/validator-cli-direct.logic.mjs';
 import { runValidatorRunnerCli } from '../src/core/cli/validator-cli-runner.logic.mjs';
-import { resolveCliRegistrySet } from '../src/core/cli/validator-cli-registry-resolution.logic.mjs';
+import {
+  REGISTRY_CANDIDATE_FLAG_NAME,
+  extractRegistryCandidateArgument,
+  resolveCliRegistrySet,
+} from '../src/core/cli/validator-cli-registry-resolution.logic.mjs';
 
 const repositoryRoot = resolveRepositoryRoot();
-const cliRegistrySet = resolveCliRegistrySet(repositoryRoot);
+// `--registry-candidate` selects the run's registry source before anything is resolved (spec §12.13).
+const { argv, candidate } = extractRegistryCandidateArgument(process.argv.slice(2));
+const cliRegistrySet = resolveCliRegistrySet(repositoryRoot, { candidate });
 
 const usageLines = buildDirectValidatorRunnerUsageLines({
   validatorId: 'tree-structure-advisor',
@@ -22,12 +28,12 @@ const usageLines = buildDirectValidatorRunnerUsageLines({
 });
 
 const result = runValidatorRunnerCli({
-  argv: process.argv.slice(2),
+  argv,
   usageLines,
   repositoryRoot,
   cliRegistrySet,
   expectedLifecycleEvent: 'validate:tree',
-  supportedFlagNames: ['scope', 'target', 'config'],
+  supportedFlagNames: ['scope', 'target', 'config', REGISTRY_CANDIDATE_FLAG_NAME],
   parseCliArgs: parseDirectValidatorRunnerCliArgs,
   buildRunnerOptions: ({ parsed, config, toolVersion, configDigest }) => ({
     scope: parsed.selectedScope,

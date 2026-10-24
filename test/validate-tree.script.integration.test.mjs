@@ -120,7 +120,7 @@ test('validate-tree help keeps current command usage surface', () => {
   assert.equal(
     result.stdout,
     [
-      'Usage: npm run validate:tree -- [--scope=<repo|app|docs|validator|system>] [--target=<path>]... [--config=<path>]',
+      'Usage: npm run validate:tree -- [--scope=<repo|app|docs|validator|system>] [--target=<path>]... [--config=<path>] [--registry-candidate=<artifact.json>]',
       'Scopes:',
       '  - app: Application-only scan (src/** and test/**).',
       '  - docs: Documentation-focused scan (doc/docs and root conventional docs: README.md).',
