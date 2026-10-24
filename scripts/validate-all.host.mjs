@@ -9,17 +9,24 @@ import {
   buildValidatorScopeUsageLinesFromRuntimeProfiles,
 } from '../src/core/cli/validator-cli-scopes.logic.mjs';
 import { runValidatorRunnerCli } from '../src/core/cli/validator-cli-runner.logic.mjs';
-import { resolveCliRegistrySet } from '../src/core/cli/validator-cli-registry-resolution.logic.mjs';
+import {
+  REGISTRY_CANDIDATE_FLAG_NAME,
+  extractRegistryCandidateArgument,
+  resolveCliRegistrySet,
+} from '../src/core/cli/validator-cli-registry-resolution.logic.mjs';
 
 const repositoryRoot = resolveRepositoryRoot();
-const cliRegistrySet = resolveCliRegistrySet(repositoryRoot);
+// `--registry-candidate` selects the run's registry source before anything is resolved (spec §12.13).
+const forwardedArgv = process.argv.slice(2);
+const { argv, candidate } = extractRegistryCandidateArgument(forwardedArgv);
+const cliRegistrySet = resolveCliRegistrySet(repositoryRoot, { candidate });
 const registryRoots = cliRegistrySet.usageRegistryRoots;
 
 const supportedScopes = listValidatorScopes({ registryRoots });
 const supportedScopesToken = buildSupportedScopeToken(supportedScopes);
 
 const usageLines = [
-  `Usage: npm run validate:all -- [--scope=<${supportedScopesToken}>] [--validators=<id1,id2>] [--target=<path>]... [--config=<path>] [--strict]`,
+  `Usage: npm run validate:all -- [--scope=<${supportedScopesToken}>] [--validators=<id1,id2>] [--target=<path>]... [--config=<path>] [--strict] [--registry-candidate=<artifact.json>]`,
   'Validators:',
   ...listRegisteredValidators().map((validatorId) => `  - ${validatorId}`),
   'Scopes:',
@@ -92,12 +99,13 @@ const parseCliArgs = (argv) => {
 };
 
 const result = runValidatorRunnerCli({
-  argv: process.argv.slice(2),
+  argv,
+  forwardedArgv,
   usageLines,
   repositoryRoot,
   cliRegistrySet,
   expectedLifecycleEvent: 'validate:all',
-  supportedFlagNames: ['scope', 'target', 'config', 'strict', 'validators'],
+  supportedFlagNames: ['scope', 'target', 'config', 'strict', 'validators', REGISTRY_CANDIDATE_FLAG_NAME],
   parseCliArgs,
   buildRunnerOptions: ({ parsed, config, toolVersion, configDigest }) => ({
     scope: parsed.selectedScope,

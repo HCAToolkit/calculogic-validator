@@ -24,6 +24,7 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 12: reference edges implemented: the `references` declarations (6.1) replacing the informative edge lists, the Naming and Tree resolvers and their bridge, `keyedEntryAddress` (5.2.9), and `resolveRegistryReferences` (5.2.20), with per-edge conformance tests. The source identity became structured (spec §12.11 correction). No command consumes it yet.
 - #60 slice 13: the read-only `trace` (5.2.21, 5.3): one set's references, whole or for one entry, with Custom read through the assessment's containment-checked reader (`customReferenceInputs`, 5.2.20).
 - #60 slice 14: the portable set (spec §12.12): `export`, `import-check` and `import` (5.2.22, 5.3), with `init-custom`'s staging shared through `assertNewCustomSetAllowed` and `installNewCustomSet` (5.2.6). Spec §4.6 corrected: creating a set stages it; only changes to an existing set use the transaction.
+- #60 slice 15: candidate preview (spec §12.13): `resolveCandidateRegistrySet` (5.2.23), the `--registry-candidate` option of the Validator commands (5.4), and candidate provenance (7.1), with Naming's transitional fields taken from the run's source (spec §11.3).
 - Follow-ons: the rest of the advanced management surface (#60): applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
@@ -40,12 +41,12 @@ Let a consumer own a complete Custom registry set, choose between Builtin and Cu
 - Initialization of the Custom set, active-set selection and status.
 - Whole-set resolution into one resolved registry root per slice, with completeness, version and validity checks before validation.
 - Set-level and per-registry provenance.
-- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields, with the lifecycle transaction it writes through; the migration plan (`migrate-plan`, `migrate-check`) and `migrate`; the edit document (`edit-check`, `edit`); and reference edge declarations, resolvers and resolution (5.2.20) with the read-only `trace` (5.2.21); and the portable set's `export`, `import-check` and `import` (5.2.22).
+- From the advanced management surface (#60): `diff`, the update decisions document, and `update` for `registry-added` inheritance and the entry decisions `keep-custom`, `take-builtin` and merge-fields, with the lifecycle transaction it writes through; the migration plan (`migrate-plan`, `migrate-check`) and `migrate`; the edit document (`edit-check`, `edit`); and reference edge declarations, resolvers and resolution (5.2.20) with the read-only `trace` (5.2.21); the portable set's `export`, `import-check` and `import` (5.2.22); and candidate preview (5.2.23).
 
 ### 1.3 Out of scope
 
 - Interpreting registry content (slice-owned).
-- The rest of the advanced management surface (follow-on): applying add-alongside, a replacing import, and candidate preview.
+- The rest of the advanced management surface (follow-on): applying add-alongside, a replacing import, and per-run Builtin or configuration-file source choices.
 - The cross-slice compatibility check (follow-on).
 
 ### 1.4 Concerns present
@@ -148,6 +149,8 @@ Runs 5.2.1 and 5.2.4.
 - In both cases it returns one resolved registry root per slice, plus the provenance inputs for 7.1.
 
 Slice-shape and reference validation failures raised by slice loaders while loading an active Custom set are reported through the same lifecycle error path.
+
+A candidate run uses 5.2.23 instead of this workflow; it never reads `registry-state.json`.
 
 #### 5.2.6 Workflow: `initCustomRegistrySet`
 
@@ -335,6 +338,14 @@ Spec §12.12. `registry-lifecycle-portable-set.logic.mjs`.
 - **`checkPortableSet({ document, targetRoot })`:** `{ valid, problems, environment, status }`; `environment` is `custom-set-exists`, `transaction-pending` and `custom-selected`. Never writes the repository.
 - **`importPortableSet({ document, targetRoot })`:** `assertNewCustomSetAllowed`, refuses `custom-selected`, runs the check, then `installNewCustomSet` with the exact bytes. Returns `{ installed: true, activated: false, status }`, or `{ installed: false, problems | environment }`. Never writes `registry-state.json`.
 
+#### 5.2.23 Workflow: `resolveCandidateRegistrySet` (candidate preview)
+
+Spec §12.13. `registry-lifecycle-candidate.logic.mjs`, `resolveCandidateRegistrySet({ artifactBytes, slices })`.
+- **Artifact:** parsed from the exact bytes (`artifactSha256` is their SHA-256), then checked by the portable set's `artifactProblems` (5.2.22); any problem is a lifecycle error.
+- **Candidate root:** the files are written once into a temporary target under the OS temp directory (`materializePortableSet`, 5.2.22), and `assessCustomRegistrySet` (5.2.4) runs on it. `findCustomSetBlockers` (5.2.5) decides refusal exactly as for an active Custom set; a refusal is a lifecycle error listing each condition, with temporary paths written as `<candidate>`, and the root is removed first.
+- **Resolution:** `{ source: 'candidate', registryRoots, registrySet, registryProvenance, dispose }`. `registryRoots` are the candidate root's slice folders; `registrySet` is the candidate form of spec §11.1 (no `activeSet` or `customExists`); `registryProvenance` has `source: 'candidate'` and the candidate's canonical digests (`buildRegistryProvenance`, shared with 5.2.5). `dispose()` removes the candidate root and may be called more than once.
+- Never reads `registry-state.json`, the repository's Custom set or its transaction directory.
+
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
 - `init-custom` → 5.2.6.
@@ -365,6 +376,7 @@ The runner and direct slice CLIs call 5.2.5 once per run, before slice execution
 - **Tree** (slice 3): `tree/src/registries/tree-runtime-registries.logic.mjs` loads every runtime-consumed Tree registry from the resolved Tree root through the direct loaders (`load…FromRegistryRoot`). The Builtin root is cached; a Custom root is read per run, because its files are user-editable. Tree wiring passes the loaded registries into prepared dependencies and the shim diagnostics contributor; the Tree runtime and shim detection hold no module-level registry state. Tree's read of `naming/folder-composition-patterns` uses the resolved Naming root.
 - **Usage text:** the validator CLI hosts resolve once per invocation and build usage text, including scope lists, from that resolution's roots. When resolution fails, usage uses Builtin roots so `--help` still works, and the run reports the lifecycle error.
 - **Builtin fallbacks:** prepared-input and loader helpers called without a resolution (direct library calls and unit tests) read Builtin. No validation run reaches them.
+- **Candidate option:** each Validator host takes `--registry-candidate <file>` out of its arguments first (`extractRegistryCandidateArgument`), before resolving, and passes it to `resolveCliRegistrySet`, which then resolves the candidate (5.2.23) instead of the active set. The remaining arguments go to the host's own parser, which never sees the option, and to the npm argument-forwarding guard, which knows it. The candidate root is removed when the process exits, however it ends. Naming wiring takes its transitional `registryState` and `registrySource` from the resolution's `source` (`candidate`) when it has no `activeSet` (spec §11.3).
 
 ## 6.0 Knowledge Concern (Reference Data)
 
@@ -391,6 +403,7 @@ Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` 
 - `registrySet` in the runner envelope and in each direct slice report.
 - `registryProvenance` per slice report.
 - Naming's derived transitional `registryState`, `registrySource` and `registryDigests`, as defined in the spec §11.
+- A candidate run (5.2.23) reports `registrySet.source: 'candidate'` with `candidate: { artifactSha256, exportedBy }`, the candidate's assessment fields and no `activeSet` or `customExists`; per-registry `source: 'candidate'`; and Naming's `registryState` and `registrySource` as `candidate` (spec §11).
 
 ### 7.2 Status output
 
@@ -443,6 +456,7 @@ src/core/registry-lifecycle/
   registry-lifecycle-slice-references.logic.mjs    5.2.20 (each slice's reference resolver)
   registry-lifecycle-trace.logic.mjs               5.2.21
   registry-lifecycle-portable-set.logic.mjs        5.2.22
+  registry-lifecycle-candidate.logic.mjs           5.2.23
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)

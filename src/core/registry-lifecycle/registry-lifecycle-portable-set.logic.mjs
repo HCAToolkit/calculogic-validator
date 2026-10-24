@@ -145,9 +145,11 @@ export const exportPortableSet = ({ targetRoot, lifecycleRootOverride, validator
   };
 };
 
+// [5.2.22] cfg-registryLifecycle · Derived value · "artifactProblems"
 // The artifact's own problems (spec §12.12 `import-check`): shape and schema first, then paths and
-// integrity. Paths and hashes are checked only on a well-formed document.
-const artifactProblems = (document, sliceIds) => {
+// integrity. Paths and hashes are checked only on a well-formed document. Shared with candidate
+// preview (5.2.23).
+export const artifactProblems = (document, sliceIds) => {
   const problems = [];
   const problem = (code, detail, filePath) => problems.push({ ...(filePath === undefined ? {} : { path: filePath }), problem: code, detail });
   if (!hasExactKeys(document, ['kind', 'schemaVersion', 'exportedBy', 'files']) || document.kind !== PORTABLE_SET_KIND) {
@@ -199,9 +201,10 @@ const artifactProblems = (document, sliceIds) => {
   return problems;
 };
 
-// Replaces every string's temporary paths with the receiving repository's, so nothing reported
-// depends on where the copy was assessed.
-const relocate = (value, replacements) => {
+// [5.2.22] cfg-registryLifecycle · Primitive · "relocate"
+// Replaces every string's temporary paths with the given ones, so nothing reported depends on where
+// a copy was assessed.
+export const relocate = (value, replacements) => {
   if (typeof value === 'string') {
     return replacements.reduce((text, [from, to]) => text.split(from).join(to), value);
   }
@@ -214,11 +217,13 @@ const relocate = (value, replacements) => {
   return value;
 };
 
-// The set as it would be installed: written to a temporary target outside the repository,
-// assessed by the lifecycle (spec §7, §12.1), then removed. Returns the merge-base problems and the
-// status, with temporary paths reported as the receiving repository's.
-const assessPortableSet = ({ files, receivingPaths, slices }) => {
-  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'calculogic-registry-import-'));
+// [5.2.22] cfg-registryLifecycle · Primitive · "materializePortableSet"
+// Writes a checked artifact's files, as exact bytes, into `custom/` of a new temporary target under
+// the OS temp directory, outside any repository. Returns `{ temporaryRoot, paths, temporaryPaths }`,
+// where `temporaryPaths` are the spellings of its lifecycle root to relocate in reports; the caller
+// removes `temporaryRoot`.
+export const materializePortableSet = (files, prefix = 'calculogic-registry-import-') => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   try {
     const paths = resolveRegistryLifecyclePaths({ targetRoot: temporaryRoot });
     fs.mkdirSync(paths.customRoot, { recursive: true });
@@ -227,10 +232,24 @@ const assessPortableSet = ({ files, receivingPaths, slices }) => {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, Buffer.from(file.text, 'utf8'));
     }
+    const temporaryPaths = [...new Set([fs.realpathSync(paths.lifecycleRoot), paths.lifecycleRoot])].sort(
+      (left, right) => right.length - left.length,
+    );
+    return { temporaryRoot, paths, temporaryPaths };
+  } catch (error) {
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    throw error;
+  }
+};
+
+// The set as it would be installed: written to a temporary target outside the repository,
+// assessed by the lifecycle (spec §7, §12.1), then removed. Returns the merge-base problems and the
+// status, with temporary paths reported as the receiving repository's.
+const assessPortableSet = ({ files, receivingPaths, slices }) => {
+  const { temporaryRoot, paths, temporaryPaths } = materializePortableSet(files);
+  try {
     const assessment = assessCustomRegistrySet({ paths, slices });
-    const replacements = [...new Set([fs.realpathSync(paths.lifecycleRoot), paths.lifecycleRoot])]
-      .sort((left, right) => right.length - left.length)
-      .map((from) => [from, receivingPaths.lifecycleRoot]);
+    const replacements = temporaryPaths.map((from) => [from, receivingPaths.lifecycleRoot]);
 
     const problems = [];
     for (const issue of assessment.customIssues) {

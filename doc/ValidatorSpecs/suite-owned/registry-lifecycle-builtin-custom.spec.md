@@ -2,7 +2,7 @@
 
 - **Classification:** Normative target contract for the suite-level registry lifecycle. Sections marked *Current implementation reality* or *Historical* are Informative.
 - **Ownership:** suite-owned lifecycle mechanics; slice-owned registry meaning (§9).
-- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document, `update` (`registry-added` inheritance, and the entry decisions `keep-custom`, `take-builtin` and merge-fields), the migration plan, `migrate`, and the edit document with `edit-check` and `edit` are implemented, as are the reference edge declarations, resolvers and resolution with the read-only `trace` (§12.11), and the portable set's `export`, `import-check` and `import` (§12.12); its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
+- **Status:** accepted contract, implemented through slice 3 (§13): suite lifecycle mechanics, `init-custom`, `status` and `use`, Naming, suite-core and Tree adoption of resolved roots, active-Custom resolution, report provenance and the config retirement. Of the advanced management surface (§12.2), `diff`, the update decisions document, `update` (`registry-added` inheritance, and the entry decisions `keep-custom`, `take-builtin` and merge-fields), the migration plan, `migrate`, and the edit document with `edit-check` and `edit` are implemented, as are the reference edge declarations, resolvers and resolution with the read-only `trace` (§12.11), the portable set's `export`, `import-check` and `import` (§12.12), and candidate preview (§12.13); its other choices and commands, and the cross-slice compatibility check, remain follow-ons (§13 item 4). §14 records current reality.
 - **Report-only note:** the lifecycle selects registry inputs and discloses them in report metadata. It adds no enforcement mode and no fix execution.
 - **Issue lineage:** Refs #41; parent Refs #39. Decision record: #41 comments "Decision record (before the spec PR)", "Decision record: section 9 resolved" and "Decision record: activation, and the earlier customization draft".
 
@@ -76,7 +76,8 @@ The registry lifecycle root is one conventional repo-local directory in the **va
 - The root is a dot-directory, so default suite traversal does not collect it as validation candidates (Naming `walk-exclusions` `skipDotDirectories`). A Custom set that disables that rule makes its own files visible to validation, which is harmless.
 
 **Containment.** Every lifecycle path the Validator reads or writes must resolve, after following symlinks (realpath), inside the validation target root. A symlink that stays inside the target is allowed. One that escapes it is not, and a symlink that cannot be resolved counts as escaping. Reads and writes follow the same rule:
-- An escaping lifecycle root or `registry-state.json` is unreadable state (§7.1 item 5). It blocks every run and every lifecycle command, and `init-custom` refuses before writing anything.
+- An escaping lifecycle root or `registry-state.json` is unreadable state (§7.1 item 5). It blocks every run that resolves the active set and every lifecycle command, and `init-custom` refuses before writing anything.
+- A candidate root (§12.13) is not a lifecycle path. It is a temporary directory the Validator creates outside the repository and fills itself, from artifact bytes whose paths and hashes it has verified, for one run. Containment governs the persistent lifecycle paths a user owns; the candidate root is neither user-selected nor persistent, and is removed when the run ends.
 - Inside `custom/`, an escaping path is unreadable and is reported through the existing conditions. It never blocks an inactive set (§7.2). An escaping Custom registry file is `invalid`, an escaping `.baseline/` copy is a `baseline-mismatch`, and an escaping manifest is `manifest-malformed`. The Validator does not read through an escaping path.
 - Sharing one Custom set between repositories through a symlink is not supported. A portable set is copied, or exported and imported (§12.12), and becomes owned by the consuming repository (§4.3), so Baseline updates never act on a directory another repository also owns.
 
@@ -208,7 +209,7 @@ Digests are computed over canonical forms only. File formatting, key order, and 
 - **Activation gate:** Custom activation is available only when **every** registry consumer of every inventory slice reads its resolved root. A partially adopted suite would mix Custom and Builtin policy in one run and misreport provenance. The gate held from slice 3 (§13), when Tree adopted resolved roots, and it stays a standing rule:
   - every new reader of registry policy (a loader, a runtime consumer, or CLI output derived from a registry, such as the scope list in usage text) reads the resolved set of the run;
   - a Builtin read is allowed only where there is no validation run to resolve (direct library calls without a resolution), and it never happens inside a run that resolved a set.
-- A per-run source choice may later be supplied explicitly (for example "validate against Builtin" or a candidate set for preview, §10). It changes only that run's source. It never changes `registry-state.json` and never writes Custom.
+- A per-run source choice may be supplied explicitly. It changes only that run's source, never changes `registry-state.json` and never writes Custom. The one implemented is a **candidate set** (§12.13): the run's slices read their registries from a temporary copy of a verified portable-set artifact, the candidate root, loaded whole like any set. A per-run "validate against Builtin" choice may follow later (§10).
 
 ## 7) Validity of an active Custom set
 
@@ -220,7 +221,7 @@ When `activeSet: custom`, the run checks the Custom set **before any validation*
 2. **Incomplete set:** the current Builtin inventory contains a registry that Custom lacks, for example one introduced by a later Validator release.
 3. **Incompatible version:** a Custom registry's `version` is not among the versions its slice declares as readable (§9.1).
 4. **Invalid payload:** a Custom registry fails its slice's shape validation, or a reference between registries fails against the resolved set (§9.3).
-5. **Unreadable state or manifest:** malformed `registry-set.manifest.json`. A manifest is also malformed when it lacks a `basedOn.registries` entry for any registry that is present in `custom/` **and** in the current Builtin inventory, because every Custom registry the engine reads must have authoritative Baseline provenance. Orphan registries (§7.2) are exempt: the engine never reads them, and they stay non-blocking with or without a manifest entry. A malformed `registry-state.json` blocks every run, whichever set it would select, because the active set cannot be known.
+5. **Unreadable state or manifest:** malformed `registry-set.manifest.json`. A manifest is also malformed when it lacks a `basedOn.registries` entry for any registry that is present in `custom/` **and** in the current Builtin inventory, because every Custom registry the engine reads must have authoritative Baseline provenance. Orphan registries (§7.2) are exempt: the engine never reads them, and they stay non-blocking with or without a manifest entry. A malformed `registry-state.json` blocks every run that resolves the active set, whichever set it would select, because the active set cannot be known. A candidate run (§12.13) does not use the active set and never reads the file.
 6. **Interrupted transaction:** a lifecycle transaction directory exists (§4.6 item 5). Some Custom files may hold a command's new content while others do not, so the set is not one any command produced. The next writing lifecycle command recovers it first; `registry:use builtin` remains the way back meanwhile. It is reported alongside a missing set (item 1) when `custom/` is gone.
 
 There is **no Builtin fallback**. Builtin never fills gaps in an active Custom set. The notice names each failing registry and gives the two ways forward: reconcile Custom, or run `registry:use builtin`, which keeps Custom intact.
@@ -371,7 +372,7 @@ Naming keeps a registry-state owner for its loader responsibilities, reading fro
 ## 10) Configuration boundary
 
 - Configuration never carries registry records.
-- Configuration may choose a **source for a single run** (Builtin, or a candidate set for preview, later). It never relocates the lifecycle root, never changes the active set and never writes Custom.
+- A **source for a single run** may be chosen: today a candidate set, by the `--registry-candidate` option (§12.13); a configuration-file choice, and a per-run Builtin choice, may follow later. It never relocates the lifecycle root, never changes the active set and never writes Custom.
 - Naming's record-carrying config surfaces are retired in the same slice in which Naming starts reading the resolved set (§13, slice 2). Whole-set loading leaves no contract-compliant way to keep applying them, and no consumer uses them. There is no overlay compatibility bridge:
   - `naming.roles.add` and `naming.reportableExtensions.add`: the customization path is editing Custom;
   - the hard-coded role `category` enum in `src/validator-config.schema.json` and `src/core/config/validator-config.logic.mjs`: categories are validated against the resolved set instead;
@@ -382,7 +383,7 @@ Naming keeps a registry-state owner for its loader responsibilities, reading fro
 
 ### 11.1 Set-level: `registrySet`
 
-The runner envelope and each direct slice report carry:
+The runner envelope and each direct slice report carry the block below. A candidate run carries its own form of it, described after the field rules.
 
 ```json
 {
@@ -413,6 +414,7 @@ The runner envelope and each direct slice report carry:
   - `interrupted-transaction`: `registryId` is `null`; a lifecycle transaction directory exists (§4.6 item 5, §7.1 item 6). It is the one condition reported when `customExists` is `false`, because it belongs to the lifecycle root rather than to the set's files.
 - `detail` for `invalid` comes from the slice's registry-set validation entry point (§9.3), or from the parse error for an unparseable registry.
 - With an active Custom set, `customIssues` can contain only `baseline-mismatch`, because every other condition blocks the run (§7.1).
+- **Candidate run** (§12.13): `registrySet` is `{ source: "candidate", candidate: { artifactSha256, exportedBy }, customDiffers, basedOn?, builtinDriftSinceBaseline?, orphanRegistries, customIssues, resolvedSetDigest }`. Every assessment field describes the candidate, by the rules above; `customIssues` can contain only `baseline-mismatch`, as for an active Custom set. `activeSet` and `customExists` are omitted, because they describe the repository's lifecycle state, which the run does not use. Runs of the active set keep the shape above, unchanged.
 
 ### 11.2 Per slice: `registryProvenance`
 
@@ -426,7 +428,7 @@ Each slice report carries its own registries:
 }
 ```
 
-- `source` is always the active set. The field exists so a later per-run source choice (§10) is disclosed per registry.
+- `source` is the run's source: the active set, or `candidate` for a candidate run (§12.13).
 - A slice reports its own inventory registries. A registry another slice reads through a bridge or projection (for example Tree reading `naming/folder-composition-patterns` through the Naming-owned folder-composition projection) is disclosed by its owning slice's provenance and by the set-level `resolvedSetDigest`; it always comes from the same resolved set.
 - `digest` is the canonical digest of the resolved registry. An active registry always has one, because a registry that cannot be parsed blocks an active-Custom run (§7.1).
 - The `null` digest of an unparseable registry (§3) appears only in `status` output and in the diagnostics behind `customIssues`.
@@ -435,12 +437,12 @@ Each slice report carries its own registries:
 
 Naming's `registryState`, `registrySource` and `registryDigests` stay for one transition as **derived, deprecated** fields. They are never maintained independently:
 
-- `registryState` = `registrySet.activeSet`.
-- `registrySource` = `registrySet.activeSet`. The `config` value is retired with the config record surfaces.
+- `registryState` = the run's source: `registrySet.activeSet`, or `candidate` for a candidate run (§12.13).
+- `registrySource` = the run's source, the same value. The `config` value is retired with the config record surfaces.
 - `registryDigests` keeps its `{ builtin, custom, resolved }` shape, each a digest of Naming's resolved payload:
   - `builtin`: from the Builtin set; unchanged.
-  - `resolved`: from the active set; unchanged for runs without a Custom set.
-  - `custom`: from the consumer's Custom set when it exists and resolves validly; otherwise equal to `builtin`.
+  - `resolved`: from the run's resolved set: the active set, or the candidate in a candidate run; unchanged for runs without a Custom set.
+  - `custom`: from the consumer's Custom set when it exists and resolves validly; otherwise equal to `builtin`. A candidate run does not read the repository's Custom set, so there it equals `builtin`.
 
   **Documented value change:** today `custom` is the digest of the packaged in-package `_custom/` payload. Slice 2 moves that payload into test fixtures, so production keeps no hidden legacy policy just for this field. From slice 2, a run without a Custom set reports `custom` equal to `builtin`.
 
@@ -503,7 +505,8 @@ Diff, edit (add, change, remove), inherit/update (§8.2), trace (declared refere
 4. the migration declaration (§8.3), the read-only migration plan (§12.8) and `migrate` (§12.9), which applies its accepted records;
 5. the edit document, `edit-check` and `edit` (§12.10);
 6. reference edges and `trace` (§12.11): first the contract, then the slice declarations and resolvers with their conformance tests, then `trace` (all implemented);
-7. the portable set: `export`, `import-check` and `import` (§12.12). Candidate preview follows, scoped on its own.
+7. the portable set: `export`, `import-check` and `import` (§12.12);
+8. candidate preview (§12.13): a run whose registry source is a portable-set artifact.
 
 Interactive prompting may only generate or edit these documents; it is never a separate source of decisions.
 
@@ -1022,6 +1025,36 @@ Every file is read through containment checks (§4.1). The set need not be valid
 
 **`import <file>`** installs the set as `custom/`. It refuses, writing nothing, when a Custom set exists, a transaction is pending, `registry-state.json` selects `custom`, or `import-check` reports a problem. It never replaces or merges into an existing set: a replacing import is a separate, later capability. Otherwise it writes every file's exact bytes into a staging directory inside the lifecycle root and renames it into place, the protocol `init-custom` uses for a new set (§4.6); a failure removes the staging directory and leaves no `custom/`. It never writes `registry-state.json`, never migrates and never activates. It prints `{ command, installed: true, activated: false, status }`, exit 0, or with `installed: false` and the `problems` or `environment` that refused it, exit 1. Installed means the files are in place, not that the set is valid or compatible: `status` says that, and `use custom` remains the only way to activate it.
 
+### 12.13 Candidate preview
+
+A candidate preview is an ordinary validation run whose registry source is a **candidate set** instead of the active set (§6, §10). It answers one question: what would the Validator report if this set were installed and active? It changes only which registries the run reads: the same runner, slices, loaders, validation and exit policy run as for any run. It writes nothing, activates nothing and installs nothing. A successful preview is never permission to activate: that stays `import` (§12.12) followed by `use custom` (§12.1).
+
+**Candidate.** The candidate is a portable-set artifact (§12.12), and nothing else: not a directory, and not an edit, update or migration document.
+
+**Option.** The Validator commands (`calculogic-validate`, `calculogic-validate-naming`, `calculogic-validate-tree`, and the scripts `validate:all`, `validate:naming` and `validate:tree`) accept `--registry-candidate <artifact.json>` (or `--registry-candidate=<artifact.json>`), a path resolved from the working directory. It is taken from the arguments before the run's registry source is resolved, so usage text, including its scope lists, comes from the candidate, and the slices' own argument parsers never see it. Every other argument keeps its meaning: the validation target, `--scope`, `--target`, `--config`, `--validators` and `--strict`.
+
+**Resolution.** For a candidate run, the run's resolution (§6) is built from the candidate:
+1. the artifact file is read once; its exact bytes give `artifactSha256`;
+2. the artifact is checked as `import-check` checks it (§12.12): shape, schema, paths and integrity. Any problem refuses the run;
+3. its files are written to one temporary copy, the **candidate root**, under the operating system's temporary directory, and the lifecycle's assessment runs over it (§7, §12.1);
+4. the run is refused on every condition that blocks an active Custom set (§7.1): `missing`, `version-incompatible`, `invalid` and `manifest-malformed`. These are the rules of an active set, not import's more permissive ones. `baseline-mismatch` and orphans are reported and never block (§7.2);
+5. otherwise every slice reads its registries from `<candidate root>/<slice>/`, and the run proceeds as any other. No registry is read from Builtin, from the repository's Custom set or from anywhere else: the candidate is loaded whole, so a missing registry refuses the run and never falls back.
+
+The candidate root lives for that one run, and is removed when the run ends, whether it succeeds, fails or is refused.
+
+**Independence from the repository's lifecycle state.** A candidate run never reads `registry-state.json`: a malformed one, or one that selects `custom`, does not affect it. It never reads or writes the repository's Custom set, and a pending lifecycle transaction in the repository neither affects it nor is recovered.
+
+**Refusals** go through the run's existing lifecycle-error path: a message on stderr naming each problem or blocking condition, and exit 1, before any report. A candidate file that cannot be read or parsed is refused the same way. Details never name the candidate root.
+
+**Report.** The report has its usual shape, with the provenance of the candidate (§11):
+- `registrySet` is `{ source: "candidate", candidate: { artifactSha256, exportedBy }, customDiffers, basedOn?, builtinDriftSinceBaseline?, orphanRegistries, customIssues, resolvedSetDigest }`, every assessment field describing the candidate. `activeSet` and `customExists`, which describe the repository's lifecycle state, are omitted: the run did not use it;
+- every `registryProvenance` entry has `source: "candidate"`, and its `digest` is the registry's canonical digest (§5), as for any run;
+- `artifactSha256` identifies the artifact file's exact bytes; `resolvedSetDigest` is the set digest (§2) of the candidate's canonical registry digests. They describe different things and are never compared.
+
+**Exit status.** Findings decide the exit status as in any run, using the candidate's own exit policy (`suite/exit-policy`), because that is what the set would do once active. A refused candidate exits 1.
+
+**Equivalence.** A candidate run reports the same findings as a run of the same set imported (§12.12) and activated (`use custom`), apart from provenance and fields that describe the environment rather than the set (timestamps, the source snapshot, `registrySet`'s source fields and Naming's transitional fields, §11.3).
+
 ## 13) Implementation slices
 
 1. **Spec/NL (this document):** `nl-config/cfg-registryLifecycle.md` and aligned specs.
@@ -1059,7 +1092,7 @@ Every file is read through containment checks (§4.1). The set need not be valid
 
 After slice 3:
 
-- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6) through the lifecycle transaction (§4.6), the read-only `migrate-plan` and `migrate-check` (§12.8), `migrate` (§12.9), and `edit-check` and `edit` (§12.10), through the same transaction. The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check`, `registry:update`, `registry:migrate-plan`, `registry:migrate-check`, `registry:migrate`, `registry:edit-check`, `registry:edit`, `registry:trace`, `registry:export`, `registry:import-check` and `registry:import`. The reconciliation capability declarations (§12.7) are in every slice inventory, the decisions document (schema `"2"`) records and checks merge-fields and add-alongside, and `update` applies merge-fields; it skips add-alongside records as `not-yet-supported`. Every inventory entry carries a migration declaration (§8.3); all are empty, because every current registry is at `version` `"1"` and no release has changed a registry's shape, so the slices' transform maps are empty too and the migration plan and `migrate` are exercised by synthetic test registries only. A pending lifecycle transaction is reported as `interrupted-transaction` (§4.6 item 5, §7.1 item 6) by `status` and every run, with or without a Custom set, blocks activation and active-Custom runs, and makes `init-custom` refuse, until the next writing command recovers it. Every inventory entry carries a `references` declaration (§12.11): the five Naming and Tree edges on their source registries, empty elsewhere. Naming and Tree provide reference resolvers, reached through `registry-lifecycle-slice-references.logic.mjs`, and `resolveRegistryReferences` resolves every declared edge over one whole set given as an input function (with `builtinReferenceInputs` for the Builtin set); over Builtin every edge is available and every reference resolves. The read-only `trace` (§12.11) prints that resolution for the Builtin or the Custom set, whole or for one entry, with `customReferenceInputs` reading Custom through the assessment's containment-checked reader; the script is `registry:trace`. `export`, `import-check` and `import` (§12.12) move a Custom set as one artifact of exact file bytes; `import` installs into an absent set through the staging protocol `init-custom` uses, never activating it; the scripts are `registry:export`, `registry:import-check` and `registry:import`. Not implemented yet (#60): applying add-alongside (no collection declares it), a replacing import, and preview.
+- **Suite lifecycle** (`src/core/registry-lifecycle/`): inventories for Naming, Tree and suite core, with canonical-form descriptors and comparison identity declarations (§8.4); canonical digests; state and manifest reading; Custom assessment and status classification; one resolution per run; and the commands `init-custom`, `use`, `status` and the read-only `diff` (§12.3), `decisions-template` and `decisions-check` (§12.4), `update` (§12.5) for `registry-added` records and the entry decisions `keep-custom`, `take-builtin` and merge-fields (§12.6) through the lifecycle transaction (§4.6), the read-only `migrate-plan` and `migrate-check` (§12.8), `migrate` (§12.9), and `edit-check` and `edit` (§12.10), through the same transaction. The bin is `calculogic-validator-registry`, and the scripts are `registry:init-custom`, `registry:use`, `registry:status`, `registry:diff`, `registry:decisions-template`, `registry:decisions-check`, `registry:update`, `registry:migrate-plan`, `registry:migrate-check`, `registry:migrate`, `registry:edit-check`, `registry:edit`, `registry:trace`, `registry:export`, `registry:import-check` and `registry:import`. The reconciliation capability declarations (§12.7) are in every slice inventory, the decisions document (schema `"2"`) records and checks merge-fields and add-alongside, and `update` applies merge-fields; it skips add-alongside records as `not-yet-supported`. Every inventory entry carries a migration declaration (§8.3); all are empty, because every current registry is at `version` `"1"` and no release has changed a registry's shape, so the slices' transform maps are empty too and the migration plan and `migrate` are exercised by synthetic test registries only. A pending lifecycle transaction is reported as `interrupted-transaction` (§4.6 item 5, §7.1 item 6) by `status` and every run, with or without a Custom set, blocks activation and active-Custom runs, and makes `init-custom` refuse, until the next writing command recovers it. Every inventory entry carries a `references` declaration (§12.11): the five Naming and Tree edges on their source registries, empty elsewhere. Naming and Tree provide reference resolvers, reached through `registry-lifecycle-slice-references.logic.mjs`, and `resolveRegistryReferences` resolves every declared edge over one whole set given as an input function (with `builtinReferenceInputs` for the Builtin set); over Builtin every edge is available and every reference resolves. The read-only `trace` (§12.11) prints that resolution for the Builtin or the Custom set, whole or for one entry, with `customReferenceInputs` reading Custom through the assessment's containment-checked reader; the script is `registry:trace`. `export`, `import-check` and `import` (§12.12) move a Custom set as one artifact of exact file bytes; `import` installs into an absent set through the staging protocol `init-custom` uses, never activating it; the scripts are `registry:export`, `registry:import-check` and `registry:import`. Candidate preview (§12.13): the Validator commands accept `--registry-candidate <artifact.json>`, and the run's slices read a temporary copy of the verified artifact, refused on any condition that blocks an active Custom set, with `source: "candidate"` provenance; `registry-state.json`, the repository's Custom set and its pending transactions are never read or touched. Not implemented yet (#60): applying add-alongside (no collection declares it), a replacing import, and per-run Builtin or configuration-file source choices.
 - **Activation:** `use custom` activates a valid Custom set; `use builtin` switches back without touching Custom. An active Custom set is checked before every run, and any §7.1 condition stops the run with a lifecycle error naming each failing registry.
 - **Resolved roots:** Naming (its registry-state owner, walk exclusions and special cases), suite core (scope profiles, exit policy) and Tree (its direct loaders, the shim and validator-owned signal policy, and its read of `naming/folder-composition-patterns`) read every registry from the run's resolved roots. Usage text lists scopes from the resolved set; when the lifecycle cannot be resolved, usage falls back to Builtin scopes and the run itself reports the lifecycle error.
 - **Builtin fallbacks outside runs:** direct library calls that pass no resolution (for example tests that build prepared inputs by hand, or `getBuiltin…` helpers) read Builtin. No validation run reaches them.

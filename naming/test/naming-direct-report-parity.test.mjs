@@ -187,7 +187,7 @@ test('validate:naming help keeps current command usage surface from registry com
   assert.equal(
     result.stdout,
     [
-      'Usage: npm run validate:naming -- [--scope=<repo|app|docs|validator|system>] [--target=<path>]... [--config=<path>] [--strict]',
+      'Usage: npm run validate:naming -- [--scope=<repo|app|docs|validator|system>] [--target=<path>]... [--config=<path>] [--strict] [--registry-candidate=<artifact.json>]',
       'Scopes:',
       '  - app: Application-only scan (src/** and test/**).',
       '  - docs: Documentation-focused scan (doc/docs and root conventional docs: README.md).',

@@ -179,6 +179,10 @@ export const EDIT_DOCUMENT_PROBLEMS = Object.freeze({
   invalidResult: 'invalid-result',
 });
 
+// [6.3] cfg-registryLifecycle · Primitive · "Candidate run source" (spec §11.2, §12.13)
+// The run source of a candidate preview: its provenance `source`, beside `builtin` and `custom`.
+export const REGISTRY_RUN_SOURCE_CANDIDATE = 'candidate';
+
 // [6.3] cfg-registryLifecycle · Primitive · "Portable set artifact" (spec §12.12)
 export const PORTABLE_SET_KIND = 'calculogic-registry-set';
 export const PORTABLE_SET_SCHEMA_VERSION = '1';

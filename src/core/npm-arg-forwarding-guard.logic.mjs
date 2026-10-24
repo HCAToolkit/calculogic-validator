@@ -12,7 +12,7 @@ const parseOriginalArgv = (npmConfigArgvJson) => {
 };
 
 const KNOWN_SCOPES = new Set(['repo', 'app', 'docs', 'validator', 'system']);
-const DETECTION_ORDER = ['scope', 'validators', 'target', 'config', 'strict'];
+const DETECTION_ORDER = ['scope', 'validators', 'target', 'config', 'strict', 'registry-candidate'];
 
 const findFlagTokenIndex = (tokens, supportedFlagNames) => {
   for (let index = 0; index < tokens.length; index += 1) {
@@ -78,6 +78,14 @@ const getSuspiciousNpmConfigFlags = (env, supportedFlagNames) => {
 
   if (supported.has('strict') && isTruthyNpmConfig(env.npm_config_strict)) {
     detected.push('strict');
+  }
+
+  if (
+    supported.has('registry-candidate') &&
+    typeof env.npm_config_registry_candidate === 'string' &&
+    env.npm_config_registry_candidate.trim() !== ''
+  ) {
+    detected.push('registry-candidate');
   }
 
   return DETECTION_ORDER.filter((flagName) => detected.includes(flagName));

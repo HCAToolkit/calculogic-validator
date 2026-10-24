@@ -28,9 +28,12 @@ export const runValidatorRunnerCli = ({
   buildExitCodeOptions,
   // From `resolveCliRegistrySet`, when the host already resolved for its usage text.
   cliRegistrySet = resolveCliRegistrySet(repositoryRoot),
+  // The arguments as forwarded, for the npm forwarding guard; `argv` may have had host-level options
+  // such as `--registry-candidate` taken out before parsing.
+  forwardedArgv = argv,
 }) => {
   const npmArgForwardingMessage = detectNpmArgForwardingFootgun({
-    argv,
+    argv: forwardedArgv,
     npmConfigArgvJson: process.env.npm_config_argv,
     lifecycleEvent: process.env.npm_lifecycle_event,
     expectedLifecycleEvent,
