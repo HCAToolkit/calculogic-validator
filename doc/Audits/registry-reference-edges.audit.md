@@ -72,3 +72,5 @@ That validation runs on the active root before every run. So no validated set re
 ## 5. Observed inconsistency (not changed here)
 
 Spec §14 lists `naming/category-role-perspective` among the "registries without a runtime consumer". Yet the runtime payload's role membership comes from it (`loadRolesPayload`, read at `registry-state.logic.mjs:425`). That entry should be reviewed on its own. It does not affect the reference contract, which takes validation, not runtime use, as the authority.
+
+*Resolved (#60 closure):* spec §14 now lists `naming/category-role-perspective` as read at run time and separates validation, reference resolution and runtime use.
