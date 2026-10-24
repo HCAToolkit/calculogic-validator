@@ -2,7 +2,7 @@ import { CALCULOGIC_VALIDATOR_REPORT_VERSION } from './validator-report.contract
 import { VALIDATOR_REGISTRY, getValidatorById } from './validator-registry.knowledge.mjs';
 import { getSourceSnapshot } from './source-snapshot.logic.mjs';
 import { getValidatorReportIdentity } from './validator-report-identity.logic.mjs';
-import { projectNamingSemanticFamilyBridge } from '../../naming/src/naming-validator.host.mjs';
+import { prepareNamingTreeStagingInputs } from '../../naming/src/naming-validator.host.mjs';
 import { resolveActiveRegistrySet } from './registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
 
 const toValidatorReportEntry = (registryEntry, validatorResult) => {
@@ -59,10 +59,11 @@ export const runValidatorRunner = (repositoryRoot, options = {}) => {
   const namingRegistryEntry = getValidatorById('naming');
 
   let stagedNamingResult = null;
-  let stagedNamingSemanticFamilyBridge = undefined;
+  // Naming-owned staging inputs for Tree (Tree slice spec S1.1); transported unchanged, never read here.
+  let stagedNamingTreeInputs = undefined;
   if (shouldRunTreeStructureAdvisor && namingRegistryEntry) {
     stagedNamingResult = namingRegistryEntry.run(repositoryRoot, { scope, targets, registryResolution });
-    stagedNamingSemanticFamilyBridge = projectNamingSemanticFamilyBridge(stagedNamingResult);
+    stagedNamingTreeInputs = prepareNamingTreeStagingInputs(stagedNamingResult, { registryResolution });
   }
 
   const validators = validatorsToRun.map((registryEntry) => {
@@ -74,9 +75,7 @@ export const runValidatorRunner = (repositoryRoot, options = {}) => {
       scope,
       targets,
       registryResolution,
-      ...(registryEntry.id === 'tree-structure-advisor' && stagedNamingSemanticFamilyBridge
-        ? { namingSemanticFamilyBridge: stagedNamingSemanticFamilyBridge }
-        : {}),
+      ...(registryEntry.id === 'tree-structure-advisor' && stagedNamingTreeInputs ? stagedNamingTreeInputs : {}),
     });
     return toValidatorReportEntry(registryEntry, result);
   });

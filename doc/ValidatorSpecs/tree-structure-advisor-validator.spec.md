@@ -154,9 +154,9 @@ Current implementation reality includes a guarded Tree-owned prepared-evidence j
 
 Current runner transport passes the path-keyed `namingSemanticFamilyBridge` to Tree and does not make address-keyed joins the only Tree path. Current Tree behavior remains path-keyed through the semantic-family bridge, and Tree must not re-derive Naming semantic-family interpretation from filenames or from occurrence bridge observations.
 
-Contract (calculogic-validator#93; not current runtime truth): the next section defines how the Naming semantic-evidence enrichment section (N1) and the Naming folder-label observation section (N2) reach Tree on the default path and how Tree validates and records them. Current runtime truth is unchanged until Stage 1A lands.
+Current implementation reality since Stage 1A (calculogic-validator#95): the runner also transports the Naming semantic-evidence enrichment source (N1) and a Naming-owned folder-label interpreter (N2), and Tree validates both sections and records their availability as non-finding prepared evidence (`treeNamingSectionIntake`). The next section defines that contract; its candidate, containment and facet parts (Stage 1B) are not current runtime truth.
 
-### Folder-level semantic-home evidence, Stage 1 (Status: Contract, calculogic-validator#93; not current runtime truth)
+### Folder-level semantic-home evidence, Stage 1 (Status: Contract, calculogic-validator#93; S1.1, S1.2 and the S1.3 run and record levels are current implementation reality since calculogic-validator#95; the S1.3 fact level and S1.4–S1.9 are not current runtime truth)
 
 This section is the contract for Tree Stage 1 of folder-level Semantic Home development (tracking: calculogic-validator#85). It defines how Tree receives the two Naming evidence sections on its default execution path, how Tree validates them, how Tree records evidence availability, and how Tree assembles folder-level **evidence**: candidates, composition observations, candidate-relative containment relationships and counts-only facets.
 
@@ -169,19 +169,19 @@ Sources this section builds on:
 
 #### S1.1 Transport on the default Tree path
 
-Current runtime truth: the suite runner runs Naming without an addressed occurrence namespace (Tree builds the addressed snapshot itself) and stages only the path-keyed semantic-family bridge (R1) into Tree. Tree wiring builds its own bridge payload without an N1 source or a folder-label interpreter, so neither section reaches Tree on the default path.
+Before Stage 1A, the suite runner ran Naming without an addressed occurrence namespace (Tree builds the addressed snapshot itself) and staged only the path-keyed semantic-family bridge (R1) into Tree. Tree wiring built its own bridge payload without an N1 source or a folder-label interpreter, so neither section reached Tree on the default path. The runner still runs Naming without an addressed occurrence namespace.
 
-Stage 1 adopts this route:
+Stage 1 adopts this route (implemented in Stage 1A by `prepareNamingTreeStagingInputs`, exposed through the Naming host):
 
 1. **Naming prepares the staging inputs.** A Naming-owned staging function, exposed by Naming wiring, takes the staged Naming run output and the `registryResolution` of the run and returns three opaque values:
    - `namingSemanticFamilyBridge`: R1, exactly as staged today (`projectNamingSemanticFamilyBridge`);
    - `namingSemanticEvidenceEnrichment`: the N1 source records (`projectNamingSemanticEvidenceEnrichment`, `naming/src/naming-semantic-evidence-enrichment-projection.logic.mjs`);
    - `interpretFolderLabel`: a function from a folder label to a folder-label interpretation, built by Naming around `interpretNamingFolderLabel` (`naming/src/rules/naming-rule-interpret-folder-label.logic.mjs`).
-2. **The case-rule authority is the Naming run.** `interpretFolderLabel` is bound to the case-rules runtime that Naming prepares from the same `registryResolution` the runner gave the Naming run, so a custom registry set produces the same folder-label interpretation on the Naming path and the Tree path. Naming builds that binding; neither the runner nor Tree receives, inspects or constructs a case-rules runtime.
+2. **The case-rule authority is the Naming run.** `interpretFolderLabel` is bound to the case-rules runtime that Naming prepares from the same `registryResolution` the runner gave the Naming run, so a custom registry set produces the same folder-label interpretation on the Naming path and the Tree path. Naming builds that binding; neither the runner nor Tree receives, inspects or constructs a case-rules runtime. Only that case-rules resolution is deferred to the interpreter's first call, so a run that interprets no folder loads no case rules; R1 and the N1 source records are prepared when the staging function runs.
 3. **The runner only transports.** The runner passes the three values to Tree unchanged. It does not interpret, filter, merge or derive anything from them.
 4. **Tree wiring calls the Naming-owned producer.** Tree wiring passes `namingSemanticEvidenceEnrichment` and `interpretFolderLabel`, with its own addressed occurrence namespace, to `createNamingOccurrenceBridgePayload` (`naming/src/naming-occurrence-bridge-payload.logic.mjs`) when it builds its internal bridge payload. That call is the only place the sections are produced on the default path.
 5. **Tree never interprets Naming material itself.** Tree must not call `interpretNamingFolderLabel`, `splitSemanticTokens` or any other Naming rule, must not build a case-rules runtime, must not tokenize labels or semantic names, and must not substitute its own interpretation when a staging input is missing.
-6. **Caller-supplied bridge.** When a caller supplies a complete `namingOccurrenceBridge` payload (current intake option), Tree uses it as supplied, including any sections it carries, instead of building one.
+6. **Caller-supplied bridge.** When a caller supplies a complete `namingOccurrenceBridge` payload (current intake option), Tree uses it as supplied, including any sections it carries, instead of building one. Tree validates the supplied sections normally (S1.2), so a valid supplied section is `available` whether or not the runner staged anything. A section the supplied payload lacks is `section-absent`, never `not-staged`, and Tree never supplements a supplied payload with separately staged N1 or N2 evidence.
 7. **Standalone Tree.** When Tree runs without staged Naming input (for example, a direct `runTreeStructureAdvisor` call without staging), the sections are not produced. That is run-level unavailability (S1.3), not an error.
 8. **Unchanged.** R1 staging and every current R1 consumer (the bridge contributor and the legacy semantic-home evidence) are unchanged.
 
@@ -202,8 +202,8 @@ Availability is recorded at three levels, so that a comparison that was not perf
 | State | Meaning |
 | --- | --- |
 | `available` | The section was received and its envelope is valid |
-| `not-staged` | No Naming input reached Tree for this run |
-| `section-absent` | Naming input reached Tree, but the producer emitted no section (for example, an invalid namespace or no records) |
+| `not-staged` | No Naming input reached Tree for this run: no bridge payload at all, or a Tree-built payload for which the staged input that section needs (R1 for the v1 bridge, the N1 source for N1, the folder-label interpreter for N2) was not supplied. A caller-supplied payload is never `not-staged` (S1.1 item 6) |
+| `section-absent` | A bridge payload reached Tree without this section although nothing was missing on Tree's side: the producer emitted no section (for example, an invalid namespace or no records), or a caller-supplied payload does not carry it |
 | `section-unsupported` | A section with an unsupported contract version was received |
 | `section-invalid` | A supported section with a malformed envelope was received |
 
@@ -352,6 +352,8 @@ Stage 1 is implemented in two bounded slices. Each keeps Tree findings byte-iden
 | **Stage 1B** | Fact-level availability (S1.3), candidates, channels, the containment algorithm, accounting, composition observations, facets and the output record (S1.4–S1.9). |
 
 Stage 1A gives an independent checkpoint: both sections can be verified to reach Tree correctly before Tree assembles any folder-level evidence from them.
+
+Stage 1A implementation (calculogic-validator#95): Tree records intake as the prepared-evidence entry `treeNamingSectionIntake` (`tree/src/tree-naming-section-intake.logic.mjs`). It carries the payload's `bridgeSource` (`tree-built` or `caller-supplied`), the run-level availability of the v1 bridge, N1 and N2, the accepted and rejected records of each section (N1 accepted records carry per-field-group states `accepted`, `omitted` or `invalid`), and the intake diagnostics, all in deterministic identity-tuple order. No finding, candidate or facet reads it yet.
 
 ### Naming-bridge folder-kind interpretation + placement model (Status: Bounded modeling note)
 

@@ -40,11 +40,12 @@ const runNamingValidatorHook = (repositoryRoot, options = {}) => {
 const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
   const scope = options.scope;
   const targets = options.targets;
-  const namingSemanticFamilyBridge = options.namingSemanticFamilyBridge;
   const treeStructureAdvisorResult = runTreeStructureAdvisor(repositoryRoot, {
     scope,
     targets,
-    namingSemanticFamilyBridge,
+    namingSemanticFamilyBridge: options.namingSemanticFamilyBridge,
+    namingSemanticEvidenceEnrichment: options.namingSemanticEvidenceEnrichment,
+    interpretFolderLabel: options.interpretFolderLabel,
     registryRoots: options.registryResolution?.registryRoots,
   });
   const summary = summarizeTreeStructureAdvisorFindings(treeStructureAdvisorResult.findings);

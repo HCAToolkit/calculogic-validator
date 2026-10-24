@@ -31,6 +31,7 @@ import { planTreeOccurrenceClassificationRuntimeEvaluation } from './tree-occurr
 import { planTreeOccurrenceClassificationRuntimeExecutionContract } from './tree-occurrence-classification-runtime-execution-contract.logic.mjs';
 import { prepareNamingSemanticEvidenceBridge } from '../../naming/src/naming-semantic-evidence-bridge.logic.mjs';
 import { projectNamingFolderCompositionBridge } from '../../naming/src/naming-folder-composition-projection.logic.mjs';
+import { prepareTreeNamingSectionIntake } from './tree-naming-section-intake.logic.mjs';
 import { createNamingOccurrenceBridgePayload } from '../../naming/src/naming-occurrence-bridge-payload.logic.mjs';
 import { loadNamingFolderCompositionPatternsRegistryFromRegistryRoot } from '../../naming/src/registries/naming-folder-composition-patterns-registry.logic.mjs';
 import { NAMING_BUILTIN_REGISTRY_ROOT, NAMING_REGISTRY_SLICE_ID } from '../../naming/src/registries/naming-registry-inventory.knowledge.mjs';
@@ -76,6 +77,8 @@ export const prepareTreeStructureAdvisorInputs = (
     targets,
     packageRoot,
     namingSemanticFamilyBridge,
+    namingSemanticEvidenceEnrichment,
+    interpretFolderLabel,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
     registryRoots,
@@ -152,9 +155,19 @@ export const prepareTreeStructureAdvisorInputs = (
     addressedSnapshotId: TREE_ADDRESSED_SNAPSHOT_ID,
     occurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
   };
+  // A caller-supplied payload is used as supplied. Otherwise Tree builds one against its own snapshot
+  // with the Naming-owned producer, passing the staged N1 source and folder-label interpreter (S1.1).
   const addressedNamingOccurrenceBridge = namingOccurrenceBridge ?? createNamingOccurrenceBridgePayload({
     namingSemanticFamilyBridge: combinedNamingSemanticObservations,
     addressedOccurrenceNamespace,
+    namingSemanticEvidenceEnrichment,
+    interpretFolderLabel,
+  });
+  const treeNamingSectionIntake = prepareTreeNamingSectionIntake({
+    namingOccurrenceBridge: addressedNamingOccurrenceBridge,
+    bridgeSource: namingOccurrenceBridge ? 'caller-supplied' : 'tree-built',
+    addressedOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
+    staged: { namingSemanticFamilyBridge, namingSemanticEvidenceEnrichment, interpretFolderLabel },
   });
   const addressedNamingSemanticEvidenceBridge = prepareNamingSemanticEvidenceBridge(addressedNamingOccurrenceBridge);
   const treeNamingOccurrenceBridgeIntake = prepareTreeNamingOccurrenceBridgeIntake({
@@ -265,6 +278,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeOccurrenceClassificationRuntimeExecutionContract,
       treeOccurrenceClassificationReplacementRuntime,
       treeNamingOccurrenceBridgeIntake,
+      treeNamingSectionIntake,
     },
     findingContributors: collectDefaultTreeStructureAdvisorContributors({
       repositoryRoot,
@@ -284,6 +298,8 @@ export const runTreeStructureAdvisor = (
     targets,
     packageRoot,
     namingSemanticFamilyBridge,
+    namingSemanticEvidenceEnrichment,
+    interpretFolderLabel,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
     registryRoots,
@@ -294,6 +310,8 @@ export const runTreeStructureAdvisor = (
     targets,
     packageRoot,
     namingSemanticFamilyBridge,
+    namingSemanticEvidenceEnrichment,
+    interpretFolderLabel,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
     registryRoots,

@@ -137,15 +137,17 @@ export const prepareNamingValidatorInputs = (
 };
 
 // Folder labels use the run's case rules; outside a run, the Builtin case rules (as other helpers here).
-// The Builtin fallback is resolved on first use, so a call that interprets no folder loads nothing.
-const toFolderLabelInterpreter = (caseRulesRuntime) => {
-  let effectiveCaseRulesRuntime = caseRulesRuntime;
+// The case rules are resolved on first use, so a call that interprets no folder loads nothing.
+const toFolderLabelInterpreter = (resolveCaseRulesRuntime) => {
+  let caseRulesRuntime;
   return (label) => {
-    effectiveCaseRulesRuntime ??=
-      prepareNamingRuntimeInputs({ registryResolution: BUILTIN_REGISTRY_RESOLUTION }).caseRulesRuntime;
-    return interpretNamingFolderLabel(label, { caseRulesRuntime: effectiveCaseRulesRuntime });
+    caseRulesRuntime ??= resolveCaseRulesRuntime();
+    return interpretNamingFolderLabel(label, { caseRulesRuntime });
   };
 };
+
+const toCaseRulesRuntimeResolver = (registryResolution) => () =>
+  prepareNamingRuntimeInputs({ registryResolution: registryResolution ?? BUILTIN_REGISTRY_RESOLUTION }).caseRulesRuntime;
 
 export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, options = {}) =>
   createNamingOccurrenceBridgePayload({
@@ -154,10 +156,23 @@ export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, 
     addressedOccurrenceNamespace: options.addressedOccurrenceNamespace,
     namingSemanticEvidenceEnrichment: options.namingSemanticEvidenceEnrichment ??
       projectNamingSemanticEvidenceEnrichment(namingRuntimeOrReportOutput),
-    interpretFolderLabel: options.interpretFolderLabel ?? toFolderLabelInterpreter(options.caseRulesRuntime),
+    interpretFolderLabel: options.interpretFolderLabel ??
+      toFolderLabelInterpreter(
+        options.caseRulesRuntime ? () => options.caseRulesRuntime : toCaseRulesRuntimeResolver(undefined),
+      ),
     sourceReportRef: options.sourceReportRef,
     sourceSnapshotRef: options.sourceSnapshotRef,
   });
+
+// Tree Stage 1 staging (Tree slice spec S1.1). Naming prepares every value Tree needs from a staged
+// Naming run: R1 and the N1 source records now, and a folder-label interpreter bound to the case rules
+// of the same registryResolution as the run, resolved on first use. The runner transports these values
+// unchanged; Tree passes the last two to the Naming-owned bridge payload producer.
+export const prepareNamingTreeStagingInputs = (namingRunOutput = {}, { registryResolution } = {}) => ({
+  namingSemanticFamilyBridge: projectNamingSemanticFamilyBridge(namingRunOutput),
+  namingSemanticEvidenceEnrichment: projectNamingSemanticEvidenceEnrichment(namingRunOutput),
+  interpretFolderLabel: toFolderLabelInterpreter(toCaseRulesRuntimeResolver(registryResolution)),
+});
 
 export const runNamingValidator = (
   repositoryRoot,
