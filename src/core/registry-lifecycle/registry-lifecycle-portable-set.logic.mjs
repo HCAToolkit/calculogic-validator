@@ -15,18 +15,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { sha256Hex } from '../validator-report-meta.logic.mjs';
 import { assessCustomRegistrySet } from './registry-lifecycle-assessment.logic.mjs';
-import { assertNewCustomSetAllowed, installNewCustomSet } from './registry-lifecycle-init.logic.mjs';
+import { assertNewCustomSetAllowed, findNewCustomSetConditions, installNewCustomSet } from './registry-lifecycle-init.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
 import {
   RegistryLifecycleError,
   customSetExists,
   isLifecyclePathContained,
-  readRegistryLifecycleState,
   resolveRegistryLifecyclePaths,
 } from './registry-lifecycle-state.logic.mjs';
 import { lifecycleTransactionPending } from './registry-lifecycle-transaction.logic.mjs';
 import {
-  ACTIVE_SET_CUSTOM,
   BASELINE_DIRNAME,
   CUSTOM_ISSUE_CONDITIONS,
   PORTABLE_SET_ENVIRONMENT_CONDITIONS as ENVIRONMENT,
@@ -279,23 +277,20 @@ const assessPortableSet = ({ files, receivingPaths, slices }) => {
   }
 };
 
-// The receiving repository's conditions that would refuse `import` (spec §12.12). An escaping
-// lifecycle root, state file or `custom/` is a lifecycle error.
-const environmentOf = (paths) => {
-  const { activeSet } = readRegistryLifecycleState(paths);
-  if (!isLifecyclePathContained(paths, paths.customRoot)) {
-    throw new RegistryLifecycleError(`The Custom set path resolves outside the validation target (${paths.customRoot}).`);
-  }
-  return [
-    ...(customSetExists(paths) ? [{ condition: ENVIRONMENT.customSetExists, detail: 'A Custom set exists; import never replaces or merges into it.' }] : []),
-    ...(lifecycleTransactionPending(paths)
-      ? [{ condition: ENVIRONMENT.transactionPending, detail: 'A lifecycle transaction is pending; the next update, migrate or edit recovers it.' }]
-      : []),
-    ...(activeSet === ACTIVE_SET_CUSTOM
-      ? [{ condition: ENVIRONMENT.customSelected, detail: 'registry-state.json selects custom, so an installed set would be active without use custom; run use builtin first.' }]
-      : []),
-  ];
-};
+// The receiving repository's conditions that would refuse `import` (spec §12.12): the new Custom set
+// conditions `init-custom` shares (5.2.6), with import's details. An escaping lifecycle root, state
+// file or `custom/` is a lifecycle error.
+const ENVIRONMENT_DETAILS = Object.freeze({
+  [ENVIRONMENT.customSetExists]: 'A Custom set exists; import never replaces or merges into it.',
+  [ENVIRONMENT.transactionPending]: 'A lifecycle transaction is pending; the next update, migrate or edit recovers it.',
+  [ENVIRONMENT.customSelected]: 'registry-state.json selects custom, so an installed set would be active without use custom; run use builtin first.',
+});
+
+const environmentOf = (paths) =>
+  findNewCustomSetConditions({ paths, command: 'import' }).conditions.map((condition) => ({
+    condition,
+    detail: ENVIRONMENT_DETAILS[condition],
+  }));
 
 const checkAgainst = ({ document, paths, slices }) => {
   const problems = artifactProblems(document, sliceIdsOf(slices));

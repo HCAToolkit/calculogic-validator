@@ -25,6 +25,7 @@ Status: **implemented through slice 3 (Issue #41)**.
 - #60 slice 13: the read-only `trace` (5.2.21, 5.3): one set's references, whole or for one entry, with Custom read through the assessment's containment-checked reader (`customReferenceInputs`, 5.2.20).
 - #60 slice 14: the portable set (spec §12.12): `export`, `import-check` and `import` (5.2.22, 5.3), with `init-custom`'s staging shared through `assertNewCustomSetAllowed` and `installNewCustomSet` (5.2.6). Spec §4.6 corrected: creating a set stages it; only changes to an existing set use the transaction.
 - #60 slice 15: candidate preview (spec §12.13): `resolveCandidateRegistrySet` (5.2.23), the `--registry-candidate` option of the Validator commands (5.4), and candidate provenance (7.1), with Naming's transitional fields taken from the run's source (spec §11.3).
+- #60 correction: the conditions that refuse a new Custom set are one shared list (5.2.6), so `init-custom` also refuses while `registry-state.json` selects `custom` (spec §12.1 "No activation by creation"), as `import` did.
 - Follow-ons: the rest of the advanced management surface (#60): applying add-alongside and the other commands; and the cross-slice compatibility check (#61).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
@@ -154,7 +155,8 @@ A candidate run uses 5.2.23 instead of this workflow; it never reads `registry-s
 
 #### 5.2.6 Workflow: `initCustomRegistrySet`
 
-- `assertNewCustomSetAllowed({ paths, command })`, shared with `import` (5.2.22): the state file must be readable and contained, `custom/` must be contained and absent, and no lifecycle transaction may be pending (5.2.11): a new set would sit at the paths its journal names. Returns the state (`activeSet`, `stateFileExists`).
+- `findNewCustomSetConditions({ paths, command })`: the one list of conditions that refuse a new Custom set, in order: `custom-set-exists`, `transaction-pending` (5.2.11: a new set would sit at the paths its journal names) and `custom-selected` (spec §12.1 "No activation by creation": a set created while the state selects `custom` would be used without `use custom`). The state file must be readable and contained and `custom/` contained, or it throws. Returns `{ state, conditions }`, read-only.
+- `assertNewCustomSetAllowed({ paths, command })`, shared with `import` (5.2.22): refuses with a lifecycle error on the first condition `findNewCustomSetConditions` returns. Returns the state (`activeSet`, `stateFileExists`).
 - `installNewCustomSet({ paths, stagingPrefix, populate })`, shared with `import`: a staging directory inside the lifecycle root (same filesystem), filled by `populate`, then renamed to `custom/`; on any failure it is removed and no `custom/` is left.
 - Copies every inventory registry from Builtin into `custom/<slice>/` and `custom/.baseline/<slice>/`.
 - Writes the manifest.
@@ -335,8 +337,8 @@ Spec §12.12. `registry-lifecycle-portable-set.logic.mjs`.
 - **`exportPortableSet({ targetRoot })`:** the lifecycle root and `custom/` contained, the set present, no pending transaction; walks `custom/`, refusing any entry outside the layout, any entry that escapes (realpath, 5.2.1) and any file whose bytes are not valid UTF-8; returns the artifact with `files` in ordinal path order, each `{ path, text, sha256 }` over the exact bytes. Read-only.
 - **Artifact check** (`artifactProblems`): strict shape, schema `"1"`, allowed and unique paths, `sha256` of `Buffer.from(text, 'utf8')`.
 - **Assessment** (`assessPortableSet`): writes the files to a temporary target under the OS temp directory, runs `assessCustomRegistrySet` (5.2.4) on it, and removes it. `manifest-malformed`, `baseline-mismatch` and a current-inventory registry with a manifest entry and `baselineMismatch: null` (`baseline-unverifiable`) are problems; the rest is `status`. Temporary paths in details are rewritten to the receiving repository's paths.
-- **`checkPortableSet({ document, targetRoot })`:** `{ valid, problems, environment, status }`; `environment` is `custom-set-exists`, `transaction-pending` and `custom-selected`. Never writes the repository.
-- **`importPortableSet({ document, targetRoot })`:** `assertNewCustomSetAllowed`, refuses `custom-selected`, runs the check, then `installNewCustomSet` with the exact bytes. Returns `{ installed: true, activated: false, status }`, or `{ installed: false, problems | environment }`. Never writes `registry-state.json`.
+- **`checkPortableSet({ document, targetRoot })`:** `{ valid, problems, environment, status }`; `environment` is the conditions `findNewCustomSetConditions` (5.2.6) returns, `custom-set-exists`, `transaction-pending` and `custom-selected`, each with an import-specific detail. Never writes the repository.
+- **`importPortableSet({ document, targetRoot })`:** runs the check and refuses on any problem or `environment` condition, re-checks with `assertNewCustomSetAllowed`, then `installNewCustomSet` with the exact bytes. Returns `{ installed: true, activated: false, status }`, or `{ installed: false, problems | environment }`. Never writes `registry-state.json`.
 
 #### 5.2.23 Workflow: `resolveCandidateRegistrySet` (candidate preview)
 

@@ -456,7 +456,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 
 | Command | Effect | Writes |
 |---|---|---|
-| `init-custom` | Copies every registry of every slice inventory from Builtin into `custom/`, writes `.baseline/` and the manifest. Refuses if `custom/` already exists or a lifecycle transaction is pending (§4.6 item 5). | `custom/**`; `registry-state.json` only if absent (written with `activeSet: builtin`) |
+| `init-custom` | Copies every registry of every slice inventory from Builtin into `custom/`, writes `.baseline/` and the manifest. Refuses if `custom/` already exists, a lifecycle transaction is pending (§4.6 item 5), or `registry-state.json` selects `custom` (below). | `custom/**`; `registry-state.json` only if absent (written with `activeSet: builtin`) |
 | `use builtin` \| `use custom` | Sets the active set. `use custom` runs the §7.1 checks first and refuses on a blocking condition, naming each failing registry. `use builtin` needs no check: it is always the way back, also when Custom is missing or invalid. A contained but malformed `registry-state.json` is replaced; an escaping one is refused (§4.1). | `registry-state.json` only; never `custom/` |
 | `status` | Prints the three facts, completeness, version compatibility, drift, orphans and `customIssues`, with one classification per registry (below). Deterministic JSON on stdout. | nothing |
 
@@ -492,6 +492,7 @@ Bin `calculogic-validator-registry`, with root npm scripts `registry:init-custom
 
 **Activation rule:**
 - `init-custom` creates the set and its initial state (Custom exists and does not differ). It does **not** change the active set.
+- **No activation by creation.** A command that creates a new Custom set (`init-custom`, `import`, §12.12) refuses, writing nothing, while `registry-state.json` selects `custom`. Such a state names a set that does not exist, so every run stops (§7.1 item 1); a set created under it would be used by the next run without `use custom` having checked it, which bypasses the activation gate although `activeSet` is never written. `use builtin` first, then create the set and activate it with `use custom`. *Correction (#60):* `init-custom` first lacked this refusal, which only `import` had.
 - `use` is the only operation that changes the active set.
 - Direct edits, command-guided edits, comparison, sync, migration and inheritance may change `customDiffers`, digests and status. They never change `activeSet`.
 - Later editing commands may offer activation as an explicit prompted follow-up, never perform it silently.
