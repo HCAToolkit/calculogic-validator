@@ -45,7 +45,7 @@ const ROLE = { role: 'logic', roleCategory: 'concern-core', roleStatus: 'active'
 const STAGED = { namingSemanticFamilyBridge: { observations: [] }, namingSemanticEvidenceEnrichment: { records: [] }, interpretFolderLabel: () => ({}) };
 
 const intake = (namingOccurrenceBridge, { bridgeSource = 'tree-built', staged = STAGED } = {}) =>
-  prepareTreeNamingSectionIntake({ namingOccurrenceBridge, bridgeSource, addressedOccurrenceRecords: OCCURRENCES, staged });
+  prepareTreeNamingSectionIntake({ namingOccurrenceBridge, bridgeSource, addressedNamespace: NAMESPACE, addressedOccurrenceRecords: OCCURRENCES, staged });
 
 test('N1 intake accepts records through the identity tuple and rejects every §4.5 case with a distinct reason', () => {
   const result = intake(payload({
@@ -225,4 +225,40 @@ test('N1 attaches only through a v1 observation Tree accepts: a duplicated v1 tu
     { observations: [...V1_OBSERVATIONS, { ...tuple('A.2'), repoRelativePath: 'src/zeta-alpha.logic.mjs', semanticName: 'zeta-alpha' }] },
   ));
   assert.deepEqual(result.semanticEvidenceEnrichment.rejectedRecords, [{ identityTuple: tuple('A.2'), reason: 'unmatched-record' }]);
+});
+
+test('section records resolve only inside the snapshot Tree consumes: a payload from another namespace matches nothing', () => {
+  const foreign = { addressProfileId: 'foreign-profile', addressedSnapshotId: 'foreign-snapshot' };
+  const result = intake(payload(
+    {
+      namingSemanticEvidenceEnrichment: n1([{ ...tuple('A.1', foreign), semanticTokens: ['build', 'surface'] }]),
+      namingFolderLabelObservations: n2([{ ...tuple('A', foreign), parseOutcome: 'parsed', labelTokens: ['src'], labelRoot: 'src' }]),
+    },
+    { ...foreign, observations: V1_OBSERVATIONS.map((observation) => ({ ...observation, ...foreign })) },
+  ), { bridgeSource: 'caller-supplied' });
+
+  assert.equal(result.semanticEvidenceEnrichment.acceptedRecords.length, 0);
+  assert.equal(result.folderLabelObservations.acceptedRecords.length, 0);
+  assert.deepEqual(result.semanticEvidenceEnrichment.rejectedRecords, [{ identityTuple: tuple('A.1', foreign), reason: 'unmatched-record' }]);
+  assert.deepEqual(result.folderLabelObservations.rejectedRecords, [{ identityTuple: tuple('A', foreign), reason: 'unmatched-record' }]);
+  // Without Tree's addressed namespace nothing can resolve either.
+  const unanchored = prepareTreeNamingSectionIntake({
+    namingOccurrenceBridge: payload({ namingFolderLabelObservations: n2([{ ...tuple('A'), parseOutcome: 'parsed', labelTokens: ['src'], labelRoot: 'src' }]) }),
+    bridgeSource: 'caller-supplied',
+    addressedOccurrenceRecords: OCCURRENCES,
+  });
+  assert.deepEqual(unanchored.folderLabelObservations.rejectedRecords, [{ identityTuple: tuple('A'), reason: 'unmatched-record' }]);
+});
+
+test('N1 checks the matching v1 observation occurrenceType as well as the addressed occurrence (§4.5)', () => {
+  const observations = V1_OBSERVATIONS.map((observation) =>
+    observation.occurrenceAddress === 'A.1' ? { ...observation, occurrenceType: 'folder' }
+      : observation.occurrenceAddress === 'A.2' ? { ...observation, occurrenceType: 'file' }
+        : observation);
+  const result = intake(payload(
+    { namingSemanticEvidenceEnrichment: n1([{ ...tuple('A.1'), semanticTokens: ['build'] }, { ...tuple('A.2'), semanticTokens: ['zeta'] }]) },
+    { observations },
+  ));
+  assert.deepEqual(result.semanticEvidenceEnrichment.rejectedRecords, [{ identityTuple: tuple('A.1'), reason: 'occurrence-type-mismatch' }]);
+  assert.deepEqual(result.semanticEvidenceEnrichment.acceptedRecords.map(({ occurrenceAddress }) => occurrenceAddress), ['A.2']);
 });

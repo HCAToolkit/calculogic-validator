@@ -62,37 +62,44 @@ const compareTuples = (left, right) =>
 const compareNullableTuples = (left, right) =>
   left && right ? compareTuples(left, right) : left ? 1 : right ? -1 : 0;
 
-// Addressing is the identity authority: an occurrence's address comes from the addressed snapshot.
-const toOccurrenceByAddress = (occurrenceRecords) => {
-  const occurrenceByAddress = new Map();
+// Addressing is the identity authority: an occurrence's identity is its address inside the namespace of
+// the addressed snapshot Tree consumes, so occurrences are keyed by the full tuple in that namespace.
+const toOccurrenceByTuple = (addressedNamespace, occurrenceRecords) => {
+  const occurrenceByTuple = new Map();
+  if (!isNonEmptyString(addressedNamespace?.addressProfileId) || !isNonEmptyString(addressedNamespace?.addressedSnapshotId)) {
+    return occurrenceByTuple;
+  }
   for (const occurrenceRecord of Array.isArray(occurrenceRecords) ? occurrenceRecords : []) {
     if (!isPlainObject(occurrenceRecord)) continue;
     const occurrenceAddress = [occurrenceRecord.occurrenceAddress, occurrenceRecord.address, occurrenceRecord.addressPath]
       .find(isNonEmptyString);
-    if (occurrenceAddress && !occurrenceByAddress.has(occurrenceAddress)) {
-      occurrenceByAddress.set(occurrenceAddress, occurrenceRecord);
-    }
+    if (!occurrenceAddress) continue;
+    const tupleKey = toTupleKey({ ...addressedNamespace, occurrenceAddress });
+    if (!occurrenceByTuple.has(tupleKey)) occurrenceByTuple.set(tupleKey, occurrenceRecord);
   }
-  return occurrenceByAddress;
+  return occurrenceByTuple;
 };
 
 const isInNamespace = (tuple, namespace) =>
   tuple.addressProfileId === namespace.addressProfileId && tuple.addressedSnapshotId === namespace.addressedSnapshotId;
 
 // v1 observations Tree accepts for section association: a valid, unique tuple in the payload
-// namespace that matches an occurrence in Tree's addressed snapshot.
-const toAcceptedObservationOccurrences = ({ observations, namespace, occurrenceByAddress }) => {
+// namespace that matches an occurrence in Tree's addressed snapshot. Each keeps its own optional
+// `occurrenceType` beside the addressed occurrence, so §4.5 can check the observation's type too.
+const toAcceptedObservations = ({ observations, namespace, occurrenceByTuple }) => {
   const tuples = observations.map(toIdentityTuple);
   const counts = new Map();
   for (const tuple of tuples) {
     if (tuple) counts.set(toTupleKey(tuple), (counts.get(toTupleKey(tuple)) ?? 0) + 1);
   }
   const accepted = new Map();
-  for (const tuple of tuples) {
-    if (!tuple || counts.get(toTupleKey(tuple)) > 1 || !isInNamespace(tuple, namespace)) continue;
-    const occurrenceRecord = occurrenceByAddress.get(tuple.occurrenceAddress);
-    if (occurrenceRecord) accepted.set(toTupleKey(tuple), occurrenceRecord);
-  }
+  tuples.forEach((tuple, index) => {
+    if (!tuple || counts.get(toTupleKey(tuple)) > 1 || !isInNamespace(tuple, namespace)) return;
+    const occurrenceRecord = occurrenceByTuple.get(toTupleKey(tuple));
+    if (occurrenceRecord) {
+      accepted.set(toTupleKey(tuple), { occurrenceRecord, observationOccurrenceType: observations[index].occurrenceType });
+    }
+  });
   return accepted;
 };
 
@@ -112,7 +119,8 @@ const toEnvelopeState = (section, sectionSpec) => {
 };
 
 // Record identity checks shared by both sections (§4.5, §4.6 consumer rules). Every record carrying
-// a duplicated tuple is rejected; there is no path fallback.
+// a duplicated tuple is rejected; there is no path fallback. `resolveTarget` returns the occurrence
+// types that must all equal the expected type, or null when nothing in Tree's snapshot matches.
 const partitionByIdentity = ({ records, namespace, resolveTarget, expectedOccurrenceType }) => {
   const tupleCounts = new Map();
   for (const record of records) {
@@ -129,9 +137,9 @@ const partitionByIdentity = ({ records, namespace, resolveTarget, expectedOccurr
     else if (tupleCounts.get(toTupleKey(tuple)) > 1) reject('duplicate-identity');
     else if (!isInNamespace(tuple, namespace)) reject('namespace-mismatch');
     else {
-      const occurrenceRecord = resolveTarget(tuple);
-      if (!occurrenceRecord) reject('unmatched-record');
-      else if (occurrenceRecord.occurrenceType !== expectedOccurrenceType) reject('occurrence-type-mismatch');
+      const occurrenceTypes = resolveTarget(tuple);
+      if (!occurrenceTypes) reject('unmatched-record');
+      else if (occurrenceTypes.some((occurrenceType) => occurrenceType !== expectedOccurrenceType)) reject('occurrence-type-mismatch');
       else candidates.push({ record, tuple });
     }
   }
@@ -215,6 +223,7 @@ const toAbsentState = ({ bridgeSource, stagedInputSupplied }) =>
 export const prepareTreeNamingSectionIntake = ({
   namingOccurrenceBridge,
   bridgeSource,
+  addressedNamespace,
   addressedOccurrenceRecords = [],
   staged = {},
 } = {}) => {
@@ -235,11 +244,13 @@ export const prepareTreeNamingSectionIntake = ({
     addressProfileId: payload?.addressProfileId ?? null,
     addressedSnapshotId: payload?.addressedSnapshotId ?? null,
   };
-  const occurrenceByAddress = toOccurrenceByAddress(addressedOccurrenceRecords);
-  const acceptedObservationOccurrences =
+  // Section records resolve only against the snapshot Tree consumes: a payload from another address
+  // profile or snapshot matches nothing, whatever its addresses look like.
+  const occurrenceByTuple = toOccurrenceByTuple(addressedNamespace, addressedOccurrenceRecords);
+  const acceptedObservations =
     v1Availability === TREE_NAMING_SECTION_AVAILABILITY.SECTION_UNSUPPORTED || !Array.isArray(payload?.observations)
       ? new Map()
-      : toAcceptedObservationOccurrences({ observations: payload.observations, namespace, occurrenceByAddress });
+      : toAcceptedObservations({ observations: payload.observations, namespace, occurrenceByTuple });
 
   const intakeSection = ({ sectionSpec, stagedInputSupplied, resolveTarget, expectedOccurrenceType, toAcceptedRecord }) => {
     if (!payload) {
@@ -297,8 +308,16 @@ export const prepareTreeNamingSectionIntake = ({
   const semanticEvidenceEnrichment = intakeSection({
     sectionSpec: SECTIONS.semanticEvidenceEnrichment,
     stagedInputSupplied: staged.namingSemanticEvidenceEnrichment !== undefined,
-    // N1 records attach to a v1 file observation Tree accepted (§4.5).
-    resolveTarget: (tuple) => acceptedObservationOccurrences.get(toTupleKey(tuple)),
+    // N1 records attach to a v1 file observation Tree accepted (§4.5); both the addressed occurrence and
+    // the observation's own `occurrenceType`, when it carries one, must be `file`.
+    resolveTarget: (tuple) => {
+      const acceptedObservation = acceptedObservations.get(toTupleKey(tuple));
+      if (!acceptedObservation) return null;
+      const { occurrenceRecord, observationOccurrenceType } = acceptedObservation;
+      return observationOccurrenceType === undefined
+        ? [occurrenceRecord.occurrenceType]
+        : [occurrenceRecord.occurrenceType, observationOccurrenceType];
+    },
     expectedOccurrenceType: 'file',
     toAcceptedRecord: toAcceptedEnrichmentRecord,
   });
@@ -306,7 +325,10 @@ export const prepareTreeNamingSectionIntake = ({
     sectionSpec: SECTIONS.folderLabelObservations,
     stagedInputSupplied: typeof staged.interpretFolderLabel === 'function',
     // N2 records attach to an addressed folder occurrence in Tree's snapshot (§4.6).
-    resolveTarget: (tuple) => occurrenceByAddress.get(tuple.occurrenceAddress),
+    resolveTarget: (tuple) => {
+      const occurrenceRecord = occurrenceByTuple.get(toTupleKey(tuple));
+      return occurrenceRecord ? [occurrenceRecord.occurrenceType] : null;
+    },
     expectedOccurrenceType: 'folder',
     toAcceptedRecord: (candidate) => (isValidFolderLabelShape(candidate.record) ? toAcceptedFolderLabelRecord(candidate) : null),
   });

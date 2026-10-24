@@ -118,6 +118,29 @@ test('a caller-supplied payload is used as supplied: validated normally and neve
   });
 });
 
+test('a caller-supplied payload from another address namespace yields no accepted section records', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const treeBuilt = prepare(fixtureRoot, staged).preparedDependencies.addressedNamingOccurrenceBridge;
+    const foreign = { addressProfileId: 'foreign-profile', addressedSnapshotId: 'foreign-snapshot' };
+    const reNamespace = (record) => ({ ...record, ...foreign });
+    const foreignPayload = {
+      ...treeBuilt,
+      ...foreign,
+      observations: treeBuilt.observations.map(reNamespace),
+      [N1_KEY]: { ...treeBuilt[N1_KEY], records: treeBuilt[N1_KEY].records.map(reNamespace) },
+      [N2_KEY]: { ...treeBuilt[N2_KEY], records: treeBuilt[N2_KEY].records.map(reNamespace) },
+    };
+    const intake = prepare(fixtureRoot, { namingOccurrenceBridge: foreignPayload }).preparedDependencies.treeNamingSectionIntake;
+
+    assert.equal(intake.semanticEvidenceEnrichment.acceptedRecords.length, 0);
+    assert.equal(intake.folderLabelObservations.acceptedRecords.length, 0);
+    assert.equal(intake.semanticEvidenceEnrichment.rejectedRecords.length, treeBuilt[N1_KEY].recordCount);
+    assert.equal(intake.folderLabelObservations.rejectedRecords.length, treeBuilt[N2_KEY].recordCount);
+    assert.ok([...intake.semanticEvidenceEnrichment.rejectedRecords, ...intake.folderLabelObservations.rejectedRecords]
+      .every(({ reason }) => reason === 'unmatched-record'));
+  });
+});
+
 test('existing Tree findings and prepared evidence are unchanged by the staged N1 source and interpreter', () => {
   withFixture(({ fixtureRoot, staged }) => {
     const r1Only = { namingSemanticFamilyBridge: staged.namingSemanticFamilyBridge };

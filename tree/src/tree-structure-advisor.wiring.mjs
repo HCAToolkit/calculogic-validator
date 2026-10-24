@@ -166,6 +166,7 @@ export const prepareTreeStructureAdvisorInputs = (
   const treeNamingSectionIntake = prepareTreeNamingSectionIntake({
     namingOccurrenceBridge: addressedNamingOccurrenceBridge,
     bridgeSource: namingOccurrenceBridge ? 'caller-supplied' : 'tree-built',
+    addressedNamespace: { addressProfileId: TREE_ADDRESS_PROFILE_ID, addressedSnapshotId: TREE_ADDRESSED_SNAPSHOT_ID },
     addressedOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
     staged: { namingSemanticFamilyBridge, namingSemanticEvidenceEnrichment, interpretFolderLabel },
   });
