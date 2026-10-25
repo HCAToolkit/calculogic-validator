@@ -471,6 +471,18 @@ Evaluated coverage is necessary for a decision, but it is not sufficient. Each e
 
 Ambiguity qualifies the specific fact that is uncertain, not every fact derived from the same name. A flagged observation gives full support to a root or prefix comparison, whose compared values the flag does not qualify. Its `semanticFamily` and `familySubgroup` stay uncertain. No Stage 2 rule, and no Stage 2B finding change, may count a flagged observation as family- or subgroup-level evidence, matching Naming's singular-only rule for those aggregates. This refines the general principle that ambiguity limits evidence strength; it does not set that principle aside.
 
+**How the strength limitation is carried.** The Naming–Tree bridge requires ambiguity to limit Tree's evidence strength. The Tree blueprint requires it to limit or downgrade Semantic Home evidence strength (calculogic-validator#85 living document, bridge contract and Tree registry blueprint). Stage 2 meets this claim by claim, not by a blanket reduction:
+
+| Evidence | Effect of `family-boundary-heuristic` |
+| --- | --- |
+| `familyRoot` | Remains usable for root matching |
+| `semanticTokens` | Remain usable for prefix matching |
+| `semanticFamily` | The boundary remains uncertain |
+| `familySubgroup` | Cannot be promoted to reliable subgroup evidence |
+| Strength profile (S2.7) | Preserves the qualification: the ambiguous share of support, per candidate |
+
+No Semantic Home strength or eligibility is reduced merely because the ambiguous share is nonzero, and no ambiguity weighting is defined. Any future consumer of Semantic Home strength must respect exactly which evidence the flag qualifies. Such consumers include Stage 2B findings and whole-placement confidence. Family- and subgroup-level conclusions must not treat flagged observations as singular evidence. Introducing a weighting rule would need its own justified amendment.
+
 If Naming adds a flag that qualifies `familyRoot` or the token sequence, this rule is revisited by amendment. If this proposal is not adopted, an explicit ambiguity-treatment parameter is needed instead (S2.10).
 
 **Channel disagreement does not decide.** For example, `doc/ValidatorSpecs/tree-owned` has 7 root matches and 0 prefix matches among its evaluated members. Under S2.3 the prefix channel governs, so the candidate is decided on 0 of 9. The 7 root matches are recorded as a `channel-disagreement` note with both channels' counts. They do not make the folder a home for root `tree`, because no candidate on that folder claims root `tree`.
@@ -562,7 +574,7 @@ Every candidate outcome carries a strength profile. It is a set of facets, never
 - corroboration: same-folder candidates with the same claim, and their outcomes;
 - `rootAncestry` (S1.4) and the `bounded` note.
 
-The profile describes an outcome; it never changes one. Future rules that read a facet must be added to S2.5 by amendment.
+The profile describes an outcome; it never changes one. Future rules that read a facet must be added to S2.5 by amendment. The ambiguous share is the qualification S2.4 requires consumers to respect. It is kept so that no consumer can mistake ambiguous family evidence for singular evidence; it is not a discount.
 
 #### S2.8 Placement (Q5)
 
@@ -705,6 +717,8 @@ Each code is decided individually. These are proposals. Changing any finding's c
   - that the two codes do not report the same files for the same reason;
   - that no file whose placement is `undetermined` contributes to it.
 
+**Split-family stability guardrail.** The Tree blueprint requires split-family flags to prevent a semantic-family grouping from being treated as fully stable (calculogic-validator#85 living document). Where Naming's `splitFamilyFlags` evidence is available and applicable to a family or subgroup, no Stage 2B finding may treat that family or subgroup as fully stable without an explicitly justified policy. This applies to any code that groups by `semanticFamily` or `familySubgroup`. Stage 1 transports this evidence on the v1 observation but does not interpret it (S1.5), and Stage 2 eligibility does not use family groupings. This guardrail therefore binds the 2B slices; it does not imply that Stage 1 produces or interprets every possible split-family signal.
+
 The literal thresholds of the codes that keep their basis are not moved into the registry by this contract. Moving them is part of the 2B slice for that code.
 
 #### S2.13 Legacy `semanticHome` (Q7)
@@ -742,6 +756,7 @@ Each step needs its own authorization:
 - Treating `home-elsewhere` as misplacement in itself.
 - Adopting a parameter value without catalogue evidence.
 - Changing findings outside the per-code decisions in S2.12.
+- Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
 ### Naming-bridge folder-kind interpretation + placement model (Status: Bounded modeling note)
 
