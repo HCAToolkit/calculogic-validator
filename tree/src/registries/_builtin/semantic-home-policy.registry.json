@@ -14,7 +14,7 @@
       "inputLane": "parent-lineage",
       "status": "active",
       "definition": "Parent chain context may contribute nested semantic interpretation evidence.",
-      "derivationMeaning": "May support Semantic Home derivation only when parent lineage context remains coherent with nearby structure.",
+      "derivationMeaning": "May inform nested Semantic Home interpretation through lineage relationships. How Tree uses this evidence is defined by the Tree specification (Stage 2 S2.10 RR2); broader contextual reasoning over parent and sibling structure is a possible future use that requires a contract amendment.",
       "guardrails": "Evidence only; not final placement truth and not Structural Home identity by itself."
     },
     {
@@ -30,7 +30,7 @@
       "inputLane": "structural-home-boundary",
       "status": "active",
       "definition": "Structural Home context may contribute boundary evidence around candidate semantic interpretation.",
-      "derivationMeaning": "May constrain or contextualize Semantic Home derivation without becoming Semantic Home truth by itself.",
+      "derivationMeaning": "May provide context and corroboration for candidate semantic interpretation without becoming Semantic Home truth by itself. How Tree uses this evidence is defined by the Tree specification (Stage 2 S2.10 RR2: under the current contract it is corroboration only and does not change eligibility); any stronger role requires a contract amendment.",
       "guardrails": "Structural Home identity remains separately owned and must not be replaced by Semantic Home guidance."
     },
     {
@@ -45,8 +45,8 @@
       "policyId": "repo-top-structural-boundary",
       "inputLane": "repo-top-structural-boundary",
       "status": "active",
-      "definition": "Repo-top structural-home context may provide boundary checks for semantic interpretation.",
-      "derivationMeaning": "May gate or contextualize interpretation but must not become canonical Semantic Home truth.",
+      "definition": "Repo-top structural-home context may provide boundary evidence for semantic interpretation.",
+      "derivationMeaning": "May provide context around semantic interpretation but must not become canonical Semantic Home truth. How Tree uses this evidence is defined by the Tree specification (Stage 2 S2.10 RR2: under the current contract Stage 2 does not read it, so it gates no decision); any use requires a contract amendment.",
       "guardrails": "Repo-top structural-home evidence remains Tree-owned and does not replace Naming semantic interpretation."
     }
   ]
