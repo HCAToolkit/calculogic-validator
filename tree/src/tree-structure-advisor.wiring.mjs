@@ -33,6 +33,8 @@ import { prepareNamingSemanticEvidenceBridge } from '../../naming/src/naming-sem
 import { projectNamingFolderCompositionBridge } from '../../naming/src/naming-folder-composition-projection.logic.mjs';
 import { prepareTreeNamingSectionIntake } from './tree-naming-section-intake.logic.mjs';
 import { prepareTreeFolderFactEvidence } from './tree-folder-fact-evidence.logic.mjs';
+import { prepareTreeFolderCandidates } from './tree-folder-candidates.logic.mjs';
+import { prepareTreeFolderSemanticEvidence } from './tree-folder-semantic-evidence.logic.mjs';
 import { createNamingOccurrenceBridgePayload } from '../../naming/src/naming-occurrence-bridge-payload.logic.mjs';
 import { loadNamingFolderCompositionPatternsRegistryFromRegistryRoot } from '../../naming/src/registries/naming-folder-composition-patterns-registry.logic.mjs';
 import { NAMING_BUILTIN_REGISTRY_ROOT, NAMING_REGISTRY_SLICE_ID } from '../../naming/src/registries/naming-registry-inventory.knowledge.mjs';
@@ -207,6 +209,18 @@ export const prepareTreeStructureAdvisorInputs = (
     treeSemanticNamingFolderTypeRelationshipEvidence,
     folderKindsRegistry,
   });
+  // Stage 1B-ii (S1.4-S1.7, S1.9): candidates and candidate-relative evidence, built only from the
+  // intake and the 1B-i fact record; Tree's own folder evidence is referenced, never read by a rule.
+  const treeFolderSemanticEvidence = prepareTreeFolderSemanticEvidence({
+    sectionIntake: treeNamingSectionIntake,
+    factEvidence: treeFolderFactEvidence,
+    candidates: prepareTreeFolderCandidates({
+      factEvidence: treeFolderFactEvidence,
+      sectionIntake: treeNamingSectionIntake,
+      folderKindEvidence: treeFolderKindEvidence,
+      structuralHomeEvidence: treeStructuralHomeEvidence,
+    }),
+  });
   const treeOccurrenceClassificationReplacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence,
     treeSemanticHomeEvidence,
@@ -288,6 +302,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeNamingOccurrenceBridgeIntake,
       treeNamingSectionIntake,
       treeFolderFactEvidence,
+      treeFolderSemanticEvidence,
     },
     findingContributors: collectDefaultTreeStructureAdvisorContributors({
       repositoryRoot,

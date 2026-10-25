@@ -259,17 +259,20 @@ export const prepareTreeFolderFactEvidence = ({ sectionIntake, addressedNamespac
 };
 
 // S1.8 derived view: a folder's subtree tallies, summed from the stored direct records on demand.
-// Nothing derived is stored, so the subtree view can never disagree with the direct records.
+// Nothing derived is stored, so the subtree view can never disagree with the direct records. Each
+// folder is visited once by occurrence identity, so a malformed cyclic snapshot still terminates (E4).
 export const deriveSubtreeComposition = (folderFactEvidence, occurrenceAddress) => {
   const byAddress = new Map(
     (folderFactEvidence?.compositionObservations ?? []).map((observation) => [observation.identityTuple.occurrenceAddress, observation]),
   );
   if (!byAddress.has(occurrenceAddress)) return null;
   const totals = emptyTallies();
+  const visited = new Set();
   const pending = [occurrenceAddress];
   while (pending.length > 0) {
     const observation = byAddress.get(pending.pop());
-    if (!observation) continue;
+    if (!observation || visited.has(toTupleKey(observation.identityTuple))) continue;
+    visited.add(toTupleKey(observation.identityTuple));
     const { directMembers } = observation;
     totals.fileCount += directMembers.fileCount;
     for (const field of ['familyRoots', 'roleCategories', 'semanticIdentity', 'tokens', 'roleFacts']) {
