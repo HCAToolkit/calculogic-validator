@@ -96,22 +96,35 @@ const isInNamespace = (tuple, namespace) =>
 // v1 observations Tree accepts for section association: a valid, unique tuple in the payload
 // namespace that matches an occurrence in Tree's addressed snapshot. Each keeps its own optional
 // `occurrenceType` beside the addressed occurrence, so §4.5 can check the observation's type too.
-const toAcceptedObservations = ({ observations, namespace, occurrenceByTuple }) => {
+// The same pass records every other observation's rejection reason; Stage 1B reads both lists
+// (Tree slice spec S1.3), so there is exactly one v1 acceptance rule for Stage 1 evidence.
+const partitionObservations = ({ observations, namespace, occurrenceByTuple }) => {
   const tuples = observations.map(toIdentityTuple);
   const counts = new Map();
   for (const tuple of tuples) {
     if (tuple) counts.set(toTupleKey(tuple), (counts.get(toTupleKey(tuple)) ?? 0) + 1);
   }
   const accepted = new Map();
+  const rejectedRecords = [];
   tuples.forEach((tuple, index) => {
-    if (!tuple || counts.get(toTupleKey(tuple)) > 1 || !isInNamespace(tuple, namespace)) return;
+    const reject = (reason) => rejectedRecords.push({ identityTuple: tuple, reason });
+    if (!tuple) return reject('invalid-identity');
+    if (counts.get(toTupleKey(tuple)) > 1) return reject('duplicate-identity');
+    if (!isInNamespace(tuple, namespace)) return reject('namespace-mismatch');
     const occurrenceRecord = occurrenceByTuple.get(toTupleKey(tuple));
-    if (occurrenceRecord) {
-      accepted.set(toTupleKey(tuple), { occurrenceRecord, observationOccurrenceType: observations[index].occurrenceType });
-    }
+    if (!occurrenceRecord) return reject('unmatched-record');
+    accepted.set(toTupleKey(tuple), {
+      tuple,
+      observation: observations[index],
+      occurrenceRecord,
+      observationOccurrenceType: observations[index].occurrenceType,
+    });
   });
-  return accepted;
+  return { accepted, rejectedRecords };
 };
+
+const compareRejectedRecords = (left, right) =>
+  compareNullableTuples(left.identityTuple, right.identityTuple) || left.reason.localeCompare(right.reason);
 
 // §4.4 rules 3 and 5: an unsupported version is unsupported enrichment; a malformed supported
 // envelope is invalid as a whole.
@@ -259,10 +272,10 @@ export const prepareTreeNamingSectionIntake = ({
   // Section records resolve only against the snapshot Tree consumes: a payload from another address
   // profile or snapshot matches nothing, whatever its addresses look like.
   const occurrenceByTuple = toOccurrenceByTuple(addressedNamespace, addressedOccurrenceRecords);
-  const acceptedObservations =
+  const { accepted: acceptedObservations, rejectedRecords: rejectedObservationRecords } =
     v1Availability === TREE_NAMING_SECTION_AVAILABILITY.SECTION_UNSUPPORTED || !Array.isArray(payload?.observations)
-      ? new Map()
-      : toAcceptedObservations({ observations: payload.observations, namespace, occurrenceByTuple });
+      ? { accepted: new Map(), rejectedRecords: [] }
+      : partitionObservations({ observations: payload.observations, namespace, occurrenceByTuple });
 
   const intakeSection = ({ sectionSpec, stagedInputSupplied, resolveTarget, expectedOccurrenceType, toAcceptedRecord }) => {
     if (!payload) {
@@ -311,9 +324,7 @@ export const prepareTreeNamingSectionIntake = ({
     return {
       availability,
       acceptedRecords: acceptedRecords.sort(compareTuples),
-      rejectedRecords: rejectedRecords.sort(
-        (left, right) => compareNullableTuples(left.identityTuple, right.identityTuple) || left.reason.localeCompare(right.reason),
-      ),
+      rejectedRecords: rejectedRecords.sort(compareRejectedRecords),
     };
   };
 
@@ -352,6 +363,14 @@ export const prepareTreeNamingSectionIntake = ({
       bridge: v1Availability,
       semanticEvidenceEnrichment: semanticEvidenceEnrichment.availability,
       folderLabelObservations: folderLabelObservations.availability,
+    },
+    // Additive since Stage 1B-i: the v1 observations exactly as the association rule above accepted or
+    // rejected them. Consumers use them only while `availability.bridge` is `available`.
+    bridgeObservations: {
+      acceptedRecords: [...acceptedObservations.values()]
+        .map(({ tuple, observation }) => ({ ...tuple, observation: structuredClone(observation) }))
+        .sort(compareTuples),
+      rejectedRecords: rejectedObservationRecords.sort(compareRejectedRecords),
     },
     semanticEvidenceEnrichment: {
       acceptedRecords: semanticEvidenceEnrichment.acceptedRecords,

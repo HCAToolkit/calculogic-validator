@@ -146,7 +146,7 @@ test('existing Tree findings and prepared evidence are unchanged by the staged N
     const r1Only = { namingSemanticFamilyBridge: staged.namingSemanticFamilyBridge };
     const without = prepare(fixtureRoot, r1Only);
     const withSections = prepare(fixtureRoot, staged);
-    const sectionKeys = new Set(['addressedNamingOccurrenceBridge', 'treeNamingSectionIntake']);
+    const sectionKeys = new Set(['addressedNamingOccurrenceBridge', 'treeNamingSectionIntake', 'treeFolderFactEvidence']);
 
     for (const key of Object.keys(without.preparedDependencies).filter((key) => !sectionKeys.has(key))) {
       assert.deepEqual(comparable(withSections.preparedDependencies[key]), comparable(without.preparedDependencies[key]), key);
@@ -158,6 +158,29 @@ test('existing Tree findings and prepared evidence are unchanged by the staged N
       runTreeStructureAdvisor(fixtureRoot, { scope: 'repo', ...staged }).findings,
       runTreeStructureAdvisor(fixtureRoot, { scope: 'repo', ...r1Only }).findings,
     );
+  });
+});
+
+test('the default Tree path builds Stage 1B-i fact evidence from the intake for every addressed occurrence', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const { preparedDependencies, structuralAddressSnapshot } = prepare(fixtureRoot, staged);
+    const evidence = preparedDependencies.treeFolderFactEvidence;
+
+    assert.equal(evidence.availability, preparedDependencies.treeNamingSectionIntake.availability);
+    assert.equal(evidence.occurrenceFacts.length, structuralAddressSnapshot.occurrenceRecords.length);
+    assert.equal(
+      evidence.compositionObservations.length,
+      structuralAddressSnapshot.occurrenceRecords.filter((record) => record.occurrenceType === 'folder').length,
+    );
+    const orderFlow = evidence.compositionObservations.find((observation) => observation.path === 'src/Order_Flow');
+    assert.deepEqual(orderFlow.label, { state: 'not-parsed', notParsedReasons: ['label-has-unsupported-character', 'label-has-uppercase'] });
+    assert.equal(orderFlow.directMembers.fileCount, 1);
+    assert.ok(evidence.occurrenceFacts.filter((entry) => entry.occurrenceType === 'file').every((entry) => entry.facts.semanticIdentity.state !== 'unavailable'));
+
+    // Standalone Tree: the same structure, with every Naming-dependent fact unavailable.
+    const standalone = prepare(fixtureRoot, {}).preparedDependencies.treeFolderFactEvidence;
+    assert.ok(standalone.occurrenceFacts.filter((entry) => entry.occurrenceType === 'file').every((entry) => entry.facts.semanticIdentity.state === 'unavailable'));
+    assert.ok(standalone.compositionObservations.every((observation) => observation.label.reason === 'run-unavailable'));
   });
 });
 

@@ -156,7 +156,7 @@ Current runner transport passes the path-keyed `namingSemanticFamilyBridge` to T
 
 Current implementation reality since Stage 1A (calculogic-validator#95): the runner also transports the Naming semantic-evidence enrichment source (N1) and a Naming-owned folder-label interpreter (N2), and Tree validates both sections and records their availability as non-finding prepared evidence (`treeNamingSectionIntake`). The next section defines that contract; its candidate, containment and facet parts (Stage 1B) are not current runtime truth.
 
-### Folder-level semantic-home evidence, Stage 1 (Status: Contract, calculogic-validator#93; S1.1, S1.2 and the S1.3 run and record levels are current implementation reality since calculogic-validator#95; the S1.3 fact level and S1.4–S1.9 are not current runtime truth)
+### Folder-level semantic-home evidence, Stage 1 (Status: Contract, calculogic-validator#93; S1.1, S1.2 and the S1.3 run and record levels are current implementation reality since calculogic-validator#95; the S1.3 fact level and S1.8 since calculogic-validator#97 Stage 1B-i; S1.4–S1.7 and S1.9 are not current runtime truth)
 
 This section is the contract for Tree Stage 1 of folder-level Semantic Home development (tracking: calculogic-validator#85). It defines how Tree receives the two Naming evidence sections on its default execution path, how Tree validates them, how Tree records evidence availability, and how Tree assembles folder-level **evidence**: candidates, composition observations, candidate-relative containment relationships and counts-only facets.
 
@@ -225,6 +225,10 @@ Availability is recorded at three levels, so that a comparison that was not perf
 - `unavailable` means the run-level state for the source is anything but `available`.
 - `rejected` means the occurrence's whole record was rejected at intake (an identity or envelope-level reason), so every field group of that record is `rejected`.
 
+**Fact sources (calculogic-validator#97, D1).** Facts are read only from the Stage 1A intake record. The intake exposes the v1 observations exactly as its association rule accepts or rejects them (valid and unique tuple in the payload namespace, matching an occurrence in Tree's addressed namespace, no path fallback), so there is one v1 acceptance rule for all Stage 1 evidence. A file's semantic identity is `rejected` when its v1 observation was rejected, with the intake reasons kept on the fact; a rejection without an identity tuple cannot be attributed to an occurrence and stays visible only in the intake.
+
+**Folder bridge observation.** Each folder also carries the state of its own v1 observation: `accepted` (with its `semanticEvidenceKind`), `none`, `rejected` (with the intake reasons) or `unavailable`. This keeps a rejected folder observation visible, including the case in which two v1 observations share one folder's tuple and the duplicate rule rejects both (#85 non-blocking track); the folder is never treated as though it had no observation.
+
 **Comparison rule.** A comparison is `evaluated` only when every fact it needs is available. Otherwise it is `not-evaluated` with one reason, chosen in this order: run-level unavailability, then record rejection, then an invalid field group, then a missing fact (`no-semantic-observation`, or `not-provided` with its `no-record` or `group-omitted` reason). For example, a `prefix` comparison for a file whose accepted N1 record carries role facts but no tokens is `not-evaluated` with reason `not-provided` / `group-omitted`; it is never foreign evidence. A `not-evaluated` comparison is never counted as a match or as foreign evidence, and never as contradiction.
 
 #### S1.4 Candidates
@@ -245,9 +249,9 @@ A folder whose label is `not-parsed` gets no `naming-folder-label` candidate. It
 **Identity and fields.** A candidate is identified by `(folderAddressPath, candidateSource, labelObservationRef)`. Each candidate records:
 
 - its identity;
-- `lexicalRoot` and, for `naming-folder-label`, `labelTokens`, both copied from the Naming record;
+- `lexicalRoot` and, for `naming-folder-label`, `labelTokens`, both copied from the Naming record: `labelRoot` for `naming-folder-label`, and the observation's `familyRoot` for `naming-folder-semantic-context` and `naming-package-root`, with no further derivation (calculogic-validator#97, D4);
 - `rootAncestry`: `anchored` when an ancestor folder has a candidate with the same `lexicalRoot`, otherwise `unanchored`;
-- references to other candidates on the same folder and to Tree's existing folder-kind and structural evidence for the folder, recorded alongside and never used to suppress the candidate.
+- references to other candidates on the same folder and to Tree's existing folder-kind and structural evidence for the folder, recorded alongside and never used to suppress the candidate. Other candidates are referenced by candidate identity; Tree's existing evidence by that evidence's own record identity, which is Tree-owned and introduces no Naming join. No Stage 1 rule reads these references (calculogic-validator#97, D5).
 
 Multiple candidates may coexist on one folder.
 
@@ -260,7 +264,7 @@ Each candidate is compared with each member file occurrence (S1.6) on two channe
 | `root` | The file's v1 `familyRoot` equals the candidate's `lexicalRoot` | File semantic identity | Every candidate |
 | `prefix` | The file's N1 `semanticTokens` begin with the candidate's `labelTokens` | File semantic identity and the N1 token group | `naming-folder-label` candidates with two or more label tokens |
 
-Each comparison is `match`, `foreign` or `not-evaluated` (S1.3). Ambiguity facts on the file's v1 observation are carried into the facet counts. They do not change the comparison.
+Each comparison is `match`, `foreign` or `not-evaluated` (S1.3). Ambiguity facts on the file's v1 observation are carried into the facet counts. They do not change the comparison. A match is `ambiguous` when the file's accepted v1 observation carries a non-empty `ambiguityFlags`, otherwise `singular`; `splitFamilyFlags` is not used (calculogic-validator#97, D3).
 
 #### S1.6 Candidate-relative containment
 
@@ -290,6 +294,8 @@ A deeper `terminate` therefore always overrides a redirect found higher on the l
 
 **Relationship is not support.** `preserved (provisional)` only records that no stronger relationship was established. It never counts as support by itself. Only an evaluated channel `match` is evidence for a candidate, and every count keeps the member's relationship and its provisional boundaries visible, so Stage 2 can decide what they mean.
 
+Containment and comparison are independent dimensions. A member whose relationship is `preserved (provisional)` still contributes its independently evaluated `root` or `prefix` comparison: a `match` counts as matching evidence and a `foreign` as foreign evidence, with the member's provisional containment status kept on the count. Only `terminated` members are excluded from a candidate's matches and foreign evidence (S1.7).
+
 #### S1.7 Accounting
 
 - A member contributes to candidate C at most once per channel. `terminated` members are counted separately and never as matches or foreign evidence for C.
@@ -306,6 +312,8 @@ There is one logical composition observation per addressed folder occurrence, wh
 
 Subtree tallies are a deterministic **derived view** over these records, not stored duplicates. Member-level facts are held once, keyed by occurrence identity.
 
+Each observation also carries the folder's bridge observation state (S1.3). Direct members are the file occurrences whose parent is the folder in Tree's addressed snapshot. A file with no parent folder occurrence (for example a repository-root file at `repo` scope, since the current addressed snapshots do not represent the repository root as an occurrence) belongs to no composition observation; its facts are still recorded. Fact-level tallies are keyed by state, qualified by the reason where S1.3 keeps one on the state (for example `not-provided:group-omitted`).
+
 #### S1.9 Facets and output
 
 **Facets per candidate are counts only:**
@@ -318,7 +326,7 @@ Subtree tallies are a deterministic **derived view** over these records, not sto
 
 No ratio, threshold, eligibility, strength or placement value is produced in Stage 1.
 
-**Output.** The evidence is one Tree-owned prepared-evidence record in Tree's prepared dependencies, next to the existing Tree evidence. It holds run-level availability, intake diagnostics, candidates with facets, member relationship records and composition observations. It is not part of the report payload and does not change findings. All collections are sorted deterministically by occurrence identity, then by `candidateSource`.
+**Output.** The evidence is one Tree-owned prepared-evidence record, `treeFolderSemanticEvidence`, in Tree's prepared dependencies, next to the existing Tree evidence. It holds run-level availability, intake diagnostics, candidates with facets, member relationship records and composition observations. Availability and intake diagnostics are taken unchanged from the Stage 1A intake record, and fact-level facts and composition observations from the Stage 1B-i record (S1.11), never recomputed (calculogic-validator#97, D2). It is not part of the report payload and does not change findings. All collections are sorted deterministically by occurrence identity, then by `candidateSource`.
 
 **Legacy evidence.** The file-level `semanticHome` field in `tree/src/tree-semantic-home-evidence.logic.mjs` (the file's own `semanticFamily`) is legacy evidence pending migration in Stage 2. Stage 1 neither reads nor changes it.
 
@@ -353,7 +361,12 @@ Stage 1 is implemented in two bounded slices. Each keeps Tree findings byte-iden
 
 Stage 1A gives an independent checkpoint: both sections can be verified to reach Tree correctly before Tree assembles any folder-level evidence from them.
 
-Stage 1A implementation (calculogic-validator#95): Tree records intake as the prepared-evidence entry `treeNamingSectionIntake` (`tree/src/tree-naming-section-intake.logic.mjs`). It carries the payload's `bridgeSource` (`tree-built` or `caller-supplied`), the run-level availability of the v1 bridge, N1 and N2, the accepted and rejected records of each section (N1 accepted records carry per-field-group states `accepted`, `omitted` or `invalid`), and the intake diagnostics, all in deterministic identity-tuple order. No finding, candidate or facet reads it yet.
+Stage 1A implementation (calculogic-validator#95): Tree records intake as the prepared-evidence entry `treeNamingSectionIntake` (`tree/src/tree-naming-section-intake.logic.mjs`). It carries the payload's `bridgeSource` (`tree-built` or `caller-supplied`), the run-level availability of the v1 bridge, N1 and N2, the accepted and rejected records of each section (N1 accepted records carry per-field-group states `accepted`, `omitted` or `invalid`), and the intake diagnostics, all in deterministic identity-tuple order. No finding, candidate or facet reads it yet. Since Stage 1B-i it also exposes `bridgeObservations` (accepted and rejected v1 observations, S1.3 fact sources); its earlier fields are unchanged.
+
+Stage 1B is delivered in two slices (calculogic-validator#97, D7):
+
+- **Stage 1B-i** (current implementation reality): the prepared-evidence entry `treeFolderFactEvidence` (`tree/src/tree-folder-fact-evidence.logic.mjs`). It holds `availability` (the Stage 1A record itself, not a copy), `occurrenceFacts` (one record per addressed occurrence: `folderLabel` and `bridgeObservation` for folders; `semanticIdentity`, `tokens` and `roleFacts` for files) and `compositionObservations` (one per addressed folder, direct members only). The S1.3 comparison rule and the S1.8 subtree view are exported functions over this record, not stored values. It holds no candidate, comparison, relationship or facet.
+- **Stage 1B-ii** (not current runtime truth): `treeFolderSemanticEvidence` (S1.9). It references the Stage 1B-i record's facts and composition observations and evaluates comparisons with its comparison rule. It never builds a second fact or composition model.
 
 ### Naming-bridge folder-kind interpretation + placement model (Status: Bounded modeling note)
 
