@@ -334,7 +334,7 @@ No ratio, threshold, eligibility, strength or placement value is produced in Sta
 
 **Output.** The evidence is one Tree-owned prepared-evidence record, `treeFolderSemanticEvidence`, in Tree's prepared dependencies, next to the existing Tree evidence. It holds run-level availability, intake diagnostics, candidates with facets, member relationship records and composition observations. Availability and intake diagnostics are taken unchanged from the Stage 1A intake record, and fact-level facts and composition observations from the Stage 1B-i record (S1.11), never recomputed (calculogic-validator#97, D2). It is not part of the report payload and does not change findings. All collections are sorted deterministically by occurrence identity, then by `candidateSource`.
 
-**Legacy evidence.** The file-level `semanticHome` field in `tree/src/tree-semantic-home-evidence.logic.mjs` (the file's own `semanticFamily`) is legacy evidence pending migration in Stage 2. Stage 1 neither reads nor changes it.
+**Legacy evidence.** The file-level `semanticHome` field in `tree/src/tree-semantic-home-evidence.logic.mjs` (the file's own `semanticFamily`) is legacy evidence pending migration in Stage 2 (S2.13). Stage 1 neither reads nor changes it.
 
 #### S1.10 Worked examples (this repository at `repo` scope, `main` at `cd6b2c0`)
 
@@ -373,6 +373,390 @@ Stage 1B is delivered in two slices (calculogic-validator#97, D7):
 
 - **Stage 1B-i** (current implementation reality): the prepared-evidence entry `treeFolderFactEvidence` (`tree/src/tree-folder-fact-evidence.logic.mjs`). It holds `availability` (the Stage 1A record itself, not a copy), `occurrenceFacts` (one record per addressed occurrence: `folderLabel` and `bridgeObservation` for folders; `semanticIdentity`, `tokens` and `roleFacts` for files) and `compositionObservations` (one per addressed folder, direct members only). The S1.3 comparison rule and the S1.8 subtree view are exported functions over this record, not stored values. It holds no candidate, comparison, relationship or facet.
 - **Stage 1B-ii** (current implementation reality): `treeFolderSemanticEvidence` (S1.9), built by `tree/src/tree-folder-candidates.logic.mjs` (S1.4) and `tree/src/tree-folder-semantic-evidence.logic.mjs` (S1.5–S1.7, S1.9). It holds the Stage 1A availability and diagnostics and the Stage 1B-i composition observations by reference, reads fact states from the Stage 1B-i record, evaluates every comparison with its comparison rule, and reads a Naming field value only when the matching fact says it is usable. It never builds a second fact or composition model.
+
+### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102; not implemented. No parameter value is adopted, and no runtime, registry or finding change is made by this section)
+
+This section is the contract for Tree Stage 2 of folder-level Semantic Home development (tracking: calculogic-validator#85; scoping and approved directions F1–F6: calculogic-validator#102). It defines how Tree moves from the Stage 1 evidence (S1.1–S1.11) to three kinds of decision:
+
+- which candidates qualify as Semantic Homes (eligibility);
+- how members are attributed when candidates are nested (resolved attribution);
+- how each file relates to the qualifying homes (placement).
+
+It also proposes, code by code, what each existing family finding should become.
+
+**Principle.** Stage 1 preserves what is observed; Stage 2 must justify what can be concluded from those observations. Every Stage 2 conclusion names the evidence that justifies it. Where the evidence does not justify a conclusion, the result is `undetermined`, never a guess in either direction.
+
+**What is fixed here and what is not.** This contract fixes the rule *shape*: which evidence enters, how each kind of evidence can move an outcome, the evaluation order, the precedence, and the output records. It does not fix numeric parameter values. S2.10 lists each parameter, the constraints the contrast catalogue (S2.11) places on it, and the evidence still required before a value can be adopted. No value is adopted by this section.
+
+**What Stage 2 does not decide.** Semantic Home reasoning is one dimension of Tree's folder and placement interpretation. It does not replace the others:
+
+- **Eligibility is not folder meaning.** A folder can carry structural meaning, semantic meaning, both or neither. A candidate that is `not-eligible` says only that the folder is not a Semantic Home for that candidate's claim. It says nothing about whether the folder is structurally meaningful. For example, `tree/src` is a meaningful structural container even though its `src` label candidate has no support. Folder-kind classification and Structural Home evidence stay separately owned. Stage 2 references them as corroboration (S2.7) and never overwrites them.
+- **Semantic Home placement is not a placement verdict.** The S2.8 states say how a file relates to eligible Semantic Homes. They are one future contributor to whole-placement reasoning, which may also weigh structural-home alignment, containment, sibling patterns and referenced roles. `inside-home` does not mean a file is correctly placed. `home-elsewhere` and `no-home` do not mean it is misplaced. Whole-placement confidence is outside this contract, and any later model that consumes Stage 2 placement must keep it as a distinct input rather than treat it as the verdict.
+
+#### S2.1 Inputs and ownership
+
+Stage 2 reads only the Stage 1 prepared evidence, by reference:
+
+- `treeFolderSemanticEvidence` (S1.9): candidates, facets, member relationship records and boundary facts;
+- `treeFolderFactEvidence` (S1.11): fact states and composition observations;
+- `treeNamingSectionIntake` (S1.11): run- and record-level availability, and the accepted records whose values Stage 1 already reads.
+
+Stage 2 never reinterprets Naming material. It never tokenizes, derives roots or families, or calls a Naming rule. Every comparison Stage 2 needs is a Stage 1 channel comparison (S1.5), gated by the Stage 1 comparison rule (S1.3). For placement (S2.8), Stage 2 applies the same channel definition to file and candidate pairs that are not members of one another. This adds no new kind of comparison.
+
+Stage 1 records are never modified. Stage 2 conclusions sit in their own record (S2.9), next to the observations they are drawn from.
+
+Every Stage 2 join uses addressed occurrence identity, as Stage 1 does. Filesystem paths are descriptive context only. Older registry or blueprint wording that describes evidence "by path" does not license a path-keyed join in Stage 2.
+
+#### S2.2 Outcomes (F1)
+
+Each candidate receives exactly one outcome, with one or more reasons from a closed vocabulary:
+
+| Outcome | Meaning |
+| --- | --- |
+| `eligible` | The candidate's own evidence, after attribution (S2.6), justifies treating the folder as a Semantic Home for the candidate's claim (S2.3). |
+| `not-eligible` | The candidate's evaluated evidence justifies concluding that the folder is not such a home. |
+| `undetermined` | The evidence does not justify either conclusion: too little was evaluated, the evaluated evidence is mixed, or the outcome depends on an undetermined nested candidate. |
+
+`undetermined` is never treated as `not-eligible`, and never as `eligible`. It propagates to placement (S2.8) and never produces a finding by itself (S2.12).
+
+Reasons:
+
+| Reason | Outcome |
+| --- | --- |
+| `supported` | `eligible` |
+| `contradicted` | `not-eligible` |
+| `no-active-members` | `undetermined` |
+| `insufficient-evaluated-coverage`, with the not-evaluated reasons and counts from S1.3 | `undetermined` |
+| `insufficient-support` | `undetermined` |
+| `mixed-evidence` | `undetermined` |
+| `depends-on-undetermined-nested-candidate`, with the nested candidates' identities | `undetermined` |
+
+A `channel-disagreement` note (S2.4) and a `bounded` note (S2.5) may accompany any outcome. Notes never change an outcome.
+
+#### S2.3 The candidate's claim and its governing channel
+
+A candidate claims one interpretation of its folder. The channel that tests that interpretation is the candidate's **governing channel**:
+
+| Candidate | Claim | Governing channel |
+| --- | --- | --- |
+| `naming-folder-label` with one label token | Files whose `familyRoot` is the label root | `root` |
+| `naming-folder-label` with two or more label tokens | Files whose `semanticTokens` begin with the full label token sequence | `prefix` |
+| `naming-folder-semantic-context` | Files whose `familyRoot` is the observation's `familyRoot` | `root` |
+| `naming-package-root` | Files whose `familyRoot` is the observation's `familyRoot` | `root` |
+
+Only the governing channel decides eligibility. The other channel, where it applies, is recorded beside it (S2.4).
+
+Why the prefix channel governs a compound label: a compound label such as `registry-lifecycle` names a narrower interpretation than its first token. If root-channel matches decided its eligibility, the folder would be treated as a home for every `registry*` file, including `registry-state` and `registry-entry-shape`, which the label does not name. The root-level question for root `R` is answered by candidates whose claim *is* `R`: single-token labels, semantic-context and package-root candidates.
+
+Owner- or qualifier-style labels (for example `tree-owned`) are compound labels under this rule. Whether a label token such as `owned` is a qualifier rather than part of the claim is a Naming decision. It is not currently made: Naming does not classify label tokens (calculogic-validator#85, deferred role-category track). If Naming later publishes such a classification, the claim of an affected candidate is redefined by a contract amendment, not by Tree interpretation. The planned shared Linguistic Foundation layer (calculogic-validator#85 living document) is the intended source of reusable token identities that Naming could build such a classification on. It is future work with its own authorization, and Tree would consume it only through Naming-owned or explicitly shared projections.
+
+#### S2.4 Evidence classes (Q1)
+
+Evaluated coverage is necessary for a decision, but it is not sufficient. Each evidence class enters the decision in a defined way:
+
+| Evidence class | Source (Stage 1) | Can move toward `eligible` | Can move toward `not-eligible` | Can move toward `undetermined` |
+| --- | --- | --- | --- | --- |
+| **Support:** an evaluated `match` on the governing channel, after attribution | S1.5, S1.9 match counts | yes | no | no |
+| **Contradiction:** an evaluated `foreign` on the governing channel, after attribution | S1.5, S1.9 `foreignByRoot` | no | yes | yes (through `mixed-evidence`) |
+| **Missing:** a `not-evaluated` comparison, whatever its reason | S1.3 comparison rule | no | **never** | yes (through coverage) |
+| **Ambiguity:** a match whose v1 observation carries `ambiguityFlags` | S1.5 `ambiguous` counts | as support (see below) | no | no |
+| **Channel disagreement:** the non-governing channel compares differently | S1.5, the other channel's counts | no | no | no; recorded as a note and a strength facet only |
+| **Terminated members** | S1.6, S1.7 | no | no | no; excluded from the candidate's counts (S2.5) |
+| **Boundary facts:** `narrow`, `provisional-redirect` | S1.6 | through attribution only (S2.6) | through attribution only | through attribution only |
+| **Corroboration:** same-folder candidates and Tree folder-kind and structural references | S1.4 references | no | no | no; strength facet only |
+
+**Missing evidence is never contradiction.** A `not-evaluated` comparison can only lower coverage. Its reason is kept on the outcome, so an `undetermined` caused by a run-level gap (`run-unavailable`) stays distinguishable from one caused by files without a semantic observation (`no-semantic-observation`).
+
+**Ambiguous matches count as support (proposed rule shape).** The only ambiguity flag Naming emits, `family-boundary-heuristic`, records a heuristic choice of the *family boundary* (`semanticFamily`) for connector-free names of four or more tokens. `familyRoot` is the first token either way, and the token sequence is unchanged. Naming's own aggregates already apply this distinction: `familyRootCounts` include flagged evidence, and only family- and subgroup-level aggregates require singular evidence (`doc/ConventionRoutines/NamingValidatorSpec.md`, aggregate inclusion and `ambiguityFlags`; `doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md`, observational markers). Root and prefix comparisons compare `familyRoot` and token sequences, not the family boundary, so a flagged match is full support on either channel. The ambiguous share stays visible as a strength facet (S2.7).
+
+Ambiguity qualifies the specific fact that is uncertain, not every fact derived from the same name. A flagged observation gives full support to a root or prefix comparison, whose compared values the flag does not qualify. Its `semanticFamily` and `familySubgroup` stay uncertain. No Stage 2 rule, and no Stage 2B finding change, may count a flagged observation as family- or subgroup-level evidence, matching Naming's singular-only rule for those aggregates. This refines the general principle that ambiguity limits evidence strength; it does not set that principle aside.
+
+**How the strength limitation is carried.** The Naming–Tree bridge requires ambiguity to limit Tree's evidence strength. The Tree blueprint requires it to limit or downgrade Semantic Home evidence strength (calculogic-validator#85 living document, bridge contract and Tree registry blueprint). Stage 2 meets this claim by claim, not by a blanket reduction:
+
+| Evidence | Effect of `family-boundary-heuristic` |
+| --- | --- |
+| `familyRoot` | Remains usable for root matching |
+| `semanticTokens` | Remain usable for prefix matching |
+| `semanticFamily` | The boundary remains uncertain |
+| `familySubgroup` | Cannot be promoted to reliable subgroup evidence |
+| Strength profile (S2.7) | Preserves the qualification: the ambiguous share of support, per candidate |
+
+No Semantic Home strength or eligibility is reduced merely because the ambiguous share is nonzero, and no ambiguity weighting is defined. Any future consumer of Semantic Home strength must respect exactly which evidence the flag qualifies. Such consumers include Stage 2B findings and whole-placement confidence. Family- and subgroup-level conclusions must not treat flagged observations as singular evidence. Introducing a weighting rule would need its own justified amendment.
+
+If Naming adds a flag that qualifies `familyRoot` or the token sequence, this rule is revisited by amendment. If this proposal is not adopted, an explicit ambiguity-treatment parameter is needed instead (S2.10).
+
+**Channel disagreement does not decide.** For example, `doc/ValidatorSpecs/tree-owned` has 7 root matches and 0 prefix matches among its evaluated members. Under S2.3 the prefix channel governs, so the candidate is decided on 0 of 9. The 7 root matches are recorded as a `channel-disagreement` note with both channels' counts. They do not make the folder a home for root `tree`, because no candidate on that folder claims root `tree`.
+
+#### S2.5 Eligibility rule shape (Q1, Q2, Q9)
+
+For candidate C, after attribution (S2.6), on C's governing channel:
+
+- `A`: C's **decision members**. These are the active (non-`terminated`) members, minus those reattributed away from C (S2.6).
+- `M`: support, the evaluated matches among `A`, singular and ambiguous together (S2.4).
+- `F`: contradiction, the evaluated foreign comparisons among `A`.
+- `N`: missing, the not-evaluated comparisons among `A`, so `M + F + N = |A|`.
+- **Coverage** is `(M + F) / |A|`. **Support share** is `M / (M + F)`.
+
+The conditions are applied in order; the first that holds decides:
+
+1. `|A| = 0` → `undetermined` (`no-active-members`). This covers a candidate whose members are all terminated or reattributed: it has no evidence of its own.
+2. Coverage below `P_COVERAGE` → `undetermined` (`insufficient-evaluated-coverage`).
+3. Support share at or below `P_NOT_ELIGIBLE_SHARE` → `not-eligible` (`contradicted`).
+4. Support share at or above `P_ELIGIBLE_SHARE` and `M ≥ P_MIN_SUPPORT` → `eligible` (`supported`).
+5. Support share at or above `P_ELIGIBLE_SHARE` but `M < P_MIN_SUPPORT` → `undetermined` (`insufficient-support`).
+6. Otherwise, with the share strictly between the two thresholds → `undetermined` (`mixed-evidence`).
+
+The parameters must satisfy `0 ≤ P_NOT_ELIGIBLE_SHARE < P_ELIGIBLE_SHARE ≤ 1`, `0 < P_COVERAGE ≤ 1` and `P_MIN_SUPPORT ≥ 1`. The band between the two share thresholds is deliberate: evidence that is neither clearly supporting nor clearly contradicting is `undetermined`.
+
+A candidate is never compared with another candidate to pick a winner. Raw counts are never compared across candidates, and no candidate's matches count as another candidate's support.
+
+**Termination is not eligibility (Q5, Q9).**
+- A `terminate` boundary (S1.6) does two things only: it bounds the relevant lineage for placement (S2.8), and it removes the members behind it from outer candidates' counts, as Stage 1 already does.
+- It never establishes that the terminating folder is an eligible home.
+- A `naming-package-root` candidate is evaluated by this same rule on its own members, which are not terminated relative to itself. Its outcome carries the `bounded` note, and its eligibility is a conclusion from its evidence like any other.
+
+**Several candidates on one folder (F4).**
+- Each candidate is evaluated independently. A folder may hold several eligible interpretations, and no choice is forced.
+- Agreement between same-folder candidates, such as the `tree` label and the `tree` semantic context, is recorded as corroboration (S2.7). It never adds to either candidate's counts.
+
+#### S2.6 Evaluation order and per-member reattribution (F3, Q3)
+
+**Order.** Candidates are evaluated deepest-first: every candidate on a folder below C's folder is decided before C. A nested candidate's outcome never depends on its ancestors, so the order is acyclic. Same-depth candidates are independent. The Stage 1 traversal safeguard (S1.6, E4) applies to every Stage 2 walk.
+
+**Which boundaries resolve.**
+- `narrow` facts (a nested label candidate with C's `lexicalRoot`) remain attribution only, as in S1.7. The member counts for both candidates and is never reattributed.
+- A `provisional-redirect` fact is resolved per member, as follows.
+
+**Per-member reattribution (Option B, approved).** Let m be an active member of C behind one or more `provisional-redirect` boundaries, and let D range over the nested candidates at those boundaries.
+
+1. If m's governing-channel comparison for at least one `eligible` D is `match`, m is **reattributed** away from C. It is attributed to the deepest such D, and every other eligible matching D is listed. m leaves C's decision members, so it is neither support, contradiction nor missing for C.
+2. Otherwise, if m's comparison for at least one `undetermined` D is `match`, m is **attribution-undetermined** relative to C (see below).
+3. Otherwise m is **retained** by C, with its own comparison unchanged:
+   - a member that matches C remains support for C, even when it sits behind an eligible nested home;
+   - a member that matches neither remains contradiction for C;
+   - a member whose comparison was not evaluated remains missing for C.
+
+A nested home explains only the members it actually matches. It never removes evidence for another candidate's claim. This is the property that whole-subtree reattribution (Option A) would break: behind `tree/src`, 46 of the 57 members match `tree` (S2.11, repository profile).
+
+**Attribution-undetermined members.**
+- If C has attribution-undetermined members, C is decided `eligible` or `not-eligible` only when that outcome holds however those members are resolved (each one kept by C or removed from C).
+- Each S2.5 quantity moves in one direction when a member of a given kind is removed:
+  - removing a member with an evaluated comparison for C raises or keeps the support share, and lowers or keeps coverage. Such a comparison is always `foreign`, because the member matches a nested candidate whose root differs from C's, and Naming's `familyRoot` is the first semantic token;
+  - removing a member whose comparison for C is not evaluated raises or keeps coverage.
+  So Tree tests each condition of an outcome at that condition's least favourable resolution, chosen by member kind. This is sound, and needs no enumeration of combinations.
+- Otherwise C is `undetermined` with reason `depends-on-undetermined-nested-candidate`, listing the nested candidates involved. This reason is used whenever C has attribution-undetermined members and is not decided, whatever S2.5 would give under any one resolution. Different resolutions can leave C undetermined for different S2.5 reasons, so no single S2.5 reason is claimed.
+- Beside that reason, the outcome records the S2.5 outcome and reason at two fixed reference resolutions:
+  - every attribution-undetermined member retained by C;
+  - every such member removed from C.
+
+  This keeps the dependency inspectable without enumerating combinations.
+
+**Member attribution record (Q3).** For every member of C behind at least one `provisional-redirect` boundary, Stage 2 records:
+
+| Field | Content |
+| --- | --- |
+| `originalComparison` | A reference to the Stage 1 member relationship record and its channel comparison for C, unchanged |
+| `resolvedAttribution` | `retained`, `reattributed` or `attribution-undetermined` |
+| `attributedTo` | For `reattributed`: the deepest eligible matching nested candidate, plus the other eligible matching nested candidates. For `attribution-undetermined`: the undetermined matching nested candidates |
+| `reason` | `matches-eligible-nested-candidate`; `matches-undetermined-nested-candidate`; or, for `retained`, `no-eligible-matching-nested-candidate`, with each nested candidate's outcome listed |
+
+Raw observations are never altered. The Stage 1 counts remain the record of what was observed. The attribution records and the S2.5 decision counts are the record of what was concluded.
+
+#### S2.7 Strength profile
+
+Every candidate outcome carries a strength profile. It is a set of facets, never a single score, and it is never compared across candidates:
+
+- coverage and support share on the governing channel (S2.5);
+- the singular and ambiguous split of support;
+- the direct and descendant split of support, and how many branches carry support (S1.7);
+- the non-governing channel's counts and any `channel-disagreement` note;
+- reattributed and attribution-undetermined member counts (S2.6);
+- corroboration: same-folder candidates with the same claim, and their outcomes;
+- `rootAncestry` (S1.4) and the `bounded` note.
+
+The profile describes an outcome; it never changes one. Future rules that read a facet must be added to S2.5 by amendment. The ambiguous share is the qualification S2.4 requires consumers to respect. It is kept so that no consumer can mistake ambiguous family evidence for singular evidence; it is not a discount.
+
+#### S2.8 Placement (Q5)
+
+Placement is decided for each file occurrence in the addressed snapshot of the run.
+
+**A file whose semantic identity is not evaluated** (S1.3 fact `no-semantic-observation`, `rejected` or `unavailable`) is `undetermined`, with that state as its reason.
+
+**For a file f with an evaluated semantic identity:**
+- A candidate C **matches** f when C's governing-channel comparison for f is `match`.
+- C **possibly matches** f when that comparison is `not-evaluated`. This happens, for example, when the prefix channel lacks f's N1 tokens.
+
+The **relevant lineage** of f is the folders from f's parent upward. It stops at the first folder carrying a `terminate` boundary; that folder is included, and folders above it are beyond the boundary.
+
+Precedence (first match wins):
+
+1. An `eligible` candidate on the relevant lineage matches f → `inside-home`. Record the nearest such home, and list every eligible matching home on the relevant lineage.
+2. Otherwise, on the relevant lineage, an `undetermined` candidate matches or possibly matches f, or an `eligible` candidate possibly matches f → `undetermined` (`home-on-lineage-undetermined`). An unknown home nearby is never read as absent.
+3. Otherwise, an `eligible` candidate anywhere else in the snapshot matches f, including beyond a termination → `home-elsewhere`. List every such home.
+4. Otherwise, anywhere in the snapshot, an `undetermined` candidate matches or possibly matches f, or an `eligible` candidate possibly matches f → `undetermined` (`home-elsewhere-undetermined`).
+5. Otherwise → `no-home`, **only if the no-home evidence condition holds**; if it does not, `undetermined` (`candidate-discovery-incomplete`).
+
+**No-home evidence condition.** `no-home` asserts that the available evidence permits concluding that no eligible matching home exists. That requires every potential candidate to have been discovered and decided:
+
+- the v1 bridge and N2 are `available` for the run (S1.3); and
+- every addressed folder's candidate discovery is determined. That means its label fact is `parsed` or `not-parsed`, and its bridge observation is `accepted` or `none`. A folder whose label is `absent` or whose observation is `rejected` could hide a candidate with f's claim.
+
+Steps 2 and 4 already keep any undetermined matching candidate from becoming `no-home`. `no-home` is relative to the run's addressed snapshot, so the placement record carries the run's scope; a home outside a narrower scope is not visible to it.
+
+**Several eligible homes** never force a choice: every one is listed. `home-elsewhere` is evidence, not a finding, and spread is not misplacement (calculogic-validator#85 living document §4). Findings derive from placement only as S2.12 decides per code.
+
+#### S2.9 Output
+
+Stage 2 adds one Tree-owned prepared-evidence record, `treeFolderSemanticHomeReasoning`, in Tree's prepared dependencies, next to the Stage 1 records. It holds:
+
+- `semanticEvidenceSource` and `parameterSet`: a reference to the Stage 1 record, and the identity and version of the adopted parameter set (S2.10);
+- `candidateOutcomes`: one per candidate, with the candidate identity, governing channel, outcome, reasons, notes, decision counts (`|A|`, `M` split singular and ambiguous, `F` by root, `N` by reason), strength profile, and the nested candidates the outcome depends on, with the two reference-resolution results (S2.6);
+- `memberAttributions`: the S2.6 records;
+- `placements`: one per file occurrence, with the file identity, state, reason, nearest home, the homes on its relevant lineage, the homes elsewhere, the undetermined candidates consulted, and the run scope.
+
+Stage 1 availability and records are held by reference, never copied or recomputed. All collections are sorted deterministically by occurrence identity, then by candidate identity. The record is not part of the report payload. Only findings decided under S2.12 reach the report.
+
+#### S2.10 Parameters (F2)
+
+Parameters are Tree-owned policy data in the existing `semantic-home-policy` registry (`tree/src/registries/_builtin/semantic-home-policy.registry.json`), in a versioned parameter section beside the current descriptive input lanes. Each parameter entry holds an identifier, a value, a written rationale, and the catalogue cases (S2.11) the value was checked against. A value that cannot be justified against the catalogue is not adopted. Adding the section is a registry migration and follows the AGENTS.md sequence (data-only payload, then shape tests, then runtime) under its own authorization. This contract adds nothing to the registry. It assumes one parameter set per run. Scoped or per-profile parameter sets are not proposed. They would be added by amendment only if contrast cases show that different structures need different values, and the versioned section leaves room for that.
+
+**No value is adopted here.** For each parameter, the table records the constraints that the proposed catalogue outcomes would impose, and what is still needed:
+
+| Parameter | Role (S2.5) | Constraint from the catalogue, if its expected outcomes are accepted | Repository profile (`repo` scope, `main` at 2080ac7, governing channel) | Evidence still required |
+| --- | --- | --- | --- | --- |
+| `P_COVERAGE` | Minimum share of decision members evaluated | `> 0` (C3) | Decided-looking candidates have coverage 0.45 (`structural-addressing`: its 6 test files have no semantic observation), 0.61 (`naming`), 0.65 (`tree`), 1.0 (`src/core/registry-lifecycle`). Generic folders 0.65–1.0. Test and fixture folders 0–0.17 | A ruling on whether a folder whose unevaluated members are its own test files should be decidable (this places the value relative to 0.45 and 0.61). Then a catalogue pair bracketing the value from both sides |
+| `P_MIN_SUPPORT` | Minimum evaluated support for `eligible` | `≥ 2` (C17), `≤ 4` (C6) | The smallest supported candidate is `structural-addressing` with 5 | A ruling on C17 (whether one matching file can establish a home). The upper bound is checked against the smallest intended home in the catalogue |
+| `P_ELIGIBLE_SHARE` | Minimum support share for `eligible` | `> 0.5` (C4), `≤ 6/7` (C10; C6 gives the weaker `≤ 8/9`) | No candidate falls between 0 and 0.73. `naming` 0.73, `tree` 0.81, all others 1.0 | Catalogue cases with shares between 0.5 and 0.85 and agreed outcomes. The repository cannot place this value: its shares are all 0 or at least 0.73 |
+| `P_NOT_ELIGIBLE_SHARE` | Maximum support share for `not-eligible` | `< 0.5` (C4); every not-eligible case in the catalogue has share 0, so no lower bound above 0 | Every candidate that looks not-eligible has share 0 | A minority-support case (for example 1 of 10) with an agreed outcome, to say whether a small minority is contradiction or mixed |
+| (ambiguity treatment) | Needed only if the S2.4 ambiguity proposal is not adopted | — | Ambiguous share of support: `tree` 35/46, `naming` 20/33, `structural-addressing` 4/5, `src/core/registry-lifecycle` 10/31 | Not needed under the S2.4 proposal |
+
+Until the parameters are adopted, Stage 2 runtime (S2.14, 2A) cannot produce decided outcomes and is not started.
+
+#### S2.11 Contrast catalogue (F6, Q10)
+
+Each case is a deliberately contrasting synthetic tree with its proposed expected outcome. Expected outcomes are proposals for review. Once accepted, they constrain the parameters (S2.10), and each case becomes an executable fixture in Stage 2A, so that the contract and the tests cannot drift.
+
+Unless stated otherwise:
+- every file has an evaluated semantic identity and N1 tokens;
+- the label of every named folder is parsed;
+- no file is ambiguous;
+- `x(n)` means n files whose `familyRoot` is `x`.
+
+| Case | Tree | Exercises | Proposed expected outcome |
+| --- | --- | --- | --- |
+| C1 Clear home | `pricing/`: `pricing`(6) direct | Baseline | `pricing` eligible. All six files `inside-home` |
+| C2 All foreign | `src/`: `alpha`(3), `beta`(3), `gamma`(2) | Contradiction | `src` not-eligible (`contradicted`, share 0) |
+| C3 All unevaluated | `tests/`: 6 files without a semantic observation | Missing is not contradiction (Q1) | `tests` undetermined (`insufficient-evaluated-coverage`, `no-semantic-observation` 6). The files are `undetermined` |
+| C4 Mixed | `shared/`: `shared`(4), `other`(4) | The mixed band | `shared` undetermined (`mixed-evidence`, share 0.5) |
+| C5 Generic nested folder with outer-matching members | `billing/`: `billing`(1) direct; `billing/src/`: `billing`(6) | Nested foreign candidate not eligible; no reattribution | `src` not-eligible (0 of 6). `billing` eligible on 7 of 7. All seven files `inside-home` at `billing`. Repository analogue: `tree/src`, `naming/src` |
+| C6 Eligible nested candidate, per member | `app/`: `app`(3) direct; `app/pricing/`: `pricing`(8), `app`(1) | Q3 Option B | `pricing` eligible (8 of 9). The 8 `pricing` files are reattributed to it; the `app` file inside `app/pricing/` is retained by `app`. `app` eligible on 4 of 4. The `pricing` files are `inside-home` at `pricing`; the four `app` files are `inside-home` at `app`. Under Option A the nested `app` file would wrongly leave `app` |
+| C7 Undetermined nested candidate | `ledger/`: no direct files; `ledger/audit/`: `audit`(5), `ledger`(5) | Attribution-undetermined members | `audit` undetermined (`mixed-evidence`, 0.5, per C4). For `ledger`, the five `audit` files are attribution-undetermined: resolved one way `ledger` is 5 of 5 (`eligible`), the other way 5 of 10 (`mixed-evidence`). So `ledger` is undetermined (`depends-on-undetermined-nested-candidate`, `audit`). The `ledger` files are `undetermined` (`home-on-lineage-undetermined`) |
+| C8 Compound label, prefix unsupported | `docs/tree-owned/`: 7 files with root `tree` whose tokens do not begin `tree, owned`, plus `other`(2); a separate `tree/`: `tree`(6) | S2.3 governing channel; channel disagreement | `tree-owned` not-eligible (prefix 0 of 9), with a `channel-disagreement` note (root 7 of 9). `tree` eligible. The 7 files are `home-elsewhere` (`tree`). Repository analogue: `doc/ValidatorSpecs/tree-owned` |
+| C9 Same-folder agreement | `tree/`: label and semantic-context candidates, both root `tree`; `tree`(5) | F4 corroboration | Both candidates eligible, each corroborating the other. The counts are never pooled. Files list both homes |
+| C10 Same-folder candidates with different roots | `kit/`: label `kit` and a semantic-context candidate with root `toolkit`; `kit`(6), `other`(1) | Independence on one folder | `kit` eligible (6 of 7). `toolkit` not-eligible (0 of 7). Neither outcome reads the other |
+| C11 Home behind a termination | `platform/`: `platform`(5) direct; `platform/pkg/` is a package root (root `pkg`) with `platform`(4) | Relevant lineage; termination is not eligibility | The `pkg` members are terminated relative to `platform`, which is eligible on 5 of 5. `pkg` is evaluated on its own members and is not-eligible (0 of 4), noted `bounded`: the termination does not make it a home. The four `platform` files in `pkg/` are `home-elsewhere` (`platform` lies beyond the termination), never `inside-home` |
+| C12 Two eligible homes for one root | `services/billing/`: `billing`(4); `apps/billing/`: `billing`(4); `shared/`: `billing`(1) | Listing without a forced choice | Both `billing` candidates eligible. Files in each are `inside-home` at their own home. The `shared` file is `home-elsewhere`, listing both. `shared` is not-eligible |
+| C13 Candidate discovery incomplete | C2's tree with N2 `not-staged`; one file with root `delta` | No-home evidence condition (Q5) | No label candidates are discovered, so the `delta` file is `undetermined` (`candidate-discovery-incomplete`), never `no-home`. Variant: N2 available, but one folder's N2 record is rejected. Same result |
+| C14 Ambiguity-heavy folder | `registry-lifecycle/`: 10 files named `registry-lifecycle-<a>-<b>`, all flagged `family-boundary-heuristic` | S2.4 ambiguity rule | `registry-lifecycle` eligible (prefix 10 of 10). The ambiguous share 10 of 10 is recorded in the strength profile. Repository analogue: `src/core/registry-lifecycle` |
+| C15 Bounded package root | `packages/`: no direct files; `packages/ui/` is a package root (root `ui`) with `ui`(6) | Q9 bounded candidate | `ui` eligible, noted `bounded`. `packages` undetermined (`no-active-members`: all its members are terminated). Files `inside-home` at `ui` |
+| C16 Narrowing compound label | `billing/`: `billing`(3) direct; `billing/billing-api/` (label `billing-api`): 4 files whose tokens begin `billing, api` | `narrow` is not reattribution | Both eligible. The 4 files count for both candidates. They are `inside-home`, with nearest home `billing-api` and both listed |
+| C17 Single matching file | `ops/`: `ops`(1) | `P_MIN_SUPPORT` | `ops` undetermined (`insufficient-support`). One file is proposed as insufficient to establish a home. Needs a ruling (S2.10) |
+| C18 Prefix not evaluable | `structural-addressing/`: 5 files whose tokens begin `structural, addressing`; one more file with root `structural` whose N1 token group is `not-provided` | Possible match in placement | The candidate is decided on its 5 evaluated members, subject to `P_COVERAGE`. The sixth file possibly matches, so it is `undetermined`, never `no-home` |
+
+**Repository profile (`repo` scope, `main` at 2080ac7).** This profile is evidence about this repository, not a stored expectation:
+
+| Candidates | Governing channel: match / foreign / not-evaluated | Proposed outcome under any parameters within S2.10's constraints |
+| --- | --- | --- |
+| `src/core/registry-lifecycle` (prefix) | 31 / 0 / 0 | eligible |
+| `tree` label and context (root) | 46 / 11 / 31 | Depends on `P_COVERAGE` (0.65) and `P_ELIGIBLE_SHARE` (0.81) |
+| `naming` label and context (root) | 33 / 12 / 29 | Depends on `P_COVERAGE` (0.61) and `P_ELIGIBLE_SHARE` (0.73) |
+| `structural-addressing` (prefix) | 5 / 0 / 6 | Depends on `P_COVERAGE` (0.45) |
+| `doc/ValidatorSpecs/tree-owned`, `naming-owned`, `cross-cutting`, `suite-owned` (prefix) | 0 / 9 / 3, 0 / 4 / 0, 0 / 3 / 0, 0 / 2 / 0 | not-eligible; `tree-owned` and `naming-owned` carry a `channel-disagreement` note (root 7 and 4) |
+| `src`, `src/core`, `tree/src`, `naming/src`, `doc`, the `registries` and `cli` folders, `scripts`, `bin` and the other generic folders (root) | 0 matches in every case; for example `src` 0 / 70 / 1, `tree/src` 0 / 57 / 0 | not-eligible, unless coverage falls below `P_COVERAGE` |
+| `naming/test`, `tree/test`, `structural-addressing/test`, `doc/ValidatorSpecs/nl-config`, `test`, `test/fixtures` and the other fixture folders | 0 / 0 / n, or nearly so (`test` 0 / 1 / 57) | undetermined (`insufficient-evaluated-coverage`) |
+
+No nested candidate in this repository is eligible, so no member is reattributed here. C6, C7 and C16 supply those cases. Candidate discovery is complete at `repo`, `validator` and `app` scope: every folder label is `parsed` or `not-parsed`, and every folder observation is `accepted` or `none`.
+
+#### S2.12 Findings decisions (Q6), proposed per code
+
+Each code is decided individually. These are proposals. Changing any finding's code, severity, counts, report payload or exit behavior needs explicit approval for that code in its own Stage 2B pull request. That pull request carries before/after tables at `repo`, `validator` and `app` scope and the catalogue cases it relies on. All four codes are currently `info` and come from `tree/src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs`. None of the proposals changes severity.
+
+**`TREE_FAMILY_SCATTERED`: change (proposed first 2B slice).**
+- **Today:** a semantic family is scattered when its files span at least `FAMILY_SCATTER_MIN_STRUCTURAL_HOMES = 2` structural homes and at least `FAMILY_SCATTER_MIN_FILES = 3` files, after the local-first and broader-spread layers. There is no folder-level home model, and the thresholds are literals with no recorded rationale.
+- **Proposed basis:** files whose placement is `home-elsewhere` (S2.8), grouped by the eligible home or homes they belong to.
+  - `inside-home`, `no-home` and `undetermined` never emit. A family with no eligible home is not "scattered from" anything: it has no home to be scattered from.
+  - The structural-home count is replaced by placement.
+- **Decisions the 2B slice must still take, each with evidence:**
+  - whether a minimum number of `home-elsewhere` files applies (a parameter under S2.10);
+  - whether the existing allowed cross-container pairings, such as canonical docs with aligned owned runtime, exempt `home-elsewhere` documentation files.
+- **Projected effect at `repo` scope (2080ac7),** computed from Stage 1 evidence. It is conditional where an outcome depends on unadopted parameters:
+
+  | Current finding (paths) | `inside-home` | `home-elsewhere` | `no-home` | `undetermined` |
+  | --- | --- | --- | --- | --- |
+  | `registry` (28) | 21, at `src/core/registry-lifecycle` | 1 (`scripts/registry-lifecycle.host.mjs`) | 6 (`registry-state`, `registry-entry-shape` and four documents: no candidate's claim matches them) | 0 |
+  | `naming` (18) | 13, under `naming/src`, if `naming` is eligible | 5 documentation files, if `naming` is eligible | 0 | all 18 if `naming` is undetermined |
+  | `validator` (30) | 0 | 0 | 30: no candidate has root `validator`, and discovery is complete | 0 |
+  | `structural` (3) | 1, if `structural-addressing` is eligible | 0 | 2 (`structural-homes`, `structural-role-tokens`) | 1 if `structural-addressing` is undetermined |
+
+  The `validator` and `structural` findings would therefore stop. `registry` and `naming` would be re-based on 1 and 5 files respectively, subject to the two open decisions above.
+
+**`TREE_OBSERVED_FAMILY_CLUSTER`: change basis later; unchanged until decided.**
+- **Today:** local-density-first; a family confined to one naming-aligned semantic container with at least `FAMILY_CLUSTER_INFO_MIN_FILES = 4` files. 0 emissions at `repo` and `app`.
+- **Proposed:** re-key "one semantic container" to "files `inside-home` at one eligible home", so all family codes read one home model instead of two.
+- **Evidence required:** synthetic cases (C1, C14 and a sub-threshold variant) and a justified minimum to replace the literal.
+
+**`TREE_FAMILY_SUBGROUP_OPPORTUNITY`: change basis later; unchanged until decided.**
+- **Today:** singular-only evidence inside one container, with `MIN_FILES_IN_CONTAINER = 4` and `MIN_DISTINCT_CONTAINER_LOCAL_HOMES = 2`. 0 emissions.
+- **Proposed:** files `inside-home` at one eligible home. Subgroup evidence stays singular-only, matching Naming's rule that subgroup aggregates need singular evidence, and is reported beside any `narrow` attributions inside that home. An eligible nested home (C16) already represents the subgroup and suppresses the opportunity for its files.
+- **Evidence required:** synthetic cases and justified minimums.
+
+**`TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES`: keep (proposed).**
+- **Today:** shared-root lane spread from the shared interpretation spine, with `SHARED_ROOT_MIN_DISTINCT_LANE_PARTITIONS = 2` and `SHARED_ROOT_MIN_FAMILY_FILES = 3`. 0 emissions.
+- **Proposed:** it judges spread across structural lanes, which is a different question from semantic home eligibility, so Stage 2 does not re-base it.
+- **The 2B slice that changes `TREE_FAMILY_SCATTERED` must show:**
+  - that the two codes do not report the same files for the same reason;
+  - that no file whose placement is `undetermined` contributes to it.
+
+**Split-family stability guardrail.** The Tree blueprint requires split-family flags to prevent a semantic-family grouping from being treated as fully stable (calculogic-validator#85 living document). Where Naming's `splitFamilyFlags` evidence is available and applicable to a family or subgroup, no Stage 2B finding may treat that family or subgroup as fully stable without an explicitly justified policy. This applies to any code that groups by `semanticFamily` or `familySubgroup`. Stage 1 transports this evidence on the v1 observation but does not interpret it (S1.5), and Stage 2 eligibility does not use family groupings. This guardrail therefore binds the 2B slices; it does not imply that Stage 1 produces or interprets every possible split-family signal.
+
+The literal thresholds of the codes that keep their basis are not moved into the registry by this contract. Moving them is part of the 2B slice for that code.
+
+#### S2.13 Legacy `semanticHome` (Q7)
+
+`treeSemanticHomeEvidence.evidenceRecords[].semanticHome` (`tree/src/tree-semantic-home-evidence.logic.mjs`) holds the file's own `semanticFamily`. It is a family name, not a folder, so it does not mean what Stage 2 means by a Semantic Home.
+
+Readers at 2080ac7:
+- `tree/src/tree-folder-kind-evidence.logic.mjs`;
+- `tree/src/tree-occurrence-classification.logic.mjs`;
+- `tree/src/tree-occurrence-classification-parity-evidence.logic.mjs`.
+
+The bridge contributor's own `semanticHome` placement field and its `details.semanticHomeEvidence` come from separate paths: path-alignment placement, and the Naming occurrence intake. They are not readers of this field.
+
+**Proposed: keep alongside, then deprecate.**
+- Stage 2A leaves the field and its readers unchanged.
+- Stage 2C decides, reader by reader, whether to move to `treeFolderSemanticHomeReasoning` placement, with a parity record for each move.
+- Stage 2C then deprecates the field with a migration note. No rename is proposed: renaming would change every reader without resolving the meaning.
+- Stage 2C starts with a complete consumer inventory, including tests and report metadata.
+
+#### S2.14 Slicing and authorization (F5)
+
+Each step needs its own authorization:
+
+1. **This contract** (documentation only).
+2. **Parameter adoption.** The versioned parameter section in `semantic-home-policy`, as a data-only payload with shape tests and a written rationale for each value, checked against S2.11 (registry migration sequence).
+3. **Stage 2A.** `treeFolderSemanticHomeReasoning` (S2.1–S2.9) and the S2.11 cases as executable fixtures. Findings stay byte-identical at `repo`, `validator` and `app` scope.
+4. **Stage 2B.** Findings reconciliation, one code per pull request, starting with `TREE_FAMILY_SCATTERED` (S2.12).
+5. **Stage 2C.** The legacy `semanticHome` decision (S2.13).
+
+#### S2.15 Non-goals
+
+- Changing Stage 1 evidence, Naming, the bridge contract or the runner.
+- Tree interpretation of Naming material, including label qualifiers.
+- Any single strength score, or ranking of candidates against each other.
+- Treating `home-elsewhere` as misplacement in itself.
+- Adopting a parameter value without catalogue evidence.
+- Changing findings outside the per-code decisions in S2.12.
+- Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
 ### Naming-bridge folder-kind interpretation + placement model (Status: Bounded modeling note)
 
