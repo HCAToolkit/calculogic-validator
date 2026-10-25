@@ -677,16 +677,20 @@ Steps 2 and 4 already keep any undetermined matching candidate from becoming `no
 
 Stage 2 adds one Tree-owned prepared-evidence record, `treeFolderSemanticHomeReasoning`, in Tree's prepared dependencies, next to the Stage 1 records. It holds:
 
-- `semanticEvidenceSource` and `parameterSet`: a reference to the Stage 1 record, and the identity and version of the adopted parameter set (S2.10);
+- `status`: `evaluated` or `configuration-unavailable` (S2.10, registry architecture). Every other field below except `parameterSet` is present only when `status` is `evaluated`;
+- `semanticEvidenceSource`: a reference to the Stage 1 record;
+- `parameterSet`: the registry identity, `version`, `source` (`builtin`, `custom` or `candidate`) and canonical digest of the resolved `semantic-home-policy` registry. When `status` is `evaluated`, it also holds each parameter's value and `origin`, and the set's `conformance` (S2.10). When `status` is `configuration-unavailable`, it holds the reason instead;
 - `candidateOutcomes`: one per candidate, with the candidate identity, governing channel, outcome, reasons, notes, decision counts (`|A|`, `M` split singular and ambiguous, `F` by root, `N` by reason), strength profile, the nested candidates the outcome depends on with the two reference-resolution results (S2.6), and, for `claim-unresolved`, the root reading's outcome, reason and counts (S2.3);
 - `memberAttributions`: the S2.6 records;
 - `placements`: one per file occurrence, with the file identity, state, reason, nearest home, the homes on its relevant lineage, the homes elsewhere, the undetermined candidates consulted, and the run scope.
+
+When `status` is `configuration-unavailable`, Stage 2 did not run: there are no candidate outcomes, member attributions or placements, not even `undetermined` ones. An absent configuration is never read as evidence about any folder or file.
 
 Stage 1 availability and records are held by reference, never copied or recomputed. All collections are sorted deterministically by occurrence identity, then by candidate identity. The record is not part of the report payload. Only findings decided under S2.12 reach the report.
 
 #### S2.10 Parameters (F2)
 
-Parameters are Tree-owned policy data in the existing `semantic-home-policy` registry (`tree/src/registries/_builtin/semantic-home-policy.registry.json`), in a versioned parameter section beside the current descriptive input lanes. Each parameter entry holds an identifier, a value, a written rationale, and the catalogue cases (S2.11) the value was checked against. A value that cannot be justified against the catalogue is not adopted. Adding the section is a registry migration. It follows the AGENTS.md sequence (data-only payload, then shape tests, then runtime) under its own authorization, after the registry reconciliation in S2.14. This contract adds nothing to the registry. It assumes one parameter set per run. Scoped or per-profile parameter sets are not proposed. They would be added by amendment only if contrast cases show that different structures need different values, and the versioned section leaves room for that.
+Parameters are Tree-owned policy data in the existing `semantic-home-policy` registry (`tree/src/registries/_builtin/semantic-home-policy.registry.json`), in a versioned parameter section beside the current descriptive input lanes. The section's shape, lifecycle behavior and provenance are defined under **Registry architecture** below. A value that cannot be justified against the catalogue is not adopted. Adding the section is a registry migration. It follows the AGENTS.md sequence (data-only payload, then shape tests, then runtime) under its own authorization, after the registry reconciliation in S2.14. This contract adds nothing to the registry. It assumes one parameter set per run. Scoped or per-profile parameter sets are not proposed. They would be added by amendment only if contrast cases show that different structures need different values, and the versioned section leaves room for that.
 
 **Selected policy values (calculogic-validator#102, D7).** These values are chosen as policy. They are **not adopted**: they are not registry data, they are not runtime configuration, and nothing reads them until the registry steps in S2.14 are separately authorized and completed. Each value was checked, together with the others, against the full catalogue (S2.11).
 
@@ -716,6 +720,75 @@ Lowering coverage or share thresholds to offset either gap was rejected: it woul
 - Under these values, `tree` passes the eligibility bar by 0.06 (share 0.81) and `naming` misses it by 0.02 (0.73). Both sit near the bar only because of the payload gap.
 - A later change from `undetermined` to `eligible` after Naming improves its evidence is expected, not a regression. An unexplained change is a reason to investigate.
 - Stage 2A must give both explicit regression coverage. The S2.9 `parameterSet` version and evidence provenance must make the cause of any change inspectable.
+
+**Registry architecture (registry reconciliation).** Each responsibility has one authority:
+- **This specification** defines the rules.
+- **The registry** supplies the values a consumer may legitimately choose.
+- **The registry lifecycle** establishes which values a run actually used.
+
+Anything in `semantic-home-policy` is consumer-editable, because the registry belongs to the Builtin set that a repository may copy into its own Custom set (registry lifecycle spec, `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`, §4). So a field belongs in the registry only if a consumer may choose it differently without redefining what Stage 2's rules mean.
+
+**RR1. The Tree blueprint's policy booleans are contract invariants, not registry fields.** The Tree blueprint sketches six booleans for this registry (calculogic-validator#85 living document). Each is either redundant with this contract, or a switch that would let a Custom set contradict it. Registries hold policy data, not reasoning mechanics (AGENTS.md).
+
+| Blueprint field | Disposition | Where the rule lives |
+| --- | --- | --- |
+| `allowSemanticRootHome` | Invariant: root claims are part of the claim model | S2.3 |
+| `allowSemanticSubhome` | Invariant: nested homes, per-member attribution and `narrow`. They are separated from structural subfolders by evidence, not by folder kind | S2.6, C6, C16 |
+| `ambiguityLimitsEvidence` | Invariant: the claim-specific rule. A future weighting would be a numeric parameter added by amendment, not a boolean | S2.4 (D2) |
+| `semanticFamilyAloneDoesNotImplyGrouping` | Permanent invariant (Naming–Tree bridge contract and this contract), enforced by Stage 2B fixtures: no finding arises from family membership without an eligible home | S2.8, S2.12 |
+| `consumeNamingOutputs` | Invariant: Stage 2 is defined on Naming evidence | S2.1 |
+| `deriveSemanticHome` | Not registry policy. If a switch for running Stage 2 is ever needed, it belongs to Tree configuration or rollout modes | — |
+
+**RR2. The descriptive input lanes are kept, and their current use is defined here.**
+- A lane describes an available class of evidence.
+- This table is the only authority on what that evidence may currently do. Widening a lane's role needs a contract amendment.
+- Each lane keeps `status: active` in the registry, because the lane exists. Its current use is recorded here, not in a registry field.
+- Lane text that claims more than this table allows is reconciled through a separate data-only step (S2.14).
+
+| Lane | Evidence class | Current Stage 2 use |
+| --- | --- | --- |
+| `folder-context` | Folder token and local folder context | Decision input: label and semantic-context candidates (S1.4, S2.3) |
+| `parent-lineage` | Parent chain context | Decision input: lineage, boundary facts and deepest-first attribution (S1.6, S2.6). `rootAncestry` is a strength facet only (S2.7) |
+| `naming-bridge` | Naming bridge outputs | Decision input: the v1, N1 and N2 evidence behind every channel comparison (S1.3, S1.5) |
+| `structural-home-boundary` | Structural Home context | Corroboration only: it never moves an outcome (S2.4) |
+| `structural-signal-boundary` | Weak and contextual structural-home signals | Deferred: not read by Stage 2. Such signals feed whole-placement reasoning, which is outside this contract |
+| `repo-top-structural-boundary` | Repo-top structural-home context | Deferred: not read by Stage 2 |
+
+**RR3. Parameter records are atomic.**
+- **Shape.** The parameter section, for example `semanticHomeParameters`, is a keyed set by `parameterId`. Each record holds `value`, `rationale` and `catalogueCases`.
+- **One unit of justification.** The three fields are never merged separately: the section declares no lifecycle merge-fields. An update choice per parameter is therefore `keep-custom`, which keeps the whole record, or `take-builtin`, which adopts the whole Builtin record. A consumer's value can never be paired with a rationale written for a different value.
+- **What validation checks.** Shape validation enforces the S2.5 constraints:
+  - `0 ≤ P_NOT_ELIGIBLE_SHARE < P_ELIGIBLE_SHARE ≤ 1`;
+  - `0 < P_COVERAGE ≤ 1`;
+  - `P_MIN_SUPPORT` is an integer of at least 1;
+  - a non-empty rationale.
+
+  A payload that breaks these is invalid, and an invalid active Custom registry blocks the run (registry lifecycle spec §7.1). Validation checks structure, never whether a rationale is convincing.
+
+**RR4. Provenance and conformance are reported separately.**
+- **`origin`, per parameter, says where a value came from:**
+  - `builtin`;
+  - `custom-baseline`: equal to the Custom set's verified Baseline record (lifecycle §4.4);
+  - `custom-override`: different from it.
+
+  `custom-baseline` does not mean the value matches the current Builtin policy or passes the current catalogue: a Baseline may be older.
+- **`conformance`, for the whole parameter set, says whether the resolved values satisfy the catalogue (S2.11).** It is judged for the set, because the values are justified together:
+  - `not-checked`: the default for any set resolved from a Custom source. A `custom-override` removes the right to inherit Builtin's conformance claim; it does not establish failure.
+  - `passed` or `failed`: recorded with the catalogue version checked. Only a mechanical evaluation of S2.11 against the resolved values may produce these. For the Builtin set, that evaluation is the Stage 2A fixture suite, which must pass for the Builtin values in every release.
+- **No self-attestation.** No registry field lets a consumer declare conformance.
+
+**RR5. A legacy registry without parameters is readable, and Stage 2 then reports `configuration-unavailable`.**
+- Adding the parameter section raises the registry's `version` from `"1"` to `"2"`, with `readableVersions` covering both (lifecycle §7.1 item 3, §8.3).
+- A version-1 Custom registry therefore stays valid, and every other part of the run proceeds as before. Stage 2 alone reports `status: configuration-unavailable` (S2.9), with reason `parameter-set-absent` and the registry identity, source and version.
+- Stage 1 evidence, unrelated Tree findings, and findings not migrated to Stage 2 are unaffected. During Stage 2A all findings remain byte-identical, as S2.14 already requires.
+- **Rejected:**
+  - candidate-level `undetermined` (it would claim an evaluation that never ran);
+  - making version 1 unreadable (it would stop all validation for an unmigrated consumer);
+  - an optional section without a version change (it would bypass the lifecycle's migration and `diff` reporting).
+
+**RR6. The version-1-to-2 migration implements the selected policy; it is not a separate authority.**
+- The Tree-owned deterministic transform adds the parameter section using its own constants, because a transform may never copy Builtin values (lifecycle §8.3). Those constants are the S2.10 selected values with their rationales and catalogue references, and they stay traceable to S2.10.
+- **Test obligation.** Migrating an unmodified version-1 Custom registry must produce parameter records equal to the version-2 Builtin records: values, rationales and catalogue references. The transform must never silently diverge from the Builtin defaults.
 
 #### S2.11 Contrast catalogue (F6, Q10)
 
@@ -818,6 +891,8 @@ Each code is decided individually. These are proposals. Changing any finding's c
 
 **Split-family stability guardrail.** The Tree blueprint requires split-family flags to prevent a semantic-family grouping from being treated as fully stable (calculogic-validator#85 living document). Where Naming's `splitFamilyFlags` evidence is available and applicable to a family or subgroup, no Stage 2B finding may treat that family or subgroup as fully stable without an explicitly justified policy. This applies to any code that groups by `semanticFamily` or `familySubgroup`. Stage 1 transports this evidence on the v1 observation but does not interpret it (S1.5), and Stage 2 eligibility does not use family groupings. This guardrail therefore binds the 2B slices; it does not imply that Stage 1 produces or interprets every possible split-family signal.
 
+**No fallback when Stage 2 is unavailable.** When the S2.9 `status` is `configuration-unavailable`, a finding migrated to depend on Stage 2 emits nothing for that run, and the report says why. It never falls back to the older semantic-family heuristics. Codes not yet migrated, and all other Tree findings, are unaffected. Each 2B slice must show both behaviors.
+
 The literal thresholds of the codes that keep their basis are not moved into the registry by this contract. Moving them is part of the 2B slice for that code.
 
 #### S2.13 Legacy `semanticHome` (Q7)
@@ -841,9 +916,14 @@ The bridge contributor's own `semanticHome` placement field and its `details.sem
 
 Each step needs its own authorization:
 
-1. **This contract**, including its policy amendment (documentation only).
-2. **Registry reconciliation.** Reconcile the existing `semantic-home-policy` registry structure (descriptive input lanes) with the policy fields the Tree blueprint intends: `allowSemanticRootHome`, `allowSemanticSubhome`, `ambiguityLimitsEvidence` and `semanticFamilyAloneDoesNotImplyGrouping`. This comes before a parameter section is designed.
-3. **Parameter adoption.** The versioned parameter section in `semantic-home-policy`, as a data-only payload with shape tests and a written rationale for each value, checked against S2.11 (registry migration sequence). The values are those selected in S2.10.
+1. **This contract**, including its policy amendment and registry architecture (documentation only).
+2. **Lane text reconciliation** (data only, no structural change). Align the `semantic-home-policy` lane texts with the S2.10 lane table (RR2), keeping each lane's description of its evidence class.
+3. **Parameter adoption.** It follows the registry migration sequence:
+   - the parameter section (RR3), with the S2.10 selected values, their rationales and their catalogue references;
+   - `version` `"2"`, with `readableVersions` covering `"1"` and `"2"` (RR5);
+   - the version-1-to-2 transform and its consistency test (RR6);
+   - shape validation of the S2.5 constraints (RR3);
+   - inventory declarations without merge-fields for the section.
 4. **Stage 2A.** `treeFolderSemanticHomeReasoning` (S2.1–S2.9) and the S2.11 cases as executable fixtures. Findings stay byte-identical at `repo`, `validator` and `app` scope.
 5. **Stage 2B.** Findings reconciliation, one code per pull request, starting with `TREE_FAMILY_SCATTERED` (S2.12).
 6. **Stage 2C.** The legacy `semanticHome` decision (S2.13).
