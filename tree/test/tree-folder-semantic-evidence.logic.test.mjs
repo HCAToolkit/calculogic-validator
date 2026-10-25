@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prepareTreeNamingSectionIntake } from '../src/tree-naming-section-intake.logic.mjs';
 import { deriveSubtreeComposition, prepareTreeFolderFactEvidence } from '../src/tree-folder-fact-evidence.logic.mjs';
-import { prepareTreeFolderCandidates } from '../src/tree-folder-candidates.logic.mjs';
+import { prepareTreeFolderCandidates, toCandidateKey } from '../src/tree-folder-candidates.logic.mjs';
 import { prepareTreeFolderSemanticEvidence } from '../src/tree-folder-semantic-evidence.logic.mjs';
 
 const NAMESPACE = { addressProfileId: 'tree-codebase', addressedSnapshotId: 'snapshot-001' };
@@ -324,4 +324,27 @@ test('E4: every structural walk terminates on a malformed cyclic snapshot and co
     evidence.memberRelationships.filter((record) => record.candidateId.folderAddressPath === 'X').map((record) => record.member.occurrenceAddress),
     ['X.1', 'Y.1'],
   );
+});
+
+test('#100: candidates are keyed by their full S1.4 identity, so a differing labelObservationRef keeps them distinct', () => {
+  const ref = tuple('A.B');
+  const otherRef = { ...ref, occurrenceAddress: 'A.B~second-observation' };
+  assert.notEqual(
+    toCandidateKey({ folderAddressPath: 'A.B', candidateSource: LABEL, labelObservationRef: ref }),
+    toCandidateKey({ folderAddressPath: 'A.B', candidateSource: LABEL, labelObservationRef: otherRef }),
+  );
+  assert.equal(
+    toCandidateKey({ folderAddressPath: 'A.B', candidateSource: LABEL, labelObservationRef: ref }),
+    toCandidateKey({ folderAddressPath: 'A.B', candidateSource: LABEL, labelObservationRef: { ...ref } }),
+  );
+
+  // A second candidate of the same source on the same folder (as a future source could propose) stays
+  // a separate narrowing candidate on the outer candidate's branch row instead of collapsing into one.
+  const { sectionIntake, factEvidence } = build();
+  const candidates = prepareTreeFolderCandidates({ factEvidence, sectionIntake });
+  const label = candidates.find((candidate) => candidate.candidateId.folderAddressPath === 'A.B' && candidate.candidateId.candidateSource === LABEL);
+  const twin = { ...label, candidateId: { ...label.candidateId, labelObservationRef: otherRef } };
+  const evidence = prepareTreeFolderSemanticEvidence({ sectionIntake, factEvidence, candidates: [...candidates, twin] });
+  const branch = candidateAt(evidence, 'A', LABEL).facets.branches.find((row) => row.branch === 'A.B');
+  assert.deepEqual(branch.narrowingCandidateIds, [label.candidateId, twin.candidateId]);
 });

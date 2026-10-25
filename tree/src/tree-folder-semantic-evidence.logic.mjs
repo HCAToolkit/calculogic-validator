@@ -6,7 +6,7 @@
 // matching Stage 1B-i fact says the value is usable.
 
 import { evaluateComparisonFacts } from './tree-folder-fact-evidence.logic.mjs';
-import { TREE_FOLDER_CANDIDATE_SOURCES } from './tree-folder-candidates.logic.mjs';
+import { TREE_FOLDER_CANDIDATE_SOURCES, toCandidateKey } from './tree-folder-candidates.logic.mjs';
 
 const SOURCE_ID = 'tree-folder-semantic-evidence';
 const DIRECT_BRANCH = 'direct';
@@ -87,8 +87,6 @@ const addBranchResult = (row, channel, comparison) => {
   else if (comparison.result === 'foreign') row[channel].foreign += 1;
   else if (comparison.result === 'not-evaluated') row[channel].notEvaluated += 1;
 };
-
-const candidateKeyOf = (candidate) => `${candidate.candidateId.folderAddressPath}\u0000${candidate.candidateId.candidateSource}`;
 
 export const prepareTreeFolderSemanticEvidence = ({ sectionIntake, factEvidence, candidates = [] } = {}) => {
   const occurrenceFacts = factEvidence?.occurrenceFacts ?? [];
@@ -174,7 +172,7 @@ export const prepareTreeFolderSemanticEvidence = ({ sectionIntake, factEvidence,
         if (terminate.length > 0) terminateAt.push(folderAddress);
         if (narrow.length > 0) {
           narrowAt.push({ folderAddress, candidateIds: narrow.map((other) => other.candidateId) });
-          for (const other of narrow) row.narrowingCandidateKeys.add(candidateKeyOf(other));
+          for (const other of narrow) row.narrowingCandidateKeys.add(toCandidateKey(other.candidateId));
           const attribution = narrowAttributions.get(folderAddress) ?? { folderAddress, narrowingCandidateIds: narrow.map((other) => other.candidateId), memberCount: 0 };
           attribution.memberCount += 1;
           narrowAttributions.set(folderAddress, attribution);
@@ -224,7 +222,7 @@ export const prepareTreeFolderSemanticEvidence = ({ sectionIntake, factEvidence,
       }
     }
 
-    const narrowingCandidateIdByKey = new Map(candidates.map((other) => [candidateKeyOf(other), other.candidateId]));
+    const narrowingCandidateIdByKey = new Map(candidates.map((other) => [toCandidateKey(other.candidateId), other.candidateId]));
     return {
       ...candidate,
       facets: {
