@@ -156,7 +156,7 @@ Current runner transport passes the path-keyed `namingSemanticFamilyBridge` to T
 
 Current implementation reality since Stage 1A (calculogic-validator#95): the runner also transports the Naming semantic-evidence enrichment source (N1) and a Naming-owned folder-label interpreter (N2), and Tree validates both sections and records their availability as non-finding prepared evidence (`treeNamingSectionIntake`). The next section defines that contract; its candidate, containment and facet parts (Stage 1B) are not current runtime truth.
 
-### Folder-level semantic-home evidence, Stage 1 (Status: Contract, calculogic-validator#93; S1.1, S1.2 and the S1.3 run and record levels are current implementation reality since calculogic-validator#95; the S1.3 fact level and S1.8 since calculogic-validator#97 Stage 1B-i; S1.4–S1.7 and S1.9 are not current runtime truth)
+### Folder-level semantic-home evidence, Stage 1 (Status: Contract, calculogic-validator#93; S1.1, S1.2 and the S1.3 run and record levels are current implementation reality since calculogic-validator#95; the S1.3 fact level and S1.8 since calculogic-validator#97 Stage 1B-i; S1.4–S1.7 and S1.9 since calculogic-validator#97 Stage 1B-ii)
 
 This section is the contract for Tree Stage 1 of folder-level Semantic Home development (tracking: calculogic-validator#85). It defines how Tree receives the two Naming evidence sections on its default execution path, how Tree validates them, how Tree records evidence availability, and how Tree assembles folder-level **evidence**: candidates, composition observations, candidate-relative containment relationships and counts-only facets.
 
@@ -292,13 +292,19 @@ Why a nested foreign candidate is only provisional: every parsed folder label pr
 
 A deeper `terminate` therefore always overrides a redirect found higher on the lineage.
 
+**Several facts on one folder (calculogic-validator#97, E3).** A lineage folder may carry several boundary facts relative to C. For example, a folder with a `naming-folder-label` candidate sharing C's `lexicalRoot` and a candidate from another source with a different root carries both `narrow` and `provisional-redirect`. Each is recorded; neither hides the other.
+
+**Terminated members stay visible (calculogic-validator#97, E1).** A `terminated` member's channel comparisons are still recorded on its member record, for provenance, with the relationship beside them. They contribute nothing to C's `match`, `foreign` or `not-evaluated` counts. Termination has its own counts (S1.7, S1.9).
+
+**Traversal safeguard (calculogic-validator#97, E4).** Every walk over structural relationships (the subtree view, member collection, lineage, and the ancestor walk for `rootAncestry`) records the folders it has visited by occurrence identity and does not revisit one. An acyclic Addressing snapshot is unaffected. A malformed snapshot whose parent or child references form a cycle still terminates, with each folder counted once. This is a defensive guard, not structural validation, and it emits no diagnostic: acyclicity remains an Addressing invariant.
+
 **Relationship is not support.** `preserved (provisional)` only records that no stronger relationship was established. It never counts as support by itself. Only an evaluated channel `match` is evidence for a candidate, and every count keeps the member's relationship and its provisional boundaries visible, so Stage 2 can decide what they mean.
 
 Containment and comparison are independent dimensions. A member whose relationship is `preserved (provisional)` still contributes its independently evaluated `root` or `prefix` comparison: a `match` counts as matching evidence and a `foreign` as foreign evidence, with the member's provisional containment status kept on the count. Only `terminated` members are excluded from a candidate's matches and foreign evidence (S1.7).
 
 #### S1.7 Accounting
 
-- A member contributes to candidate C at most once per channel. `terminated` members are counted separately and never as matches or foreign evidence for C.
+- A member contributes to candidate C at most once per channel. `terminated` members are counted separately and never as matches, foreign evidence or not-evaluated comparisons for C; per channel, `match` + `foreign` + `not-evaluated` equals C's non-terminated member count.
 - Every count is attributed to the **branch**: the immediate child folder of F on the member's lineage, or `direct` for a direct member. Branch counts sum to the candidate's totals.
 - A member below a `narrow` folder counts once for C and once for the narrowing candidate, with the narrowing candidate recorded on C's branch row. It is never counted twice within one candidate.
 
@@ -318,7 +324,7 @@ Each observation also carries the folder's bridge observation state (S1.3). Dire
 
 **Facets per candidate are counts only:**
 
-- per channel: `match` (singular or ambiguous, direct or descendant), `foreign` by root and by branch, and `not-evaluated` by reason;
+- per channel: `match` (singular or ambiguous, direct or descendant), `foreign` by root and by branch, and `not-evaluated` by reason; `foreign` counts are keyed by the member's v1 `familyRoot` on both channels (calculogic-validator#97, E2);
 - `terminated` members by terminating folder;
 - `provisional-redirect` boundaries, each with the nested candidate's reference and the number of members behind it;
 - `narrow` attributions;
@@ -366,7 +372,7 @@ Stage 1A implementation (calculogic-validator#95): Tree records intake as the pr
 Stage 1B is delivered in two slices (calculogic-validator#97, D7):
 
 - **Stage 1B-i** (current implementation reality): the prepared-evidence entry `treeFolderFactEvidence` (`tree/src/tree-folder-fact-evidence.logic.mjs`). It holds `availability` (the Stage 1A record itself, not a copy), `occurrenceFacts` (one record per addressed occurrence: `folderLabel` and `bridgeObservation` for folders; `semanticIdentity`, `tokens` and `roleFacts` for files) and `compositionObservations` (one per addressed folder, direct members only). The S1.3 comparison rule and the S1.8 subtree view are exported functions over this record, not stored values. It holds no candidate, comparison, relationship or facet.
-- **Stage 1B-ii** (not current runtime truth): `treeFolderSemanticEvidence` (S1.9). It references the Stage 1B-i record's facts and composition observations and evaluates comparisons with its comparison rule. It never builds a second fact or composition model.
+- **Stage 1B-ii** (current implementation reality): `treeFolderSemanticEvidence` (S1.9), built by `tree/src/tree-folder-candidates.logic.mjs` (S1.4) and `tree/src/tree-folder-semantic-evidence.logic.mjs` (S1.5–S1.7, S1.9). It holds the Stage 1A availability and diagnostics and the Stage 1B-i composition observations by reference, reads fact states from the Stage 1B-i record, evaluates every comparison with its comparison rule, and reads a Naming field value only when the matching fact says it is usable. It never builds a second fact or composition model.
 
 ### Naming-bridge folder-kind interpretation + placement model (Status: Bounded modeling note)
 

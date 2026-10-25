@@ -146,7 +146,7 @@ test('existing Tree findings and prepared evidence are unchanged by the staged N
     const r1Only = { namingSemanticFamilyBridge: staged.namingSemanticFamilyBridge };
     const without = prepare(fixtureRoot, r1Only);
     const withSections = prepare(fixtureRoot, staged);
-    const sectionKeys = new Set(['addressedNamingOccurrenceBridge', 'treeNamingSectionIntake', 'treeFolderFactEvidence']);
+    const sectionKeys = new Set(['addressedNamingOccurrenceBridge', 'treeNamingSectionIntake', 'treeFolderFactEvidence', 'treeFolderSemanticEvidence']);
 
     for (const key of Object.keys(without.preparedDependencies).filter((key) => !sectionKeys.has(key))) {
       assert.deepEqual(comparable(withSections.preparedDependencies[key]), comparable(without.preparedDependencies[key]), key);
@@ -181,6 +181,24 @@ test('the default Tree path builds Stage 1B-i fact evidence from the intake for 
     const standalone = prepare(fixtureRoot, {}).preparedDependencies.treeFolderFactEvidence;
     assert.ok(standalone.occurrenceFacts.filter((entry) => entry.occurrenceType === 'file').every((entry) => entry.facts.semanticIdentity.state === 'unavailable'));
     assert.ok(standalone.compositionObservations.every((observation) => observation.label.reason === 'run-unavailable'));
+  });
+});
+
+test('the default Tree path builds Stage 1B-ii candidate evidence on the 1B-i record, held by reference', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const { preparedDependencies } = prepare(fixtureRoot, staged);
+    const evidence = preparedDependencies.treeFolderSemanticEvidence;
+
+    assert.equal(evidence.availability, preparedDependencies.treeNamingSectionIntake.availability);
+    assert.equal(evidence.diagnostics, preparedDependencies.treeNamingSectionIntake.diagnostics);
+    assert.equal(evidence.compositionObservations, preparedDependencies.treeFolderFactEvidence.compositionObservations);
+    // `src` and `build` parse; `Order_Flow` does not, so it proposes no candidate.
+    assert.deepEqual(evidence.candidates.map((candidate) => candidate.path), ['src', 'src/build']);
+    const build = evidence.candidates.find((candidate) => candidate.path === 'src/build');
+    assert.deepEqual([build.facets.activeMemberCount, build.facets.channels.root.foreignByRoot], [2, {}]);
+    assert.equal(build.references.folderKindEvidence.source, 'tree-folder-kind-evidence');
+
+    assert.deepEqual(prepare(fixtureRoot, {}).preparedDependencies.treeFolderSemanticEvidence.candidates, []);
   });
 });
 
