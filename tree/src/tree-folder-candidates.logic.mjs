@@ -15,7 +15,10 @@ const toTupleKey = ({ addressProfileId, addressedSnapshotId, occurrenceAddress }
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
 
-export const toCandidateKey = ({ folderAddressPath, candidateSource }) => `${folderAddressPath}\u0000${candidateSource}`;
+// The one lookup key for a candidate: its complete S1.4 identity, including the observation it was
+// proposed from, so two candidates of one source on one folder can never share a key (#100).
+export const toCandidateKey = ({ folderAddressPath, candidateSource, labelObservationRef }) =>
+  [folderAddressPath, candidateSource, toTupleKey(labelObservationRef)].join('\u0001');
 
 const compareCandidates = (left, right) =>
   left.candidateId.folderAddressPath.localeCompare(right.candidateId.folderAddressPath) ||
