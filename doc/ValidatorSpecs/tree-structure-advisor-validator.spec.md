@@ -388,6 +388,11 @@ It also proposes, code by code, what each existing family finding should become.
 
 **What is fixed here and what is not.** This contract fixes the rule *shape*: which evidence enters, how each kind of evidence can move an outcome, the evaluation order, the precedence, and the output records. It does not fix numeric parameter values. S2.10 lists each parameter, the constraints the contrast catalogue (S2.11) places on it, and the evidence still required before a value can be adopted. No value is adopted by this section.
 
+**What Stage 2 does not decide.** Semantic Home reasoning is one dimension of Tree's folder and placement interpretation. It does not replace the others:
+
+- **Eligibility is not folder meaning.** A folder can carry structural meaning, semantic meaning, both or neither. A candidate that is `not-eligible` says only that the folder is not a Semantic Home for that candidate's claim. It says nothing about whether the folder is structurally meaningful. For example, `tree/src` is a meaningful structural container even though its `src` label candidate has no support. Folder-kind classification and Structural Home evidence stay separately owned. Stage 2 references them as corroboration (S2.7) and never overwrites them.
+- **Semantic Home placement is not a placement verdict.** The S2.8 states say how a file relates to eligible Semantic Homes. They are one future contributor to whole-placement reasoning, which may also weigh structural-home alignment, containment, sibling patterns and referenced roles. `inside-home` does not mean a file is correctly placed. `home-elsewhere` and `no-home` do not mean it is misplaced. Whole-placement confidence is outside this contract, and any later model that consumes Stage 2 placement must keep it as a distinct input rather than treat it as the verdict.
+
 #### S2.1 Inputs and ownership
 
 Stage 2 reads only the Stage 1 prepared evidence, by reference:
@@ -399,6 +404,8 @@ Stage 2 reads only the Stage 1 prepared evidence, by reference:
 Stage 2 never reinterprets Naming material. It never tokenizes, derives roots or families, or calls a Naming rule. Every comparison Stage 2 needs is a Stage 1 channel comparison (S1.5), gated by the Stage 1 comparison rule (S1.3). For placement (S2.8), Stage 2 applies the same channel definition to file and candidate pairs that are not members of one another. This adds no new kind of comparison.
 
 Stage 1 records are never modified. Stage 2 conclusions sit in their own record (S2.9), next to the observations they are drawn from.
+
+Every Stage 2 join uses addressed occurrence identity, as Stage 1 does. Filesystem paths are descriptive context only. Older registry or blueprint wording that describes evidence "by path" does not license a path-keyed join in Stage 2.
 
 #### S2.2 Outcomes (F1)
 
@@ -441,7 +448,7 @@ Only the governing channel decides eligibility. The other channel, where it appl
 
 Why the prefix channel governs a compound label: a compound label such as `registry-lifecycle` names a narrower interpretation than its first token. If root-channel matches decided its eligibility, the folder would be treated as a home for every `registry*` file, including `registry-state` and `registry-entry-shape`, which the label does not name. The root-level question for root `R` is answered by candidates whose claim *is* `R`: single-token labels, semantic-context and package-root candidates.
 
-Owner- or qualifier-style labels (for example `tree-owned`) are compound labels under this rule. Whether a label token such as `owned` is a qualifier rather than part of the claim is a Naming decision. It is not currently made: Naming does not classify label tokens (calculogic-validator#85, deferred role-category track). If Naming later publishes such a classification, the claim of an affected candidate is redefined by a contract amendment, not by Tree interpretation.
+Owner- or qualifier-style labels (for example `tree-owned`) are compound labels under this rule. Whether a label token such as `owned` is a qualifier rather than part of the claim is a Naming decision. It is not currently made: Naming does not classify label tokens (calculogic-validator#85, deferred role-category track). If Naming later publishes such a classification, the claim of an affected candidate is redefined by a contract amendment, not by Tree interpretation. The planned shared Linguistic Foundation layer (calculogic-validator#85 living document) is the intended source of reusable token identities that Naming could build such a classification on. It is future work with its own authorization, and Tree would consume it only through Naming-owned or explicitly shared projections.
 
 #### S2.4 Evidence classes (Q1)
 
@@ -460,7 +467,11 @@ Evaluated coverage is necessary for a decision, but it is not sufficient. Each e
 
 **Missing evidence is never contradiction.** A `not-evaluated` comparison can only lower coverage. Its reason is kept on the outcome, so an `undetermined` caused by a run-level gap (`run-unavailable`) stays distinguishable from one caused by files without a semantic observation (`no-semantic-observation`).
 
-**Ambiguous matches count as support (proposed rule shape).** The only ambiguity flag Naming emits, `family-boundary-heuristic`, records a heuristic choice of the *family boundary* (`semanticFamily`) for connector-free names of four or more tokens. `familyRoot` is the first token either way, and the token sequence is unchanged. Naming's own aggregates already apply this distinction: `familyRootCounts` include flagged evidence, and only family- and subgroup-level aggregates require singular evidence (`doc/ConventionRoutines/NamingValidatorSpec.md`, aggregate inclusion and `ambiguityFlags`; `doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md`, observational markers). Root and prefix comparisons compare `familyRoot` and token sequences, not the family boundary, so a flagged match is full support on either channel. The ambiguous share stays visible as a strength facet (S2.7). If Naming adds a flag that qualifies `familyRoot` or the token sequence, this rule is revisited by amendment. If this proposal is not adopted, an explicit ambiguity-treatment parameter is needed instead (S2.10).
+**Ambiguous matches count as support (proposed rule shape).** The only ambiguity flag Naming emits, `family-boundary-heuristic`, records a heuristic choice of the *family boundary* (`semanticFamily`) for connector-free names of four or more tokens. `familyRoot` is the first token either way, and the token sequence is unchanged. Naming's own aggregates already apply this distinction: `familyRootCounts` include flagged evidence, and only family- and subgroup-level aggregates require singular evidence (`doc/ConventionRoutines/NamingValidatorSpec.md`, aggregate inclusion and `ambiguityFlags`; `doc/ValidatorSpecs/naming-owned/naming-semantic-family-and-interpretation.spec.md`, observational markers). Root and prefix comparisons compare `familyRoot` and token sequences, not the family boundary, so a flagged match is full support on either channel. The ambiguous share stays visible as a strength facet (S2.7).
+
+Ambiguity qualifies the specific fact that is uncertain, not every fact derived from the same name. A flagged observation gives full support to a root or prefix comparison, whose compared values the flag does not qualify. Its `semanticFamily` and `familySubgroup` stay uncertain. No Stage 2 rule, and no Stage 2B finding change, may count a flagged observation as family- or subgroup-level evidence, matching Naming's singular-only rule for those aggregates. This refines the general principle that ambiguity limits evidence strength; it does not set that principle aside.
+
+If Naming adds a flag that qualifies `familyRoot` or the token sequence, this rule is revisited by amendment. If this proposal is not adopted, an explicit ambiguity-treatment parameter is needed instead (S2.10).
 
 **Channel disagreement does not decide.** For example, `doc/ValidatorSpecs/tree-owned` has 7 root matches and 0 prefix matches among its evaluated members. Under S2.3 the prefix channel governs, so the candidate is decided on 0 of 9. The 7 root matches are recorded as a `channel-disagreement` note with both channels' counts. They do not make the folder a home for root `tree`, because no candidate on that folder claims root `tree`.
 
@@ -595,7 +606,7 @@ Stage 1 availability and records are held by reference, never copied or recomput
 
 #### S2.10 Parameters (F2)
 
-Parameters are Tree-owned policy data in the existing `semantic-home-policy` registry (`tree/src/registries/_builtin/semantic-home-policy.registry.json`), in a versioned parameter section beside the current descriptive input lanes. Each parameter entry holds an identifier, a value, a written rationale, and the catalogue cases (S2.11) the value was checked against. A value that cannot be justified against the catalogue is not adopted. Adding the section is a registry migration and follows the AGENTS.md sequence (data-only payload, then shape tests, then runtime) under its own authorization. This contract adds nothing to the registry.
+Parameters are Tree-owned policy data in the existing `semantic-home-policy` registry (`tree/src/registries/_builtin/semantic-home-policy.registry.json`), in a versioned parameter section beside the current descriptive input lanes. Each parameter entry holds an identifier, a value, a written rationale, and the catalogue cases (S2.11) the value was checked against. A value that cannot be justified against the catalogue is not adopted. Adding the section is a registry migration and follows the AGENTS.md sequence (data-only payload, then shape tests, then runtime) under its own authorization. This contract adds nothing to the registry. It assumes one parameter set per run. Scoped or per-profile parameter sets are not proposed. They would be added by amendment only if contrast cases show that different structures need different values, and the versioned section leaves room for that.
 
 **No value is adopted here.** For each parameter, the table records the constraints that the proposed catalogue outcomes would impose, and what is still needed:
 
