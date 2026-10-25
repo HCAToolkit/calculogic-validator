@@ -521,9 +521,12 @@ A nested home explains only the members it actually matches. It never removes ev
   - removing a member with an evaluated comparison for C raises or keeps the support share, and lowers or keeps coverage. Such a comparison is always `foreign`, because the member matches a nested candidate whose root differs from C's, and Naming's `familyRoot` is the first semantic token;
   - removing a member whose comparison for C is not evaluated raises or keeps coverage.
   So Tree tests each condition of an outcome at that condition's least favourable resolution, chosen by member kind. This is sound, and needs no enumeration of combinations.
-- Otherwise C is `undetermined`:
-  - with reason `depends-on-undetermined-nested-candidate`, listing the nested candidates involved, when some resolution would decide C;
-  - otherwise with the S2.5 reason that holds at every resolution.
+- Otherwise C is `undetermined` with reason `depends-on-undetermined-nested-candidate`, listing the nested candidates involved. This reason is used whenever C has attribution-undetermined members and is not decided, whatever S2.5 would give under any one resolution. Different resolutions can leave C undetermined for different S2.5 reasons, so no single S2.5 reason is claimed.
+- Beside that reason, the outcome records the S2.5 outcome and reason at two fixed reference resolutions:
+  - every attribution-undetermined member retained by C;
+  - every such member removed from C.
+
+  This keeps the dependency inspectable without enumerating combinations.
 
 **Member attribution record (Q3).** For every member of C behind at least one `provisional-redirect` boundary, Stage 2 records:
 
@@ -584,7 +587,7 @@ Steps 2 and 4 already keep any undetermined matching candidate from becoming `no
 Stage 2 adds one Tree-owned prepared-evidence record, `treeFolderSemanticHomeReasoning`, in Tree's prepared dependencies, next to the Stage 1 records. It holds:
 
 - `semanticEvidenceSource` and `parameterSet`: a reference to the Stage 1 record, and the identity and version of the adopted parameter set (S2.10);
-- `candidateOutcomes`: one per candidate, with the candidate identity, governing channel, outcome, reasons, notes, decision counts (`|A|`, `M` split singular and ambiguous, `F` by root, `N` by reason), strength profile, and the nested candidates the outcome depends on;
+- `candidateOutcomes`: one per candidate, with the candidate identity, governing channel, outcome, reasons, notes, decision counts (`|A|`, `M` split singular and ambiguous, `F` by root, `N` by reason), strength profile, and the nested candidates the outcome depends on, with the two reference-resolution results (S2.6);
 - `memberAttributions`: the S2.6 records;
 - `placements`: one per file occurrence, with the file identity, state, reason, nearest home, the homes on its relevant lineage, the homes elsewhere, the undetermined candidates consulted, and the run scope.
 
