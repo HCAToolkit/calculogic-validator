@@ -374,7 +374,7 @@ Stage 1B is delivered in two slices (calculogic-validator#97, D7):
 - **Stage 1B-i** (current implementation reality): the prepared-evidence entry `treeFolderFactEvidence` (`tree/src/tree-folder-fact-evidence.logic.mjs`). It holds `availability` (the Stage 1A record itself, not a copy), `occurrenceFacts` (one record per addressed occurrence: `folderLabel` and `bridgeObservation` for folders; `semanticIdentity`, `tokens` and `roleFacts` for files) and `compositionObservations` (one per addressed folder, direct members only). The S1.3 comparison rule and the S1.8 subtree view are exported functions over this record, not stored values. It holds no candidate, comparison, relationship or facet.
 - **Stage 1B-ii** (current implementation reality): `treeFolderSemanticEvidence` (S1.9), built by `tree/src/tree-folder-candidates.logic.mjs` (S1.4) and `tree/src/tree-folder-semantic-evidence.logic.mjs` (S1.5–S1.7, S1.9). It holds the Stage 1A availability and diagnostics and the Stage 1B-i composition observations by reference, reads fact states from the Stage 1B-i record, evaluates every comparison with its comparison rule, and reads a Naming field value only when the matching fact says it is usable. It never builds a second fact or composition model.
 
-### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102; not implemented. Policy values are selected in S2.10 but are not registry data or runtime configuration; no runtime, registry or finding change is made by this section)
+### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102; reasoning not implemented. The S2.10 parameter values are Builtin registry data (`semantic-home-policy` version 2) with no runtime consumer; no Stage 2 runtime or finding change exists)
 
 This section is the contract for Tree Stage 2 of folder-level Semantic Home development (tracking: calculogic-validator#85; scoping and approved directions F1–F6: calculogic-validator#102). It defines how Tree moves from the Stage 1 evidence (S1.1–S1.11) to three kinds of decision:
 
@@ -388,9 +388,9 @@ It also proposes, code by code, what each existing family finding should become.
 
 **What is fixed here and what is not.** This contract fixes the rule *shape*: which evidence enters, how each kind of evidence can move an outcome, the evaluation order, the precedence, and the output records.
 
-It also records the **selected policy values** for the four S2.10 parameters, from the Stage 2 policy decision record on calculogic-validator#102 (D1–D8), with their rationales and limitations. Selecting a value is a policy decision. It does not make the value active:
-- the values are not registry data and not runtime configuration;
-- they become active only when adopted into the `semantic-home-policy` registry under the separately authorized steps in S2.14.
+It also records the **selected policy values** for the four S2.10 parameters, from the Stage 2 policy decision record on calculogic-validator#102 (D1–D8), with their rationales and limitations. Their status:
+- **Adopted as data.** The values are Builtin registry data in `semantic-home-policy` version 2 (S2.10, S2.14 step 3).
+- **Not active.** No runtime code reads them yet. They take effect only when the separately authorized loader and Stage 2A runtime consume them (S2.14).
 
 **What Stage 2 does not decide.** Semantic Home reasoning is one dimension of Tree's folder and placement interpretation. It does not replace the others:
 
@@ -690,9 +690,12 @@ Stage 1 availability and records are held by reference, never copied or recomput
 
 #### S2.10 Parameters (F2)
 
-Parameters are Tree-owned policy data in the existing `semantic-home-policy` registry (`tree/src/registries/_builtin/semantic-home-policy.registry.json`), in a versioned parameter section beside the current descriptive input lanes. The section's shape, lifecycle behavior and provenance are defined under **Registry architecture** below. A value that cannot be justified against the catalogue is not adopted. Adding the section is a registry migration. It follows the AGENTS.md sequence (data-only payload, then shape tests, then runtime) under its own authorization, after the registry reconciliation in S2.14. This contract adds nothing to the registry. It assumes one parameter set per run. Scoped or per-profile parameter sets are not proposed. They would be added by amendment only if contrast cases show that different structures need different values, and the versioned section leaves room for that.
+Parameters are Tree-owned policy data in the existing `semantic-home-policy` registry (`tree/src/registries/_builtin/semantic-home-policy.registry.json`), in a versioned parameter section beside the current descriptive input lanes. The section's shape, lifecycle behavior and provenance are defined under **Registry architecture** below. A value that cannot be justified against the catalogue is not adopted. Adding the section was a registry migration (S2.14 step 3). It followed the AGENTS.md sequence: the data-only payload and shape tests are in place; the runtime step belongs to the loader and Stage 2A, under their own authorization. This contract assumes one parameter set per run. Scoped or per-profile parameter sets are not proposed. They would be added by amendment only if contrast cases show that different structures need different values, and the versioned section leaves room for that.
 
-**Selected policy values (calculogic-validator#102, D7).** These values are chosen as policy. They are **not adopted**: they are not registry data, they are not runtime configuration, and nothing reads them until the registry steps in S2.14 are separately authorized and completed. Each value was checked, together with the others, against the full catalogue (S2.11).
+**Selected policy values (calculogic-validator#102, D7).**
+- **Adopted as data.** These values are the Builtin records of `semanticHomeParameters` in `semantic-home-policy` version 2.
+- **No runtime configuration.** Nothing reads them until the separately authorized loader and Stage 2A runtime consume them (S2.14).
+- Each value was checked, together with the others, against the full catalogue (S2.11).
 
 | Parameter | Role (S2.5) | Selected value | Justification | Limitation |
 | --- | --- | --- | --- | --- |
@@ -705,6 +708,15 @@ Comparisons are inclusive at the boundaries:
 - a support share at or below 0.25 is `not-eligible`;
 - a share at or above 0.75 is `eligible` when minimum support is met;
 - coverage below 0.50 is `undetermined`.
+
+**Registry identifiers.** Each parameter has a registry `parameterId`. The mapping is explicit; runtime code must not infer it:
+
+| Parameter (S2.5) | `parameterId` | Catalogue cases recorded with the Builtin value |
+| --- | --- | --- |
+| `P_COVERAGE` | `coverage` | C3, C18, C19 |
+| `P_MIN_SUPPORT` | `minimum-support` | C17, C20 |
+| `P_NOT_ELIGIBLE_SHARE` | `not-eligible-share` | C21, C22, C23, C25 |
+| `P_ELIGIBLE_SHARE` | `eligible-share` | C4, C6, C10, C24 |
 
 No ambiguity parameter is needed (S2.4, D2).
 
@@ -755,13 +767,18 @@ Anything in `semantic-home-policy` is consumer-editable, because the registry be
 | `repo-top-structural-boundary` | Repo-top structural-home context | Deferred: not read by Stage 2 |
 
 **RR3. Parameter records are atomic.**
-- **Shape.** The parameter section, for example `semanticHomeParameters`, is a keyed set by `parameterId`. Each record holds `value`, `rationale` and `catalogueCases`.
+- **Shape.** The parameter section, `semanticHomeParameters`, is a keyed set by `parameterId`. It holds exactly the four records in the identifier table above. Each record holds `value`, `rationale` and `catalogueCases`.
 - **One unit of justification.** The three fields are never merged separately: the section declares no lifecycle merge-fields. An update choice per parameter is therefore `keep-custom`, which keeps the whole record, or `take-builtin`, which adopts the whole Builtin record. A consumer's value can never be paired with a rationale written for a different value.
-- **What validation checks.** Shape validation enforces the S2.5 constraints:
-  - `0 ≤ P_NOT_ELIGIBLE_SHARE < P_ELIGIBLE_SHARE ≤ 1`;
-  - `0 < P_COVERAGE ≤ 1`;
-  - `P_MIN_SUPPORT` is an integer of at least 1;
-  - a non-empty rationale.
+- **What validation checks** (`tree/src/registries/tree-semantic-home-policy-registry.logic.mjs`):
+  - exactly the four `parameterId` values, each once, and no other record field;
+  - each `value` a finite number, within the S2.5 constraints:
+    - `0 < P_COVERAGE ≤ 1`;
+    - `P_MIN_SUPPORT` is an integer of at least 1;
+    - both shares lie in `[0, 1]`;
+    - `P_NOT_ELIGIBLE_SHARE < P_ELIGIBLE_SHARE`, so equal shares are invalid;
+  - a non-empty `rationale`;
+  - a non-empty `catalogueCases` list of unique case identifiers (`C` followed by a number);
+  - version `"2"` requires the section, and version `"1"` must not carry it.
 
   A payload that breaks these is invalid, and an invalid active Custom registry blocks the run (registry lifecycle spec §7.1). Validation checks structure, never whether a rationale is convincing.
 
@@ -779,7 +796,7 @@ Anything in `semantic-home-policy` is consumer-editable, because the registry be
 
 **RR5. A legacy registry without parameters is readable, and Stage 2 then reports `configuration-unavailable`.**
 - Adding the parameter section raises the registry's `version` from `"1"` to `"2"`, with `readableVersions` covering both (lifecycle §7.1 item 3, §8.3).
-- A version-1 Custom registry therefore stays valid, and every other part of the run proceeds as before. Stage 2 alone reports `status: configuration-unavailable` (S2.9), with reason `parameter-set-absent` and the registry identity, source and version.
+- A version-1 Custom registry therefore stays valid, and every other part of the run proceeds as before. A readable version-1 registry never means Stage 2 silently uses the Builtin version-2 values: the Custom set's own parameter section is the only source. Stage 2 alone reports `status: configuration-unavailable` (S2.9), with reason `parameter-set-absent` and the registry identity, source and version.
 - Stage 1 evidence, unrelated Tree findings, and findings not migrated to Stage 2 are unaffected. During Stage 2A all findings remain byte-identical, as S2.14 already requires.
 - **Rejected:**
   - candidate-level `undetermined` (it would claim an evaluation that never ran);
@@ -789,6 +806,11 @@ Anything in `semantic-home-policy` is consumer-editable, because the registry be
 **RR6. The version-1-to-2 migration implements the selected policy; it is not a separate authority.**
 - The Tree-owned deterministic transform adds the parameter section using its own constants, because a transform may never copy Builtin values (lifecycle §8.3). Those constants are the S2.10 selected values with their rationales and catalogue references, and they stay traceable to S2.10.
 - **Test obligation.** Migrating an unmodified version-1 Custom registry must produce parameter records equal to the version-2 Builtin records: values, rationales and catalogue references. The transform must never silently diverge from the Builtin defaults.
+- **Implementation.**
+  - **Transform:** `semantic-home-policy-v1-to-v2`, in `tree/src/registries/tree-registry-migrations.logic.mjs`.
+  - **Declaration:** the Tree registry inventory declares it as the one step from version `"1"` to `"2"`, with `readableVersions` `"1"` and `"2"`.
+  - **What it does:** copies the descriptive lanes unchanged and adds the four records from its own constants.
+  - **Tests:** `tree/test/tree-registry-migrations.logic.test.mjs` checks it against the Builtin file. A lifecycle test migrates a real version-1 Custom set, checking both the migrated Baseline and the migrated Custom file.
 
 #### S2.11 Contrast catalogue (F6, Q10)
 
@@ -918,7 +940,7 @@ Each step needs its own authorization:
 
 1. **This contract**, including its policy amendment and registry architecture (documentation only).
 2. **Lane text reconciliation** (data only, no structural change). Align the `semantic-home-policy` lane texts with the S2.10 lane table (RR2), keeping each lane's description of its evidence class.
-3. **Parameter adoption.** It follows the registry migration sequence:
+3. **Parameter adoption** (done: the Builtin data, shape validation, migration and inventory below; no runtime consumer). It followed the registry migration sequence:
    - the parameter section (RR3), with the S2.10 selected values, their rationales and their catalogue references;
    - `version` `"2"`, with `readableVersions` covering `"1"` and `"2"` (RR5);
    - the version-1-to-2 transform and its consistency test (RR6);

@@ -19,17 +19,26 @@ const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 // `reconciliation` declares which of its collections accept merge-fields or add-alongside (spec
 // §12.7); the reasons are recorded in doc/Audits/registry-reconciliation-capabilities.audit.md.
 // `migrations` declares the steps from older `version` values, each naming a transform of the
-// slice's migration module and the descriptor of its source version (spec §8.3). Empty while no
-// registry has changed shape. `references` declares the entries of other registries of the same slice
+// slice's migration module (`tree-registry-migrations.logic.mjs`) and the descriptor of its source
+// version (spec §8.3). `readableVersions` lists the versions the runtime reads; it is `["1"]` unless
+// a registry declares more. `references` declares the entries of other registries of the same slice
 // that this registry's entries name (spec §12.11): each edge's id, target registry and target `keyed`
 // collection. The slice's reference resolver interprets them; the edges are recorded with the
 // validation that enforces them in doc/Audits/registry-reference-edges.audit.md.
-const defineTreeRegistry = (name, descriptor, comparison, reconciliation = [], migrations = [], references = []) =>
+const defineTreeRegistry = (
+  name,
+  descriptor,
+  comparison,
+  reconciliation = [],
+  migrations = [],
+  references = [],
+  readableVersions = READABLE_VERSIONS_V1,
+) =>
   Object.freeze({
     registryId: `${TREE_REGISTRY_SLICE_ID}/${name}`,
     name,
     fileName: `${name}.registry.json`,
-    readableVersions: READABLE_VERSIONS_V1,
+    readableVersions: Object.freeze([...readableVersions]),
     descriptor: Object.freeze(descriptor),
     comparison: Object.freeze(comparison.map((collection) => Object.freeze(collection))),
     reconciliation: Object.freeze(
@@ -56,9 +65,32 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
   defineTreeRegistry('repo-shape-policy', { setLike: [{ path: 'allowedTopLevelDirectories' }] }, [
     { kind: 'members', path: 'allowedTopLevelDirectories' },
   ]),
-  defineTreeRegistry('semantic-home-policy', { setLike: [{ path: 'semanticHomePolicy', key: 'policyId' }] }, [
-    { kind: 'keyed', path: 'semanticHomePolicy', key: 'policyId' },
-  ], [{ path: 'semanticHomePolicy', mergeFields: [['status'], ['definition'], ['derivationMeaning', 'guardrails', 'inputLane']] }]),
+  // Version "2" adds `semanticHomeParameters` (Tree spec Stage 2 S2.10). Its records are atomic (RR3):
+  // the collection declares no reconciliation, so each parameter is kept or taken whole.
+  defineTreeRegistry(
+    'semantic-home-policy',
+    {
+      setLike: [
+        { path: 'semanticHomePolicy', key: 'policyId' },
+        { path: 'semanticHomeParameters', key: 'parameterId' },
+      ],
+    },
+    [
+      { kind: 'keyed', path: 'semanticHomePolicy', key: 'policyId' },
+      { kind: 'keyed', path: 'semanticHomeParameters', key: 'parameterId' },
+    ],
+    [{ path: 'semanticHomePolicy', mergeFields: [['status'], ['definition'], ['derivationMeaning', 'guardrails', 'inputLane']] }],
+    [
+      {
+        from: '1',
+        to: '2',
+        transform: 'semantic-home-policy-v1-to-v2',
+        fromDescriptor: { setLike: [{ path: 'semanticHomePolicy', key: 'policyId' }] },
+      },
+    ],
+    [],
+    ['1', '2'],
+  ),
   // At most one rule can match (relationshipPerspective is unique), so order carries no meaning.
   defineTreeRegistry('semantic-naming-folder-type-relationships', {
     setLike: [{ path: 'semanticNamingFolderTypeRelationships', key: 'relationshipPerspective' }],
