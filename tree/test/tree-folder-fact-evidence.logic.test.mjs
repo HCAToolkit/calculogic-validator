@@ -265,3 +265,38 @@ test('output is deterministic across input orderings and reuses the intake avail
   assert.equal(first.evidence.availability, first.sectionIntake.availability);
   assert.equal(first.evidence.sectionIntakeSource, 'tree-naming-section-intake');
 });
+
+test('tallies count open Naming values that collide with Object.prototype names as ordinary keys', () => {
+  const occurrences = [
+    folder('A', 'src'),
+    file('A.1', 'src/constructor-plan.logic.mjs', 'A'),
+    file('A.2', 'src/constructor-step.logic.mjs', 'A'),
+    folder('A.G', 'src/core', 'A'),
+    file('A.G.1', 'src/core/to-string.logic.mjs', 'A.G'),
+    file('A.G.2', 'src/core/constructor-core.logic.mjs', 'A.G'),
+  ];
+  const roleFor = (roleCategory) => ({ role: 'logic', roleCategory, roleStatus: 'active' });
+  const { evidence } = build({
+    occurrences,
+    bridge: payload({
+      observations: [
+        fileObservation('A.1', 'constructor'),
+        fileObservation('A.2', 'constructor'),
+        fileObservation('A.G.1', 'toString'),
+        fileObservation('A.G.2', 'constructor'),
+      ],
+      n1: [
+        { ...tuple('A.1'), semanticTokens: ['constructor', 'plan'], ...roleFor('hasOwnProperty') },
+        { ...tuple('A.G.2'), semanticTokens: ['constructor', 'core'], ...roleFor('hasOwnProperty') },
+      ],
+      n2: null,
+    }),
+  });
+
+  assert.deepEqual(compositionAt(evidence, 'A').directMembers.familyRoots, { constructor: 2 });
+  assert.deepEqual(compositionAt(evidence, 'A').directMembers.roleCategories, { hasOwnProperty: 1 });
+  const subtree = deriveSubtreeComposition(evidence, 'A');
+  assert.deepEqual(subtree.familyRoots, { constructor: 3, toString: 1 });
+  assert.deepEqual(subtree.roleCategories, { hasOwnProperty: 2 });
+  assert.equal(Object.getPrototypeOf(subtree.familyRoots), Object.prototype);
+});

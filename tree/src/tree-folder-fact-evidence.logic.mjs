@@ -138,13 +138,26 @@ export const evaluateComparisonFacts = (requiredFacts) => {
 // Tally keys: the state, qualified by its reason where S1.3 keeps one on the state.
 const toTallyKey = (fact) => (fact.state === 'not-provided' || fact.state === 'absent' ? `${fact.state}:${fact.reason}` : fact.state);
 
-const increment = (tally, key) => {
-  tally[key] = (tally[key] ?? 0) + 1;
+// Tally keys are open Naming values (a family root may be `constructor` or `toString`), so every
+// working tally is prototype-free: a key is counted only when this tally holds it.
+const createTally = () => Object.create(null);
+
+const addCount = (tally, key, count) => {
+  tally[key] = (tally[key] ?? 0) + count;
 };
+
+const increment = (tally, key) => addCount(tally, key, 1);
 
 const sortedTally = (tally) => Object.fromEntries(Object.entries(tally).sort(([left], [right]) => left.localeCompare(right)));
 
-const emptyTallies = () => ({ fileCount: 0, familyRoots: {}, roleCategories: {}, semanticIdentity: {}, tokens: {}, roleFacts: {} });
+const emptyTallies = () => ({
+  fileCount: 0,
+  familyRoots: createTally(),
+  roleCategories: createTally(),
+  semanticIdentity: createTally(),
+  tokens: createTally(),
+  roleFacts: createTally(),
+});
 
 const addFileFacts = (tallies, { facts, familyRoot, roleCategory }) => {
   tallies.fileCount += 1;
@@ -260,7 +273,7 @@ export const deriveSubtreeComposition = (folderFactEvidence, occurrenceAddress) 
     const { directMembers } = observation;
     totals.fileCount += directMembers.fileCount;
     for (const field of ['familyRoots', 'roleCategories', 'semanticIdentity', 'tokens', 'roleFacts']) {
-      for (const [key, count] of Object.entries(directMembers[field])) totals[field][key] = (totals[field][key] ?? 0) + count;
+      for (const [key, count] of Object.entries(directMembers[field])) addCount(totals[field], key, count);
     }
     pending.push(...observation.childFolderAddresses);
   }
