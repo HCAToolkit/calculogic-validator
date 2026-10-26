@@ -46,6 +46,7 @@ const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
     namingSemanticFamilyBridge: options.namingSemanticFamilyBridge,
     namingSemanticEvidenceEnrichment: options.namingSemanticEvidenceEnrichment,
     interpretFolderLabel: options.interpretFolderLabel,
+    registryResolution: options.registryResolution,
     registryRoots: options.registryResolution?.registryRoots,
   });
   const summary = summarizeTreeStructureAdvisorFindings(treeStructureAdvisorResult.findings);

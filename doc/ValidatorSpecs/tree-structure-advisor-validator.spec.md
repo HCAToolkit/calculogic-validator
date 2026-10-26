@@ -390,7 +390,7 @@ It also proposes, code by code, what each existing family finding should become.
 
 It also records the **selected policy values** for the four S2.10 parameters, from the Stage 2 policy decision record on calculogic-validator#102 (D1–D8), with their rationales and limitations. Their status:
 - **Adopted as data.** The values are Builtin registry data in `semantic-home-policy` version 2 (S2.10, S2.14 step 3).
-- **Not active.** No runtime code reads them yet. They take effect only when the separately authorized loader and Stage 2A runtime consume them (S2.14).
+- **Loaded, not active.** The parameter loader prepares them as `treeSemanticHomeParameterSet` (S2.9), but no reasoning reads them. They take effect only when the separately authorized Stage 2A runtime consumes them (S2.14).
 
 **What Stage 2 does not decide.** Semantic Home reasoning is one dimension of Tree's folder and placement interpretation. It does not replace the others:
 
@@ -698,13 +698,16 @@ When `status` is `configuration-unavailable`, Stage 2 did not run: there are no 
 | Field | Content |
 | --- | --- |
 | `registry` | The registry identity (`tree/semantic-home-policy`), its `version`, its `source` (`builtin`, `custom` or `candidate`) and its canonical digest, all as the run's lifecycle resolution reports them |
-| `availability` | `available` when the resolved registry carries the parameter section; `configuration-unavailable` for a readable version-1 registry (RR5), with `reason: parameter-set-absent`. Never Builtin values in place of a missing section |
-| `parameters` | Only when `available`. Keyed by S2.5 name (`P_COVERAGE`, `P_MIN_SUPPORT`, `P_NOT_ELIGIBLE_SHARE`, `P_ELIGIBLE_SHARE`) through the explicit S2.10 identifier table. Each entry holds `parameterId`, `value`, `catalogueCases`, `baselineComparison` and `origin` (RR4) |
+| `availability` | `available` when the resolved registry carries the parameter section; `configuration-unavailable` for a readable version-1 registry (RR5), with `reason: parameter-set-absent`; `not-prepared` when the preparation inputs are incomplete (below), with `reason: registry-resolution-absent`. Never Builtin values in place of a missing section |
+| `parameters` | Only when `available`. Keyed by S2.5 name (`P_COVERAGE`, `P_MIN_SUPPORT`, `P_NOT_ELIGIBLE_SHARE`, `P_ELIGIBLE_SHARE`) through the explicit S2.10 identifier table. Each entry holds `parameterId`, `value`, `catalogueCases`, `baselineComparison` and `origin` (RR4), and `baselineComparisonReason` (the lifecycle's `baseline-mismatch`, `baseline-version-undescribed` or `baseline-not-comparable`) only when `baselineComparison` is `unverifiable`. `rationale` stays in the registry: it is not converted, but it is part of the record the Baseline comparison judges, so a rationale-only change is `override` (`differs`) |
 | `conformance` | RR4. Always `not-checked` until Stage 2A |
 
 **Availability is not reasoning status.** `availability: available` says only that parameters were loaded. Stage 2A sets `status: evaluated` after it has evaluated candidates; `configuration-unavailable` carries through unchanged. The loader computes no eligibility, attribution or placement.
 
-**Direct library calls with no lifecycle resolution** load Builtin, as Tree's other registry loaders do (registry lifecycle spec §14). The source is then `builtin`, and the digest is computed with the lifecycle's own canonical digest.
+**Preparation inputs.** The loader never reports a registry it did not read, or provenance it cannot establish:
+- **A lifecycle resolution** (every validation run, candidate runs included): the resolution's Tree root, its `registryProvenance` and its Baseline comparison, as above.
+- **No resolution and no registry root** (a direct library call): Builtin, as Tree's other registry loaders do (registry lifecycle spec §14). The source is `builtin`, and the digest is computed with the lifecycle's own canonical digest. An explicit registry root that is the Builtin root is the same case.
+- **An explicit, non-Builtin registry root without a resolution:** the loader neither reads the root nor substitutes Builtin. The set is `availability: not-prepared` with `reason: registry-resolution-absent`, and holds only `availability`, `reason` and `conformance`: no `registry` block and no `parameters`. This is a preparation state, not a claim about the registry: unlike `configuration-unavailable`, it says nothing about whether the registry carries a parameter section. Stage 2A decides, under its own authorization, how it reports a set that was not prepared.
 
 Stage 1 availability and records are held by reference, never copied or recomputed. All collections are sorted deterministically by occurrence identity, then by candidate identity. The record is not part of the report payload. Only findings decided under S2.12 reach the report.
 
@@ -714,7 +717,7 @@ Parameters are Tree-owned policy data in the existing `semantic-home-policy` reg
 
 **Selected policy values (calculogic-validator#102, D7).**
 - **Adopted as data.** These values are the Builtin records of `semanticHomeParameters` in `semantic-home-policy` version 2.
-- **No runtime configuration.** Nothing reads them until the separately authorized loader and Stage 2A runtime consume them (S2.14).
+- **No runtime configuration.** The loader prepares them (S2.9); nothing decides with them until the separately authorized Stage 2A runtime consumes them (S2.14).
 - Each value was checked, together with the others, against the full catalogue (S2.11).
 
 | Parameter | Role (S2.5) | Selected value | Justification | Limitation |
@@ -988,9 +991,10 @@ Each step needs its own authorization:
    - the version-1-to-2 transform and its consistency test (RR6);
    - shape validation of the S2.5 constraints (RR3);
    - inventory declarations without merge-fields for the section.
-4. **Stage 2A.** `treeFolderSemanticHomeReasoning` (S2.1–S2.9) and the S2.11 cases as executable fixtures. Findings stay byte-identical at `repo`, `validator` and `app` scope.
-5. **Stage 2B.** Findings reconciliation, one code per pull request, starting with `TREE_FAMILY_SCATTERED` (S2.12).
-6. **Stage 2C.** The legacy `semanticHome` decision (S2.13).
+4. **Parameter loader and converter** (done: `treeSemanticHomeParameterSet`, S2.9, a frozen prepared dependency with RR4 provenance from the lifecycle Baseline comparison; no consumer; findings byte-identical at `repo`, `validator` and `app` scope).
+5. **Stage 2A.** `treeFolderSemanticHomeReasoning` (S2.1–S2.9) and the S2.11 cases as executable fixtures. Findings stay byte-identical at `repo`, `validator` and `app` scope.
+6. **Stage 2B.** Findings reconciliation, one code per pull request, starting with `TREE_FAMILY_SCATTERED` (S2.12).
+7. **Stage 2C.** The legacy `semanticHome` decision (S2.13).
 
 #### S2.15 Non-goals
 

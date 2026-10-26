@@ -42,7 +42,10 @@ import { prepareTreeNamingOccurrenceBridgeIntake } from './tree-naming-occurrenc
 import { prepareContextualTreeRepoShapePolicy } from './tree-contextual-repo-shape-policy.logic.mjs';
 import { prepareTreeRepoShapeEvidence } from './tree-repo-shape-evidence.logic.mjs';
 import { collectDeclaredLocalPackageEvidence } from '../../src/core/repository-local-package-evidence.logic.mjs';
-import { loadTreeRuntimeRegistries } from './registries/tree-runtime-registries.logic.mjs';
+import {
+  loadTreeRuntimeRegistries,
+  loadTreeSemanticHomeParameterSet,
+} from './registries/tree-runtime-registries.logic.mjs';
 import { TREE_REGISTRY_SLICE_ID } from './registries/tree-registry-inventory.knowledge.mjs';
 
 const TOP_LEVEL_SCAN_EXCLUSIONS = new Set(['.git', 'node_modules']);
@@ -72,7 +75,18 @@ const collectTopLevelDirectoryNames = (repositoryRoot) =>
 // `registryRoots` carries the run's resolved registry roots (#41 registry lifecycle): the suite
 // root for scope profiles, the Tree root for Tree's own registries and the Naming root for the
 // Naming folder-composition registry. Without it (a direct call outside a validation run) every
-// registry comes from Builtin.
+// registry comes from Builtin. `registryResolution` is the run's whole lifecycle resolution, which the
+// Semantic Home parameter loader needs for provenance (Tree spec S2.9); its roots are the run's roots.
+const resolveRegistryRoots = ({ registryResolution, registryRoots }) => {
+  if (!registryResolution) {
+    return registryRoots;
+  }
+  if (registryRoots && registryRoots !== registryResolution.registryRoots) {
+    throw new Error('Tree wiring received registry roots that are not the registry resolution\'s own roots.');
+  }
+  return registryResolution.registryRoots;
+};
+
 export const prepareTreeStructureAdvisorInputs = (
   repositoryRoot,
   {
@@ -84,9 +98,11 @@ export const prepareTreeStructureAdvisorInputs = (
     interpretFolderLabel,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
-    registryRoots,
+    registryResolution,
+    registryRoots: suppliedRegistryRoots,
   } = {},
 ) => {
+  const registryRoots = resolveRegistryRoots({ registryResolution, registryRoots: suppliedRegistryRoots });
   const scopedSnapshotInputs = collectSuiteScopedSnapshotInputs(repositoryRoot, {
     scope,
     targets,
@@ -130,6 +146,8 @@ export const prepareTreeStructureAdvisorInputs = (
     structuralRoleTokensRegistry,
     structuralContextAssessmentPoliciesRegistry,
   } = loadTreeRuntimeRegistries(registryRoots?.[TREE_REGISTRY_SLICE_ID]);
+  // Prepared for Stage 2A; nothing reads it yet, so it changes no finding (Tree spec S2.9, S2.14).
+  const treeSemanticHomeParameterSet = loadTreeSemanticHomeParameterSet({ registryResolution, registryRoots });
   const treeRepoShapeEvidence = prepareTreeRepoShapeEvidence({
     localPackageEvidence: collectDeclaredLocalPackageEvidence(repositoryRoot),
   });
@@ -303,6 +321,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeNamingSectionIntake,
       treeFolderFactEvidence,
       treeFolderSemanticEvidence,
+      treeSemanticHomeParameterSet,
     },
     findingContributors: collectDefaultTreeStructureAdvisorContributors({
       repositoryRoot,
@@ -326,6 +345,7 @@ export const runTreeStructureAdvisor = (
     interpretFolderLabel,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
+    registryResolution,
     registryRoots,
   } = {},
 ) => {
@@ -338,6 +358,7 @@ export const runTreeStructureAdvisor = (
     interpretFolderLabel,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
+    registryResolution,
     registryRoots,
   });
   return runTreeStructureAdvisorRuntime(preparedInputs);
