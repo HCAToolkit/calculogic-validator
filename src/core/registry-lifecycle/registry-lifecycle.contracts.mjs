@@ -183,6 +183,21 @@ export const EDIT_DOCUMENT_PROBLEMS = Object.freeze({
 // The run source of a candidate preview: its provenance `source`, beside `builtin` and `custom`.
 export const REGISTRY_RUN_SOURCE_CANDIDATE = 'candidate';
 
+// [6.3] cfg-registryLifecycle · Primitive · "Baseline comparison states and reasons" (spec §11.4)
+// States in decision order; a reason accompanies `unverifiable` only.
+export const BASELINE_COMPARISON_STATES = Object.freeze({
+  notApplicable: 'not-applicable',
+  unverifiable: 'unverifiable',
+  matches: 'matches',
+  differs: 'differs',
+  absent: 'absent',
+});
+export const BASELINE_UNVERIFIABLE_REASONS = Object.freeze({
+  versionUndescribed: 'baseline-version-undescribed',
+  mismatch: 'baseline-mismatch',
+  notComparable: 'baseline-not-comparable',
+});
+
 // [6.3] cfg-registryLifecycle · Primitive · "Portable set artifact" (spec §12.12)
 export const PORTABLE_SET_KIND = 'calculogic-registry-set';
 export const PORTABLE_SET_SCHEMA_VERSION = '1';

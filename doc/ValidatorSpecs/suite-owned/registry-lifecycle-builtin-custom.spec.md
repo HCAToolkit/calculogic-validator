@@ -454,19 +454,23 @@ A slice may need to know how each entry of a resolved registry relates to the Ba
 
 **Ownership.** The lifecycle owns this comparison, because it owns Baseline verification (§4.4) and entry identity (§8.4). A slice never reads `.baseline/` copies or the manifest itself, and never re-verifies digests. The interface is generic: it uses only comparison declarations and has no slice vocabulary.
 
-**Inputs.** The run's resolution (Custom or candidate), one registry of the run's resolved set, and that registry's resolved payload.
+**Inputs.** The run's resolution (Builtin, Custom or candidate), one registry of the run's resolved set, and that registry's resolved payload. The source is the registry's own `registryProvenance` source (§11.2). A Custom or candidate resolution also carries an opaque Baseline reference, the lifecycle paths and inventory its assessment used, which slices hand back unread. A Builtin resolution carries none.
 
-**Output.** For each entry the registry's comparison declaration identifies, one of four states, decided in this order:
+**Output.** For each entry the registry's comparison declaration identifies in the resolved payload, in ordinal address order, one of five states, decided in this order:
 
 | State | When |
 | --- | --- |
 | `not-applicable` | The run's source is Builtin. There is no comparison Baseline |
-| `unverifiable` | The Baseline copy cannot be trusted: its digest differs from the manifest or it is missing (`baseline-mismatch`), or the manifest version has no descriptor in this release. A diagnostic reason is returned with it (`baseline-mismatch` or `baseline-version-undescribed`) |
+| `unverifiable` | No comparison can be claimed. A diagnostic reason is returned with it: `baseline-version-undescribed` (the manifest version has no descriptor in this release), `baseline-mismatch` (the copy is missing, unreadable, escapes the target, or its digest differs from the manifest), or `baseline-not-comparable` (the verified copy cannot be addressed under the registry's current comparison declaration, for example a field a later version removed) |
 | `matches` | The verified Baseline has an entry with the same identity and an identical canonical value |
 | `differs` | The verified Baseline has an entry with the same identity and a different value |
 | `absent` | The verified Baseline has no entry with that identity, for example a record added by a later version of the registry |
 
 `unverifiable` is never turned into `matches`, `differs` or `absent`.
+
+**Comparison basis.** Each payload is canonicalized with the descriptor of its own `version` (§5) and addressed under the registry's current comparison declaration (§8.4). The Baseline is never migrated first: a record a later version added is `absent`, not a value a transform would supply. Two entries match when their canonical values are identical. A resolved payload the current declaration cannot address is a programming error in the slice's declarations, never a comparison state.
+
+**Read-only.** The comparison verifies the Baseline copy's digest against the manifest again as it reads it, with the assessment's own rule. It writes nothing, and never changes a payload, Baseline copy, manifest or lifecycle state.
 
 **Which Baseline.**
 - **Custom run:** the Custom set's manifest and `.baseline/` copies.
@@ -476,7 +480,7 @@ No Baseline is ever manufactured, and current Builtin is never used as one.
 
 **Reachability.** Under §7.1, a missing manifest, or a manifest without an entry for a present registry, blocks the run, so a slice never sees those cases. `baseline-mismatch` and an undescribed manifest version do not block (§7.2; `import-check`'s refusal of an unverifiable Baseline does not apply to runs). So `unverifiable` is reachable in successful runs.
 
-**Status.** Contract only (calculogic-validator#102). Not yet implemented, and no slice consumes it yet.
+**Status.** Implemented as `compareResolvedRegistryWithBaseline` (calculogic-validator#102). No slice consumes it yet.
 
 ## 12) Commands
 
