@@ -12,7 +12,7 @@ import {
   SEMANTIC_HOME_REASONING_STATUSES,
 } from '../tree-semantic-home-reasoning.knowledge.mjs';
 import { claimOf } from '../tree-semantic-home-strength-profile.logic.mjs';
-import { prepareNamingBridgeValidatorDevelopmentContext } from './tree-naming-semantic-family-bridge-contributor.logic.mjs';
+import { toValidatorDevelopmentPathPrefix, toValidatorDocAuthorityPathPrefix } from '../tree-validator-development-root.logic.mjs';
 
 const CODE = 'TREE_FAMILY_SCATTERED';
 const BASIS = 'semantic-home-placement';
@@ -122,7 +122,10 @@ export const collectSemanticHomeScatterFindings = ({ preparedDependencies, valid
   const observationByTuple = new Map(
     (preparedDependencies.treeNamingSectionIntake?.bridgeObservations?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record.observation]),
   );
-  const developmentContext = prepareNamingBridgeValidatorDevelopmentContext(validatorDevelopmentRoot);
+  const developmentContext = {
+    validatorRootPrefix: toValidatorDevelopmentPathPrefix(validatorDevelopmentRoot),
+    docAuthorityRootPrefix: toValidatorDocAuthorityPathPrefix(validatorDevelopmentRoot),
+  };
 
   const groups = new Map();
   for (const placement of reasoning.placements) {

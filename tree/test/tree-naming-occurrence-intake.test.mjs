@@ -8,38 +8,8 @@ import {
   prepareTreeNamingOccurrenceBridgeIntake,
   prepareTreeSemanticHomeEvidenceInputFromJoinedOccurrence,
 } from '../src/tree-naming-occurrence-intake.logic.mjs';
-import { collectNamingSemanticFamilyBridgeFindings } from '../src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs';
 import { prepareTreeStructureAdvisorInputs, runTreeStructureAdvisor } from '../src/tree-structure-advisor.wiring.mjs';
 import { runNamingValidator, projectNamingSemanticFamilyBridge } from '../../naming/src/naming-validator.host.mjs';
-
-const pathKeyedSemanticBridge = {
-  observations: [
-    {
-      path: 'src/shared/build/build-surface.logic.ts',
-      semanticName: 'build-surface',
-      familyRoot: 'build',
-      semanticFamily: 'build-surface',
-    },
-    {
-      path: 'src/shared/logic/build-surface.results.ts',
-      semanticName: 'build-surface',
-      familyRoot: 'build',
-      semanticFamily: 'build-surface',
-    },
-    {
-      path: 'src/shared/logic/build-surface.knowledge.ts',
-      semanticName: 'build-surface',
-      familyRoot: 'build',
-      semanticFamily: 'build-surface',
-    },
-    {
-      path: 'src/shared/logic/build-surface.build.tsx',
-      semanticName: 'build-surface',
-      familyRoot: 'build',
-      semanticFamily: 'build-surface',
-    },
-  ],
-};
 
 const occurrenceBridge = {
   bridgeContractVersion: 'naming-occurrence-bridge.v1',
@@ -57,10 +27,9 @@ const occurrenceBridge = {
   ],
 };
 
-const findingCodes = (payload) =>
-  collectNamingSemanticFamilyBridgeFindings(payload)
-    .map((finding) => finding.code)
-    .sort((left, right) => left.localeCompare(right));
+// Stage 2B-iv (Tree spec S2.12): the Naming semantic-family bridge contributor, whose findings several
+// tests here used to observe that sidecar sections change nothing, is retired. The intake assertions
+// stay; the full-run tests below ("Tree ignores the Naming ... section") carry the findings invariance.
 
 test('tree occurrence bridge intake recognizes future identity tuple without enabling joins', () => {
   const intake = prepareTreeNamingOccurrenceBridgeIntake({ namingOccurrenceBridge: occurrenceBridge });
@@ -77,19 +46,7 @@ test('tree occurrence bridge intake recognizes future identity tuple without ena
   ]);
 });
 
-test('sibling occurrence bridge payload does not change current path-keyed semantic-family findings', () => {
-  const withoutOccurrenceBridge = findingCodes(pathKeyedSemanticBridge);
-  const withOccurrenceBridge = findingCodes({
-    ...pathKeyedSemanticBridge,
-    namingOccurrenceBridge: occurrenceBridge,
-  });
-
-  // A shared-root lane layout: the bridge's own outcome (Stage 2B-i moved TREE_FAMILY_SCATTERED out of the bridge).
-  assert.deepEqual(withoutOccurrenceBridge, ['TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES']);
-  assert.deepEqual(withOccurrenceBridge, withoutOccurrenceBridge);
-});
-
-test('malformed occurrence bridge namespace state does not change current Tree findings', () => {
+test('malformed occurrence bridge namespace state is diagnosed and enables no joins', () => {
   const malformedOccurrenceBridge = {
     bridgeContractVersion: 'naming-occurrence-bridge.v1',
     observations: [
@@ -102,41 +59,20 @@ test('malformed occurrence bridge namespace state does not change current Tree f
   };
 
   const intake = prepareTreeNamingOccurrenceBridgeIntake({ namingOccurrenceBridge: malformedOccurrenceBridge });
-  const withMalformedOccurrenceBridge = findingCodes({
-    ...pathKeyedSemanticBridge,
-    namingOccurrenceBridge: malformedOccurrenceBridge,
-  });
 
   assert.equal(intake.status, 'recognized-with-diagnostics');
   assert.equal(intake.usedForCurrentTreeJoins, false);
   assert.deepEqual(intake.identityTuples, []);
-  assert.deepEqual(withMalformedOccurrenceBridge, findingCodes(pathKeyedSemanticBridge));
 });
 
-test('Tree does not derive naming semantic-family findings from occurrence bridge observations alone', () => {
+test('Tree recognizes occurrence bridge observations without treating them as findings evidence', () => {
   const intake = prepareTreeNamingOccurrenceBridgeIntake({ namingOccurrenceBridge: occurrenceBridge });
-  const findings = collectNamingSemanticFamilyBridgeFindings({
-    observations: [],
-    namingOccurrenceBridge: occurrenceBridge,
-  });
 
   assert.equal(intake.recognized, true);
-  assert.deepEqual(findings, []);
+  assert.equal(intake.usedForCurrentTreeJoins, false);
 });
 
-test('Tree does not derive semantic-family interpretation from filenames when bridge evidence is missing', () => {
-  const findings = collectNamingSemanticFamilyBridgeFindings({
-    observations: [
-      { path: 'src/shared/logic/build-surface.logic.ts' },
-      { path: 'src/shared/build/build-surface.results.ts' },
-      { path: 'src/tools/build/build-surface.knowledge.ts' },
-    ],
-  });
-
-  assert.deepEqual(findings, []);
-});
-
-test('Tree occurrence bridge intake preserves Naming invalid namespace diagnostics without changing path-keyed findings', () => {
+test('Tree occurrence bridge intake preserves Naming invalid namespace diagnostics', () => {
   const namingInvalidNamespaceOccurrenceBridge = {
     bridgeContractVersion: 'naming-occurrence-bridge.v1',
     addressProfileId: null,
@@ -145,7 +81,7 @@ test('Tree occurrence bridge intake preserves Naming invalid namespace diagnosti
       pathKeyedSemanticPayloadPreserved: true,
       addressedNamespaceValid: false,
       invalidAddressedNamespaceDiagnosticCount: 2,
-      sourceObservationCount: pathKeyedSemanticBridge.observations.length,
+      sourceObservationCount: 4,
       addressAttachedObservationCount: 0,
       missingIdentityDiagnosticCount: 0,
       totalDiagnosticCount: 2,
@@ -170,10 +106,6 @@ test('Tree occurrence bridge intake preserves Naming invalid namespace diagnosti
   const intake = prepareTreeNamingOccurrenceBridgeIntake({
     namingOccurrenceBridge: namingInvalidNamespaceOccurrenceBridge,
   });
-  const withNamingDiagnostics = findingCodes({
-    ...pathKeyedSemanticBridge,
-    namingOccurrenceBridge: namingInvalidNamespaceOccurrenceBridge,
-  });
 
   assert.equal(intake.status, 'recognized-with-diagnostics');
   assert.equal(intake.usedForCurrentTreeJoins, false);
@@ -193,7 +125,6 @@ test('Tree occurrence bridge intake preserves Naming invalid namespace diagnosti
   );
   assert.equal(JSON.stringify(intake.diagnostics).includes('missing-address-profile-id'), true);
   assert.equal(JSON.stringify(intake.diagnostics).includes('missing-addressed-snapshot-id'), true);
-  assert.deepEqual(withNamingDiagnostics, findingCodes(pathKeyedSemanticBridge));
 });
 
 
@@ -464,7 +395,7 @@ test('Tree address join exposes malformed occurrence records even when another r
   );
 });
 
-test('Tree v1 intake ignores versioned Naming enrichment sidecar and preserves path fallback findings', () => {
+test('Tree v1 intake ignores versioned Naming enrichment sidecar', () => {
   const enrichedOccurrenceBridge = {
     ...occurrenceBridge,
     occurrenceContextEnrichment: {
@@ -485,14 +416,9 @@ test('Tree v1 intake ignores versioned Naming enrichment sidecar and preserves p
   };
 
   const intake = prepareTreeNamingOccurrenceBridgeIntake({ namingOccurrenceBridge: enrichedOccurrenceBridge });
-  const withEnrichment = findingCodes({
-    ...pathKeyedSemanticBridge,
-    namingOccurrenceBridge: enrichedOccurrenceBridge,
-  });
 
   assert.equal(intake.status, 'recognized-future-evidence-only');
   assert.equal(intake.usedForCurrentTreeJoins, false);
-  assert.deepEqual(withEnrichment, findingCodes(pathKeyedSemanticBridge));
 });
 
 test('Tree address join attaches valid enrichment to exact occurrence tuple without changing join readiness', () => {
@@ -600,7 +526,7 @@ test('Tree enrichment sidecar keeps same-family nested occurrences isolated by c
   );
 });
 
-test('Tree enrichment sidecar failures are isolated from v1 joins and path-keyed fallback', () => {
+test('Tree enrichment sidecar failures are isolated from v1 joins', () => {
   const cases = [
     { occurrenceContextEnrichment: { enrichmentContractVersion: 'other', identityTupleFields: ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress'], enrichedObservations: [] }, reason: 'unsupported-enrichment-sidecar-version' },
     { occurrenceContextEnrichment: { enrichmentContractVersion: 'naming-occurrence-bridge-enrichment.v1', identityTupleFields: ['addressedSnapshotId', 'addressProfileId', 'occurrenceAddress'], enrichedObservations: [] }, reason: 'malformed-enrichment-sidecar' },
@@ -619,10 +545,6 @@ test('Tree enrichment sidecar failures are isolated from v1 joins and path-keyed
     assert.equal(prepared.usedForCurrentTreeJoins, true);
     assert.equal(prepared.joinedEvidence.length, 1);
     assert.equal(prepared.enrichmentDiagnostics.some((diagnostic) => diagnostic.reason === reason), true);
-    assert.deepEqual(
-      findingCodes({ ...pathKeyedSemanticBridge, namingOccurrenceBridge: { ...addressBridge, occurrenceContextEnrichment } }),
-      findingCodes(pathKeyedSemanticBridge),
-    );
   }
 });
 

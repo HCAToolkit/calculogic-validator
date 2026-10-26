@@ -27,3 +27,10 @@ export const toValidatorDevelopmentRootTopLevelFolder = (validatorDevelopmentRoo
   const [topLevelFolder] = validatorDevelopmentRoot.split('/');
   return topLevelFolder && topLevelFolder !== '..' ? topLevelFolder : null;
 };
+
+// The Validator's docs-authority root for the canonical docs/runtime pairing (Tree spec S2.12 B2):
+// '<prefix>doc/' under a validator development root, null for installed consumers.
+export const toValidatorDocAuthorityPathPrefix = (validatorDevelopmentRoot) => {
+  const validatorRootPrefix = toValidatorDevelopmentPathPrefix(validatorDevelopmentRoot);
+  return validatorRootPrefix === null ? null : `${validatorRootPrefix}doc/`;
+};

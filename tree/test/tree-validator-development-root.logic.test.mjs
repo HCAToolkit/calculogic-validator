@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   toValidatorDevelopmentPathPrefix,
   toValidatorDevelopmentRootTopLevelFolder,
+  toValidatorDocAuthorityPathPrefix,
 } from '../src/tree-validator-development-root.logic.mjs';
 
 // Refs #14, #34: one derivation of Validator-development paths from the prepared root.
@@ -27,5 +28,15 @@ test('validator development root top-level folder exists only for an embedded ro
       null,
       String(validatorDevelopmentRoot),
     );
+  }
+});
+
+// Stage 2B-iv (Tree spec S2.12 B2): the docs-authority root the R2 pairing reads, moved here from the
+// retired Naming semantic-family bridge contributor with unchanged values.
+test('validator docs-authority prefix is doc/ under the development root, and null for installed consumers', () => {
+  assert.equal(toValidatorDocAuthorityPathPrefix('.'), 'doc/');
+  assert.equal(toValidatorDocAuthorityPathPrefix('calculogic-validator'), 'calculogic-validator/doc/');
+  for (const validatorDevelopmentRoot of [null, undefined, '', 42]) {
+    assert.equal(toValidatorDocAuthorityPathPrefix(validatorDevelopmentRoot), null, String(validatorDevelopmentRoot));
   }
 });

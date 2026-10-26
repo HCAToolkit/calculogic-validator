@@ -2618,44 +2618,11 @@ const createPathKeyedFamilyBridge = (semanticFamily) => ({
   })),
 });
 
-// The selected bridge payload shows in the bridge's own shared-root lane outcome (Stage 2B-i moved
-// TREE_FAMILY_SCATTERED out of the bridge).
-const scatteredFamilyFindings = (result) =>
-  result.findings
-    .filter((finding) => finding.code === 'TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES')
-    .map((finding) => finding.details.semanticFamily)
-    .sort((left, right) => left.localeCompare(right));
-
-test('tree structure advisor wiring forwards prepared address-keyed semantic-family evidence to default contributors', async () => {
-  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-address-keyed-contributor-'));
-
-  try {
-    await writeBaseFixtureRepo(fixtureDir);
-
-    const namingSemanticFamilyBridge = createPathKeyedFamilyBridge('path-keyed');
-    const preparedAddressKeyedJoinEvidence = createCleanPreparedAddressKeyedJoinEvidence('address-keyed');
-
-    const preparedInputs = prepareTreeStructureAdvisorInputs(fixtureDir, {
-      scope: 'repo',
-      namingSemanticFamilyBridge,
-      preparedAddressKeyedJoinEvidence,
-    });
-    const preparedResult = runTreeStructureAdvisorRuntime(preparedInputs);
-    const runResult = runTreeStructureAdvisor(fixtureDir, {
-      scope: 'repo',
-      namingSemanticFamilyBridge,
-      preparedAddressKeyedJoinEvidence,
-    });
-
-    assert.deepEqual(scatteredFamilyFindings(preparedResult), ['address-keyed']);
-    assert.deepEqual(scatteredFamilyFindings(runResult), ['address-keyed']);
-  } finally {
-    await fs.rm(fixtureDir, { recursive: true, force: true });
-  }
-});
-
-test('tree structure advisor wiring preserves path-keyed fallback when prepared address evidence is absent or not clean', async () => {
-  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-address-keyed-fallback-'));
+// Stage 2B-iv (Tree spec S2.12): the Naming semantic-family bridge contributor is retired. Wiring still
+// accepts `namingSemanticFamilyBridge` and `preparedAddressKeyedJoinEvidence` and still hands them to
+// the contributor assembly; no default contributor reads them, so they change no finding.
+test('tree structure advisor wiring still accepts the family-bridge inputs, and they no longer change findings', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-family-bridge-inputs-'));
 
   try {
     await writeBaseFixtureRepo(fixtureDir);
@@ -2669,27 +2636,24 @@ test('tree structure advisor wiring preserves path-keyed fallback when prepared 
       skippedJoins: [
         {
           reason: 'no-matching-occurrence-record-identity-tuple',
-          identityTuple: {
-            addressProfileId: 'tree-codebase',
-            addressedSnapshotId: 'snapshot-001',
-            occurrenceAddress: 'Z.9',
-          },
+          identityTuple: { addressProfileId: 'tree-codebase', addressedSnapshotId: 'snapshot-001', occurrenceAddress: 'Z.9' },
         },
       ],
     };
 
-    const absentResult = runTreeStructureAdvisor(fixtureDir, {
-      scope: 'repo',
-      namingSemanticFamilyBridge,
-    });
-    const notCleanResult = runTreeStructureAdvisor(fixtureDir, {
-      scope: 'repo',
-      namingSemanticFamilyBridge,
-      preparedAddressKeyedJoinEvidence: notCleanPreparedAddressKeyedJoinEvidence,
-    });
-
-    assert.deepEqual(scatteredFamilyFindings(absentResult), ['path-keyed']);
-    assert.deepEqual(scatteredFamilyFindings(notCleanResult), ['path-keyed']);
+    const baseline = runTreeStructureAdvisor(fixtureDir, { scope: 'repo' });
+    for (const options of [
+      { namingSemanticFamilyBridge },
+      { namingSemanticFamilyBridge, preparedAddressKeyedJoinEvidence: cleanPreparedAddressKeyedJoinEvidence },
+      { namingSemanticFamilyBridge, preparedAddressKeyedJoinEvidence: notCleanPreparedAddressKeyedJoinEvidence },
+    ]) {
+      const preparedInputs = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', ...options });
+      // The shim contributor and the Semantic Home scatter contributor; no bridge contributor.
+      assert.equal(preparedInputs.findingContributors.length, 2);
+      assert.deepEqual(runTreeStructureAdvisorRuntime(preparedInputs).findings, baseline.findings);
+      assert.deepEqual(runTreeStructureAdvisor(fixtureDir, { scope: 'repo', ...options }).findings, baseline.findings);
+    }
+    assert.equal(baseline.findings.some((finding) => finding.code === 'TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES'), false);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }
