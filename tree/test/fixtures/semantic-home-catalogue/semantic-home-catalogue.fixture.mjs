@@ -20,7 +20,7 @@ const section = (contractVersion, records) => ({
   records,
 });
 
-// A file spec: `n` files in `dir` with `familyRoot` `root`.
+// A file spec: `n` files in `dir` with `familyRoot` `root`; `dir: ''` places them at the root, with no parent folder.
 // - `tokens`: N1 tokens (default `[root, 'item']`); `null` means the token group is not provided.
 // - `noObservation: true`: no v1 observation (and no N1 record).
 // - `ambiguous: true`: the observation carries `family-boundary-heuristic`.
@@ -30,7 +30,7 @@ export const files = (dir, root, n, options = {}) => Array.from({ length: n }, (
 // tokens, always parsed unless `n2` says otherwise). `n2`: `'not-staged'`, or `{ rejected: path }`.
 export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs = [], n2 = 'available', parameterSet } = {}) => {
   const folderPaths = new Set();
-  for (const spec of [...folderSpecs.map((folder) => folder.path), ...fileSpecs.map((file) => file.dir)]) {
+  for (const spec of [...folderSpecs.map((folder) => folder.path), ...fileSpecs.map((file) => file.dir)].filter(Boolean)) {
     const parts = spec.split('/');
     for (let index = 1; index <= parts.length; index += 1) folderPaths.add(parts.slice(0, index).join('/'));
   }
@@ -55,9 +55,9 @@ export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs
   const observations = [];
   const n1 = [];
   fileSpecs.forEach((spec, index) => {
-    const parentAddress = addressByPath.get(spec.dir);
+    const parentAddress = spec.dir ? addressByPath.get(spec.dir) : null;
     const address = nextAddress(parentAddress);
-    const path = `${spec.dir}/${spec.root}-${index}.logic.mjs`;
+    const path = spec.dir ? `${spec.dir}/${spec.root}-${index}.logic.mjs` : `${spec.root}-${index}.logic.mjs`;
     occurrences.push({ addressPath: address, path, occurrenceType: 'file', parentAddressPath: parentAddress });
     if (spec.noObservation) return;
     observations.push({
@@ -116,7 +116,9 @@ export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs
   const reasoning = prepareTreeFolderSemanticHomeReasoning({
     semanticEvidence,
     factEvidence,
+    sectionIntake,
     parameterSet: parameterSet ?? getBuiltinTreeSemanticHomeParameterSet(),
+    scope: 'catalogue',
   });
 
   const pathOfAddress = new Map(occurrences.map((occurrence) => [occurrence.addressPath, occurrence.path]));
@@ -130,5 +132,9 @@ export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs
     reasoning.memberAttributions.filter(
       (record) => pathOfAddress.get(record.candidateId.folderAddressPath) === folderPath && SOURCE_ALIASES[record.candidateId.candidateSource] === source,
     );
-  return { sectionIntake, factEvidence, semanticEvidence, reasoning, outcomeAt, attributionsAt, pathOfAddress };
+  // `placementsIn('docs/tree-owned')`: the placements of the files directly in that folder.
+  const placementsIn = (folderPath) =>
+    reasoning.placements.filter((placement) => (placement.path.includes('/') ? placement.path.slice(0, placement.path.lastIndexOf('/')) : '') === folderPath);
+  const pathsOf = (candidateIds) => candidateIds.map((id) => pathOfAddress.get(id.folderAddressPath));
+  return { sectionIntake, factEvidence, semanticEvidence, reasoning, outcomeAt, attributionsAt, placementsIn, pathsOf, pathOfAddress };
 };

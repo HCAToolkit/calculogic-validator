@@ -1,7 +1,7 @@
-// Tree Stage 2A-i folder Semantic Home reasoning (Tree slice spec S2.1-S2.7, S2.9;
-// calculogic-validator#102). Coordinates the Stage 2 modules into the prepared-evidence record
-// `treeFolderSemanticHomeReasoning`: candidate outcomes and member attributions. Placement (S2.8)
-// is Stage 2A-ii. It reads the Stage 1 records and the loaded parameter set by reference, never
+// Tree Stage 2A folder Semantic Home reasoning (Tree slice spec S2.1-S2.9; calculogic-validator#102).
+// Coordinates the Stage 2 modules into the prepared-evidence record `treeFolderSemanticHomeReasoning`:
+// candidate outcomes and member attributions (2A-i), then placements and the run-wide discovery
+// condition (2A-ii). It reads the Stage 1 records and the loaded parameter set by reference, never
 // modifies them, and nothing reads its output yet, so no finding changes.
 
 import { toCandidateKey } from './tree-folder-candidates.logic.mjs';
@@ -20,6 +20,7 @@ import {
   SEMANTIC_HOME_REASONING_STATUSES,
   SEMANTIC_HOME_REASONS,
 } from './tree-semantic-home-reasoning.knowledge.mjs';
+import { placeFiles } from './tree-semantic-home-placement.logic.mjs';
 import { buildStrengthProfile, claimOf } from './tree-semantic-home-strength-profile.logic.mjs';
 
 const SOURCE_ID = 'tree-folder-semantic-home-reasoning';
@@ -93,7 +94,7 @@ const rootReadingOf = (decision, rootCounts) =>
     ? { outcome: decision.root.outcome, reason: decision.root.reason, counts: rootCounts }
     : null;
 
-export const prepareTreeFolderSemanticHomeReasoning = ({ semanticEvidence, factEvidence, parameterSet } = {}) => {
+export const prepareTreeFolderSemanticHomeReasoning = ({ semanticEvidence, factEvidence, sectionIntake, parameterSet, scope = null } = {}) => {
   const status = STATUS_BY_AVAILABILITY[parameterSet?.availability];
   if (!status) throw new Error(`Unknown Semantic Home parameter set availability ${JSON.stringify(parameterSet?.availability)}.`);
   if (status !== SEMANTIC_HOME_REASONING_STATUSES.evaluated) {
@@ -101,6 +102,7 @@ export const prepareTreeFolderSemanticHomeReasoning = ({ semanticEvidence, factE
     return Object.freeze({ source: SOURCE_ID, status, parameterSet });
   }
 
+  if (!sectionIntake) throw new Error('Semantic Home placement needs the run\'s section intake (S2.8).');
   const parameters = Object.fromEntries(PARAMETER_NAMES.map((name) => [name, parameterSet.parameters[name].value]));
   const candidates = semanticEvidence?.candidates ?? [];
   const memberRecords = semanticEvidence?.memberRelationships ?? [];
@@ -214,12 +216,16 @@ export const prepareTreeFolderSemanticHomeReasoning = ({ semanticEvidence, factE
         left.candidateId.candidateSource.localeCompare(right.candidateId.candidateSource),
     );
 
+  // S2.8 (2A-ii): every file placed against the decided candidates.
+  const { placements, candidateDiscovery } = placeFiles({ factEvidence, semanticEvidence, sectionIntake, candidateOutcomes, scope });
+
   return Object.freeze({
     source: SOURCE_ID,
     status,
     // Held by reference: neither is copied or frozen here.
     parameterSet,
     semanticEvidenceSource: semanticEvidence,
+    scope,
     candidateOutcomes: deepFreeze(candidateOutcomes),
     memberAttributions: deepFreeze(
       memberAttributions.sort(
@@ -229,5 +235,7 @@ export const prepareTreeFolderSemanticHomeReasoning = ({ semanticEvidence, factE
           left.member.occurrenceAddress.localeCompare(right.member.occurrenceAddress),
       ),
     ),
+    placements: deepFreeze(placements),
+    candidateDiscovery: deepFreeze(candidateDiscovery),
   });
 };
