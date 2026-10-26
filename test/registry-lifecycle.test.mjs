@@ -733,10 +733,11 @@ test('init-custom copies every inventory registry byte for byte, with Baseline a
         const builtinBytes = fs.readFileSync(path.join(slice.builtinRoot, entry.fileName));
         assert.ok(builtinBytes.equals(fs.readFileSync(path.join(paths.customRoot, slice.sliceId, entry.fileName))));
         assert.ok(builtinBytes.equals(fs.readFileSync(path.join(paths.baselineRoot, slice.sliceId, entry.fileName))));
+        const builtinPayload = JSON.parse(builtinBytes.toString('utf8'));
         assert.deepEqual(manifest.basedOn.registries[entry.registryId], {
           validatorVersion: VALIDATOR_VERSION,
-          version: '1',
-          digest: digestRegistryPayload(JSON.parse(builtinBytes.toString('utf8')), entry.descriptor),
+          version: builtinPayload.version,
+          digest: digestRegistryPayload(builtinPayload, entry.descriptor),
         });
       }
     }

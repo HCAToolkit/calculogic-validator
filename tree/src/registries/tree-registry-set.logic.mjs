@@ -18,7 +18,10 @@ import {
 import { normalizeStructuralContextAssessmentPoliciesRegistryPayload } from './tree-structural-context-assessment-policies-registry.logic.mjs';
 import { normalizeStructuralHomesRegistryPayload } from './tree-structural-homes-registry.logic.mjs';
 import { assertValidStructuralRoleTokensRegistry } from './tree-structural-role-tokens-registry.logic.mjs';
-import { assertValidSemanticHomePolicyRegistry } from './tree-semantic-home-policy-registry.logic.mjs';
+import {
+  SEMANTIC_HOME_POLICY_ROOT_FIELDS_BY_VERSION,
+  assertValidSemanticHomePolicyRegistry,
+} from './tree-semantic-home-policy-registry.logic.mjs';
 import { assertValidStructuralHomeSignalPolicyRegistry } from './tree-structural-home-signal-policy-registry.logic.mjs';
 import {
   assertSurfaceStructuralHomePerspectiveReferences,
@@ -49,11 +52,12 @@ const TREE_REGISTRY_PAYLOAD_VALIDATORS = Object.freeze({
 });
 
 // Root fields of each Tree registry besides `version`. Payload roots are closed: a loader ignores
-// an undeclared root field, so it would pass validation and never reach runtime.
+// an undeclared root field, so it would pass validation and never reach runtime. A registry whose
+// root fields depend on its version maps each readable version to its fields.
 const TREE_REGISTRY_ROOT_FIELDS = Object.freeze({
   'folder-kinds': ['folderKinds'],
   'repo-shape-policy': ['allowedTopLevelDirectories'],
-  'semantic-home-policy': ['semanticHomePolicy'],
+  'semantic-home-policy': SEMANTIC_HOME_POLICY_ROOT_FIELDS_BY_VERSION,
   'semantic-naming-folder-type-relationships': ['semanticNamingFolderTypeRelationships'],
   'shim-detection-signals': ['shimDetectionSignals', 'shimExtensionAllowlist', 'shimSuppressionVocabularies'],
   'structural-context-assessment-policies': ['policies'],
@@ -63,6 +67,18 @@ const TREE_REGISTRY_ROOT_FIELDS = Object.freeze({
   'surface-structural-home-perspective': ['structuralHomesBySurface'],
   'validator-owned-signals': ['validatorOwnedBasenameSignals'],
 });
+
+// The declared root fields for a payload. For a version-keyed registry, a version it does not list
+// has none (null): the root check is skipped and the payload's own validator reports the version as
+// not readable.
+const rootFieldsOf = (name, payload) => {
+  const declared = TREE_REGISTRY_ROOT_FIELDS[name];
+  if (Array.isArray(declared)) {
+    return declared;
+  }
+  const version = payload !== null && typeof payload === 'object' ? payload.version : undefined;
+  return typeof version === 'string' && Object.hasOwn(declared, version) ? declared[version] : null;
+};
 
 // Same-slice reference edges, checked against the resolved root once the referring registry's shape
 // passed. Each check reads its registries and throws on a failed edge (lifecycle spec §9.3).
@@ -97,7 +113,10 @@ export const validateTreeRegistrySet = (registryRoot) => {
   for (const entry of TREE_REGISTRY_INVENTORY) {
     try {
       const rootPayload = readRegistryPayload(registryRoot, entry.fileName);
-      assertRegistryRootFields(rootPayload, TREE_REGISTRY_ROOT_FIELDS[entry.name], { registryLabel: `Tree ${entry.name}` });
+      const rootFields = rootFieldsOf(entry.name, rootPayload);
+      if (rootFields) {
+        assertRegistryRootFields(rootPayload, rootFields, { registryLabel: `Tree ${entry.name}` });
+      }
       assertNoPaddedStrings(rootPayload, { registryLabel: `Tree ${entry.name}` });
       const validateFile = TREE_REGISTRY_FILE_VALIDATORS[entry.name];
       if (validateFile) {

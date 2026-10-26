@@ -7,6 +7,7 @@ import { REGISTRY_LIFECYCLE_SLICES } from '../src/core/registry-lifecycle/regist
 import { digestRegistryPayload } from '../src/core/registry-lifecycle/registry-lifecycle-canonical-digest.logic.mjs';
 import { initCustomRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-init.logic.mjs';
 import { applyRegistryMigrationPlan } from '../src/core/registry-lifecycle/registry-lifecycle-migrate.logic.mjs';
+import { SLICE_MIGRATION_TRANSFORMS } from '../src/core/registry-lifecycle/registry-lifecycle-slice-migrations.logic.mjs';
 import { buildRegistryMigrationPlan } from '../src/core/registry-lifecycle/registry-lifecycle-migration-plan.logic.mjs';
 import { buildRegistryLifecycleDiff } from '../src/core/registry-lifecycle/registry-lifecycle-diff.logic.mjs';
 import { buildRegistryUpdateDecisionsTemplate } from '../src/core/registry-lifecycle/registry-lifecycle-decisions.logic.mjs';
@@ -60,7 +61,12 @@ const migrate1to2 = (payload) => ({
 });
 const migrate2to3 = (payload) => ({ version: '3', items: payload.items.map(({ title, ...rest }) => ({ ...rest, heading: title })) });
 const SLICE_TRANSFORMS = Object.freeze({ 'thing-1-to-2': migrate1to2, 'thing-2-to-3': migrate2to3 });
-const TRANSFORMS = Object.freeze({ suite: SLICE_TRANSFORMS, tree: SLICE_TRANSFORMS });
+// The synthetic transforms sit beside each slice's real ones, so the real inventory declarations
+// (Tree's semantic-home-policy migration) stay backed.
+const TRANSFORMS = Object.freeze({
+  suite: { ...SLICE_MIGRATION_TRANSFORMS.suite, ...SLICE_TRANSFORMS },
+  tree: { ...SLICE_MIGRATION_TRANSFORMS.tree, ...SLICE_TRANSFORMS },
+});
 
 const B0 = Object.freeze({
   version: '1',
@@ -483,9 +489,9 @@ test('a plan that went stale is refused before anything is written', () => {
         entry.registryId === THING_T ? { ...entry, migrations: [{ ...STEP_1_TO_2, transform: 'thing-1-to-2-renamed' }] } : entry,
       ),
     }));
-    const renamedTransforms = { ...TRANSFORMS, tree: { ...SLICE_TRANSFORMS, 'thing-1-to-2-renamed': migrate1to2 } };
+    const renamedTransforms = { ...TRANSFORMS, tree: { ...TRANSFORMS.tree, 'thing-1-to-2-renamed': migrate1to2 } };
     assert.match(migrate(renamed, document, { migrationTransforms: renamedTransforms }).problems[0].detail, /: path\./u);
-    const drafted = { ...TRANSFORMS, tree: { ...SLICE_TRANSFORMS, 'thing-1-to-2': (payload) => ({ ...migrate1to2(payload), items: [] }) } };
+    const drafted = { ...TRANSFORMS, tree: { ...TRANSFORMS.tree, 'thing-1-to-2': (payload) => ({ ...migrate1to2(payload), items: [] }) } };
     assert.match(migrate(slices, document, { migrationTransforms: drafted }).problems[0].detail, /: result/u);
     assert.deepEqual(snapshotTree(paths.lifecycleRoot), before);
   });
@@ -499,7 +505,7 @@ test('inputs or transform results that change after the check are refused when t
     let drifted = false;
     const transforms = {
       ...TRANSFORMS,
-      tree: { ...SLICE_TRANSFORMS, 'thing-1-to-2': (payload) => (drifted ? { ...migrate1to2(payload), items: [] } : migrate1to2(payload)) },
+      tree: { ...TRANSFORMS.tree, 'thing-1-to-2': (payload) => (drifted ? { ...migrate1to2(payload), items: [] } : migrate1to2(payload)) },
     };
     const treeBefore = snapshotTree(paths.lifecycleRoot).filter(([relativePath]) => relativePath.includes('thing-t'));
     const result = migrate(slices, document, {
@@ -662,7 +668,7 @@ test('a transform id or version that could not be written as manifest provenance
       const before = snapshotTree(paths.lifecycleRoot);
       const plan = { kind: 'calculogic-registry-migration-plan', schemaVersion: '1', registries: [] };
       assert.throws(
-        () => migrate(slices, plan, { migrationTransforms: { ...TRANSFORMS, tree: transforms } }),
+        () => migrate(slices, plan, { migrationTransforms: { ...TRANSFORMS, tree: { ...SLICE_MIGRATION_TRANSFORMS.tree, ...transforms } } }),
         /non-empty transform id without surrounding whitespace/u,
         label,
       );

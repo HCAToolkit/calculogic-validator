@@ -57,8 +57,10 @@ const THING_V3 = defineThing({
 });
 
 // The slice-owned transforms. `status` is required in version "2"; its default is the transform's
-// decision, never a Builtin value.
+// decision, never a Builtin value. Tree keeps its real transforms, so its real inventory declaration
+// (semantic-home-policy) stays backed.
 const TRANSFORMS = Object.freeze({
+  tree: SLICE_MIGRATION_TRANSFORMS.tree,
   suite: Object.freeze({
     'thing-1-to-2': (payload) => ({
       version: '2',
@@ -144,14 +146,24 @@ const snapshotTree = (root) =>
       return [relativePath, fs.statSync(filePath).isFile() ? fs.readFileSync(filePath, 'base64') : null];
     });
 
-test('every inventory declares no migration, and the slices provide no transforms: no registry has changed shape', () => {
+test('the only declared migration is tree/semantic-home-policy 1 → 2, backed by the only slice transform', () => {
   for (const slice of REGISTRY_LIFECYCLE_SLICES) {
-    assert.deepEqual(SLICE_MIGRATION_TRANSFORMS[slice.sliceId], {}, slice.sliceId);
+    const transforms = SLICE_MIGRATION_TRANSFORMS[slice.sliceId];
+    assert.deepEqual(Object.keys(transforms), slice.sliceId === 'tree' ? ['semantic-home-policy-v1-to-v2'] : [], slice.sliceId);
     for (const entry of slice.inventory) {
-      assertMigrationDeclaration(entry, SLICE_MIGRATION_TRANSFORMS[slice.sliceId]);
-      assert.deepEqual(entry.migrations, [], entry.registryId);
-      assert.deepEqual(entry.readableVersions, ['1'], entry.registryId);
+      assertMigrationDeclaration(entry, transforms);
       assert.ok(Object.isFrozen(entry.migrations), entry.registryId);
+      assert.ok(Object.isFrozen(entry.readableVersions), entry.registryId);
+      if (entry.registryId === 'tree/semantic-home-policy') {
+        assert.deepEqual(
+          entry.migrations.map(({ from, to, transform }) => ({ from, to, transform })),
+          [{ from: '1', to: '2', transform: 'semantic-home-policy-v1-to-v2' }],
+        );
+        assert.deepEqual(entry.readableVersions, ['1', '2']);
+      } else {
+        assert.deepEqual(entry.migrations, [], entry.registryId);
+        assert.deepEqual(entry.readableVersions, ['1'], entry.registryId);
+      }
     }
   }
 });
@@ -197,7 +209,10 @@ test('the plan refuses an invalid declaration in any inventory entry before read
     assert.throws(() => plan(slices), /more than one step leaves version "1"/u);
     assert.throws(() => check(slices, { kind: 'x' }), /more than one step leaves version "1"/u);
     // A transform the slice does not provide.
-    assert.throws(() => plan(release(THING_V2, B0_MIGRATED), { migrationTransforms: {} }), /does not provide/u);
+    assert.throws(
+      () => plan(release(THING_V2, B0_MIGRATED), { migrationTransforms: { tree: SLICE_MIGRATION_TRANSFORMS.tree } }),
+      /names transform "thing-1-to-2", which the slice does not provide/u,
+    );
   });
 });
 
@@ -458,7 +473,7 @@ test('a registry without a path, or whose inputs cannot be migrated, is listed a
   }
   // A transform that fails on the Baseline is reported for the Baseline.
   withMigrationFixture(({ release, plan }) => {
-    const failing = { suite: { ...TRANSFORMS.suite, 'thing-1-to-2': () => { throw new Error('boom'); } } };
+    const failing = { ...TRANSFORMS, suite: { ...TRANSFORMS.suite, 'thing-1-to-2': () => { throw new Error('boom'); } } };
     const document = plan(release(THING_V2, B0_MIGRATED), { migrationTransforms: failing });
     assert.match(document.notMigratable[0].detail, /^The Baseline input: .*the transform threw: boom$/u);
   });
@@ -490,13 +505,14 @@ test('migrate-check: a plan made before a Baseline, Custom, Builtin, path or tra
 
     // Transforms that produce another result from the same inputs and path.
     const changedTransforms = {
+      ...TRANSFORMS,
       suite: { ...TRANSFORMS.suite, 'thing-1-to-2': (payload) => ({ ...migrateV1(payload), items: migrateV1(payload).items.map((item) => ({ ...item, status: 'draft' })) }) },
     };
     assert.match(staleDetail(check(slices, document, { migrationTransforms: changedTransforms })), /: result \(the migration transforms now produce another payload\)/u);
 
     // The same function under another id is another path.
     const renamed = { ...THING_V2, migrations: [{ ...STEP_1_TO_2, transform: 'thing-1-to-2-renamed' }] };
-    const renamedTransforms = { suite: { 'thing-1-to-2-renamed': TRANSFORMS.suite['thing-1-to-2'] } };
+    const renamedTransforms = { ...TRANSFORMS, suite: { 'thing-1-to-2-renamed': TRANSFORMS.suite['thing-1-to-2'] } };
     assert.equal(staleDetail(check(release(renamed, B0_MIGRATED), document, { migrationTransforms: renamedTransforms })), 'Changed since the plan was made: path.');
 
     release(THING_V2, { ...B0_MIGRATED, items: [...B0_MIGRATED.items, { id: 'c', title: 'Charlie', status: 'active' }] });
