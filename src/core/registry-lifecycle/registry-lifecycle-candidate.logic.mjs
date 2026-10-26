@@ -35,7 +35,7 @@ const refuse = (lines, conditions) =>
 
 // [5.2.23] cfg-registryLifecycle · Workflow · "resolveCandidateRegistrySet"
 // `artifactBytes` are the candidate artifact file's exact bytes. Returns the run resolution
-// `{ source: 'candidate', registryRoots, registrySet, registryProvenance, dispose }`, or throws a
+// `{ source: 'candidate', registryRoots, registrySet, registryProvenance, baselineReference, dispose }`, or throws a
 // lifecycle error naming each artifact problem or blocking condition.
 export const resolveCandidateRegistrySet = ({ artifactBytes, slices = REGISTRY_LIFECYCLE_SLICES }) => {
   let document;
@@ -83,6 +83,8 @@ export const resolveCandidateRegistrySet = ({ artifactBytes, slices = REGISTRY_L
         resolvedSetDigest: digestRegistrySet(resolvedDigests),
       },
       registryProvenance: buildRegistryProvenance({ source: REGISTRY_RUN_SOURCE_CANDIDATE, resolvedDigests, slices }),
+      // The candidate root's own manifest and `.baseline/` copies (spec §11.4), never the repository's.
+      baselineReference: Object.freeze({ paths, slices }),
       dispose,
     };
   } catch (error) {

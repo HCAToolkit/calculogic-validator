@@ -101,7 +101,9 @@ export const createCustomSetBlockedError = ({ paths, blockers, action }) =>
 // - `customRegistryRoots`: the consumer Custom roots when a Custom set exists and resolves validly
 //   (used only for transitional fields such as Naming's `registryDigests.custom`, spec §11.3);
 // - `registrySet`: the set-level report block (spec §11.1);
-// - `registryProvenance`: per-slice `{ [registryId]: { source, digest } }` (spec §11.2).
+// - `registryProvenance`: per-slice `{ [registryId]: { source, digest } }` (spec §11.2);
+// - `baselineReference`, for an active Custom set only: the paths and inventory the assessment used,
+//   which the Baseline entry comparison reads (5.2.24, spec §11.4). Slices pass it on unread.
 export const resolveActiveRegistrySet = ({
   targetRoot,
   lifecycleRootOverride,
@@ -131,5 +133,6 @@ export const resolveActiveRegistrySet = ({
     ...(customRegistryRoots ? { customRegistryRoots } : {}),
     registrySet: buildRegistrySetReport({ activeSet, assessment, resolvedDigests }),
     registryProvenance: buildRegistryProvenance({ source: activeSet, resolvedDigests, slices }),
+    ...(isCustomActive ? { baselineReference: Object.freeze({ paths, slices }) } : {}),
   };
 };

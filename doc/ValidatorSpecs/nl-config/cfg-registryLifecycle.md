@@ -140,13 +140,15 @@ Compares Custom with the current Builtin inventory and the Baseline. Produces:
 
 While a lifecycle transaction directory exists (`lifecycleTransactionPending`, 5.2.11), the assessment adds `interrupted-transaction` (`registryId: null`) to `customIssues`, with or without a Custom set: recovery is required, and the set is not called corrupt. It never recovers. Without a set it is the only issue. `findCustomSetBlockers` (5.2.5) treats it as blocking, like every condition but `baseline-mismatch`, so activation and active-Custom runs refuse while a Builtin-active run reports it.
 
+`verifyBaselineCopy({ paths, slice, entry, manifestEntry })` is the one rule for a current-inventory Baseline copy, shared with 5.2.24: `undescribed` when the manifest version has no descriptor, `mismatch` (with the detail) when the copy's digest differs from the manifest or the copy is missing, unreadable or escaping, otherwise `verified` with the parsed payload.
+
 Every current-inventory payload (Builtin, Custom, `.baseline/`) is digested with the descriptor of its own `version` (`descriptorForPayload`, 5.2.15; spec §5), so an old-version Baseline copy stays verifiable. A copy whose manifest `version` this release has no descriptor for (`isVersionDescribed`, 5.2.15) is not verified: `baselineMismatch` is `null`, unverifiable rather than mismatched.
 
 #### 5.2.5 Workflow: `resolveActiveRegistrySet`
 
 Runs 5.2.1 and 5.2.4.
 - `builtin`: returns the package Builtin root of every slice. An existing Custom set is assessed and reported (`customIssues`), never read.
-- `custom`: the blocking conditions are a missing set and every `customIssues` condition except `baseline-mismatch` (`missing`, `version-incompatible`, `invalid`, `manifest-malformed`, `interrupted-transaction`; spec §7.1). A missing set is reported with a pending transaction, if any. If any holds, it raises a lifecycle error naming each failing registry and the two ways forward (5.2.8). Otherwise it returns `custom/<slice>` for every slice, Custom digests as the resolved digests, and provenance with `source: custom`.
+- `custom`: the blocking conditions are a missing set and every `customIssues` condition except `baseline-mismatch` (`missing`, `version-incompatible`, `invalid`, `manifest-malformed`, `interrupted-transaction`; spec §7.1). A missing set is reported with a pending transaction, if any. If any holds, it raises a lifecycle error naming each failing registry and the two ways forward (5.2.8). Otherwise it returns `custom/<slice>` for every slice, Custom digests as the resolved digests, provenance with `source: custom`, and `baselineReference` (frozen `{ paths, slices }`) for 5.2.24.
 - In both cases it returns one resolved registry root per slice, plus the provenance inputs for 7.1.
 
 Slice-shape and reference validation failures raised by slice loaders while loading an active Custom set are reported through the same lifecycle error path.
@@ -345,8 +347,17 @@ Spec §12.12. `registry-lifecycle-portable-set.logic.mjs`.
 Spec §12.13. `registry-lifecycle-candidate.logic.mjs`, `resolveCandidateRegistrySet({ artifactBytes, slices })`.
 - **Artifact:** parsed from the exact bytes (`artifactSha256` is their SHA-256), then checked by the portable set's `artifactProblems` (5.2.22); any problem is a lifecycle error.
 - **Candidate root:** the files are written once into a temporary target under the OS temp directory (`materializePortableSet`, 5.2.22), and `assessCustomRegistrySet` (5.2.4) runs on it. `findCustomSetBlockers` (5.2.5) decides refusal exactly as for an active Custom set; a refusal is a lifecycle error listing each condition, with temporary paths written as `<candidate>`, and the root is removed first.
-- **Resolution:** `{ source: 'candidate', registryRoots, registrySet, registryProvenance, dispose }`. `registryRoots` are the candidate root's slice folders; `registrySet` is the candidate form of spec §11.1 (no `activeSet` or `customExists`); `registryProvenance` has `source: 'candidate'` and the candidate's canonical digests (`buildRegistryProvenance`, shared with 5.2.5). `dispose()` removes the candidate root and may be called more than once.
+- **Resolution:** `{ source: 'candidate', registryRoots, registrySet, registryProvenance, baselineReference, dispose }`. `baselineReference` is the candidate root's paths and the inventory (5.2.24), so a comparison reads the artifact's own manifest and `.baseline/` copies. `registryRoots` are the candidate root's slice folders; `registrySet` is the candidate form of spec §11.1 (no `activeSet` or `customExists`); `registryProvenance` has `source: 'candidate'` and the candidate's canonical digests (`buildRegistryProvenance`, shared with 5.2.5). `dispose()` removes the candidate root and may be called more than once.
 - Never reads `registry-state.json`, the repository's Custom set or its transaction directory.
+
+#### 5.2.24 Derived value: `compareResolvedRegistryWithBaseline` (slice-facing, read-only)
+
+Spec §11.4. `registry-lifecycle-baseline-comparison.logic.mjs`, `compareResolvedRegistryWithBaseline({ resolution, registryId, payload, slices })`.
+- **Source:** the registry's `registryProvenance` source (§11.2) in `resolution`. `builtin` gives every entry `not-applicable`; its declaration comes from `slices` (default: the suite inventory), since a Builtin resolution carries no reference. `custom` and `candidate` need `resolution.baselineReference` (5.2.5, 5.2.23); without it, or for a registry outside its inventory, it throws.
+- **Baseline:** the manifest at the reference's paths, read with `readRegistrySetManifest` (5.2.1). A manifest error or a missing entry for the registry throws: a run that reached the comparison was not blocked by either (§7.1), so they mean the set changed after resolution. The copy is then checked with `verifyBaselineCopy` (5.2.4): `undescribed` gives `unverifiable` with `baseline-version-undescribed`, `mismatch` gives `baseline-mismatch`.
+- **Entries:** the resolved payload and the verified copy are each walked by `walkComparisonEntries` (5.2.9) under the registry's comparison declaration, with the descriptor of each payload's own version (`descriptorForPayload`, 5.2.15). A copy the declaration cannot walk gives `unverifiable` with `baseline-not-comparable`; a resolved payload it cannot walk throws. Each resolved entry is `matches` or `differs` by `stableStringify` equality of the canonical values, or `absent` when the copy has no such address. The Baseline is never migrated.
+- **Output:** frozen `{ registryId, source, entries: [{ address, baselineComparison, reason? }] }` in ordinal address order, `reason` only with `unverifiable`. No origin, conformance or other slice vocabulary.
+- Writes nothing; the payload passed in is never changed.
 
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
@@ -396,7 +407,7 @@ Each is owned by its slice and lists only that slice's registries. Every entry c
 
 ### 6.3 Constants
 
-Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary; the comparison kinds and entry and `diff` registry classes; and the update decisions document's `kind`, `schemaVersion`, decisions by class (`REGISTRY_DECISIONS_BY_CLASS`, `ENTRY_DECISIONS_BY_CLASS`) and problem codes; the lifecycle transaction's directory, journal name, schema version and outcomes; the entry decisions and structured decision kinds; the `update` skip reasons (`undecided`, `not-yet-supported`); the migration plan's `kind`, `schemaVersion`, decision, problem codes and not-migratable reasons; the `migrate` skip reason (`undecided`); and the edit document's `kind`, `schemaVersion`, operations and problem codes.
+Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` values and the `builtin` / `custom` vocabulary; the comparison kinds and entry and `diff` registry classes; and the update decisions document's `kind`, `schemaVersion`, decisions by class (`REGISTRY_DECISIONS_BY_CLASS`, `ENTRY_DECISIONS_BY_CLASS`) and problem codes; the lifecycle transaction's directory, journal name, schema version and outcomes; the entry decisions and structured decision kinds; the `update` skip reasons (`undecided`, `not-yet-supported`); the migration plan's `kind`, `schemaVersion`, decision, problem codes and not-migratable reasons; the `migrate` skip reason (`undecided`); the edit document's `kind`, `schemaVersion`, operations and problem codes; and the Baseline comparison states and `unverifiable` reasons (spec §11.4).
 
 ## 7.0 Results Concern (Outputs)
 
@@ -459,6 +470,7 @@ src/core/registry-lifecycle/
   registry-lifecycle-trace.logic.mjs               5.2.21
   registry-lifecycle-portable-set.logic.mjs        5.2.22
   registry-lifecycle-candidate.logic.mjs           5.2.23
+  registry-lifecycle-baseline-comparison.logic.mjs 5.2.24
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)

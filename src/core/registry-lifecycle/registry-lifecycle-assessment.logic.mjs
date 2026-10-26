@@ -151,6 +151,24 @@ const describeBaselineMismatch = (baseline) => {
   return baseline.present ? 'The .baseline copy does not match its manifest digest.' : 'The .baseline copy is missing.';
 };
 
+// [5.2.4] cfg-registryLifecycle · Primitive · "verifyBaselineCopy"
+// The one rule for a current-inventory Baseline copy against its trusted manifest entry (spec §4.4,
+// §12.1), shared with the Baseline comparison (5.2.24). Returns `{ state: 'undescribed' }` when this
+// release has no descriptor for the manifest version, `{ state: 'mismatch', detail }`, or
+// `{ state: 'verified', payload }`.
+export const verifyBaselineCopy = ({ paths, slice, entry, manifestEntry }) => {
+  if (!isVersionDescribed(entry, manifestEntry.version)) {
+    return { state: 'undescribed' };
+  }
+
+  const baseline = readCustomSetFile(paths, path.join(paths.baselineRoot, slice.sliceId, entry.fileName), (payload) =>
+    descriptorForPayload(entry, payload),
+  );
+  return baseline.digest === manifestEntry.digest
+    ? { state: 'verified', payload: baseline.payload }
+    : { state: 'mismatch', detail: describeBaselineMismatch(baseline) };
+};
+
 const compareIssues = (left, right) => {
   if (left.registryId !== right.registryId) {
     if (left.registryId === null) {
@@ -254,18 +272,14 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
 
     // A copy at a version this release has no descriptor for is unverifiable, never a mismatch
     // (lifecycle spec §12.1).
-    if (manifestEntry && isVersionDescribed(entry, manifestEntry.version)) {
-      const baseline = readCustomSetFile(
-        paths,
-        path.join(paths.baselineRoot, slice.sliceId, entry.fileName),
-        (payload) => descriptorForPayload(entry, payload),
-      );
-      baselineMismatch = baseline.digest !== manifestEntry.digest;
+    const baseline = manifestEntry ? verifyBaselineCopy({ paths, slice, entry, manifestEntry }) : null;
+    if (baseline && baseline.state !== 'undescribed') {
+      baselineMismatch = baseline.state === 'mismatch';
       if (baselineMismatch) {
         customIssues.push({
           registryId,
           condition: CUSTOM_ISSUE_CONDITIONS.baselineMismatch,
-          detail: describeBaselineMismatch(baseline),
+          detail: baseline.detail,
         });
       }
     }
