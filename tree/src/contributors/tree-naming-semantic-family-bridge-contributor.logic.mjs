@@ -7,9 +7,10 @@ import {
 // Local-first density lane (`local-density-first`). Its former finding, TREE_OBSERVED_FAMILY_CLUSTER, was
 // retired in Stage 2B-ii (Tree spec S2.12); the lane is kept unchanged and no longer changes any finding.
 const FAMILY_LOCAL_DENSITY_MIN_FILES = 4;
-const FAMILY_SUBGROUP_OPPORTUNITY_MIN_FILES_IN_CONTAINER = 4;
-const FAMILY_SUBGROUP_OPPORTUNITY_MIN_DISTINCT_CONTAINER_LOCAL_HOMES = 2;
-const FAMILY_SUBGROUP_OPPORTUNITY_REQUIRES_LOWER_LEVEL_GROUPING_SIGNAL = true;
+// Local-first subgroup lane (`local-subgroup-first`). Its former finding, TREE_FAMILY_SUBGROUP_OPPORTUNITY, was
+// retired in Stage 2B-iii (Tree spec S2.12); the lane is kept unchanged and no longer changes any finding.
+const FAMILY_LOCAL_SUBGROUP_MIN_FILES = 4;
+const FAMILY_LOCAL_SUBGROUP_MIN_DISTINCT_LOCAL_HOMES = 2;
 // Tree-owned bridge policy, deliberately not derived from the repo-shape allowance: a folder allowed
 // at the repository top level is not thereby a structural surface for Naming evidence (Refs #34).
 const TREE_STRUCTURAL_ROOT_SURFACES = ['src', 'test', 'doc', 'docs', 'scripts', 'tools', 'bin', 'public'];
@@ -616,10 +617,10 @@ export const interpretFamilyLocalFirst = (familyEntries) => {
   if (allEntriesInsideOneSemanticContainer) {
     const hasContainerLocalDensity =
       sortedPaths.length >= FAMILY_LOCAL_DENSITY_MIN_FILES ||
-      observedContainerLocalHomes.length >= FAMILY_SUBGROUP_OPPORTUNITY_MIN_DISTINCT_CONTAINER_LOCAL_HOMES;
+      observedContainerLocalHomes.length >= FAMILY_LOCAL_SUBGROUP_MIN_DISTINCT_LOCAL_HOMES;
     const hasContainerLocalSubgroupOpportunity =
-      sortedPaths.length >= FAMILY_SUBGROUP_OPPORTUNITY_MIN_FILES_IN_CONTAINER &&
-      observedContainerLocalHomes.length >= FAMILY_SUBGROUP_OPPORTUNITY_MIN_DISTINCT_CONTAINER_LOCAL_HOMES &&
+      sortedPaths.length >= FAMILY_LOCAL_SUBGROUP_MIN_FILES &&
+      observedContainerLocalHomes.length >= FAMILY_LOCAL_SUBGROUP_MIN_DISTINCT_LOCAL_HOMES &&
       lowerLevelGroupingSignalPresent;
 
     if (hasContainerLocalSubgroupOpportunity) {
@@ -906,42 +907,6 @@ const toSharedRootLaneInterpretation = ({
   };
 };
 
-const collectFamilySubgroupOpportunityFindings = (familySharedSpineAnalysisEntries) =>
-  familySharedSpineAnalysisEntries.flatMap(({ familyAnalysis }) => {
-      const semanticFamily = familyAnalysis.semanticFamily;
-      if (familyAnalysis.localFirstInterpretation.classification !== LOCAL_FIRST_FAMILY_INTERPRETATION.LOCAL_SUBGROUP_FIRST) {
-        return [];
-      }
-
-      return [
-        {
-          code: 'TREE_FAMILY_SUBGROUP_OPPORTUNITY',
-          severity: 'info',
-          path: familyAnalysis.sortedPaths[0],
-          classification: 'advisory-structure',
-          message:
-            'Naming-owned semantic-family evidence is dense inside one naming-aligned semantic container and may benefit from a lower-level subgroup folder.',
-          ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
-          details: {
-            semanticFamily,
-            semanticContainerIdentity: familyAnalysis.semanticContainerIdentities[0],
-            observedCount: familyAnalysis.sortedPaths.length,
-            observedPaths: familyAnalysis.sortedPaths,
-            observedContainerLocalHomes: familyAnalysis.observedContainerLocalHomes,
-            lowerLevelGroupingSignalPresent: familyAnalysis.lowerLevelGroupingSignalPresent,
-            localFirstInterpretation: familyAnalysis.localFirstInterpretation,
-            ...toSemanticHomeEvidenceDetails(familyAnalysis.familyEntries),
-            thresholds: {
-              minFilesInContainer: FAMILY_SUBGROUP_OPPORTUNITY_MIN_FILES_IN_CONTAINER,
-              minDistinctContainerLocalHomes: FAMILY_SUBGROUP_OPPORTUNITY_MIN_DISTINCT_CONTAINER_LOCAL_HOMES,
-              requireLowerLevelGroupingSignal: FAMILY_SUBGROUP_OPPORTUNITY_REQUIRES_LOWER_LEVEL_GROUPING_SIGNAL,
-            },
-            scopeBoundary: 'container-local subgroup opportunity; broad cross-container spread remains TREE_FAMILY_SCATTERED',
-          },
-        },
-      ];
-    });
-
 const collectSharedRootFamilyScatterAcrossLanesFindings = (familySharedSpineAnalysisEntries) =>
   familySharedSpineAnalysisEntries.flatMap(({ familyAnalysis, broaderSpreadInterpretation }) => {
     const sharedFamilyObservations = familyAnalysis.familyEntries
@@ -1074,7 +1039,6 @@ export const collectNamingSemanticFamilyBridgeFindings = (
   const familySharedSpineAnalysisEntries = toFamilySharedSpineAnalysisEntries(observations, bridgeContext);
 
   return [
-    ...collectFamilySubgroupOpportunityFindings(familySharedSpineAnalysisEntries),
     ...collectSharedRootFamilyScatterAcrossLanesFindings(familySharedSpineAnalysisEntries),
   ];
 };
