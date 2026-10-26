@@ -240,12 +240,14 @@ export const prepareTreeStructureAdvisorInputs = (
       structuralHomeEvidence: treeStructuralHomeEvidence,
     }),
   });
-  // Stage 2A-i (S2.3-S2.7, S2.9): candidate reasoning from the Stage 1 records and the loaded
+  // Stage 2A (S2.3-S2.9): candidate reasoning and placement from the Stage 1 records and the loaded
   // parameters, all by reference. Nothing reads it yet, so it changes no finding.
   const treeFolderSemanticHomeReasoning = prepareTreeFolderSemanticHomeReasoning({
     semanticEvidence: treeFolderSemanticEvidence,
     factEvidence: treeFolderFactEvidence,
+    sectionIntake: treeNamingSectionIntake,
     parameterSet: treeSemanticHomeParameterSet,
+    scope: scopedSnapshotInputs.scope,
   });
   const treeOccurrenceClassificationReplacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence,

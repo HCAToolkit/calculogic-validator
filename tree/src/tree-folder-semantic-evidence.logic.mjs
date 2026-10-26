@@ -55,6 +55,29 @@ const toAmbiguity = (observation) =>
 
 const stripUndefined = (record) => Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined));
 
+// S1.5 and S2.8: the one comparison operation of a file with a candidate. Stage 1 calls it for every
+// member pair and Stage 2 placement for every other pair, so the two can never diverge. It reads only
+// accepted intake records, behind the fact gate above; `position` (direct or descendant) is given only
+// for a member pair and is otherwise absent.
+export const createCandidateFileComparator = ({ sectionIntake } = {}) => {
+  const observationByKey = new Map(
+    (sectionIntake?.bridgeObservations?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record.observation]),
+  );
+  const enrichmentByKey = new Map((sectionIntake?.semanticEvidenceEnrichment?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record]));
+  return ({ candidate, file, position }) => {
+    const key = toTupleKey(file.identityTuple);
+    // Values are fetched on demand, only by a comparison its facts allow (see the channels above).
+    const values = { observation: () => observationByKey.get(key), enrichment: () => enrichmentByKey.get(key) };
+    return {
+      root: stripUndefined(toRootComparison({ candidate, facts: file.facts, values, position })),
+      prefix: stripUndefined(toPrefixComparison({ candidate, facts: file.facts, values, position })),
+    };
+  };
+};
+
+// S1.6 `terminate`: a folder terminates when it carries a package-root candidate.
+export const isTerminatingCandidate = (candidate) => candidate.candidateId.candidateSource === TREE_FOLDER_CANDIDATE_SOURCES.PACKAGE_ROOT;
+
 const emptyChannelCounts = () => ({
   match: { singular: { direct: 0, descendant: 0 }, ambiguous: { direct: 0, descendant: 0 } },
   foreignByRoot: createTally(),
@@ -90,11 +113,7 @@ const addBranchResult = (row, channel, comparison) => {
 
 export const prepareTreeFolderSemanticEvidence = ({ sectionIntake, factEvidence, candidates = [] } = {}) => {
   const occurrenceFacts = factEvidence?.occurrenceFacts ?? [];
-  const factsByKey = new Map(occurrenceFacts.map((entry) => [toTupleKey(entry.identityTuple), entry]));
-  const observationByKey = new Map(
-    (sectionIntake?.bridgeObservations?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record.observation]),
-  );
-  const enrichmentByKey = new Map((sectionIntake?.semanticEvidenceEnrichment?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record]));
+  const compare = createCandidateFileComparator({ sectionIntake });
 
   // Structure comes only from the Stage 1B-i record: children per folder, by occurrence identity.
   const childFoldersByKey = new Map();
@@ -115,7 +134,7 @@ export const prepareTreeFolderSemanticEvidence = ({ sectionIntake, factEvidence,
   // S1.6 boundary facts of one lineage folder relative to C (E3: several may apply at once).
   const toBoundaryFacts = (candidate, folderKey) => {
     const others = candidatesByFolderKey.get(folderKey) ?? [];
-    const terminate = others.filter((other) => other.candidateId.candidateSource === TREE_FOLDER_CANDIDATE_SOURCES.PACKAGE_ROOT);
+    const terminate = others.filter(isTerminatingCandidate);
     const narrow = others.filter(
       (other) => other.candidateId.candidateSource === TREE_FOLDER_CANDIDATE_SOURCES.FOLDER_LABEL && other.lexicalRoot === candidate.lexicalRoot,
     );
@@ -155,7 +174,6 @@ export const prepareTreeFolderSemanticEvidence = ({ sectionIntake, factEvidence,
     let terminatedMemberCount = 0;
 
     for (const { file, lineage } of collectMembers(candidate)) {
-      const memberKey = toTupleKey(file.identityTuple);
       const position = lineage.length === 0 ? 'direct' : 'descendant';
       const branch = lineage.length === 0 ? DIRECT_BRANCH : lineage[0].identityTuple.occurrenceAddress;
       const row = branchRows.get(branch) ?? emptyBranchRow(branch);
@@ -185,11 +203,7 @@ export const prepareTreeFolderSemanticEvidence = ({ sectionIntake, factEvidence,
         }
       }
 
-      // Values are fetched on demand, only by a comparison its facts allow (see the channels above).
-      const facts = file.facts;
-      const values = { observation: () => observationByKey.get(memberKey), enrichment: () => enrichmentByKey.get(memberKey) };
-      const rootComparison = stripUndefined(toRootComparison({ candidate, facts, values, position }));
-      const prefixComparison = stripUndefined(toPrefixComparison({ candidate, facts, values, position }));
+      const { root: rootComparison, prefix: prefixComparison } = compare({ candidate, file, position });
 
       const terminated = terminateAt.length > 0;
       memberRelationships.push({

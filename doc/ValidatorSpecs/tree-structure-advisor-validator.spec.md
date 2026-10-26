@@ -374,7 +374,7 @@ Stage 1B is delivered in two slices (calculogic-validator#97, D7):
 - **Stage 1B-i** (current implementation reality): the prepared-evidence entry `treeFolderFactEvidence` (`tree/src/tree-folder-fact-evidence.logic.mjs`). It holds `availability` (the Stage 1A record itself, not a copy), `occurrenceFacts` (one record per addressed occurrence: `folderLabel` and `bridgeObservation` for folders; `semanticIdentity`, `tokens` and `roleFacts` for files) and `compositionObservations` (one per addressed folder, direct members only). The S1.3 comparison rule and the S1.8 subtree view are exported functions over this record, not stored values. It holds no candidate, comparison, relationship or facet.
 - **Stage 1B-ii** (current implementation reality): `treeFolderSemanticEvidence` (S1.9), built by `tree/src/tree-folder-candidates.logic.mjs` (S1.4) and `tree/src/tree-folder-semantic-evidence.logic.mjs` (S1.5–S1.7, S1.9). It holds the Stage 1A availability and diagnostics and the Stage 1B-i composition observations by reference, reads fact states from the Stage 1B-i record, evaluates every comparison with its comparison rule, and reads a Naming field value only when the matching fact says it is usable. It never builds a second fact or composition model.
 
-### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102. Stage 2A-i, candidate reasoning, is implemented as prepared evidence that nothing reads; placement (2A-ii) and the conformance binding (2A-iii) are not implemented. The S2.10 values are Builtin registry data (`semantic-home-policy` version 2), loaded as `treeSemanticHomeParameterSet`. No finding changes)
+### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102. Stage 2A-i (candidate reasoning) and 2A-ii (placement) are implemented as prepared evidence that nothing reads; the conformance binding (2A-iii) is not implemented. The S2.10 values are Builtin registry data (`semantic-home-policy` version 2), loaded as `treeSemanticHomeParameterSet`. No finding changes)
 
 This section is the contract for Tree Stage 2 of folder-level Semantic Home development (tracking: calculogic-validator#85; scoping and approved directions F1–F6: calculogic-validator#102). It defines how Tree moves from the Stage 1 evidence (S1.1–S1.11) to three kinds of decision:
 
@@ -669,15 +669,29 @@ Placement is decided for each file occurrence in the addressed snapshot of the r
 - A candidate C **matches** f when C's governing-channel comparison for f is `match`.
 - C **possibly matches** f when that comparison is `not-evaluated`, for example when the prefix channel lacks f's N1 tokens. C also possibly matches f when C is `claim-unresolved` (S2.3) and C's root-channel comparison for f is `match`.
 
-The **relevant lineage** of f is the folders from f's parent upward. It stops at the first folder carrying a `terminate` boundary; that folder is included, and folders above it are beyond the boundary.
+**Placement relations (calculogic-validator#102, P1, P2).** For each `eligible` or `undetermined` candidate C, f has exactly one relation to C, decided in this order:
+- `match`: C's governing-channel comparison for f is `match`;
+- `possible-unevaluated`: that comparison is `not-evaluated`, whatever its reason;
+- `possible-root-reading`: C is `claim-unresolved` and C's root-channel comparison for f is `match`;
+- none: otherwise, for example a `foreign` governing comparison.
+
+A candidate with no relation to f takes no part in any step, whatever its outcome: an undetermined candidate whose comparison for f is `foreign` never blocks `no-home`. A `not-eligible` candidate takes no part either. Only `match` with an `eligible` candidate can give `inside-home` or `home-elsewhere`.
+
+**Why missing evidence is a possible match here but not in attribution (P1).** The two rules answer different questions with the same standard of evidence. Attribution (S2.6) asks whether a nested candidate may take a member away from C, which needs positive evidence, so a `not-evaluated` comparison for the nested candidate is no claim. Placement asks whether a file can be denied a home, which needs every relevant comparison to have been made, so a `not-evaluated` comparison keeps the candidate possible. Neither rule turns missing evidence into a conclusion. The rule is not narrowed to files whose root equals the candidate's label root: that would rest on the Naming property that `familyRoot` is the first semantic token, which Stage 1 does not check (S2.6, Q3).
+
+**Comparisons (P8).** For a candidate on f's relevant lineage, f is one of its Stage 1 members, and the comparison is read from the Stage 1 member relationship record. For any other candidate, Tree compares f with the same Stage 1 comparison operation (S1.5, `createCandidateFileComparator`), which Stage 1 itself uses for every member: the same fact gate (S1.3), the same accepted Naming values and the same result vocabulary. It reads nothing from paths, labels or file names, and it records no direct or descendant position for a pair that is not a member pair.
+
+The **relevant lineage** of f is the folders from f's parent upward. It stops at the first folder carrying a `terminate` boundary (a `naming-package-root` candidate, exactly the S1.6 fact); that folder is included, and folders above it are beyond the boundary (P6). A file with no parent folder occurrence, such as a repository-root file at `repo` scope, has an empty relevant lineage: steps 1 and 2 never apply and steps 3–5 do (P7).
 
 Precedence (first match wins):
 
-1. An `eligible` candidate on the relevant lineage matches f → `inside-home`. Record the nearest such home, and list every eligible matching home on the relevant lineage.
+1. An `eligible` candidate on the relevant lineage matches f → `inside-home`. Record the nearest such home, and list every eligible matching home on the relevant lineage. The nearest home is the nearest folder carrying at least one eligible matching candidate, with every such candidate on that folder: none is chosen over another (P3).
 2. Otherwise, on the relevant lineage, an `undetermined` candidate matches or possibly matches f, or an `eligible` candidate possibly matches f → `undetermined` (`home-on-lineage-undetermined`). An unknown home nearby is never read as absent.
 3. Otherwise, an `eligible` candidate anywhere else in the snapshot matches f, including beyond a termination → `home-elsewhere`. List every such home.
 4. Otherwise, anywhere in the snapshot, an `undetermined` candidate matches or possibly matches f, or an `eligible` candidate possibly matches f → `undetermined` (`home-elsewhere-undetermined`).
 5. Otherwise → `no-home`, **only if the no-home evidence condition holds**; if it does not, `undetermined` (`candidate-discovery-incomplete`).
+
+Every placement records the full evidence, not only the deciding step (P2): every eligible matching home on the relevant lineage and elsewhere, and every candidate with a possible relation or an undetermined outcome that relates to f, with its relation and location. `decidedAtStep` names the step that decided (1–5); `0` means the semantic-identity gate above, not a precedence step.
 
 **No-home evidence condition.** `no-home` asserts that the available evidence permits concluding that no eligible matching home exists. That requires every potential candidate to have been discovered and decided:
 
@@ -689,6 +703,8 @@ Precedence (first match wins):
 - A file of that root outside the folder still reaches step 3 (`home-elsewhere`) before step 4, so an unresolved claim never hides a real home.
 - A file in an eligible subject compound that matches only on the root is not affected, because that candidate is never `claim-unresolved`. The file is placed against its own root's candidates.
 
+**Recording the condition (P4).** The condition is evaluated once per run, all or nothing, as `candidateDiscovery: { complete, unmet }`. `unmet` lists each failed clause with what identifies it: the run-level availability state of the v1 bridge or of N2 when not `available`, and each folder whose label is `absent` for a folder-level reason, `no-record` or `record-rejected` (with its occurrence identity, the reason and any intake rejection reasons), or whose bridge observation is `rejected` (with its occurrence identity and the intake reasons). A run-level unavailability is listed once, as its run-level clause, not once per folder. It is not narrowed to the folders that could hide f's claim: what an undiscovered candidate would claim is exactly what is unknown.
+
 Steps 2 and 4 already keep any undetermined matching candidate from becoming `no-home`. `no-home` is relative to the run's addressed snapshot, so the placement record carries the run's scope; a home outside a narrower scope is not visible to it.
 
 **Several eligible homes** never force a choice: every one is listed. `home-elsewhere` is evidence, not a finding, and spread is not misplacement (calculogic-validator#85 living document §4). Findings derive from placement only as S2.12 decides per code.
@@ -698,7 +714,7 @@ Steps 2 and 4 already keep any undetermined matching candidate from becoming `no
 Stage 2 adds one Tree-owned prepared-evidence record, `treeFolderSemanticHomeReasoning`, in Tree's prepared dependencies, next to the Stage 1 records. It holds:
 
 - `status`, from the parameter set's `availability` (S2.9 below), one to one:
-  - `evaluated`: the parameter set is `available`, and the reasoning Stage 2A implements so far has completed;
+  - `evaluated`: the parameter set is `available`, and candidate reasoning and placement have completed for every file (P5). An `undetermined` placement is an evaluated result, not an incomplete one;
   - `configuration-unavailable`: the resolved registry has no parameter section (RR5);
   - `not-prepared`: the parameter set could not be prepared (an explicit registry root without a resolution).
 
@@ -707,11 +723,13 @@ Stage 2 adds one Tree-owned prepared-evidence record, `treeFolderSemanticHomeRea
 - `parameterSet`: the loaded parameter set, `treeSemanticHomeParameterSet` (below), held by reference;
 - `candidateOutcomes`: one per candidate, with the candidate identity, governing channel, outcome, reasons, notes, decision counts (`|A|`, `M` split singular and ambiguous, `F` by root, `N` by reason, over the members C definitely holds, with the attribution-undetermined members counted separately by kind), decision evidence (S2.6), strength profile, the nested candidates the outcome depends on with the two reference-resolution results (S2.6), and, for `claim-unresolved`, the root reading's outcome, reason and counts (S2.3);
 - `memberAttributions`: the S2.6 records;
-- `placements`: one per file occurrence, with the file identity, state, reason, nearest home, the homes on its relevant lineage, the homes elsewhere, the undetermined candidates consulted, and the run scope.
+- `placements`: one per file occurrence, with the file identity, state, reason, `decidedAtStep`, nearest home (folder and candidates), the homes on its relevant lineage, the homes elsewhere, the candidates consulted (each with outcome, reason, relation and location), and the run scope;
+- `candidateDiscovery`: the no-home evidence condition (S2.8, P4), once per run;
+- `scope`: the run scope.
 
 When `status` is `configuration-unavailable` or `not-prepared`, Stage 2 did not run: there are no candidate outcomes, member attributions or placements, not even `undetermined` ones. An absent configuration is never read as evidence about any folder or file.
 
-**Stage 2A-i record (current implementation reality).** `tree/src/tree-folder-semantic-home-reasoning.logic.mjs` prepares the record with `status`, `parameterSet`, `semanticEvidenceSource`, `candidateOutcomes` and `memberAttributions`. `placements` is added by Stage 2A-ii and is absent until then. Nothing reads the record, and it is not part of the report payload.
+**Stage 2A record (current implementation reality).** `tree/src/tree-folder-semantic-home-reasoning.logic.mjs` prepares the full record: `status`, `parameterSet` and `semanticEvidenceSource` (both by reference), `candidateOutcomes`, `memberAttributions` (2A-i), and `placements`, `candidateDiscovery` and `scope` (2A-ii, `tree/src/tree-semantic-home-placement.logic.mjs`). Nothing reads the record, and it is not part of the report payload.
 
 **The parameter set, `treeSemanticHomeParameterSet`.** A Tree loader prepares it, before and separately from reasoning, as a frozen prepared dependency. It is not part of the report payload.
 
@@ -886,7 +904,7 @@ No Baseline is ever manufactured. Current Builtin is never used as a historical 
 
 #### S2.11 Contrast catalogue (F6, Q10)
 
-Each case is a deliberately contrasting synthetic tree with its expected outcome under the selected values (S2.10) and E2 (S2.3). The expected outcomes of C1–C29 were agreed on calculogic-validator#102 (D8), from a scratchpad evaluation of these rules. Each case is an executable fixture (`tree/test/fixtures/semantic-home-catalogue/`): candidate outcomes since Stage 2A-i, placements from Stage 2A-ii, so that the contract and the tests cannot drift.
+Each case is a deliberately contrasting synthetic tree with its expected outcome under the selected values (S2.10) and E2 (S2.3). The expected outcomes of C1–C29 were agreed on calculogic-validator#102 (D8), from a scratchpad evaluation of these rules. Each case is an executable fixture (`tree/test/fixtures/semantic-home-catalogue/`): candidate outcomes since Stage 2A-i and placements since Stage 2A-ii, so that the contract and the tests cannot drift.
 
 **Catalogue identity.** Catalogue `semantic-home-catalogue`, version `2`: C1–C30. Version `1` was C1–C29 (D8); version `2` adds C30 (calculogic-validator#102, Q3). The version is raised whenever a case or an expected outcome changes. The conformance binding that will cite it is Stage 2A-iii (RR4).
 
@@ -1024,7 +1042,7 @@ Each step needs its own authorization:
 4. **Parameter loader and converter** (done: `treeSemanticHomeParameterSet`, S2.9, a frozen prepared dependency with RR4 provenance from the lifecycle Baseline comparison; no consumer; findings byte-identical at `repo`, `validator` and `app` scope).
 5. **Stage 2A.** `treeFolderSemanticHomeReasoning` (S2.1–S2.9) and the S2.11 cases as executable fixtures. Findings stay byte-identical at `repo`, `validator` and `app` scope. In three slices, each separately authorized:
    - **2A-i, candidate reasoning** (done): S2.3–S2.7, the record with `candidateOutcomes` and `memberAttributions`, and the catalogue's candidate outcomes;
-   - **2A-ii, placement:** S2.8, `placements`, and the catalogue's placements;
+   - **2A-ii, placement** (done): S2.8, `placements` and `candidateDiscovery`, the shared Stage 1 comparison operation, and the catalogue's placements;
    - **2A-iii, conformance binding:** the RR4 binding of the four values, the catalogue version and the reasoning implementation.
 6. **Stage 2B.** Findings reconciliation, one code per pull request, starting with `TREE_FAMILY_SCATTERED` (S2.12).
 7. **Stage 2C.** The legacy `semanticHome` decision (S2.13).

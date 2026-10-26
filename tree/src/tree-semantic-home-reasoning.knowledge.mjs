@@ -52,3 +52,30 @@ export const SEMANTIC_HOME_CONDITIONS = Object.freeze({
   minimumSupport: 'minimum-support',
   notEligibleShare: 'not-eligible-share',
 });
+
+// S2.8 placement.
+export const SEMANTIC_HOME_PLACEMENT_STATES = Object.freeze({
+  insideHome: 'inside-home',
+  homeElsewhere: 'home-elsewhere',
+  noHome: 'no-home',
+  undetermined: 'undetermined',
+});
+export const SEMANTIC_HOME_PLACEMENT_REASONS = Object.freeze({
+  homeOnLineageUndetermined: 'home-on-lineage-undetermined',
+  homeElsewhereUndetermined: 'home-elsewhere-undetermined',
+  candidateDiscoveryIncomplete: 'candidate-discovery-incomplete',
+});
+export const SEMANTIC_HOME_PLACEMENT_RELATIONS = Object.freeze({
+  match: 'match',
+  possibleUnevaluated: 'possible-unevaluated',
+  possibleRootReading: 'possible-root-reading',
+});
+export const SEMANTIC_HOME_PLACEMENT_LOCATIONS = Object.freeze({ lineage: 'lineage', elsewhere: 'elsewhere' });
+
+// S2.8 no-home evidence condition: the clauses a run can fail.
+export const SEMANTIC_HOME_DISCOVERY_CLAUSES = Object.freeze({
+  bridgeUnavailable: 'bridge-unavailable',
+  folderLabelsUnavailable: 'folder-labels-unavailable',
+  folderLabelAbsent: 'folder-label-absent',
+  folderObservationRejected: 'folder-observation-rejected',
+});

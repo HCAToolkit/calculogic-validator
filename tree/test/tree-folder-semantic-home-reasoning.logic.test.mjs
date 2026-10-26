@@ -100,7 +100,9 @@ test('Stage 1 records are read, never modified; the record is frozen and determi
   const again = prepareTreeFolderSemanticHomeReasoning({
     semanticEvidence: first.semanticEvidence,
     factEvidence: first.factEvidence,
+    sectionIntake: first.sectionIntake,
     parameterSet: getBuiltinTreeSemanticHomeParameterSet(),
+    scope: 'catalogue',
   });
   assert.equal(JSON.stringify([first.semanticEvidence, first.factEvidence]), before);
   assert.equal(Object.isFrozen(first.semanticEvidence), false);
@@ -108,5 +110,5 @@ test('Stage 1 records are read, never modified; the record is frozen and determi
   assert.ok(Object.isFrozen(again.memberAttributions[0].attributedTo));
   const strip = ({ parameterSet, semanticEvidenceSource, ...rest }) => rest;
   assert.deepEqual(strip(again), strip(first.reasoning));
-  assert.equal(again.placements, undefined);
+  assert.ok(Object.isFrozen(again.placements) && Object.isFrozen(again.placements[0]) && Object.isFrozen(again.candidateDiscovery));
 });
