@@ -1025,16 +1025,25 @@ Each code is decided individually. These are proposals until their 2B slice is i
   - An eligible home already establishes the grouping it inferred from path alignment, and its size and quality are in the S2.7 strength profile (`support`, `coverage`, `supportShare`, corroboration). A finding that a home holds N matching files would repeat the prepared record.
   - The catalogue supports no concentration threshold: C1 (6 files), C14 (10), C24 (3), C20 (2) and a 3-file variant of C1 are all eligible homes with every file `inside-home`; nothing distinguishes a 3-file home from a 6-file one. Keeping a threshold would need a new S2.10 parameter with catalogue evidence, registry version 3 and a new conformance binding, which nothing justifies.
   - Concentration in a path-aligned folder that is not an eligible home cannot be reported: that is grouping from family membership alone (RR1).
-  - Several local subfolders inside one grouping is the subgroup question, which `TREE_FAMILY_SUBGROUP_OPPORTUNITY` owns and its own 2B slice decides.
+  - Several local subfolders inside one grouping is the subgroup question, which `TREE_FAMILY_SUBGROUP_OPPORTUNITY` owned; it was decided separately (retired in Stage 2B-iii, below).
 - **What stays.** Only the emitter is removed. `interpretFamilyLocalFirst` and its classifications, including `local-density-first`, and their decision order are unchanged: `TREE_FAMILY_SUBGROUP_OPPORTUNITY` emits only for `local-subgroup-first`, which is decided before density, and `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES` emits only for the two divergence lanes, so every other lane (density and expected presence alike) suppresses it. With the emitter gone, whether a family is `local-density-first` or `expected-local-presence` no longer changes any emitted finding; the classification is kept unchanged so that this slice removes nothing but the emitter. The density threshold is renamed `FAMILY_LOCAL_DENSITY_MIN_FILES` for the classification it still decides; its value (4) and behavior are unchanged, and retaining it does not declare it correct: whether the density lane survives belongs to the subgroup and lanes slices.
 - **Compatibility.** The code is intentionally retired and no longer emitted, even though the reports at `repo`, `validator` and `app` scope stay byte-identical (it emitted nothing there). `governedCodes` is unchanged: a retired code is not governed by Stage 2A. The consumer inventory found no reference to the code or its details in Calculogic_React_App (at e660781) or in this repository's report tooling; the remaining mentions are historical audits.
 
 Principle (Stage 2B): not every piece of prepared reasoning needs a finding. The reasoning record describes valid organization, evidence strength and uncertainty; a finding is emitted only when it reports something the record does not already establish.
 
-**`TREE_FAMILY_SUBGROUP_OPPORTUNITY`: change basis later; unchanged until decided.**
-- **Today:** singular-only evidence inside one container, with `MIN_FILES_IN_CONTAINER = 4` and `MIN_DISTINCT_CONTAINER_LOCAL_HOMES = 2`. 0 emissions.
-- **Proposed:** files `inside-home` at one eligible home. Subgroup evidence stays singular-only, matching Naming's rule that subgroup aggregates need singular evidence, and is reported beside any `narrow` attributions inside that home. An eligible nested home (C16) already represents the subgroup and suppresses the opportunity for its files.
-- **Evidence required:** synthetic cases and justified minimums.
+**`TREE_FAMILY_SUBGROUP_OPPORTUNITY`: retired in Stage 2B-iii (implemented; calculogic-validator#102, E1–E3).**
+- **Before:** emitted when the local-first spine classified a family `local-subgroup-first`: every singular (unflagged) observation of the family in one naming-aligned semantic container, with at least 4 files in at least 2 container-local homes, and a lower-level grouping signal (a `familySubgroup`, or a `semanticFamily` beginning with `familyRoot-`). It suggested a lower-level subgroup folder. 0 emissions at `repo`, `validator` and `app` scope at ff43ff6. The thresholds had no recorded rationale.
+- **Why it is retired.** Unlike the cluster code, it attempted a distinct inference: a folder that does not exist yet, which Stage 2A does not evaluate. The evidence it rests on does not support that inference:
+  - The lower-level grouping signal discriminates nothing: Naming sets `familySubgroup` on every observation (270 of 270 at `repo` scope at ff43ff6), as the name's remaining tokens.
+  - The natural subgroup key, a compound `semanticFamily`, carries `family-boundary-heuristic` on every observation measured (135 of 135). Naming's own rule requires singular family evidence for subgroup and family aggregates, so the boundary that would define the subgroup is exactly the part Naming marks uncertain.
+  - The remaining singular evidence is families equal to their root, which have no lower-level family. The one singular 4-file group inside an eligible home (`familySubgroup` `structure-advisor`: one module's `logic`, `wiring`, `host` and `contracts` files in `tree/src`) is ordinary organization; only the 2-local-homes condition kept it from being reported.
+  - The catalogue holds no case about potential subfolders, so neither threshold has evidence.
+  - Where a lower-level folder exists, Stage 2A already decides it: an eligible nested home holds its files (C16), and an undetermined one leaves them `undetermined` on their lineage. Neither leaves a subgroup to propose.
+
+  These measurements establish the problem for the current evidence model and this repository; they do not show that reliable subgroup evidence could never exist.
+- **What stays.** Only the emitter and its details (including the former `scopeBoundary` text) are removed. `interpretFamilyLocalFirst`, its `local-subgroup-first` classification and the decision order are unchanged; the thresholds are renamed `FAMILY_LOCAL_SUBGROUP_MIN_FILES` (4) and `FAMILY_LOCAL_SUBGROUP_MIN_DISTINCT_LOCAL_HOMES` (2), values and behavior unchanged, and the lower-level grouping signal is still required. The former `FAMILY_SUBGROUP_OPPORTUNITY_REQUIRES_LOWER_LEVEL_GROUPING_SIGNAL` constant only fed the retired finding's `details.thresholds` and is removed with them. Retaining them does not validate them. After Stage 2B-ii and 2B-iii, only the two divergence lanes can affect a finding (through `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES`); whether the spine is simplified belongs to that code's slice (E3).
+- **Compatibility.** The code is intentionally retired and no longer emitted; every runner report stays byte-identical at `repo`, `validator` and `app` scope because it emitted nothing. `governedCodes` is unchanged. The consumer inventory found no reference to the code or its details in Calculogic_React_App (at e660781) or in this repository's report tooling; the remaining mentions are historical audits.
+- **Deferred capability (E2).** Potential subgroup or subfolder discovery remains a possible future extension of Stage 2 reasoning. Unlike the retired `TREE_FAMILY_SUBGROUP_OPPORTUNITY` heuristic, such a capability would need independently justified evidence for hypothetical folder claims, explicit uncertainty handling, and its own contract, catalogue, parameter, and conformance decisions. This retirement neither authorizes nor commits to that extension. It would be potential-home discovery, distinct from Semantic Home evaluation, which decides relationships involving existing folders.
 
 **`TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES`: keep (proposed; unchanged by Stage 2B-i).**
 - **Today:** shared-root lane spread from the shared interpretation spine, with `SHARED_ROOT_MIN_DISTINCT_LANE_PARTITIONS = 2` and `SHARED_ROOT_MIN_FAMILY_FILES = 3`. 0 emissions.
@@ -1086,6 +1095,7 @@ Each step needs its own authorization:
 6. **Stage 2B.** Findings reconciliation, one code per pull request (S2.12):
    - **2B-i, `TREE_FAMILY_SCATTERED`** (done): re-based on `home-elsewhere` placement with B1–B8 and `meta.semanticHomeReasoning`;
    - **2B-ii, `TREE_OBSERVED_FAMILY_CLUSTER`** (done): retired, with the local-density routing it shared kept unchanged;
+   - **2B-iii, `TREE_FAMILY_SUBGROUP_OPPORTUNITY`** (done): retired, with the local-subgroup classification kept unchanged and potential-subfolder discovery recorded as a deferred, unauthorized capability;
    - the remaining codes, each separately authorized.
 7. **Stage 2C.** The legacy `semanticHome` decision (S2.13).
 
@@ -1188,7 +1198,7 @@ Tree consumes this normalized bridge payload only. Tree runtime must not parse f
 
 ### Family-scatter structural gating (Status: Superseded for `TREE_FAMILY_SCATTERED` by Stage 2B-i, S2.12)
 
-Since Stage 2B-i, `TREE_FAMILY_SCATTERED` is decided from Semantic Home placement (S2.12), not by this gate. The local-first and broader-spread layers below remain the current shared interpretation spine for `TREE_FAMILY_SUBGROUP_OPPORTUNITY` and `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES` (`TREE_OBSERVED_FAMILY_CLUSTER` is retired, Stage 2B-ii); the text below records how scatter was gated before.
+Since Stage 2B-i, `TREE_FAMILY_SCATTERED` is decided from Semantic Home placement (S2.12), not by this gate. The local-first and broader-spread layers below remain the current shared interpretation spine for `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES` (`TREE_OBSERVED_FAMILY_CLUSTER` and `TREE_FAMILY_SUBGROUP_OPPORTUNITY` are retired, Stage 2B-ii and 2B-iii); the text below records how scatter was gated before.
 
 `TREE_FAMILY_SCATTERED` now applies a bounded tree-owned structural interpretation layer before emitting broader scatter:
 
@@ -1249,7 +1259,7 @@ Escalation intent:
 
 Classification: Normative
 
-Current family-level tree outcomes now share one bounded local-first interpretation authority (`interpretFamilyLocalFirst`) before emitting family findings. Since Stage 2B-i, `TREE_FAMILY_SCATTERED` is not routed by this spine (S2.12); the routing notes for it below record its earlier behavior, and its suppression by the local lanes no longer applies. Since Stage 2B-ii, `TREE_OBSERVED_FAMILY_CLUSTER` is retired (S2.12): `local-density-first` is still classified, unchanged, but no longer emits a finding of its own, and no remaining finding distinguishes it from `expected-local-presence`.
+Current family-level tree outcomes now share one bounded local-first interpretation authority (`interpretFamilyLocalFirst`) before emitting family findings. Since Stage 2B-i, `TREE_FAMILY_SCATTERED` is not routed by this spine (S2.12); the routing notes for it below record its earlier behavior, and its suppression by the local lanes no longer applies. Since Stage 2B-ii, `TREE_OBSERVED_FAMILY_CLUSTER` is retired (S2.12): `local-density-first` is still classified, unchanged, but no longer emits a finding of its own, and no remaining finding distinguishes it from `expected-local-presence`. Since Stage 2B-iii, `TREE_FAMILY_SUBGROUP_OPPORTUNITY` is retired as well: `local-subgroup-first` is still classified, unchanged and first, but no longer emits a finding, so only the two divergence lanes can affect a finding.
 
 The shared local-first interpretation spine routes existing family findings as follows:
 
@@ -1261,7 +1271,8 @@ The shared local-first interpretation spine routes existing family findings as f
   - is still decided after `local-subgroup-first`, and, like every lane other than the two divergence lanes, keeps the family out of shared-root lane spread
   - suppresses broad scatter-first routing
 - `local-subgroup-first`
-  - enables subgroup-opportunity-first local signaling (`TREE_FAMILY_SUBGROUP_OPPORTUNITY`) using existing bounded thresholds/details
+  - formerly enabled subgroup-opportunity-first local signaling (`TREE_FAMILY_SUBGROUP_OPPORTUNITY`, retired in Stage 2B-iii); it now emits nothing itself
+  - is still decided first, and keeps the family out of shared-root lane spread like every lane other than the two divergence lanes
   - suppresses broad scatter-first routing
 - `local-divergence-needs-broader-review`
   - routes to bounded broader-spread interpretation review first
@@ -1298,11 +1309,13 @@ Bounded intent:
 - keep shared-root lane spread as a bounded, explicit, deterministic, inspectable outcome within the existing local-first → broader-spread family reasoning flow,
 - avoid introducing new policy surfaces beyond this routing consolidation slice.
 
-### Family subgroup opportunity inside one semantic container (Status: Current runtime behavior, bounded)
+### Family subgroup opportunity inside one semantic container (Status: Retired in Stage 2B-iii, S2.12)
 
-`TREE_FAMILY_SUBGROUP_OPPORTUNITY` is a bounded, info-level, advisory-only signal for lower-level family grouping opportunity *inside one naming-aligned semantic container*.
+`TREE_FAMILY_SUBGROUP_OPPORTUNITY` is retired and no longer emitted (S2.12, Stage 2B-iii); its `local-subgroup-first` classification is kept unchanged. The text below records the former behavior.
 
-Current runtime trigger posture:
+`TREE_FAMILY_SUBGROUP_OPPORTUNITY` was a bounded, info-level, advisory-only signal for lower-level family grouping opportunity *inside one naming-aligned semantic container*.
+
+Former runtime trigger posture:
 
 - observations must be singular naming evidence (`ambiguityFlags[]` absent),
 - observations for the family must all classify to one valid naming-aligned semantic container identity,
@@ -1314,7 +1327,7 @@ Boundary note:
 
 - files outside an eligible Semantic Home elsewhere are represented by `TREE_FAMILY_SCATTERED` (S2.12),
 - container-local high-count observability was represented by `TREE_OBSERVED_FAMILY_CLUSTER`, retired in Stage 2B-ii (S2.12): a home's size and evidence quality are in the Stage 2A strength profile,
-- subgroup opportunity is the bounded “between” signal for dense/cohesive lower-level grouping in one semantic container.
+- subgroup opportunity was the bounded “between” signal for dense/cohesive lower-level grouping in one semantic container, retired in Stage 2B-iii (S2.12): potential-subfolder discovery is a deferred, unauthorized Stage 2 capability.
 
 Ownership boundary remains unchanged:
 
@@ -1825,9 +1838,8 @@ Attached Semantic Home scatter contributor (`tree-semantic-home-scatter-contribu
 
 - `TREE_FAMILY_SCATTERED` (from `treeFolderSemanticHomeReasoning.placements`, S2.12; nothing when Stage 2 was not evaluated)
 
-Attached naming-bridge contributor currently ships during normal tree runs (`TREE_OBSERVED_FAMILY_CLUSTER` was retired in Stage 2B-ii, S2.12):
+Attached naming-bridge contributor currently ships during normal tree runs (`TREE_OBSERVED_FAMILY_CLUSTER` and `TREE_FAMILY_SUBGROUP_OPPORTUNITY` were retired in Stage 2B-ii and 2B-iii, S2.12):
 
-- `TREE_FAMILY_SUBGROUP_OPPORTUNITY`
 - `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES` (bounded shared-root lane-first spread outcome emitted from the shared family interpretation spine under supported shared roots, using naming-owned bridge observations only)
 
 ### Current report payload from tree runtime

@@ -596,8 +596,8 @@ test('tree naming bridge contributor treats one naming-aligned semantic containe
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), false);
 });
 
-test('tree naming bridge contributor treats local-subgroup-first as the primary local signal before broad scatter', () => {
-  const findings = collectNamingSemanticFamilyBridgeFindings({
+test('tree naming bridge contributor still classifies local-subgroup-first first, with no subgroup finding (Stage 2B-iii)', () => {
+  const payload = {
     observations: [
       {
         path: 'calculogic-validator/naming/src/lanes/naming-lane.logic.mjs',
@@ -628,11 +628,14 @@ test('tree naming bridge contributor treats local-subgroup-first as the primary 
         familySubgroup: 'lane',
       },
     ],
-  });
+  };
+  const findings = collectNamingSemanticFamilyBridgeFindings(payload);
 
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
   assert.equal(findings.some((finding) => finding.code === 'TREE_OBSERVED_FAMILY_CLUSTER'), false);
-  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), true);
+  // Stage 2B-iii (S2.12): still classified local-subgroup-first, but the retired subgroup code is not emitted.
+  assert.equal(localFirstClassificationOf(payload), 'local-subgroup-first');
+  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), false);
 });
 
 test('tree naming bridge contributor suppresses broad scatter for bounded allowed cross-container pairing', () => {
@@ -910,8 +913,8 @@ test('tree naming bridge contributor keeps local-density-first families out of b
   assert.deepEqual(first, []);
 });
 
-test('tree naming bridge contributor keeps local-subgroup-first families out of broad scatter', () => {
-  const findings = collectNamingSemanticFamilyBridgeFindings({
+test('tree naming bridge contributor keeps local-subgroup-first families out of broad scatter, with no subgroup finding (Stage 2B-iii)', () => {
+  const payload = {
     observations: [
       {
         path: 'calculogic-validator/naming/src/lane/naming-lane.logic.mjs',
@@ -942,10 +945,13 @@ test('tree naming bridge contributor keeps local-subgroup-first families out of 
         familySubgroup: 'lane',
       },
     ],
-  });
+  };
+  const findings = collectNamingSemanticFamilyBridgeFindings(payload);
 
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
-  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), true);
+  // Stage 2B-iii (S2.12): still classified local-subgroup-first, but the retired subgroup code is not emitted.
+  assert.equal(localFirstClassificationOf(payload), 'local-subgroup-first');
+  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), false);
 });
 
 // Stage 2B-i (Tree spec S2.12): the bridge no longer decides TREE_FAMILY_SCATTERED, so a family that
@@ -1175,8 +1181,8 @@ test('tree naming bridge contributor emits no cluster observation for a family s
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
 });
 
-test('tree naming bridge contributor emits subgroup opportunity for dense lower-level family inside one semantic container', () => {
-  const findings = collectNamingSemanticFamilyBridgeFindings({
+test('a dense lower-level family inside one semantic container is local-subgroup-first but emits no subgroup finding (Stage 2B-iii)', () => {
+  const payload = {
     observations: [
       {
         path: 'calculogic-validator/tree/src/tree-occurrence/tree-occurrence-observed.logic.mjs',
@@ -1207,12 +1213,16 @@ test('tree naming bridge contributor emits subgroup opportunity for dense lower-
         familySubgroup: 'occurrence',
       },
     ],
-  });
+  };
+  const findings = collectNamingSemanticFamilyBridgeFindings(payload);
 
-  const subgroupFindings = findings.filter((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY');
-  assert.equal(subgroupFindings.length, 1);
-  assert.equal(subgroupFindings[0].details.semanticContainerIdentity, 'calculogic-validator/tree');
-  assert.deepEqual(subgroupFindings[0].details.observedContainerLocalHomes, ['src', 'test', 'validator-cli']);
+  const interpretation = interpretFamilyLocalFirst(
+    payload.observations.map((observation) => ({ observation, placement: toNamingBridgePlacementRecord(observation) })),
+  );
+  assert.equal(interpretation.classification, 'local-subgroup-first');
+  assert.equal(interpretation.details.semanticContainerIdentity, 'calculogic-validator/tree');
+  assert.deepEqual(interpretation.details.observedContainerLocalHomes, ['src', 'test', 'validator-cli']);
+  assert.deepEqual(findings, []);
 });
 
 test('tree naming bridge contributor does not emit subgroup opportunity for ordinary family presence below subgroup threshold', () => {
@@ -1318,7 +1328,7 @@ test('tree naming bridge contributor does not emit subgroup opportunity from amb
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), false);
 });
 
-test('tree naming bridge contributor emits deterministic subgroup opportunity finding count and ordering for identical inputs', () => {
+test('tree naming bridge contributor stays deterministic for a subgroup-first family, with no subgroup finding (Stage 2B-iii)', () => {
   const payload = {
     observations: [
       {
@@ -1352,15 +1362,11 @@ test('tree naming bridge contributor emits deterministic subgroup opportunity fi
     ],
   };
 
-  const first = collectNamingSemanticFamilyBridgeFindings(payload)
-    .filter((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY')
-    .map((finding) => finding.path);
-  const second = collectNamingSemanticFamilyBridgeFindings(payload)
-    .filter((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY')
-    .map((finding) => finding.path);
-
+  const first = collectNamingSemanticFamilyBridgeFindings(payload);
+  const second = collectNamingSemanticFamilyBridgeFindings(payload);
   assert.deepEqual(first, second);
-  assert.equal(first.length, 1);
+  assert.equal(localFirstClassificationOf(payload), 'local-subgroup-first');
+  assert.equal(first.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), false);
 });
 
 test('tree naming bridge contributor keeps ambiguity-only dense families as non-cluster observability', () => {
@@ -2065,4 +2071,37 @@ test('a local-density-first family under a shared root still suppresses shared-r
   );
   assert.equal(localFirstClassificationOf(payload), 'local-density-first');
   assert.deepEqual(collectNamingSemanticFamilyBridgeFindings(payload), []);
+});
+
+// Stage 2B-iii (Tree spec S2.12): the subgroup lane is kept unchanged after its code's retirement.
+const SUBGROUP_PATHS = [
+  'calculogic-validator/tree/src/occ.logic.mjs',
+  'calculogic-validator/tree/src/occ.wiring.mjs',
+  'calculogic-validator/tree/test/occ.test.mjs',
+  'calculogic-validator/tree/test/occ-extra.test.mjs',
+];
+
+test('the subgroup lane keeps its four-file threshold across two local homes (Stage 2B-iii)', () => {
+  const payload = toFamilyPayload(SUBGROUP_PATHS, 'tree', 'tree-occ');
+  assert.equal(localFirstClassificationOf(payload), 'local-subgroup-first');
+  // Three files in the same two local homes: below the subgroup count; the two local homes still make it dense.
+  assert.equal(localFirstClassificationOf({ observations: payload.observations.slice(1) }), 'local-density-first');
+  assert.deepEqual(collectNamingSemanticFamilyBridgeFindings(payload), []);
+});
+
+test('the subgroup lane keeps its two-local-home threshold: four files in one local home are density (Stage 2B-iii)', () => {
+  const payload = toFamilyPayload(
+    ['occ.logic.mjs', 'occ.wiring.mjs', 'occ.host.mjs', 'occ.knowledge.mjs'].map((name) => `calculogic-validator/tree/src/${name}`),
+    'tree',
+    'tree-occ',
+  );
+  assert.equal(localFirstClassificationOf(payload), 'local-density-first');
+  assert.deepEqual(collectNamingSemanticFamilyBridgeFindings(payload), []);
+});
+
+test('subgroup is still decided before density, and the lower-level signal still matters (Stage 2B-iii)', () => {
+  // The same four files meet both the density and the subgroup conditions: subgroup wins.
+  assert.equal(localFirstClassificationOf(toFamilyPayload(SUBGROUP_PATHS, 'tree', 'tree-occ')), 'local-subgroup-first');
+  // Without any lower-level signal (no familySubgroup, family equal to its root) the same files are density.
+  assert.equal(localFirstClassificationOf(toFamilyPayload(SUBGROUP_PATHS, 'tree', 'tree')), 'local-density-first');
 });
