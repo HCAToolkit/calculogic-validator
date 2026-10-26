@@ -21,19 +21,19 @@ const pathKeyedSemanticBridge = {
       semanticFamily: 'build-surface',
     },
     {
-      path: 'src/features/build/build-surface.results.ts',
+      path: 'src/shared/logic/build-surface.results.ts',
       semanticName: 'build-surface',
       familyRoot: 'build',
       semanticFamily: 'build-surface',
     },
     {
-      path: 'src/features/build/build-surface.knowledge.ts',
+      path: 'src/shared/logic/build-surface.knowledge.ts',
       semanticName: 'build-surface',
       familyRoot: 'build',
       semanticFamily: 'build-surface',
     },
     {
-      path: 'src/features/build/build-surface.build.tsx',
+      path: 'src/shared/logic/build-surface.build.tsx',
       semanticName: 'build-surface',
       familyRoot: 'build',
       semanticFamily: 'build-surface',
@@ -84,7 +84,8 @@ test('sibling occurrence bridge payload does not change current path-keyed seman
     namingOccurrenceBridge: occurrenceBridge,
   });
 
-  assert.deepEqual(withoutOccurrenceBridge, ['TREE_FAMILY_SCATTERED']);
+  // A shared-root lane layout: the bridge's own outcome (Stage 2B-i moved TREE_FAMILY_SCATTERED out of the bridge).
+  assert.deepEqual(withoutOccurrenceBridge, ['TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES']);
   assert.deepEqual(withOccurrenceBridge, withoutOccurrenceBridge);
 });
 
@@ -126,7 +127,7 @@ test('Tree does not derive naming semantic-family findings from occurrence bridg
 test('Tree does not derive semantic-family interpretation from filenames when bridge evidence is missing', () => {
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
-      { path: 'src/features/build/build-surface.logic.ts' },
+      { path: 'src/shared/logic/build-surface.logic.ts' },
       { path: 'src/shared/build/build-surface.results.ts' },
       { path: 'src/tools/build/build-surface.knowledge.ts' },
     ],

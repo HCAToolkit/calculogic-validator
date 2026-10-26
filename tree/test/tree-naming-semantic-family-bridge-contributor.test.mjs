@@ -32,19 +32,19 @@ test('tree naming bridge contributor consumes naming-owned semantic-family evide
         semanticFamily: 'build-surface',
       },
       {
-        path: 'src/features/build/build-surface.results.ts',
+        path: 'src/shared/logic/build-surface.results.ts',
         semanticName: 'build-surface',
         familyRoot: 'build',
         semanticFamily: 'build-surface',
       },
       {
-        path: 'src/features/build/build-surface.knowledge.ts',
+        path: 'src/shared/logic/build-surface.knowledge.ts',
         semanticName: 'build-surface',
         familyRoot: 'build',
         semanticFamily: 'build-surface',
       },
       {
-        path: 'src/features/build/build-surface.build.tsx',
+        path: 'src/shared/logic/build-surface.build.tsx',
         semanticName: 'build-surface',
         familyRoot: 'build',
         semanticFamily: 'build-surface',
@@ -54,7 +54,7 @@ test('tree naming bridge contributor consumes naming-owned semantic-family evide
 
   assert.deepEqual(
     findings.map((finding) => finding.code).sort((left, right) => left.localeCompare(right)),
-    ['TREE_FAMILY_SCATTERED'],
+    ['TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES'],
   );
 });
 
@@ -76,7 +76,7 @@ test('tree naming bridge contributor drops incomplete observations instead of re
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
-        path: 'src/features/build/build-surface.logic.ts',
+        path: 'src/shared/logic/build-surface.logic.ts',
         semanticName: 'build-surface',
         familyRoot: 'build',
       },
@@ -327,19 +327,19 @@ test('tree runtime keeps naming bridge contributor output deterministic for iden
   const namingBridgePayload = {
     observations: [
       {
-        path: 'src/a/build-surface.logic.ts',
+        path: 'src/shared/build/build-surface.logic.ts',
         semanticName: 'build-surface',
         familyRoot: 'build',
         semanticFamily: 'build-surface',
       },
       {
-        path: 'src/c/build-surface.knowledge.ts',
+        path: 'src/shared/knowledge/build-surface.knowledge.ts',
         semanticName: 'build-surface',
         familyRoot: 'build',
         semanticFamily: 'build-surface',
       },
       {
-        path: 'src/b/build-surface.results.ts',
+        path: 'src/shared/logic/build-surface.results.ts',
         semanticName: 'build-surface',
         familyRoot: 'build',
         semanticFamily: 'build-surface',
@@ -355,7 +355,7 @@ test('tree runtime keeps naming bridge contributor output deterministic for iden
 
   assert.deepEqual(first.findings, second.findings);
   assert.equal(first.findings.length, 1);
-  assert.equal(first.findings[0].code, 'TREE_FAMILY_SCATTERED');
+  assert.equal(first.findings[0].code, 'TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES');
 });
 
 test('tree naming bridge contributor excludes ambiguity-flagged observations from stronger family advisories', () => {
@@ -733,17 +733,15 @@ test('tree naming bridge contributor applies the docs/runtime pairing under the 
   assert.deepEqual(scatterFindingsOf(findings), []);
 });
 
-test('tree naming bridge contributor gives installed consumers no Validator docs/runtime pairing allowance', () => {
-  // Positive anchor: the same family scatters without a validator development root, in either layout,
-  // and the scatter finding reports that no pairing pattern applied.
-  for (const paths of [
-    DOCS_RUNTIME_PAIRING_RELATIVE_PATHS,
-    DOCS_RUNTIME_PAIRING_RELATIVE_PATHS.map((relativePath) => `${EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT}/${relativePath}`),
+test('tree naming bridge contributor emits no scatter for docs/runtime layouts in any development context (Stage 2B-i)', () => {
+  // Stage 2B-i (S2.12): the pairing now governs the Semantic Home scatter contributor (B2), whose
+  // tests cover installed consumers; the bridge emits no TREE_FAMILY_SCATTERED in any layout.
+  for (const [paths, validatorDevelopmentRoot] of [
+    [DOCS_RUNTIME_PAIRING_RELATIVE_PATHS, null],
+    [DOCS_RUNTIME_PAIRING_RELATIVE_PATHS.map((relativePath) => `${EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT}/${relativePath}`), null],
+    [DOCS_RUNTIME_PAIRING_RELATIVE_PATHS.map((relativePath) => `${EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT}/${relativePath}`), '.'],
   ]) {
-    const scatter = scatterFindingsOf(collectNamingSemanticFamilyBridgeFindings(toTreeRouterBridgePayload(paths)));
-
-    assert.equal(scatter.length, 1, paths[0]);
-    assert.equal(scatter[0].details.allowedCrossContainerPatterns.canonicalDocAuthorityRuntimePairing, null);
+    assert.deepEqual(scatterFindingsOf(collectNamingSemanticFamilyBridgeFindings(toTreeRouterBridgePayload(paths), { validatorDevelopmentRoot })), []);
   }
 });
 
@@ -754,19 +752,10 @@ test('tree naming bridge contributor reports the resolved docs/runtime pairing p
     'calculogic-validator/doc/** <-> calculogic-validator/<semantic-container>/**',
   );
   assert.equal(prepareNamingBridgeValidatorDevelopmentContext(null).canonicalDocAuthorityRuntimePairingPattern, null);
-
-  // A layout that does not match the prepared root gets no allowance: embedded paths under a
-  // standalone root still scatter, and the finding reports the standalone pattern it checked.
-  const scatter = scatterFindingsOf(
-    collectNamingSemanticFamilyBridgeFindings(
-      toTreeRouterBridgePayload(
-        DOCS_RUNTIME_PAIRING_RELATIVE_PATHS.map((relativePath) => `${EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT}/${relativePath}`),
-      ),
-      { validatorDevelopmentRoot: '.' },
-    ),
-  );
-  assert.equal(scatter.length, 1);
-  assert.equal(scatter[0].details.allowedCrossContainerPatterns.canonicalDocAuthorityRuntimePairing, 'doc/** <-> <semantic-container>/**');
+  // The docs-authority root the Stage 2B-i pairing rule (S2.12 B2) reads.
+  assert.equal(prepareNamingBridgeValidatorDevelopmentContext('.').docAuthorityRootPrefix, 'doc/');
+  assert.equal(EMBEDDED_BRIDGE_CONTEXT.docAuthorityRootPrefix, 'calculogic-validator/doc/');
+  assert.equal(prepareNamingBridgeValidatorDevelopmentContext(null).docAuthorityRootPrefix, null);
 });
 
 test('tree naming bridge structural root surfaces are Tree-owned and not derived from repo-shape allowance', () => {
@@ -822,7 +811,7 @@ test('tree naming bridge contributor keeps cross-concern but explainable spread 
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
 });
 
-test('tree naming bridge contributor still emits broad scatter for unrelated cross-container spread', () => {
+test('tree naming bridge contributor no longer emits scatter for unrelated cross-container spread (Stage 2B-i)', () => {
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
@@ -846,9 +835,7 @@ test('tree naming bridge contributor still emits broad scatter for unrelated cro
     ],
   });
 
-  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), true);
-  const scatterFinding = findings.find((finding) => finding.code === 'TREE_FAMILY_SCATTERED');
-  assert.equal(scatterFinding.details.broaderSpreadInterpretation.classification, 'unresolved-broader-spread');
+  assert.deepEqual(findings, []);
 });
 
 test('tree naming bridge contributor keeps locally aligned family observations in local-first lanes before broad scatter', () => {
@@ -954,7 +941,10 @@ test('tree naming bridge contributor keeps local-subgroup-first families out of 
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), true);
 });
 
-test('tree naming bridge contributor keeps divergent local placement eligible for broad scatter', () => {
+// Stage 2B-i (Tree spec S2.12): the bridge no longer decides TREE_FAMILY_SCATTERED, so a family that
+// used to reach broad scatter now yields no bridge finding; the Semantic Home scatter contributor
+// decides it from placement instead (tree-semantic-home-scatter-contributor.test.mjs).
+test('tree naming bridge contributor no longer emits scatter for divergent local placement (Stage 2B-i)', () => {
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
@@ -977,15 +967,10 @@ test('tree naming bridge contributor keeps divergent local placement eligible fo
       },
     ],
   });
-  const scatterFinding = findings.find((finding) => finding.code === 'TREE_FAMILY_SCATTERED');
-  assert.equal(Boolean(scatterFinding), true);
-  assert.equal(
-    scatterFinding.details.localFirstInterpretation.classification,
-    'local-divergence-needs-broader-review',
-  );
+  assert.deepEqual(findings, []);
 });
 
-test('tree naming bridge contributor keeps no-local-semantic-explanation families eligible for broad scatter', () => {
+test('tree naming bridge contributor no longer emits scatter for no-local-semantic-explanation families (Stage 2B-i)', () => {
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
@@ -1008,16 +993,10 @@ test('tree naming bridge contributor keeps no-local-semantic-explanation familie
       },
     ],
   });
-  const scatterFinding = findings.find((finding) => finding.code === 'TREE_FAMILY_SCATTERED');
-  assert.equal(Boolean(scatterFinding), true);
-  assert.equal(
-    scatterFinding.details.localFirstInterpretation.classification,
-    'no-local-semantic-explanation',
-  );
-  assert.equal(scatterFinding.details.broaderSpreadInterpretation.classification, 'unresolved-broader-spread');
+  assert.deepEqual(findings, []);
 });
 
-test('tree naming bridge contributor keeps broader-spread interpretation deterministic for identical unresolved inputs', () => {
+test('tree naming bridge contributor stays deterministic for identical unresolved inputs, with no scatter (Stage 2B-i)', () => {
   const payload = {
     observations: [
       {
@@ -1042,13 +1021,9 @@ test('tree naming bridge contributor keeps broader-spread interpretation determi
   };
   const first = collectNamingSemanticFamilyBridgeFindings(payload);
   const second = collectNamingSemanticFamilyBridgeFindings(payload);
-  const firstScatter = first.find((finding) => finding.code === 'TREE_FAMILY_SCATTERED');
-  const secondScatter = second.find((finding) => finding.code === 'TREE_FAMILY_SCATTERED');
 
-  assert.deepEqual(
-    firstScatter.details.broaderSpreadInterpretation,
-    secondScatter.details.broaderSpreadInterpretation,
-  );
+  assert.deepEqual(first, second);
+  assert.equal(first.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
 });
 
 
@@ -1183,7 +1158,8 @@ test('tree naming bridge contributor can emit distinct cluster observations acro
 
   const clusterFindings = findings.filter((finding) => finding.code === 'TREE_OBSERVED_FAMILY_CLUSTER');
   assert.equal(clusterFindings.length, 0);
-  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), true);
+  // Stage 2B-i (S2.12): scatter is no longer a bridge outcome.
+  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
 });
 
 test('tree naming bridge contributor emits subgroup opportunity for dense lower-level family inside one semantic container', () => {
@@ -1256,7 +1232,7 @@ test('tree naming bridge contributor does not emit subgroup opportunity for ordi
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), false);
 });
 
-test('tree naming bridge contributor keeps broad cross-container spread as TREE_FAMILY_SCATTERED instead of subgroup opportunity', () => {
+test('tree naming bridge contributor keeps broad cross-container spread out of subgroup opportunity, with no bridge scatter (Stage 2B-i)', () => {
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
@@ -1283,7 +1259,8 @@ test('tree naming bridge contributor keeps broad cross-container spread as TREE_
     ],
   });
 
-  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), true);
+  // Stage 2B-i (S2.12): broad spread is no longer a bridge scatter outcome, and it is still not a subgroup opportunity.
+  assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
   assert.equal(findings.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), false);
 });
 
@@ -1474,14 +1451,9 @@ test('tree naming bridge contributor keeps local-first routing deterministic whe
 
   assert.deepEqual(first, second);
   assert.equal(first.length, 0);
-  const firstScatter = collectNamingSemanticFamilyBridgeFindings(payload)
-    .filter((finding) => finding.code === 'TREE_FAMILY_SCATTERED')
-    .map((finding) => finding.path);
-  const secondScatter = collectNamingSemanticFamilyBridgeFindings(payload)
-    .filter((finding) => finding.code === 'TREE_FAMILY_SCATTERED')
-    .map((finding) => finding.path);
-  assert.deepEqual(firstScatter, secondScatter);
-  assert.equal(firstScatter.length, 1);
+  // Stage 2B-i (S2.12): the whole bridge output is deterministic, and scatter is no longer part of it.
+  assert.deepEqual(collectNamingSemanticFamilyBridgeFindings(payload), collectNamingSemanticFamilyBridgeFindings(payload));
+  assert.equal(collectNamingSemanticFamilyBridgeFindings(payload).some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
 });
 
 test('tree naming bridge contributor keeps current path-keyed join and ignores occurrence bridge sibling payload', () => {
@@ -1494,19 +1466,19 @@ test('tree naming bridge contributor keeps current path-keyed join and ignores o
         semanticFamily: 'build-surface',
       },
       {
-        path: 'src/features/build/build-surface.results.ts',
+        path: 'src/shared/logic/build-surface.results.ts',
         semanticName: 'build-surface',
         familyRoot: 'build',
         semanticFamily: 'build-surface',
       },
       {
-        path: 'src/features/build/build-surface.knowledge.ts',
+        path: 'src/shared/logic/build-surface.knowledge.ts',
         semanticName: 'build-surface',
         familyRoot: 'build',
         semanticFamily: 'build-surface',
       },
       {
-        path: 'src/features/build/build-surface.build.tsx',
+        path: 'src/shared/logic/build-surface.build.tsx',
         semanticName: 'build-surface',
         familyRoot: 'build',
         semanticFamily: 'build-surface',
@@ -1533,7 +1505,7 @@ test('tree naming bridge contributor keeps current path-keyed join and ignores o
 
   assert.deepEqual(
     findings.map((finding) => finding.code).sort((left, right) => left.localeCompare(right)),
-    ['TREE_FAMILY_SCATTERED'],
+    ['TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES'],
   );
   assert.equal(
     findings.some((finding) => JSON.stringify(finding).includes('address-keyed-only')),
@@ -1630,19 +1602,19 @@ const pathKeyedFallbackBridge = {
       semanticFamily: 'path-keyed',
     },
     {
-      path: 'src/features/build/path-keyed.results.ts',
+      path: 'src/shared/logic/path-keyed.results.ts',
       semanticName: 'path-keyed',
       familyRoot: 'path',
       semanticFamily: 'path-keyed',
     },
     {
-      path: 'src/features/build/path-keyed.knowledge.ts',
+      path: 'src/shared/logic/path-keyed.knowledge.ts',
       semanticName: 'path-keyed',
       familyRoot: 'path',
       semanticFamily: 'path-keyed',
     },
     {
-      path: 'src/features/build/path-keyed.build.tsx',
+      path: 'src/shared/logic/path-keyed.build.tsx',
       semanticName: 'path-keyed',
       familyRoot: 'path',
       semanticFamily: 'path-keyed',
@@ -1660,21 +1632,21 @@ const addressKeyedScatterEvidence = cleanAddressJoinEvidence([
   }),
   addressJoinEntry({
     occurrenceAddress: 'A.2',
-    path: 'src/features/build/address-keyed.results.ts',
+    path: 'src/shared/logic/address-keyed.results.ts',
     semanticName: 'address-keyed',
     familyRoot: 'address',
     semanticFamily: 'address-keyed',
   }),
   addressJoinEntry({
     occurrenceAddress: 'A.3',
-    path: 'src/features/build/address-keyed.knowledge.ts',
+    path: 'src/shared/logic/address-keyed.knowledge.ts',
     semanticName: 'address-keyed',
     familyRoot: 'address',
     semanticFamily: 'address-keyed',
   }),
   addressJoinEntry({
     occurrenceAddress: 'A.4',
-    path: 'src/features/build/address-keyed.build.tsx',
+    path: 'src/shared/logic/address-keyed.build.tsx',
     semanticName: 'address-keyed',
     familyRoot: 'address',
     semanticFamily: 'address-keyed',
@@ -1784,21 +1756,21 @@ test('tree naming bridge contributor distinguishes duplicate same-family occurre
       }),
       addressJoinEntry({
         occurrenceAddress: 'A.2',
-        path: 'src/features/build/duplicate-family.results.ts',
+        path: 'src/shared/logic/duplicate-family.results.ts',
         semanticName: 'duplicate-family',
         familyRoot: 'duplicate',
         semanticFamily: 'duplicate-family',
       }),
       addressJoinEntry({
         occurrenceAddress: 'A.3',
-        path: 'src/features/build/duplicate-family.knowledge.ts',
+        path: 'src/shared/logic/duplicate-family.knowledge.ts',
         semanticName: 'duplicate-family',
         familyRoot: 'duplicate',
         semanticFamily: 'duplicate-family',
       }),
       addressJoinEntry({
         occurrenceAddress: 'A.4',
-        path: 'src/features/build/duplicate-family.build.tsx',
+        path: 'src/shared/logic/duplicate-family.build.tsx',
         semanticName: 'duplicate-family',
         familyRoot: 'duplicate',
         semanticFamily: 'duplicate-family',
@@ -1808,10 +1780,10 @@ test('tree naming bridge contributor distinguishes duplicate same-family occurre
 
   assert.deepEqual(findingFamilies(findings), ['duplicate-family']);
   assert.deepEqual(findings[0].details.observedPaths, [
-    'src/features/build/duplicate-family.build.tsx',
-    'src/features/build/duplicate-family.knowledge.ts',
-    'src/features/build/duplicate-family.results.ts',
     'src/shared/build/duplicate-family.logic.ts',
+    'src/shared/logic/duplicate-family.build.tsx',
+    'src/shared/logic/duplicate-family.knowledge.ts',
+    'src/shared/logic/duplicate-family.results.ts',
   ]);
 });
 
@@ -1829,21 +1801,21 @@ test('tree naming bridge contributor carries prepared occurrence-local evidence 
       }),
       addressJoinEntry({
         occurrenceAddress: 'A.2',
-        path: 'src/features/build/qualified-family.results.ts',
+        path: 'src/shared/logic/qualified-family.results.ts',
         semanticName: 'qualified-family',
         familyRoot: 'qualified',
         semanticFamily: 'qualified-family',
       }),
       addressJoinEntry({
         occurrenceAddress: 'A.3',
-        path: 'src/features/build/qualified-family.knowledge.ts',
+        path: 'src/shared/logic/qualified-family.knowledge.ts',
         semanticName: 'qualified-family',
         familyRoot: 'qualified',
         semanticFamily: 'qualified-family',
       }),
       addressJoinEntry({
         occurrenceAddress: 'A.4',
-        path: 'src/features/build/qualified-family.build.tsx',
+        path: 'src/shared/logic/qualified-family.build.tsx',
         semanticName: 'qualified-family',
         familyRoot: 'qualified',
         semanticFamily: 'qualified-family',
@@ -1863,17 +1835,17 @@ test('tree naming bridge contributor carries prepared occurrence-local evidence 
       }),
       addressJoinEntryWithPreparedEvidence({
         occurrenceAddress: 'A.2',
-        path: 'src/features/build/qualified-family.results.ts',
+        path: 'src/shared/logic/qualified-family.results.ts',
         occurrenceOrderIndex: 2,
       }),
       addressJoinEntryWithPreparedEvidence({
         occurrenceAddress: 'A.3',
-        path: 'src/features/build/qualified-family.knowledge.ts',
+        path: 'src/shared/logic/qualified-family.knowledge.ts',
         occurrenceOrderIndex: 3,
       }),
       addressJoinEntryWithPreparedEvidence({
         occurrenceAddress: 'A.4',
-        path: 'src/features/build/qualified-family.build.tsx',
+        path: 'src/shared/logic/qualified-family.build.tsx',
         occurrenceOrderIndex: 4,
       }),
     ]),
@@ -1914,7 +1886,7 @@ test('tree naming bridge contributor derives each descriptive qualification labe
       }),
       addressJoinEntryWithPreparedEvidence({
         occurrenceAddress: 'A.2',
-        path: 'src/features/build/qualification-family.results.ts',
+        path: 'src/shared/logic/qualification-family.results.ts',
         semanticName: 'qualification-family',
         familyRoot: 'qualification',
         semanticFamily: 'qualification-family',
@@ -1922,7 +1894,7 @@ test('tree naming bridge contributor derives each descriptive qualification labe
       }),
       addressJoinEntryWithPreparedEvidence({
         occurrenceAddress: 'A.3',
-        path: 'src/features/build/qualification-family.knowledge.ts',
+        path: 'src/shared/logic/qualification-family.knowledge.ts',
         semanticName: 'qualification-family',
         familyRoot: 'qualification',
         semanticFamily: 'qualification-family',
@@ -1930,7 +1902,7 @@ test('tree naming bridge contributor derives each descriptive qualification labe
       }),
       addressJoinEntryWithPreparedEvidence({
         occurrenceAddress: 'A.4',
-        path: 'src/features/build/qualification-family.build.tsx',
+        path: 'src/shared/logic/qualification-family.build.tsx',
         semanticName: 'qualification-family',
         familyRoot: 'qualification',
         semanticFamily: 'qualification-family',
@@ -1964,7 +1936,7 @@ test('tree naming bridge contributor keeps same-family occurrence metadata isola
       }),
       addressJoinEntryWithPreparedEvidence({
         occurrenceAddress: 'A.2',
-        path: 'src/features/build/isolated-family.results.ts',
+        path: 'src/shared/logic/isolated-family.results.ts',
         semanticName: 'isolated-family',
         familyRoot: 'isolated',
         semanticFamily: 'isolated-family',
@@ -1972,14 +1944,14 @@ test('tree naming bridge contributor keeps same-family occurrence metadata isola
       }),
       addressJoinEntryWithPreparedEvidence({
         occurrenceAddress: 'A.3',
-        path: 'src/features/build/isolated-family.knowledge.ts',
+        path: 'src/shared/logic/isolated-family.knowledge.ts',
         semanticName: 'isolated-family',
         familyRoot: 'isolated',
         semanticFamily: 'isolated-family',
       }),
       addressJoinEntryWithPreparedEvidence({
         occurrenceAddress: 'A.4',
-        path: 'src/features/build/isolated-family.build.tsx',
+        path: 'src/shared/logic/isolated-family.build.tsx',
         semanticName: 'isolated-family',
         familyRoot: 'isolated',
         semanticFamily: 'isolated-family',

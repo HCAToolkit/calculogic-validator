@@ -112,8 +112,19 @@ const normalized = (report) => {
     ...rest,
     registryProvenance: withoutSources(registryProvenance),
     validators: report.validators.map((entry) => {
-      const { registry, registrySet: entrySet, registryProvenance: entryProvenance, ...meta } = entry.meta ?? {};
-      return { ...entry, meta: { ...meta, registryProvenance: withoutSources(entryProvenance ?? {}) } };
+      const { registry, registrySet: entrySet, registryProvenance: entryProvenance, semanticHomeReasoning, ...meta } = entry.meta ?? {};
+      // Tree's Stage 2 summary (S2.12 B6) carries the same source difference as the provenance above.
+      const reasoningWithoutSource = semanticHomeReasoning?.registry
+        ? { ...semanticHomeReasoning, registry: { ...semanticHomeReasoning.registry, source: undefined } }
+        : semanticHomeReasoning;
+      return {
+        ...entry,
+        meta: {
+          ...meta,
+          registryProvenance: withoutSources(entryProvenance ?? {}),
+          ...(semanticHomeReasoning ? { semanticHomeReasoning: reasoningWithoutSource } : {}),
+        },
+      };
     }),
   };
 };

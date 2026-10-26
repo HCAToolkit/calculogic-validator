@@ -88,12 +88,13 @@ test('runner stages naming-owned bridge evidence before tree in tree-only runs',
   const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'validator-runner-tree-bridge-'));
 
   try {
+    // Stage 2B-i (Tree spec S2.12): `src/build` is an eligible Semantic Home built from the staged Naming
+    // evidence, and the `build` file in `src/a` sits outside it, so TREE_FAMILY_SCATTERED proves the staging.
     await fs.mkdir(path.join(fixtureRoot, 'src', 'a'), { recursive: true });
-    await fs.mkdir(path.join(fixtureRoot, 'src', 'b'), { recursive: true });
-    await fs.mkdir(path.join(fixtureRoot, 'src', 'c'), { recursive: true });
+    await fs.mkdir(path.join(fixtureRoot, 'src', 'build'), { recursive: true });
     await fs.writeFile(path.join(fixtureRoot, 'src', 'a', 'build-surface.logic.ts'), 'export {};\n', 'utf8');
-    await fs.writeFile(path.join(fixtureRoot, 'src', 'b', 'build-surface.results.ts'), 'export {};\n', 'utf8');
-    await fs.writeFile(path.join(fixtureRoot, 'src', 'c', 'build-surface.knowledge.ts'), 'export {};\n', 'utf8');
+    await fs.writeFile(path.join(fixtureRoot, 'src', 'build', 'build-surface.results.ts'), 'export {};\n', 'utf8');
+    await fs.writeFile(path.join(fixtureRoot, 'src', 'build', 'build-surface.knowledge.ts'), 'export {};\n', 'utf8');
 
     const report = runValidatorRunner(fixtureRoot, {
       validators: ['tree-structure-advisor'],

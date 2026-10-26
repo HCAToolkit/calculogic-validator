@@ -2546,7 +2546,8 @@ test('tree-structure-advisor wiring composes shim contributor with lazy staged c
     const prepared = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo' });
 
     assert.equal(Array.isArray(prepared.findingContributors), true);
-    assert.equal(prepared.findingContributors.length, 1);
+    // The shim contributor, then the Semantic Home scatter contributor (Stage 2B-i), which needs no staged Naming input.
+    assert.equal(prepared.findingContributors.length, 2);
 
     const shimFindingsFirst = prepared.findingContributors[0](prepared);
     assert.deepEqual(
@@ -2579,9 +2580,9 @@ const createCleanPreparedAddressKeyedJoinEvidence = (semanticFamily) => ({
   skippedJoins: [],
   joinedEvidence: [
     ['A.1', 'src/shared/build'],
-    ['A.2', 'src/features/build'],
-    ['A.3', 'src/features/build'],
-    ['A.4', 'src/features/build'],
+    ['A.2', 'src/shared/logic'],
+    ['A.3', 'src/shared/logic'],
+    ['A.4', 'src/shared/logic'],
   ].map(([occurrenceAddress, directoryPath], index) => ({
     evidenceType: 'tree-prepared-naming-occurrence-address-join',
     identityTuple: {
@@ -2606,9 +2607,9 @@ const createCleanPreparedAddressKeyedJoinEvidence = (semanticFamily) => ({
 const createPathKeyedFamilyBridge = (semanticFamily) => ({
   observations: [
     `src/shared/build/${semanticFamily}.logic.ts`,
-    `src/features/build/${semanticFamily}.results.ts`,
-    `src/features/build/${semanticFamily}.knowledge.ts`,
-    `src/features/build/${semanticFamily}.build.tsx`,
+    `src/shared/logic/${semanticFamily}.results.ts`,
+    `src/shared/logic/${semanticFamily}.knowledge.ts`,
+    `src/shared/logic/${semanticFamily}.build.tsx`,
   ].map((pathValue) => ({
     path: pathValue,
     semanticName: semanticFamily,
@@ -2617,9 +2618,11 @@ const createPathKeyedFamilyBridge = (semanticFamily) => ({
   })),
 });
 
+// The selected bridge payload shows in the bridge's own shared-root lane outcome (Stage 2B-i moved
+// TREE_FAMILY_SCATTERED out of the bridge).
 const scatteredFamilyFindings = (result) =>
   result.findings
-    .filter((finding) => finding.code === 'TREE_FAMILY_SCATTERED')
+    .filter((finding) => finding.code === 'TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES')
     .map((finding) => finding.details.semanticFamily)
     .sort((left, right) => left.localeCompare(right));
 

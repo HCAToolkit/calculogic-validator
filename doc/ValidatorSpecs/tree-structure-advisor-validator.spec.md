@@ -374,7 +374,7 @@ Stage 1B is delivered in two slices (calculogic-validator#97, D7):
 - **Stage 1B-i** (current implementation reality): the prepared-evidence entry `treeFolderFactEvidence` (`tree/src/tree-folder-fact-evidence.logic.mjs`). It holds `availability` (the Stage 1A record itself, not a copy), `occurrenceFacts` (one record per addressed occurrence: `folderLabel` and `bridgeObservation` for folders; `semanticIdentity`, `tokens` and `roleFacts` for files) and `compositionObservations` (one per addressed folder, direct members only). The S1.3 comparison rule and the S1.8 subtree view are exported functions over this record, not stored values. It holds no candidate, comparison, relationship or facet.
 - **Stage 1B-ii** (current implementation reality): `treeFolderSemanticEvidence` (S1.9), built by `tree/src/tree-folder-candidates.logic.mjs` (S1.4) and `tree/src/tree-folder-semantic-evidence.logic.mjs` (S1.5–S1.7, S1.9). It holds the Stage 1A availability and diagnostics and the Stage 1B-i composition observations by reference, reads fact states from the Stage 1B-i record, evaluates every comparison with its comparison rule, and reads a Naming field value only when the matching fact says it is usable. It never builds a second fact or composition model.
 
-### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102. Stage 2A (candidate reasoning, placement and the conformance binding) is implemented as prepared evidence that nothing reads. The S2.10 values are Builtin registry data (`semantic-home-policy` version 2), loaded as `treeSemanticHomeParameterSet`. No finding changes)
+### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102. Stage 2A (candidate reasoning, placement and the conformance binding) is implemented as prepared evidence. Stage 2B-i makes `TREE_FAMILY_SCATTERED` its first reader; every other finding is unchanged. The S2.10 values are Builtin registry data (`semantic-home-policy` version 2), loaded as `treeSemanticHomeParameterSet`)
 
 This section is the contract for Tree Stage 2 of folder-level Semantic Home development (tracking: calculogic-validator#85; scoping and approved directions F1–F6: calculogic-validator#102). It defines how Tree moves from the Stage 1 evidence (S1.1–S1.11) to three kinds of decision:
 
@@ -729,9 +729,9 @@ Stage 2 adds one Tree-owned prepared-evidence record, `treeFolderSemanticHomeRea
 
 When `status` is `configuration-unavailable` or `not-prepared`, Stage 2 did not run: there are no candidate outcomes, member attributions or placements, not even `undetermined` ones. An absent configuration is never read as evidence about any folder or file.
 
-**Stage 2A record (current implementation reality).** `tree/src/tree-folder-semantic-home-reasoning.logic.mjs` prepares the full record: `status`, `parameterSet` and `semanticEvidenceSource` (both by reference), `candidateOutcomes`, `memberAttributions` (2A-i), and `placements`, `candidateDiscovery` and `scope` (2A-ii, `tree/src/tree-semantic-home-placement.logic.mjs`). Nothing reads the record, and it is not part of the report payload.
+**Stage 2A record (current implementation reality).** `tree/src/tree-folder-semantic-home-reasoning.logic.mjs` prepares the full record: `status`, `parameterSet` and `semanticEvidenceSource` (both by reference), `candidateOutcomes`, `memberAttributions` (2A-i), and `placements`, `candidateDiscovery` and `scope` (2A-ii, `tree/src/tree-semantic-home-placement.logic.mjs`). Its only reader is the `TREE_FAMILY_SCATTERED` contributor (Stage 2B-i, S2.12), which reads `placements`; the record itself is not part of the report payload.
 
-**The parameter set, `treeSemanticHomeParameterSet`.** A Tree loader prepares it, before and separately from reasoning, as a frozen prepared dependency. It is not part of the report payload.
+**The parameter set, `treeSemanticHomeParameterSet`.** A Tree loader prepares it, before and separately from reasoning, as a frozen prepared dependency. It is not part of the report payload; the Tree entry's `meta.semanticHomeReasoning` reports its status, conformance and registry provenance (S2.12, B6).
 
 **What the loader reads:**
 - the run's resolved Tree registry root, and nothing else: it never searches Builtin or Custom directories itself;
@@ -978,26 +978,46 @@ Totals: 3 eligible, 16 undetermined and 19 not-eligible at `repo` scope; 1, 4 an
 
 #### S2.12 Findings decisions (Q6), proposed per code
 
-Each code is decided individually. These are proposals. Changing any finding's code, severity, counts, report payload or exit behavior needs explicit approval for that code in its own Stage 2B pull request. That pull request carries before/after tables at `repo`, `validator` and `app` scope and the catalogue cases it relies on. All four codes are currently `info` and come from `tree/src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs`. None of the proposals changes severity.
+Each code is decided individually. These are proposals until their 2B slice is implemented. Changing any finding's code, severity, counts, report payload or exit behavior needs explicit approval for that code in its own Stage 2B pull request. That pull request carries before/after tables at `repo`, `validator` and `app` scope and the catalogue cases it relies on. All four codes are currently `info` and come from `tree/src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs`. None of the proposals changes severity.
 
-**`TREE_FAMILY_SCATTERED`: change (proposed first 2B slice).**
-- **Today:** a semantic family is scattered when its files span at least `FAMILY_SCATTER_MIN_STRUCTURAL_HOMES = 2` structural homes and at least `FAMILY_SCATTER_MIN_FILES = 3` files, after the local-first and broader-spread layers. There is no folder-level home model, and the thresholds are literals with no recorded rationale.
-- **Proposed basis:** files whose placement is `home-elsewhere` (S2.8), grouped by the eligible home or homes they belong to.
-  - `inside-home`, `no-home` and `undetermined` never emit. A family with no eligible home is not "scattered from" anything: it has no home to be scattered from.
-  - The structural-home count is replaced by placement.
-- **Decisions the 2B slice must still take, each with evidence:**
-  - whether a minimum number of `home-elsewhere` files applies (a parameter under S2.10);
-  - whether the existing allowed cross-container pairings, such as canonical docs with aligned owned runtime, exempt `home-elsewhere` documentation files.
-- **Projected effect at `repo` scope (9cd27d9), under the selected values and E2,** computed from Stage 1 evidence:
+**`TREE_FAMILY_SCATTERED`: changed in Stage 2B-i (implemented; calculogic-validator#102, B1–B8).**
+- **Before:** a semantic family was scattered when its files spanned at least 2 structural homes and at least 3 files, after the local-first and broader-spread layers. There was no folder-level home model, and the thresholds were literals with no recorded rationale.
+- **Basis:** placement `home-elsewhere` (S2.8), read from `treeFolderSemanticHomeReasoning.placements`. That placement is positive evidence: the file has a semantic observation, no eligible or undetermined candidate on its relevant lineage takes precedence, and at least one `eligible` candidate elsewhere matches it on its governing channel.
+  - `inside-home`, `no-home` and every `undetermined` placement (`home-on-lineage-undetermined`, `home-elsewhere-undetermined`, `candidate-discovery-incomplete`, `no-semantic-observation`) never emit. A file with no eligible home is not "scattered from" anything. Candidate outcomes count only through placement; the emitter never re-reads them.
+  - Family membership alone never emits (RR1, `semanticFamilyAloneDoesNotImplyGrouping`): the unit is the home, not `semanticFamily`.
+  - The finding says that files sit outside a supported home. It is not a misplacement claim (S2.15), and it stays `info`.
+- **B1. Grouping.** A home is the home folder's identity tuple (`addressProfileId`, `addressedSnapshotId`, `occurrenceAddress`), never its display path. Several eligible candidates on one folder are one home; two folders are two homes, even with the same claim. A file's home set is the distinct folders of the eligible candidates in its `elsewhereHomes`. Files with an identical home set form one finding: a file matching homes A and B never shares a finding with a file matching only A. Findings are ordered by their first file's path, then by home set; the finding's `path` is its first file by path.
+- **B2. Documentation pairing (R2).** The existing canonical docs-authority/runtime pairing is kept and restated in Stage 2 evidence. A `home-elsewhere` file f is paired with an eligible home H when:
+  1. f lies under the validator development root's `doc/` (the bridge's `docAuthorityRootPrefix`);
+  2. H lies under the validator development root, outside its `doc/`;
+  3. S, the top-level folder of the validator development root that contains H, equals f's Naming `familyRoot` (the Stage 1 accepted bridge observation): the document names the owned area that holds its home.
 
-  | Current finding (paths) | `inside-home` | `home-elsewhere` | `no-home` | `undetermined` |
-  | --- | --- | --- | --- | --- |
-  | `registry` (28) | 21, at `src/core/registry-lifecycle` | 1 (`scripts/registry-lifecycle.host.mjs`) | 6 (`registry-state`, `registry-entry-shape` and four documents: no candidate's claim matches them) | 0 |
-  | `naming` (18) | 0 | 0 | 0 | 18: `naming` is undetermined, and the `naming-owned` documents sit in a `claim-unresolved` folder |
-  | `validator` (30) | 0 | 0 | 30: no candidate has root `validator`, and discovery is complete | 0 |
-  | `structural` (3) | 0 | 0 | 2 (`structural-homes`, `structural-role-tokens`) | 1: `structural-addressing` is undetermined |
+  f is exempt only when it is paired with every home in its set; otherwise it is reported, and the homes it is paired with are listed in `pairedHomes`. Without a validator development root (installed consumers), nothing is paired. Being in the same development project is not pairing: a document whose root names a different area than its home (for example a suite document matching a home under `src/`) is reported.
+- **B3. No minimum.** One qualifying file emits: each file is individually supported by an eligible home. A minimum would be a new S2.10 parameter with its own catalogue evidence, added by amendment.
+- **B4, B5. Parameter states.** The finding is governed by the S2.9 `status`, never by `conformance`:
 
-  The `validator`, `structural` and `naming` findings would therefore stop, and `registry` would be re-based on 1 file, subject to the two open decisions above. If Naming closes its evidence gaps (S2.10, D3), `naming` and `structural-addressing` may become decidable and this projection must be recomputed.
+  | Parameter set | Reasoning `status` | `TREE_FAMILY_SCATTERED` |
+  | --- | --- | --- |
+  | `available`, `conformance: passed` | `evaluated` | emits from placements |
+  | `available`, `conformance: not-checked` | `evaluated` | emits from placements; conformance is reported in `meta` |
+  | `configuration-unavailable` | not evaluated | emits nothing; `meta` says why; no fallback |
+  | `not-prepared` | not evaluated | emits nothing; `meta` says why; no fallback |
+
+  Unavailable reasoning is no evidence, never negative evidence. Codes not yet migrated, and all other Tree findings, are unaffected.
+- **B6. Report metadata.** The Tree validator entry carries `meta.semanticHomeReasoning` on every run that prepared Stage 2: `{ status, reason?, conformance, conformanceBinding?, registry?, governedCodes }`. `reason` is the parameter set's reason when Stage 2 was not evaluated. `registry` is `{ registryId, version, source, digest }` only when a registry was read; its absence never stands for Builtin. `governedCodes` lists the codes that depend on Stage 2A (`['TREE_FAMILY_SCATTERED']`).
+- **B7. Details.** `{ basis: 'semantic-home-placement', homes, files, fileCount }`:
+  - `homes[]`, sorted by `occurrenceAddress`: `{ folder: identityTuple, folderPath, qualifyingCandidates[] }`, each candidate `{ candidateId, governingChannel, claim }`, with `claim` `{ channel: 'root', root }` or `{ channel: 'prefix', tokens }`. Claims stay on their candidates and are never merged into one implied claim.
+  - `files[]`, sorted by `occurrenceAddress`: `{ occurrence: identityTuple, path, matchedCandidates[], pairedHomes?, otherCandidates[], splitFamilyFlags? }`. `matchedCandidates` are exactly the eligible candidates this file matches. `otherCandidates` are the placement's consulted candidates (`candidateId`, `outcome`, `reason`, `relation`, `location`): evidence that did not decide the placement. `splitFamilyFlags` appear when the file's observation carries them (split-family guardrail below).
+  - The family-heuristic details (`semanticFamily`, structural homes, roots, containers and root kinds, `localFirstInterpretation`, `broaderSpreadInterpretation`, `allowedCrossContainerPatterns`, `thresholds`) are retired for this code.
+- **B8. Ownership.** `tree/src/contributors/tree-semantic-home-scatter-contributor.logic.mjs` reads the prepared Stage 2A record, the Stage 1 candidates and accepted bridge observations, and the development-root context. It computes no eligibility, comparison, or structural home. The Naming semantic-family bridge contributor no longer emits this code; it keeps the other three family codes and their shared interpretation spine unchanged.
+- **Effect at `9770ce7`** (`repo` and `validator` scope are identical):
+
+  | Scope | Before | After |
+  | --- | --- | --- |
+  | `repo`, `validator` | 4: `registry` (28 files), `naming` (18), `validator` (30), `structural` (3) | 1: home `src/core/registry-lifecycle`, 2 files (`scripts/registry-lifecycle.host.mjs`, `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`) |
+  | `app` | 1: `validator` (26) | 0 |
+
+  `naming` (all 18 `undetermined`), `validator` (all `no-home`) and `structural` (`no-home` or `undetermined`) stop. The 16 `doc/**/tree-*` documents are `home-elsewhere` relative to the eligible home `tree` and are exempt by pairing (root `tree`, owned area `tree`). Both remaining files also match `naming/test/fixtures/registry-lifecycle`, which is `undetermined`, reported in `otherCandidates`. This supersedes the projection recorded at 9cd27d9, before `tree` became eligible.
 
 **`TREE_OBSERVED_FAMILY_CLUSTER`: change basis later; unchanged until decided.**
 - **Today:** local-density-first; a family confined to one naming-aligned semantic container with at least `FAMILY_CLUSTER_INFO_MIN_FILES = 4` files. 0 emissions at `repo` and `app`.
@@ -1009,10 +1029,10 @@ Each code is decided individually. These are proposals. Changing any finding's c
 - **Proposed:** files `inside-home` at one eligible home. Subgroup evidence stays singular-only, matching Naming's rule that subgroup aggregates need singular evidence, and is reported beside any `narrow` attributions inside that home. An eligible nested home (C16) already represents the subgroup and suppresses the opportunity for its files.
 - **Evidence required:** synthetic cases and justified minimums.
 
-**`TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES`: keep (proposed).**
+**`TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES`: keep (proposed; unchanged by Stage 2B-i).**
 - **Today:** shared-root lane spread from the shared interpretation spine, with `SHARED_ROOT_MIN_DISTINCT_LANE_PARTITIONS = 2` and `SHARED_ROOT_MIN_FAMILY_FILES = 3`. 0 emissions.
 - **Proposed:** it judges spread across structural lanes, which is a different question from semantic home eligibility, so Stage 2 does not re-base it.
-- **The 2B slice that changes `TREE_FAMILY_SCATTERED` must show:**
+- **The 2B slice that changes `TREE_FAMILY_SCATTERED` must show** (Stage 2B-i shows both with a shared-root fixture):
   - that the two codes do not report the same files for the same reason;
   - that no file whose placement is `undetermined` contributes to it.
 
@@ -1056,7 +1076,9 @@ Each step needs its own authorization:
    - **2A-i, candidate reasoning** (done): S2.3–S2.7, the record with `candidateOutcomes` and `memberAttributions`, and the catalogue's candidate outcomes;
    - **2A-ii, placement** (done): S2.8, `placements` and `candidateDiscovery`, the shared Stage 1 comparison operation, and the catalogue's placements;
    - **2A-iii, conformance binding** (done): the RR4 binding of the four values, the catalogue identity and the reasoning implementation, checked by `npm test`, and run-time conformance in the parameter set.
-6. **Stage 2B.** Findings reconciliation, one code per pull request, starting with `TREE_FAMILY_SCATTERED` (S2.12).
+6. **Stage 2B.** Findings reconciliation, one code per pull request (S2.12):
+   - **2B-i, `TREE_FAMILY_SCATTERED`** (done): re-based on `home-elsewhere` placement with B1–B8 and `meta.semanticHomeReasoning`;
+   - the remaining codes, each separately authorized.
 7. **Stage 2C.** The legacy `semanticHome` decision (S2.13).
 
 #### S2.15 Non-goals
@@ -1156,7 +1178,9 @@ Bridge shape (prepared-input contract):
 
 Tree consumes this normalized bridge payload only. Tree runtime must not parse filenames to recreate these fields.
 
-### Family-scatter structural gating (Status: Current runtime behavior, bounded)
+### Family-scatter structural gating (Status: Superseded for `TREE_FAMILY_SCATTERED` by Stage 2B-i, S2.12)
+
+Since Stage 2B-i, `TREE_FAMILY_SCATTERED` is decided from Semantic Home placement (S2.12), not by this gate. The local-first and broader-spread layers below remain the current shared interpretation spine for `TREE_OBSERVED_FAMILY_CLUSTER`, `TREE_FAMILY_SUBGROUP_OPPORTUNITY` and `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES`; the text below records how scatter was gated before.
 
 `TREE_FAMILY_SCATTERED` now applies a bounded tree-owned structural interpretation layer before emitting broader scatter:
 
@@ -1211,13 +1235,13 @@ Escalation intent:
 
 - local-first local lanes remain the shared decision spine for local family outcomes,
 - broader-spread interpretation is only a review layer for families that survive local-first checks,
-- `TREE_FAMILY_SCATTERED` represents unresolved spread after both local and broader interpretation do not sufficiently explain placement.
+- before Stage 2B-i, `TREE_FAMILY_SCATTERED` represented unresolved spread after both local and broader interpretation did not sufficiently explain placement; it is now decided from Semantic Home placement (S2.12).
 
 ### Shared local-first family interpretation spine for family outcomes (Status: Current runtime behavior, bounded)
 
 Classification: Normative
 
-Current family-level tree outcomes now share one bounded local-first interpretation authority (`interpretFamilyLocalFirst`) before emitting family findings.
+Current family-level tree outcomes now share one bounded local-first interpretation authority (`interpretFamilyLocalFirst`) before emitting family findings. Since Stage 2B-i, `TREE_FAMILY_SCATTERED` is not routed by this spine (S2.12); the routing notes for it below record its earlier behavior, and its suppression by the local lanes no longer applies.
 
 The shared local-first interpretation spine routes existing family findings as follows:
 
@@ -1279,7 +1303,7 @@ Current runtime trigger posture:
 
 Boundary note:
 
-- broad cross-container spread remains represented by `TREE_FAMILY_SCATTERED`,
+- files outside an eligible Semantic Home elsewhere are represented by `TREE_FAMILY_SCATTERED` (S2.12),
 - container-local high-count observability remains represented by `TREE_OBSERVED_FAMILY_CLUSTER`,
 - subgroup opportunity is the bounded “between” signal for dense/cohesive lower-level grouping in one semantic container.
 
@@ -1717,7 +1741,7 @@ Each finding uses the same stable envelope shape used by existing validators:
 ### Deferred/planning code candidates (future advisory direction)
 
 - `TREE_OBSERVED_FAMILY_CLUSTER` (`info`) — implemented via naming bridge contributor (bounded thresholded cluster observability, aggregated deterministically at semanticFamily level or semanticFamily-in-container when all family observations are naming-aligned to semantic containers)
-- `TREE_FAMILY_SCATTERED` (`info`) — implemented via naming bridge contributor (bounded family scatter advisory)
+- `TREE_FAMILY_SCATTERED` (`info`) — implemented via the Semantic Home scatter contributor from Stage 2A placement (S2.12, Stage 2B-i)
 - `TREE_LANE_MIX_HIGH_ENTROPY`
 - `TREE_MISSING_NAMESPACE_ROOT`
 - `TREE_SUBSYSTEM_SCAFFOLD_ASYMMETRY`
@@ -1740,7 +1764,7 @@ Deferred candidates above are a documentation menu only. They are not current ru
 - `TREE_VALIDATOR_OWNED_FILE_OUTSIDE_TREE` compares validator-owned basename signals with that prepared contextual root; it does not infer the root from repository-name literals, package-name substrings, `node_modules`, or current working directory. Without a validator development root, this finding is not emitted.
 - `TREE_OWNED_SLICE_BOUNDARY_DRIFT` derives its suite-core root from the same prepared root: `.` resolves to `src/` and `calculogic-validator` to `calculogic-validator/src/`. The suite-core carveouts (`core/`, `compat/`, `registries/`, `index.mjs`, `validator-config.schema.json`) are interpreted relative to that suite-core root. Without a validator development root (installed consumer), this finding is not emitted, so a consumer's own `src/**` is never treated as Validator suite core. The finding's `path`, `message` and `details.suiteCoreRoot` report the resolved suite-core root; its code, severity, classification and threshold are unchanged.
 - Shim diagnostics derive their Validator-development self-exemptions from the same prepared root: the public package entrypoint barrel is `<root>/src/index.mjs` and the shim detector's own implementation modules live under `<root>/tree/src/` (`.` resolves to `src/index.mjs` and `tree/src/`; `calculogic-validator` to the prefixed paths). Without a validator development root (installed consumer), neither self-exemption applies, and all other shim reasoning (thin re-export evidence, compat surfaces, canonical host-to-wiring pass-through, non-runtime weak-signal suppression) runs unchanged.
-- The Naming semantic-family bridge contributor derives its Validator-development context from the same prepared root. The canonical docs-authority/runtime pairing is `<root>/doc/** <-> <root>/<semantic-container>/**` (`.` resolves to `doc/** <-> <semantic-container>/**`), and `TREE_FAMILY_SCATTERED` reports that resolved pattern in `details.allowedCrossContainerPatterns.canonicalDocAuthorityRuntimePairing`. Without a validator development root, the pairing allowance does not apply and that detail is `null`. In embedded development, the explicit root's top-level folder is added to the bridge's structural root surfaces for that run only. The bridge's generic structural root surfaces (`src`, `test`, `doc`, `docs`, `scripts`, `tools`, `bin`, `public`) remain Tree-owned bridge policy and are not derived from the repo-shape policy: a folder allowed at the repository top level (for example one allowed through local-package evidence) is not thereby a bridge structural surface.
+- The Naming semantic-family bridge contributor derives its Validator-development context from the same prepared root. The canonical docs-authority/runtime pairing is `<root>/doc/** <-> <root>/<semantic-container>/**` (`.` resolves to `doc/** <-> <semantic-container>/**`), and `TREE_FAMILY_SCATTERED` applies the same docs-authority root in its Stage 2 pairing rule (S2.12, B2). Without a validator development root, no document is paired. In embedded development, the explicit root's top-level folder is added to the bridge's structural root surfaces for that run only. The bridge's generic structural root surfaces (`src`, `test`, `doc`, `docs`, `scripts`, `tools`, `bin`, `public`) remain Tree-owned bridge policy and are not derived from the repo-shape policy: a folder allowed at the repository top level (for example one allowed through local-package evidence) is not thereby a bridge structural surface.
 - Tree reads every registry a run uses from the run's resolved Tree registry root (#41 registry lifecycle): the package Builtin set, or the consumer's active Custom set. `tree/src/registries/tree-runtime-registries.logic.mjs` loads them once per run and wiring passes them as prepared dependencies (`treeRepoShapePolicy`, `treeSignalPolicy`, the structural-home, folder-kind, relationship, role-token and context-assessment registries) and to the shim diagnostics contributor. The runner entry reports them as `meta.registryProvenance`.
 - Tree wiring prepares an effective repo-shape policy for each run: the Tree-owned repo-shape policy of the resolved set plus two contextual additions, which are facts about this repository rather than generic conventions:
   - in embedded development only, the top-level folder of the explicit validator development root;
@@ -1788,10 +1812,14 @@ Attached shim contributor currently ships during normal tree runs:
 - `TREE_SHIM_SURFACE_PRESENT`
 - `TREE_SHIM_OUTSIDE_COMPAT`
 
+Attached Semantic Home scatter contributor (`tree-semantic-home-scatter-contributor`, Stage 2B-i) currently ships during normal tree runs:
+
+- `TREE_FAMILY_SCATTERED` (from `treeFolderSemanticHomeReasoning.placements`, S2.12; nothing when Stage 2 was not evaluated)
+
 Attached naming-bridge contributor currently ships during normal tree runs:
 
-- `TREE_FAMILY_SCATTERED`
 - `TREE_OBSERVED_FAMILY_CLUSTER`
+- `TREE_FAMILY_SUBGROUP_OPPORTUNITY`
 - `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES` (bounded shared-root lane-first spread outcome emitted from the shared family interpretation spine under supported shared roots, using naming-owned bridge observations only)
 
 ### Current report payload from tree runtime
@@ -1802,8 +1830,9 @@ The tree runtime result includes:
 - `totalFilesScanned`
 - `scope`
 - `filters` with `isFiltered` and optional `targets`
+- `semanticHomeReasoning` when Stage 2 was prepared (S2.12, B6)
 
-When tree runs through the shared validator runner / CLI surfaces, the composed validator entry additionally includes summary counts and optional `meta.filters`, and the runner envelope may include `configDigest` when `--config` is supplied. No tree-specific config payload is emitted today.
+When tree runs through the shared validator runner / CLI surfaces, the composed validator entry additionally includes summary counts, optional `meta.filters`, `meta.registryProvenance` and `meta.semanticHomeReasoning`, and the runner envelope may include `configDigest` when `--config` is supplied. No tree-specific config payload is emitted today.
 
 ---
 
