@@ -295,7 +295,7 @@ test('deterministic, and the prepared records are only read', () => {
   );
 });
 
-test('end to end: staged Naming evidence, meta.semanticHomeReasoning, and the lanes code kept distinct (S2.12)', () => {
+test('end to end: staged Naming evidence, meta.semanticHomeReasoning, and no conflicting lanes destination (S2.12)', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tree-semantic-home-scatter-'));
   try {
     for (const relativePath of [
@@ -314,16 +314,19 @@ test('end to end: staged Naming evidence, meta.semanticHomeReasoning, and the la
     assert.deepEqual(entry.meta.semanticHomeReasoning.governedCodes, ['TREE_FAMILY_SCATTERED']);
 
     const scatter = entry.findings.find((finding) => finding.code === 'TREE_FAMILY_SCATTERED');
-    const lanes = entry.findings.find((finding) => finding.code === 'TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES');
-    // The same files can appear in both, never for the same reason: one is outside the eligible home
-    // `src/widget`, the other is spread across lane partitions under `src/shared`.
-    assert.deepEqual(filesOf(scatter).sort(), [...lanes.details.observedPaths].sort());
+    assert.deepEqual(filesOf(scatter).sort(), [
+      'src/shared/build/widget-keyed.build.tsx',
+      'src/shared/knowledge/widget-keyed.knowledge.ts',
+      'src/shared/logic/widget-keyed.logic.ts',
+    ]);
     assert.equal(scatter.details.basis, 'semantic-home-placement');
     assert.deepEqual(homePathsOf(scatter), ['src/widget']);
-    assert.equal(lanes.details.sharedRootPath, 'src/shared');
-    assert.equal(Object.hasOwn(lanes.details, 'basis'), false);
+    // Stage 2B-iv: the lanes code, which suggested `src/shared/widget-keyed` for these same files while the
+    // eligible home is `src/widget`, is retired; the files carry only the home-based reading.
+    assert.equal(entry.findings.some((finding) => finding.code === 'TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES'), false);
+    assert.deepEqual(entry.findings.map((finding) => finding.code), ['TREE_FAMILY_SCATTERED']);
 
-    // No undetermined placement contributes to either reading of these files.
+    // Every reported file is home-elsewhere: no undetermined placement contributes.
     const registryResolution = resolveActiveRegistrySet({ targetRoot: root });
     const staged = prepareNamingTreeStagingInputs(runNamingValidator(root, { scope: 'repo', registryResolution }), { registryResolution });
     const prepared = prepareTreeStructureAdvisorInputs(root, { scope: 'repo', registryResolution, ...staged });
