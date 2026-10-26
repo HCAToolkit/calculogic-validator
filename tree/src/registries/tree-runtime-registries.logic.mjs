@@ -6,9 +6,12 @@
  * module-level registry state and every registry a run reads comes from the run's resolved set.
  * The Builtin root is cached; a Custom root is read per call, because its files are user-editable.
  *
- * Tree inventory registries without a runtime consumer (`semantic-home-policy`,
- * `structural-home-signal-policy`, `surface-structural-home-perspective`) are not loaded here: they
- * are validated by the registry-set entry point (`tree-registry-set.logic.mjs`) only.
+ * `semantic-home-policy` is loaded by the Semantic Home parameter loader
+ * (`tree-semantic-home-parameter-set-loader.logic.mjs`), re-exported here so this module stays Tree
+ * wiring's one registry entry point; it takes the run's whole resolution, because its provenance needs
+ * it (Tree spec S2.9). Tree inventory registries without a runtime consumer
+ * (`structural-home-signal-policy`, `surface-structural-home-perspective`) are validated by the
+ * registry-set entry point (`tree-registry-set.logic.mjs`) only.
  */
 import path from 'node:path';
 import { TREE_BUILTIN_REGISTRY_ROOT } from './tree-registry-inventory.knowledge.mjs';
@@ -40,6 +43,8 @@ import {
   getBuiltinStructuralRoleTokensRegistry,
   loadStructuralRoleTokensRegistryFromRegistryRoot,
 } from './tree-structural-role-tokens-registry.logic.mjs';
+
+export { loadTreeSemanticHomeParameterSet } from './tree-semantic-home-parameter-set-loader.logic.mjs';
 
 let cachedBuiltinTreeRuntimeRegistries = null;
 

@@ -1,8 +1,14 @@
 // Tree semantic-home-policy registry shape validation (#41 registry lifecycle; Tree spec Stage 2 S2.10).
 // Version "1" holds the descriptive input lanes; version "2" adds `semanticHomeParameters`, the four
-// Stage 2 policy values (RR3). The registry has no runtime consumer yet: this module owns its shape so
-// Tree's registry-set validation entry point covers it (lifecycle spec §9.3).
+// Stage 2 policy values (RR3). This module owns its shape, so Tree's registry-set validation entry point
+// covers it (lifecycle spec §9.3), and its direct loader, read by the Semantic Home parameter loader.
+import fs from 'node:fs';
+import path from 'node:path';
 import { assertRegistryEntries } from '../../../src/core/registry-entry-shape.logic.mjs';
+import { TREE_BUILTIN_REGISTRY_ROOT } from './tree-registry-inventory.knowledge.mjs';
+
+export const SEMANTIC_HOME_POLICY_REGISTRY_ID = 'tree/semantic-home-policy';
+const SEMANTIC_HOME_POLICY_REGISTRY_FILENAME = 'semantic-home-policy.registry.json';
 
 export const SEMANTIC_HOME_POLICY_INPUT_LANES = Object.freeze([
   'folder-context',
@@ -23,6 +29,13 @@ export const SEMANTIC_HOME_POLICY_ROOT_FIELDS_BY_VERSION = Object.freeze({
 // The closed parameter set and the S2.5 constraint on each value; the Tree spec's S2.10 identifier
 // table maps each `parameterId` to its S2.5 name.
 export const SEMANTIC_HOME_PARAMETER_IDS = Object.freeze(['coverage', 'minimum-support', 'not-eligible-share', 'eligible-share']);
+// The S2.10 identifier table: each registry `parameterId` and its S2.5 name. Explicit, never inferred.
+export const SEMANTIC_HOME_PARAMETER_NAMES_BY_ID = Object.freeze({
+  coverage: 'P_COVERAGE',
+  'minimum-support': 'P_MIN_SUPPORT',
+  'not-eligible-share': 'P_NOT_ELIGIBLE_SHARE',
+  'eligible-share': 'P_ELIGIBLE_SHARE',
+});
 const PARAMETER_VALUE_RULES = Object.freeze({
   coverage: { accepts: (value) => value > 0 && value <= 1, describe: 'greater than 0 and at most 1' },
   'minimum-support': { accepts: (value) => Number.isInteger(value) && value >= 1, describe: 'an integer of at least 1' },
@@ -102,4 +115,21 @@ export const assertValidSemanticHomePolicyRegistry = (payload) => {
   }
 
   return payload;
+};
+
+let cachedBuiltinSemanticHomePolicyRegistry = null;
+
+// Loads from one Tree registry root, Builtin or Custom (#41 registry lifecycle, spec §9.3). The
+// Semantic Home parameter loader is its only runtime caller (Tree spec S2.9).
+export const loadSemanticHomePolicyRegistryFromRegistryRoot = (registryRoot) =>
+  assertValidSemanticHomePolicyRegistry(
+    JSON.parse(fs.readFileSync(path.join(registryRoot, SEMANTIC_HOME_POLICY_REGISTRY_FILENAME), 'utf8')),
+  );
+
+export const getBuiltinSemanticHomePolicyRegistry = () => {
+  if (!cachedBuiltinSemanticHomePolicyRegistry) {
+    cachedBuiltinSemanticHomePolicyRegistry = loadSemanticHomePolicyRegistryFromRegistryRoot(TREE_BUILTIN_REGISTRY_ROOT);
+  }
+
+  return cachedBuiltinSemanticHomePolicyRegistry;
 };

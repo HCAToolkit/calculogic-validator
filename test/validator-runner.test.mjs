@@ -8,7 +8,7 @@ import path from 'node:path';
 import { getValidatorById, listRegisteredValidators } from '../src/core/validator-registry.knowledge.mjs';
 import { prepareNamingTreeStagingInputs, runNamingValidator } from '../naming/src/naming-validator.host.mjs';
 import { NAMING_BUILTIN_REGISTRY_ROOT } from '../naming/src/registries/naming-registry-inventory.knowledge.mjs';
-import { getBuiltinRegistryRoots } from '../src/core/registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
+import { getBuiltinRegistryRoots, resolveActiveRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
 import { runValidatorRunner } from '../src/core/validator-runner.logic.mjs';
 
 test('registry lists validators deterministically', () => {
@@ -218,11 +218,13 @@ test('runner binds the staged folder-label interpreter to the run registryResolu
     await fs.mkdir(path.join(fixtureRoot, 'src', 'build'), { recursive: true });
     await fs.writeFile(path.join(fixtureRoot, 'src', 'build', 'build-surface.logic.mjs'), 'export {};\n', 'utf8');
 
+    // A whole Builtin resolution (provenance included) with the Naming root swapped.
+    const builtinResolution = resolveActiveRegistrySet({ targetRoot: fixtureRoot });
     assert.throws(
       () => runValidatorRunner(fixtureRoot, {
         validators: ['tree-structure-advisor'],
         scope: 'repo',
-        registryResolution: { activeSet: 'builtin', registryRoots: { ...getBuiltinRegistryRoots(), naming: namingRoot } },
+        registryResolution: { ...builtinResolution, registryRoots: { ...getBuiltinRegistryRoots(), naming: namingRoot } },
       }),
       /Invalid case-rules registry/,
     );

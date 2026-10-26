@@ -19,6 +19,7 @@ import {
 const treeSourceRoot = fileURLToPath(new URL('../src/', import.meta.url));
 
 // Tree registries each run reads, and those with no runtime consumer yet (#41 lifecycle spec §14).
+// `semantic-home-policy` is read through the parameter loader, from a resolution only (Tree spec S2.9).
 const TREE_RUNTIME_REGISTRY_FILES = [
   'folder-kinds.registry.json',
   'repo-shape-policy.registry.json',
@@ -30,7 +31,6 @@ const TREE_RUNTIME_REGISTRY_FILES = [
   'validator-owned-signals.registry.json',
 ];
 const TREE_DATA_ONLY_REGISTRY_FILES = [
-  'semantic-home-policy.registry.json',
   'structural-home-signal-policy.registry.json',
   'surface-structural-home-perspective.registry.json',
 ];
@@ -96,6 +96,19 @@ test('Tree registries without a runtime consumer are not read by a run', () => {
   });
 });
 
+test('an explicit Tree root without a resolution leaves the parameter set not prepared, never Builtin', () => {
+  withResolvedRootsFixture(({ repositoryRoot, treeRegistryRoot, registryRoots }) => {
+    // Not read: a broken copy neither throws nor is replaced by Builtin values.
+    fs.writeFileSync(path.join(treeRegistryRoot, 'semantic-home-policy.registry.json'), '{ broken');
+    const prepared = prepareTreeStructureAdvisorInputs(repositoryRoot, { scope: 'repo', registryRoots });
+    assert.deepEqual(prepared.preparedDependencies.treeSemanticHomeParameterSet, {
+      availability: 'not-prepared',
+      reason: 'registry-resolution-absent',
+      conformance: 'not-checked',
+    });
+  });
+});
+
 test('resolved Tree registries reach prepared dependencies and findings', () => {
   withResolvedRootsFixture(({ repositoryRoot, treeRegistryRoot, registryRoots }) => {
     const builtinRun = runTreeStructureAdvisor(repositoryRoot, { scope: 'repo' });
@@ -144,8 +157,10 @@ test('resolved Tree registries reach prepared dependencies and findings', () => 
 
 // Standing rule (#41 lifecycle spec §6): Tree modules outside `registries/` get registry policy
 // only through `tree-runtime-registries.logic.mjs`, apart from the Builtin fallbacks for direct
-// runtime callers that pass no prepared policy.
+// runtime callers that pass no prepared policy. The Semantic Home parameter converter imports the
+// registry's identifier table and ids, never its loader: the payload reaches it from its loader.
 const ALLOWED_DIRECT_REGISTRY_IMPORTS = {
+  'tree-semantic-home-parameter-set.logic.mjs': ['./registries/tree-semantic-home-policy-registry.logic.mjs'],
   'tree-shim-detection.logic.mjs': ['./registries/tree-signal-policy-registry.logic.mjs'],
   'tree-structure-advisor.logic.mjs': [
     './registries/tree-signal-policy-registry.logic.mjs',
