@@ -4,6 +4,9 @@ import {
 import {
   attachTreeNamingSemanticFamilyBridgeContributor,
 } from './contributors/tree-naming-semantic-family-bridge-contributor.wiring.mjs';
+import {
+  attachTreeSemanticHomeScatterContributor,
+} from './contributors/tree-semantic-home-scatter-contributor.wiring.mjs';
 
 export const collectDefaultTreeStructureAdvisorContributors = ({
   repositoryRoot,
@@ -24,4 +27,5 @@ export const collectDefaultTreeStructureAdvisorContributors = ({
     preparedAddressKeyedJoinEvidence,
     validatorDevelopmentRoot,
   }),
+  attachTreeSemanticHomeScatterContributor(),
 ].filter(Boolean);

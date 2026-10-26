@@ -127,6 +127,7 @@ Entry-level optional fields:
   - `meta.filters` (object; present when target filtering is active)
   - `meta.registry` (object; present when slice exposes registry metadata)
   - `meta.registryProvenance` (object; the slice's own registries, `{ [registryId]: { source, digest } }`; Naming from #41 slice 2, Tree from #41 slice 3)
+  - `meta.semanticHomeReasoning` (object; Tree only, present when Tree prepared Semantic Home reasoning: `{ status, reason?, conformance, conformanceBinding?, registry?, governedCodes }`, Tree spec S2.12 B6; calculogic-validator#102)
 
 Runner currently passes through deterministic slice summary fields in addition to `counts` (for example naming `codeCounts`, `familyRootCounts`, `familySubgroupCounts`, `semanticFamilyCounts`, and tree `codeCounts`).
 

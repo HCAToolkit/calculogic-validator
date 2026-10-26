@@ -65,6 +65,11 @@ const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
     meta.registryProvenance = treeRegistryProvenance;
   }
 
+  // Tree spec S2.12 B6: the Stage 2 status, conformance and provenance the Stage 2-governed codes rest on.
+  if (treeStructureAdvisorResult.semanticHomeReasoning) {
+    meta.semanticHomeReasoning = treeStructureAdvisorResult.semanticHomeReasoning;
+  }
+
   return {
     scope: treeStructureAdvisorResult.scope,
     totalFilesScanned: treeStructureAdvisorResult.totalFilesScanned,

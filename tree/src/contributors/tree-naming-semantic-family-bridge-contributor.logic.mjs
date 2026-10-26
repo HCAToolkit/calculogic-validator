@@ -4,8 +4,6 @@ import {
   toValidatorDevelopmentRootTopLevelFolder,
 } from '../tree-validator-development-root.logic.mjs';
 
-const FAMILY_SCATTER_MIN_STRUCTURAL_HOMES = 2;
-const FAMILY_SCATTER_MIN_FILES = 3;
 const FAMILY_CLUSTER_INFO_MIN_FILES = 4;
 const FAMILY_SUBGROUP_OPPORTUNITY_MIN_FILES_IN_CONTAINER = 4;
 const FAMILY_SUBGROUP_OPPORTUNITY_MIN_DISTINCT_CONTAINER_LOCAL_HOMES = 2;
@@ -392,22 +390,6 @@ const isAllowedCanonicalDocAuthorityRuntimePairing = (leftPlacement, rightPlacem
   return docPlacement.semanticAlignmentHits.some(
     (hit) => hit.segment === runtimeContainerSegment || hit.segment.startsWith(`${runtimeContainerSegment}-`),
   );
-};
-
-const isAllowedCrossContainerPlacementPair = (leftPlacement, rightPlacement, bridgeContext) => {
-  if (
-    leftPlacement.semanticContainerRole === 'naming-aligned-semantic-container' &&
-    rightPlacement.semanticContainerRole === 'naming-aligned-semantic-container' &&
-    leftPlacement.semanticContainerIdentity === rightPlacement.semanticContainerIdentity
-  ) {
-    return true;
-  }
-
-  if (isAllowedStructuralRootPairing(leftPlacement, rightPlacement)) {
-    return true;
-  }
-
-  return isAllowedCanonicalDocAuthorityRuntimePairing(leftPlacement, rightPlacement, bridgeContext);
 };
 
 const toBroaderSpreadPairInterpretation = (leftPlacement, rightPlacement, bridgeContext) => {
@@ -922,63 +904,6 @@ const toSharedRootLaneInterpretation = ({
   };
 };
 
-const collectFamilyScatterFindings = (familySharedSpineAnalysisEntries, bridgeContext) =>
-  familySharedSpineAnalysisEntries.flatMap(({ familyAnalysis, broaderSpreadInterpretation }) => {
-      const semanticFamily = familyAnalysis.semanticFamily;
-      const broaderSpreadResolved =
-        broaderSpreadInterpretation &&
-        broaderSpreadInterpretation.classification !== BROADER_SPREAD_INTERPRETATION.UNRESOLVED_BROADER_SPREAD;
-      const allCrossContainerPlacementsCoveredByAllowedRules = familyAnalysis.placements.every((leftPlacement, leftIndex) =>
-        familyAnalysis.placements
-          .slice(leftIndex + 1)
-          .every((rightPlacement) => isAllowedCrossContainerPlacementPair(leftPlacement, rightPlacement, bridgeContext)),
-      );
-
-      if (
-        familyAnalysis.sortedPaths.length < FAMILY_SCATTER_MIN_FILES ||
-        familyAnalysis.structuralHomes.length < FAMILY_SCATTER_MIN_STRUCTURAL_HOMES ||
-        familyAnalysis.localFirstInterpretation.classification === LOCAL_FIRST_FAMILY_INTERPRETATION.EXPECTED_LOCAL_PRESENCE ||
-        familyAnalysis.localFirstInterpretation.classification === LOCAL_FIRST_FAMILY_INTERPRETATION.LOCAL_DENSITY_FIRST ||
-        familyAnalysis.localFirstInterpretation.classification === LOCAL_FIRST_FAMILY_INTERPRETATION.LOCAL_SUBGROUP_FIRST ||
-        familyAnalysis.allEntriesInsideOneSemanticContainer ||
-        broaderSpreadResolved ||
-        allCrossContainerPlacementsCoveredByAllowedRules
-      ) {
-        return [];
-      }
-
-      return [
-        {
-          code: 'TREE_FAMILY_SCATTERED',
-          severity: 'info',
-          path: familyAnalysis.sortedPaths[0],
-          classification: 'advisory-structure',
-          message:
-            'Naming-owned semantic-family evidence is spread across multiple structural homes and may benefit from clearer semantic-first grouping.',
-          ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
-          details: {
-            semanticFamily,
-            observedPaths: familyAnalysis.sortedPaths,
-            observedStructuralHomes: familyAnalysis.structuralHomes,
-            observedStructuralRoots: toSortedUnique(familyAnalysis.placements.map((placement) => placement.structuralRoot)),
-            observedContainerIdentities: familyAnalysis.semanticContainerIdentities,
-            observedStructuralRootKinds: toSortedUnique(familyAnalysis.placements.map((placement) => placement.structuralRootKind)),
-            localFirstInterpretation: familyAnalysis.localFirstInterpretation,
-            broaderSpreadInterpretation,
-            ...toSemanticHomeEvidenceDetails(familyAnalysis.familyEntries),
-            allowedCrossContainerPatterns: {
-              structuralRootPairings: ALLOWED_STRUCTURAL_ROOT_PAIRINGS,
-              canonicalDocAuthorityRuntimePairing: bridgeContext.canonicalDocAuthorityRuntimePairingPattern,
-            },
-            thresholds: {
-              minFamilyFiles: FAMILY_SCATTER_MIN_FILES,
-              minStructuralHomes: FAMILY_SCATTER_MIN_STRUCTURAL_HOMES,
-            },
-          },
-        },
-      ];
-    });
-
 const collectFamilyClusterFindings = (familySharedSpineAnalysisEntries) =>
   familySharedSpineAnalysisEntries.flatMap(({ familyAnalysis }) => {
       const semanticFamily = familyAnalysis.semanticFamily;
@@ -1179,7 +1104,6 @@ export const collectNamingSemanticFamilyBridgeFindings = (
   const familySharedSpineAnalysisEntries = toFamilySharedSpineAnalysisEntries(observations, bridgeContext);
 
   return [
-    ...collectFamilyScatterFindings(familySharedSpineAnalysisEntries, bridgeContext),
     ...collectFamilySubgroupOpportunityFindings(familySharedSpineAnalysisEntries),
     ...collectFamilyClusterFindings(familySharedSpineAnalysisEntries),
     ...collectSharedRootFamilyScatterAcrossLanesFindings(familySharedSpineAnalysisEntries),

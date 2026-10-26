@@ -2,6 +2,7 @@ import path from 'node:path';
 import { getBuiltinTreeSignalPolicy } from './registries/tree-signal-policy-registry.logic.mjs';
 import { getBuiltinTreeRepoShapePolicy } from './registries/tree-repo-shape-policy-registry.logic.mjs';
 import { toValidatorDevelopmentPathPrefix } from './tree-validator-development-root.logic.mjs';
+import { toTreeSemanticHomeReasoningReport } from './tree-semantic-home-reasoning-report.logic.mjs';
 
 // Registry policy comes from the prepared dependencies Tree wiring builds from the run's resolved
 // registry root (#41 registry lifecycle). Direct runtime callers that omit it get Builtin.
@@ -452,6 +453,9 @@ export const runTreeStructureAdvisor = (preparedInputs = {}) => {
     ...collectContributorFindings(prepared),
   ].sort(sortByPathThenCode);
 
+  // S2.12 B6: what the Stage 2-governed codes rested on; absent when Stage 2 was not prepared.
+  const semanticHomeReasoning = toTreeSemanticHomeReasoningReport(prepared.preparedDependencies?.treeFolderSemanticHomeReasoning);
+
   return {
     findings,
     totalFilesScanned: selectedPathsForReasoning.length,
@@ -464,5 +468,6 @@ export const runTreeStructureAdvisor = (preparedInputs = {}) => {
           }
         : {}),
     },
+    ...(semanticHomeReasoning ? { semanticHomeReasoning } : {}),
   };
 };
