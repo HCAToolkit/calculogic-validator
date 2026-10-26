@@ -106,6 +106,7 @@ test('an explicit Tree root without a resolution leaves the parameter set not pr
       reason: 'registry-resolution-absent',
       conformance: 'not-checked',
     });
+    assert.equal(prepared.preparedDependencies.treeFolderSemanticHomeReasoning.status, 'not-prepared');
   });
 });
 

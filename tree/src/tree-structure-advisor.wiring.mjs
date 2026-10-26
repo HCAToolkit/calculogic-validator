@@ -47,6 +47,7 @@ import {
   loadTreeSemanticHomeParameterSet,
 } from './registries/tree-runtime-registries.logic.mjs';
 import { TREE_REGISTRY_SLICE_ID } from './registries/tree-registry-inventory.knowledge.mjs';
+import { prepareTreeFolderSemanticHomeReasoning } from './tree-folder-semantic-home-reasoning.logic.mjs';
 
 const TOP_LEVEL_SCAN_EXCLUSIONS = new Set(['.git', 'node_modules']);
 const TREE_ADDRESS_PROFILE_ID = 'tree-structure-advisor-address-profile';
@@ -146,7 +147,7 @@ export const prepareTreeStructureAdvisorInputs = (
     structuralRoleTokensRegistry,
     structuralContextAssessmentPoliciesRegistry,
   } = loadTreeRuntimeRegistries(registryRoots?.[TREE_REGISTRY_SLICE_ID]);
-  // Prepared for Stage 2A; nothing reads it yet, so it changes no finding (Tree spec S2.9, S2.14).
+  // Read only by Stage 2A reasoning below (Tree spec S2.9, S2.14).
   const treeSemanticHomeParameterSet = loadTreeSemanticHomeParameterSet({ registryResolution, registryRoots });
   const treeRepoShapeEvidence = prepareTreeRepoShapeEvidence({
     localPackageEvidence: collectDeclaredLocalPackageEvidence(repositoryRoot),
@@ -239,6 +240,13 @@ export const prepareTreeStructureAdvisorInputs = (
       structuralHomeEvidence: treeStructuralHomeEvidence,
     }),
   });
+  // Stage 2A-i (S2.3-S2.7, S2.9): candidate reasoning from the Stage 1 records and the loaded
+  // parameters, all by reference. Nothing reads it yet, so it changes no finding.
+  const treeFolderSemanticHomeReasoning = prepareTreeFolderSemanticHomeReasoning({
+    semanticEvidence: treeFolderSemanticEvidence,
+    factEvidence: treeFolderFactEvidence,
+    parameterSet: treeSemanticHomeParameterSet,
+  });
   const treeOccurrenceClassificationReplacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence,
     treeSemanticHomeEvidence,
@@ -322,6 +330,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeFolderFactEvidence,
       treeFolderSemanticEvidence,
       treeSemanticHomeParameterSet,
+      treeFolderSemanticHomeReasoning,
     },
     findingContributors: collectDefaultTreeStructureAdvisorContributors({
       repositoryRoot,

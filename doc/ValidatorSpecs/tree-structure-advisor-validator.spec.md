@@ -374,7 +374,7 @@ Stage 1B is delivered in two slices (calculogic-validator#97, D7):
 - **Stage 1B-i** (current implementation reality): the prepared-evidence entry `treeFolderFactEvidence` (`tree/src/tree-folder-fact-evidence.logic.mjs`). It holds `availability` (the Stage 1A record itself, not a copy), `occurrenceFacts` (one record per addressed occurrence: `folderLabel` and `bridgeObservation` for folders; `semanticIdentity`, `tokens` and `roleFacts` for files) and `compositionObservations` (one per addressed folder, direct members only). The S1.3 comparison rule and the S1.8 subtree view are exported functions over this record, not stored values. It holds no candidate, comparison, relationship or facet.
 - **Stage 1B-ii** (current implementation reality): `treeFolderSemanticEvidence` (S1.9), built by `tree/src/tree-folder-candidates.logic.mjs` (S1.4) and `tree/src/tree-folder-semantic-evidence.logic.mjs` (S1.5–S1.7, S1.9). It holds the Stage 1A availability and diagnostics and the Stage 1B-i composition observations by reference, reads fact states from the Stage 1B-i record, evaluates every comparison with its comparison rule, and reads a Naming field value only when the matching fact says it is usable. It never builds a second fact or composition model.
 
-### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102; reasoning not implemented. The S2.10 parameter values are Builtin registry data (`semantic-home-policy` version 2) with no runtime consumer; no Stage 2 runtime or finding change exists)
+### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102. Stage 2A-i, candidate reasoning, is implemented as prepared evidence that nothing reads; placement (2A-ii) and the conformance binding (2A-iii) are not implemented. The S2.10 values are Builtin registry data (`semantic-home-policy` version 2), loaded as `treeSemanticHomeParameterSet`. No finding changes)
 
 This section is the contract for Tree Stage 2 of folder-level Semantic Home development (tracking: calculogic-validator#85; scoping and approved directions F1–F6: calculogic-validator#102). It defines how Tree moves from the Stage 1 evidence (S1.1–S1.11) to three kinds of decision:
 
@@ -592,7 +592,9 @@ A candidate is never compared with another candidate to pick a winner. Raw count
 **Per-member reattribution (Option B, approved).** Let m be an active member of C behind one or more `provisional-redirect` boundaries, and let D range over the nested candidates at those boundaries.
 
 1. If m's governing-channel comparison for at least one `eligible` D is `match`, m is **reattributed** away from C. It is attributed to the deepest such D, and every other eligible matching D is listed. m leaves C's decision members, so it is neither support, contradiction nor missing for C.
-2. Otherwise, if m's comparison for at least one `undetermined` D is `match`, m is **attribution-undetermined** relative to C (see below).
+2. Otherwise, if at least one `undetermined` D possibly claims m, m is **attribution-undetermined** relative to C (see below). D possibly claims m when:
+   - m's governing-channel comparison for D is `match`; or
+   - D is `claim-unresolved` (S2.3) and m's root-channel comparison for D is `match`, because D's admissible root reading supports the claim.
 3. Otherwise m is **retained** by C, with its own comparison unchanged:
    - a member that matches C remains support for C, even when it sits behind an eligible nested home;
    - a member that matches neither remains contradiction for C;
@@ -600,18 +602,36 @@ A candidate is never compared with another candidate to pick a winner. Raw count
 
 A nested home explains only the members it actually matches. It never removes evidence for another candidate's claim. This is the property that whole-subtree reattribution (Option A) would break: behind `tree/src`, 46 of the 57 members match `tree` (S2.11, repository profile).
 
+**Missing evidence is not a possible claim.** A `not-evaluated` comparison for D never makes m attribution-undetermined, whatever D's outcome, and neither does a `foreign` one. m is then retained by C with its own comparison unchanged (step 3). Uncertainty supported by an admissible reading is kept apart from the absence of an evaluated reading:
+
+| m's comparison for nested candidate D | Treatment relative to C |
+| --- | --- |
+| governing-channel `match`, D `eligible` | reattributed (step 1) |
+| governing-channel `match`, D `undetermined` | attribution-undetermined (step 2) |
+| root-channel `match` only, D `claim-unresolved` | attribution-undetermined (step 2) |
+| `not-evaluated` | retained, C's comparison unchanged |
+| `foreign` | retained, C's comparison unchanged |
+
 **Attribution-undetermined members.**
-- If C has attribution-undetermined members, C is decided `eligible` or `not-eligible` only when that outcome holds however those members are resolved (each one kept by C or removed from C).
+- **Admissible resolutions (Definition 1, calculogic-validator#102).** Each attribution-undetermined member is independently kept by C or removed from C; with k such members, all 2^k combinations are admissible. Correlation between members that depend on the same nested candidate is deliberately not modelled: this is an exact decision over a deliberately broader uncertainty model, not an approximation of a correlated one. It needs no hypothetical decision about any nested candidate.
+- If C has attribution-undetermined members, C is decided `eligible` or `not-eligible` only when that outcome holds in every admissible resolution.
 - Each S2.5 quantity moves in one direction when a member of a given kind is removed:
   - removing a member with an evaluated comparison for C raises or keeps the support share, and lowers or keeps coverage. Such a comparison is always `foreign`, because the member matches a nested candidate whose root differs from C's, and Naming's `familyRoot` is the first semantic token;
   - removing a member whose comparison for C is not evaluated raises or keeps coverage.
   So Tree tests each condition of an outcome at that condition's least favourable resolution, chosen by member kind. This is sound, and needs no enumeration of combinations.
+- **Corner procedure (exact).** An outcome is a conjunction of conditions, each of which must hold in every admissible resolution, so each condition is tested on its own:
+  - `eligible`: `|A| > 0`, coverage at least `P_COVERAGE`, support share at least `P_ELIGIBLE_SHARE`, and `M` at least `P_MIN_SUPPORT`;
+  - `not-eligible`: `|A| > 0`, coverage at least `P_COVERAGE`, and support share at most `P_NOT_ELIGIBLE_SHARE`.
+
+  A resolution is described by how many attribution-undetermined members of each kind (support, contradiction, missing, on the reading tested) are removed. Each quantity moves in one direction along each of those counts, so each condition's least favourable value lies at a corner, where each kind is removed entirely or not at all. The procedure does not rely on the argument above that a removed member is always `foreign`: it stays exact if a removed member supports C. There is no single worst resolution. Deciding from one resolution, or from the two reference resolutions below, is wrong (catalogue case C30).
+- **Two readings (S2.3).** For a multi-token label candidate, `eligible` is decided on the prefix reading alone; `not-eligible` needs both readings `not-eligible` in every admissible resolution, which is tested reading by reading. A shared resolution changes nothing, because each condition must hold everywhere.
 - Otherwise C is `undetermined` with reason `depends-on-undetermined-nested-candidate`, listing the nested candidates involved. This reason is used whenever C has attribution-undetermined members and is not decided, whatever S2.5 would give under any one resolution. Different resolutions can leave C undetermined for different S2.5 reasons, so no single S2.5 reason is claimed.
 - Beside that reason, the outcome records the S2.5 outcome and reason at two fixed reference resolutions:
   - every attribution-undetermined member retained by C;
   - every such member removed from C.
 
-  This keeps the dependency inspectable without enumerating combinations.
+  For a multi-token label candidate, each reference result holds the combined E2 outcome and reason and each reading's own S2.5 outcome and reason. This keeps the dependency inspectable without enumerating combinations.
+- **Decision evidence.** Every candidate outcome records the condition checks behind it: for each reading tested and each condition of `eligible` and `not-eligible`, the bound, the least favourable corner (how many members of each kind it removes), the value there and whether the condition holds. With no attribution-undetermined member the only corner removes nothing. The checks explain the decision; they never change it, and no member subset is stored.
 
 **Member attribution record (Q3).** For every member of C behind at least one `provisional-redirect` boundary, Stage 2 records:
 
@@ -631,9 +651,9 @@ Every candidate outcome carries a strength profile. It is a set of facets, never
 - coverage and support share on the governing channel (S2.5);
 - the singular and ambiguous split of support;
 - the direct and descendant split of support, and how many branches carry support (S1.7);
-- the non-governing channel's counts and any `channel-disagreement` note;
+- the non-governing channel's counts and any `channel-disagreement` note. The note is present when at least one decision member matches on exactly one of the two channels; a candidate whose other channel does not apply has no note;
 - reattributed and attribution-undetermined member counts (S2.6);
-- corroboration: same-folder candidates with the same claim, and their outcomes;
+- corroboration: same-folder candidates with the same claim, and their outcomes. Two candidates make the same claim when they have the same governing channel and the same claim value: the `lexicalRoot` for a root claim, the full `labelTokens` sequence for a prefix claim. Corroboration is descriptive: it never adds to support counts, never changes an outcome, and never counts one candidate's members for another;
 - `rootAncestry` (S1.4) and the `bounded` note;
 - for a `claim-unresolved` candidate, the root reading's S2.5 outcome, reason and counts (S2.3).
 
@@ -677,14 +697,21 @@ Steps 2 and 4 already keep any undetermined matching candidate from becoming `no
 
 Stage 2 adds one Tree-owned prepared-evidence record, `treeFolderSemanticHomeReasoning`, in Tree's prepared dependencies, next to the Stage 1 records. It holds:
 
-- `status`: `evaluated` or `configuration-unavailable` (S2.10, registry architecture). Every other field below except `parameterSet` is present only when `status` is `evaluated`;
+- `status`, from the parameter set's `availability` (S2.9 below), one to one:
+  - `evaluated`: the parameter set is `available`, and the reasoning Stage 2A implements so far has completed;
+  - `configuration-unavailable`: the resolved registry has no parameter section (RR5);
+  - `not-prepared`: the parameter set could not be prepared (an explicit registry root without a resolution).
+
+  In both unavailable states Stage 2 did not run, and the `parameterSet` reference carries the reason. Every other field below except `parameterSet` is present only when `status` is `evaluated`;
 - `semanticEvidenceSource`: a reference to the Stage 1 record;
 - `parameterSet`: the loaded parameter set, `treeSemanticHomeParameterSet` (below), held by reference;
-- `candidateOutcomes`: one per candidate, with the candidate identity, governing channel, outcome, reasons, notes, decision counts (`|A|`, `M` split singular and ambiguous, `F` by root, `N` by reason), strength profile, the nested candidates the outcome depends on with the two reference-resolution results (S2.6), and, for `claim-unresolved`, the root reading's outcome, reason and counts (S2.3);
+- `candidateOutcomes`: one per candidate, with the candidate identity, governing channel, outcome, reasons, notes, decision counts (`|A|`, `M` split singular and ambiguous, `F` by root, `N` by reason, over the members C definitely holds, with the attribution-undetermined members counted separately by kind), decision evidence (S2.6), strength profile, the nested candidates the outcome depends on with the two reference-resolution results (S2.6), and, for `claim-unresolved`, the root reading's outcome, reason and counts (S2.3);
 - `memberAttributions`: the S2.6 records;
 - `placements`: one per file occurrence, with the file identity, state, reason, nearest home, the homes on its relevant lineage, the homes elsewhere, the undetermined candidates consulted, and the run scope.
 
-When `status` is `configuration-unavailable`, Stage 2 did not run: there are no candidate outcomes, member attributions or placements, not even `undetermined` ones. An absent configuration is never read as evidence about any folder or file.
+When `status` is `configuration-unavailable` or `not-prepared`, Stage 2 did not run: there are no candidate outcomes, member attributions or placements, not even `undetermined` ones. An absent configuration is never read as evidence about any folder or file.
+
+**Stage 2A-i record (current implementation reality).** `tree/src/tree-folder-semantic-home-reasoning.logic.mjs` prepares the record with `status`, `parameterSet`, `semanticEvidenceSource`, `candidateOutcomes` and `memberAttributions`. `placements` is added by Stage 2A-ii and is absent until then. Nothing reads the record, and it is not part of the report payload.
 
 **The parameter set, `treeSemanticHomeParameterSet`.** A Tree loader prepares it, before and separately from reasoning, as a frozen prepared dependency. It is not part of the report payload.
 
@@ -702,7 +729,7 @@ When `status` is `configuration-unavailable`, Stage 2 did not run: there are no 
 | `parameters` | Only when `available`. Keyed by S2.5 name (`P_COVERAGE`, `P_MIN_SUPPORT`, `P_NOT_ELIGIBLE_SHARE`, `P_ELIGIBLE_SHARE`) through the explicit S2.10 identifier table. Each entry holds `parameterId`, `value`, `catalogueCases`, `baselineComparison` and `origin` (RR4), and `baselineComparisonReason` (the lifecycle's `baseline-mismatch`, `baseline-version-undescribed` or `baseline-not-comparable`) only when `baselineComparison` is `unverifiable`. `rationale` stays in the registry: it is not converted, but it is part of the record the Baseline comparison judges, so a rationale-only change is `override` (`differs`) |
 | `conformance` | RR4. Always `not-checked` until Stage 2A |
 
-**Availability is not reasoning status.** `availability: available` says only that parameters were loaded. Stage 2A sets `status: evaluated` after it has evaluated candidates; `configuration-unavailable` carries through unchanged. The loader computes no eligibility, attribution or placement.
+**Availability is not reasoning status.** `availability: available` says only that parameters were loaded. Stage 2A sets `status: evaluated` only after its reasoning has completed; `configuration-unavailable` and `not-prepared` carry through unchanged as the record's `status`. The loader computes no eligibility, attribution or placement.
 
 **Preparation inputs.** The loader never reports a registry it did not read, or provenance it cannot establish:
 - **A lifecycle resolution** (every validation run, candidate runs included): the resolution's Tree root, its `registryProvenance` and its Baseline comparison, as above.
@@ -859,7 +886,9 @@ No Baseline is ever manufactured. Current Builtin is never used as a historical 
 
 #### S2.11 Contrast catalogue (F6, Q10)
 
-Each case is a deliberately contrasting synthetic tree with its expected outcome under the selected values (S2.10) and E2 (S2.3). The expected outcomes were agreed on calculogic-validator#102 (D8), from a scratchpad evaluation of these rules. They are not yet executable tests: each case becomes an executable fixture in Stage 2A, so that the contract and the tests cannot drift.
+Each case is a deliberately contrasting synthetic tree with its expected outcome under the selected values (S2.10) and E2 (S2.3). The expected outcomes of C1–C29 were agreed on calculogic-validator#102 (D8), from a scratchpad evaluation of these rules. Each case is an executable fixture (`tree/test/fixtures/semantic-home-catalogue/`): candidate outcomes since Stage 2A-i, placements from Stage 2A-ii, so that the contract and the tests cannot drift.
+
+**Catalogue identity.** Catalogue `semantic-home-catalogue`, version `2`: C1–C30. Version `1` was C1–C29 (D8); version `2` adds C30 (calculogic-validator#102, Q3). The version is raised whenever a case or an expected outcome changes. The conformance binding that will cite it is Stage 2A-iii (RR4).
 
 Counts are written `a/b` to mean `a` matching members out of `b` evaluated members on the stated channel. Support share is `a/b`; coverage is evaluated members divided by decision members `|A|`.
 
@@ -900,6 +929,7 @@ Unless stated otherwise:
 | C27 Single-file ownership folder | `ops-owned/`: `ops`(1), whose tokens do not begin `ops, owned` | E2 with insufficient root support | Prefix reading 0/1, `not-eligible`; root reading 1/1, `undetermined` (`insufficient-support`). So `ops-owned` is `claim-unresolved`, consistent with C17. The file is `undetermined` |
 | C28 Unresolved claim and a real home elsewhere | C8's tree, plus `docs/tree-notes` with root `tree` directly in `docs/` | E2 placement order | Files inside `docs/tree-owned/` stop at S2.8 step 2 (`undetermined`). `docs/tree-notes` reaches step 3: `home-elsewhere` (`tree`). An unresolved claim never hides a real home |
 | C29 Invariant E2-I1 | `audit-owned/`: `other`(4) with N1 tokens, `other`(4) whose N1 token group is `not-provided`; no file with root `audit` | E2-I1 | Prefix reading 0/4 evaluated (coverage 4/8 = 0.50), `not-eligible`; root reading 0/8, `not-eligible`. So `audit-owned` is not-eligible: zero root matches never produce `claim-unresolved`, and root coverage (8/8) is never below prefix coverage |
+| C30 Opposite-direction removal | `ledger-sync/`: `other`(1) direct, with N1 tokens; `ledger-sync/queue/` (label `queue`): `queue`(2), one with N1 tokens and one whose N1 token group is `not-provided`, plus `other`(1) whose N1 token group is `not-provided` | S2.6 corner procedure (Q3) | `queue` undetermined (`mixed-evidence`, 2/3 = 0.67). For `ledger-sync`, both `queue` files are attribution-undetermined. Every member kept: prefix 0/2 evaluated of 4 (coverage 0.50), root 0/4, so `not-eligible`. Every one removed: prefix 0/1 of 2 (coverage 0.50), root 0/2, so `not-eligible`. Removing only the `queue` file with tokens leaves prefix coverage 1/3 = 0.33, `undetermined`. So `ledger-sync` is undetermined (`depends-on-undetermined-nested-candidate`, `queue`), with both reference resolutions `not-eligible`; its decision evidence names prefix coverage at the corner that removes the one contradicting member and no missing one. A procedure deciding from the two reference resolutions alone would wrongly say `not-eligible` |
 
 **Repository profile (`repo` scope, `main` at 9cd27d9), under the selected values and E2.** This profile is evidence about this repository, not a stored expectation:
 
@@ -992,7 +1022,10 @@ Each step needs its own authorization:
    - shape validation of the S2.5 constraints (RR3);
    - inventory declarations without merge-fields for the section.
 4. **Parameter loader and converter** (done: `treeSemanticHomeParameterSet`, S2.9, a frozen prepared dependency with RR4 provenance from the lifecycle Baseline comparison; no consumer; findings byte-identical at `repo`, `validator` and `app` scope).
-5. **Stage 2A.** `treeFolderSemanticHomeReasoning` (S2.1–S2.9) and the S2.11 cases as executable fixtures. Findings stay byte-identical at `repo`, `validator` and `app` scope.
+5. **Stage 2A.** `treeFolderSemanticHomeReasoning` (S2.1–S2.9) and the S2.11 cases as executable fixtures. Findings stay byte-identical at `repo`, `validator` and `app` scope. In three slices, each separately authorized:
+   - **2A-i, candidate reasoning** (done): S2.3–S2.7, the record with `candidateOutcomes` and `memberAttributions`, and the catalogue's candidate outcomes;
+   - **2A-ii, placement:** S2.8, `placements`, and the catalogue's placements;
+   - **2A-iii, conformance binding:** the RR4 binding of the four values, the catalogue version and the reasoning implementation.
 6. **Stage 2B.** Findings reconciliation, one code per pull request, starting with `TREE_FAMILY_SCATTERED` (S2.12).
 7. **Stage 2C.** The legacy `semanticHome` decision (S2.13).
 

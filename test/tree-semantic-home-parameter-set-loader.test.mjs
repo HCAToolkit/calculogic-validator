@@ -247,6 +247,8 @@ test('wiring prepares the set from the resolution; nothing reads it, so findings
       const prepared = prepareTreeStructureAdvisorInputs(targetRoot, { scope: 'repo', registryResolution });
       assert.deepEqual(prepared.preparedDependencies.treeSemanticHomeParameterSet, load());
       assert.deepEqual(field(prepared.preparedDependencies.treeSemanticHomeParameterSet, 'value'), [0.9, 7, 0.05, 0.95]);
+      assert.equal(prepared.preparedDependencies.treeFolderSemanticHomeReasoning.status, 'evaluated');
+      assert.equal(prepared.preparedDependencies.treeFolderSemanticHomeReasoning.parameterSet, prepared.preparedDependencies.treeSemanticHomeParameterSet);
 
       // Same findings as a Builtin run, through the wiring and through the suite runner.
       const customFindings = runTreeStructureAdvisor(targetRoot, { scope: 'repo', registryResolution }).findings;
