@@ -5,8 +5,9 @@
  * entry comparison (lifecycle spec §11.4) into the frozen `treeSemanticHomeParameterSet`. Pure: it
  * reads no file and calls no lifecycle code that does. Parameters are found by registry identity
  * (`keyedEntryAddress`), never by position, and keyed by their S2.5 names through the explicit S2.10
- * identifier table. It decides nothing about eligibility, attribution or placement, and conformance
- * stays `not-checked` until Stage 2A.
+ * identifier table. It decides nothing about eligibility, attribution or placement. Conformance is
+ * decided by the Stage 2A-iii evaluator from the four values and the installed reasoning source digest
+ * the loader passes in (RR4); without a digest it is `not-checked`.
  */
 import { keyedEntryAddress } from '../../src/core/registry-lifecycle/registry-lifecycle-comparison.logic.mjs';
 import { TREE_REGISTRY_INVENTORY } from './registries/tree-registry-inventory.knowledge.mjs';
@@ -15,6 +16,7 @@ import {
   SEMANTIC_HOME_PARAMETER_NAMES_BY_ID,
   SEMANTIC_HOME_POLICY_REGISTRY_ID,
 } from './registries/tree-semantic-home-policy-registry.logic.mjs';
+import { SEMANTIC_HOME_CONFORMANCE, evaluateTreeSemanticHomeConformance } from './tree-semantic-home-conformance.logic.mjs';
 
 const PARAMETERS_COLLECTION = 'semanticHomeParameters';
 
@@ -33,7 +35,7 @@ export const SEMANTIC_HOME_PARAMETER_SET_AVAILABILITY = Object.freeze({
   configurationUnavailable: 'configuration-unavailable',
   notPrepared: 'not-prepared',
 });
-const CONFORMANCE_NOT_CHECKED = 'not-checked';
+const CONFORMANCE_NOT_CHECKED = SEMANTIC_HOME_CONFORMANCE.notChecked;
 
 // S2.9: an explicit non-Builtin registry root without a lifecycle resolution. A preparation state,
 // not a claim about the registry: no registry was read, so none is reported.
@@ -68,8 +70,9 @@ const convertParameter = (record, comparisonEntry) => {
 
 // `payload` is a validated `semantic-home-policy` registry; `registry` is
 // `{ registryId, version, source, digest }` as the run's resolution reports it; `comparison` is
-// `compareResolvedRegistryWithBaseline`'s result for that same payload.
-export const prepareTreeSemanticHomeParameterSet = ({ payload, registry, comparison }) => {
+// `compareResolvedRegistryWithBaseline`'s result for that same payload; `reasoningSourceDigest` is the
+// installed reasoning modules' digest, or null when it was not computed.
+export const prepareTreeSemanticHomeParameterSet = ({ payload, registry, comparison, reasoningSourceDigest = null }) => {
   const registryBlock = Object.freeze({
     registryId: registry.registryId,
     version: registry.version,
@@ -99,10 +102,12 @@ export const prepareTreeSemanticHomeParameterSet = ({ payload, registry, compari
     parameters[SEMANTIC_HOME_PARAMETER_NAMES_BY_ID[parameterId]] = convertParameter(recordById.get(parameterId), comparisonEntry);
   }
 
+  // RR4: decided from the values alone, never from origin, comparison, rationale or source.
+  const values = Object.fromEntries(Object.entries(parameters).map(([name, parameter]) => [name, parameter.value]));
   return Object.freeze({
     registry: registryBlock,
     availability: SEMANTIC_HOME_PARAMETER_SET_AVAILABILITY.available,
     parameters: Object.freeze(parameters),
-    conformance: CONFORMANCE_NOT_CHECKED,
+    ...evaluateTreeSemanticHomeConformance({ values, reasoningSourceDigest }),
   });
 };

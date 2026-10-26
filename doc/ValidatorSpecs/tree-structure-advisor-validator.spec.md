@@ -374,7 +374,7 @@ Stage 1B is delivered in two slices (calculogic-validator#97, D7):
 - **Stage 1B-i** (current implementation reality): the prepared-evidence entry `treeFolderFactEvidence` (`tree/src/tree-folder-fact-evidence.logic.mjs`). It holds `availability` (the Stage 1A record itself, not a copy), `occurrenceFacts` (one record per addressed occurrence: `folderLabel` and `bridgeObservation` for folders; `semanticIdentity`, `tokens` and `roleFacts` for files) and `compositionObservations` (one per addressed folder, direct members only). The S1.3 comparison rule and the S1.8 subtree view are exported functions over this record, not stored values. It holds no candidate, comparison, relationship or facet.
 - **Stage 1B-ii** (current implementation reality): `treeFolderSemanticEvidence` (S1.9), built by `tree/src/tree-folder-candidates.logic.mjs` (S1.4) and `tree/src/tree-folder-semantic-evidence.logic.mjs` (S1.5–S1.7, S1.9). It holds the Stage 1A availability and diagnostics and the Stage 1B-i composition observations by reference, reads fact states from the Stage 1B-i record, evaluates every comparison with its comparison rule, and reads a Naming field value only when the matching fact says it is usable. It never builds a second fact or composition model.
 
-### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102. Stage 2A-i (candidate reasoning) and 2A-ii (placement) are implemented as prepared evidence that nothing reads; the conformance binding (2A-iii) is not implemented. The S2.10 values are Builtin registry data (`semantic-home-policy` version 2), loaded as `treeSemanticHomeParameterSet`. No finding changes)
+### Folder-level Semantic Home reasoning, Stage 2 (Status: Contract, calculogic-validator#102. Stage 2A (candidate reasoning, placement and the conformance binding) is implemented as prepared evidence that nothing reads. The S2.10 values are Builtin registry data (`semantic-home-policy` version 2), loaded as `treeSemanticHomeParameterSet`. No finding changes)
 
 This section is the contract for Tree Stage 2 of folder-level Semantic Home development (tracking: calculogic-validator#85; scoping and approved directions F1–F6: calculogic-validator#102). It defines how Tree moves from the Stage 1 evidence (S1.1–S1.11) to three kinds of decision:
 
@@ -745,7 +745,8 @@ When `status` is `configuration-unavailable` or `not-prepared`, Stage 2 did not 
 | `registry` | The registry identity (`tree/semantic-home-policy`), its `version`, its `source` (`builtin`, `custom` or `candidate`) and its canonical digest, all as the run's lifecycle resolution reports them |
 | `availability` | `available` when the resolved registry carries the parameter section; `configuration-unavailable` for a readable version-1 registry (RR5), with `reason: parameter-set-absent`; `not-prepared` when the preparation inputs are incomplete (below), with `reason: registry-resolution-absent`. Never Builtin values in place of a missing section |
 | `parameters` | Only when `available`. Keyed by S2.5 name (`P_COVERAGE`, `P_MIN_SUPPORT`, `P_NOT_ELIGIBLE_SHARE`, `P_ELIGIBLE_SHARE`) through the explicit S2.10 identifier table. Each entry holds `parameterId`, `value`, `catalogueCases`, `baselineComparison` and `origin` (RR4), and `baselineComparisonReason` (the lifecycle's `baseline-mismatch`, `baseline-version-undescribed` or `baseline-not-comparable`) only when `baselineComparison` is `unverifiable`. `rationale` stays in the registry: it is not converted, but it is part of the record the Baseline comparison judges, so a rationale-only change is `override` (`differs`) |
-| `conformance` | RR4. Always `not-checked` until Stage 2A |
+| `conformance` | RR4 (Stage 2A-iii): `passed` only when `available`, the four values equal the bound values and the installed reasoning modules match the bound source digest; otherwise `not-checked`. Never `failed` |
+| `conformanceBinding` | Only when `conformance` is `passed`: `{ catalogue: { id, version, digest }, reasoning: { version, sourceDigest } }` (RR4) |
 
 **Availability is not reasoning status.** `availability: available` says only that parameters were loaded. Stage 2A sets `status: evaluated` only after its reasoning has completed; `configuration-unavailable` and `not-prepared` carry through unchanged as the record's `status`. The loader computes no eligibility, attribution or placement.
 
@@ -873,7 +874,7 @@ Anything in `semantic-home-policy` is consumer-editable, because the registry be
 
 No Baseline is ever manufactured. Current Builtin is never used as a historical reference, and a candidate without a manifest cannot resolve (lifecycle §7.1 item 5).
 - **`conformance`, for the whole parameter set, says whether the resolved values satisfy the catalogue (S2.11).** It is judged for the set, because the values are justified together:
-  - `not-checked`: the loader's value for every set, Builtin included, until Stage 2A. Origins never change conformance: an `override` or `unverified` record removes no right and proves no failure.
+  - `not-checked`: the value of every set that is not bound (below), and of every set whose binding cannot be verified at run time. Origins never change conformance: an `override` or `unverified` record removes no right and proves no failure.
   - `passed` or `failed`: recorded with the catalogue version checked. Only a mechanical evaluation of S2.11 against the resolved values may produce these. For the Builtin set, that evaluation is the Stage 2A fixture suite, which must pass for the Builtin values in every release.
   - **Binding (Stage 2A).** A `passed` result inherited at run time must bind together:
     - the complete set of four values;
@@ -882,6 +883,17 @@ No Baseline is ever manufactured. Current Builtin is never used as a historical 
 
     Matching values alone are not enough once the catalogue or the reasoning has changed. The binding is independent of source: a Builtin set and a Custom or candidate set with identical bound values get the same result.
   - **Checking any other parameter set** is a separate, read-only facility that evaluates S2.11 and reports per-case results. Its results are not written into the registry, and runs do not read them back.
+  - **The binding (Stage 2A-iii, implemented; calculogic-validator#102, K1–K7).** `tree/src/tree-semantic-home-conformance.knowledge.mjs` holds one binding, for the Builtin values (K7):
+    - `values`: the four values, keyed by S2.5 name. Only these are bound (K6): `rationale` and `catalogueCases` are not, and neither is any provenance field.
+    - `catalogue`: `{ id, version, digest }`. The digest is SHA-256 of the canonical JSON of the declarative catalogue (S2.11), cases and expected results together.
+    - `reasoning`: `{ version, sourceDigest, resultsDigest }`. `sourceDigest` is SHA-256 over the bound reasoning modules (the Stage 1 intake, fact, candidate and semantic-evidence modules and the Stage 2 reasoning modules: the complete local import closure, listed explicitly), each as its package-relative path and its bytes with line endings normalized to LF. `resultsDigest` is SHA-256 of the canonical JSON of the actual results of every catalogue case under the bound values: each candidate's outcome and reason and each file's placement state, reason, deciding step and nearest home, keyed by case id and occurrence identity.
+    - An append-only history of reasoning versions, each with its `resultsDigest`. A new results digest needs a new version; a source change that leaves the results unchanged keeps the version.
+
+    **How the binding is earned.** `npm test` runs the whole catalogue against the bound values and checks every expected result; recomputes the three digests and compares them with the binding; checks that the declared module list equals the actual import closure; checks the version history for consistency; checks that the bound values equal the Builtin registry values; and checks that the spec, the catalogue table and the binding name the same catalogue version and the same case ids. A binding can only be updated from a tree where all of that passes. This repository has no CI workflow: the guarantee is the test suite that every delivery runs (K1), not an automatic check by GitHub. The results digest identifies the behaviour recorded over C1–C30; it does not prove that two implementations agree on every repository.
+
+    **At run time** a set's conformance is `passed`, with `conformanceBinding: { catalogue: { id, version, digest }, reasoning: { version, sourceDigest } }`, only when its four values equal the bound values exactly **and** the source digest of the reasoning modules actually installed equals the bound `sourceDigest` (K2). The installed digest is computed once per process from the package's own files. If any bound module is missing or unreadable, or the digest differs, conformance is `not-checked` (fail closed). Runs never evaluate the catalogue, so they never report `failed`. Conformance is decided from the values alone: it never reads `origin`, `baselineComparison`, `rationale` or the source, and a `passed` result never stands in for missing or unverified provenance.
+
+    **Independent changes.** A Custom set with different values is `not-checked`; one with the bound values is `passed` whatever its origin. Editing the Builtin values, any catalogue case or expectation, or any bound module makes `npm test` fail until the catalogue passes again and the binding is updated; a catalogue change also raises the catalogue version in this spec, and a behaviour change appends a reasoning version.
 - **No self-attestation.** No registry field lets a consumer declare conformance.
 
 **RR5. A legacy registry without parameters is readable, and Stage 2 then reports `configuration-unavailable`.**
@@ -906,7 +918,7 @@ No Baseline is ever manufactured. Current Builtin is never used as a historical 
 
 Each case is a deliberately contrasting synthetic tree with its expected outcome under the selected values (S2.10) and E2 (S2.3). The expected outcomes of C1–C29 were agreed on calculogic-validator#102 (D8), from a scratchpad evaluation of these rules. Each case is an executable fixture (`tree/test/fixtures/semantic-home-catalogue/`): candidate outcomes since Stage 2A-i and placements since Stage 2A-ii, so that the contract and the tests cannot drift.
 
-**Catalogue identity.** Catalogue `semantic-home-catalogue`, version `2`: C1–C30. Version `1` was C1–C29 (D8); version `2` adds C30 (calculogic-validator#102, Q3). The version is raised whenever a case or an expected outcome changes. The conformance binding that will cite it is Stage 2A-iii (RR4).
+**Catalogue identity.** Catalogue `semantic-home-catalogue`, version `2`: C1–C30. Version `1` was C1–C29 (D8); version `2` adds C30 (calculogic-validator#102, Q3). The version is raised whenever a case or an expected outcome changes, in this table first. The cases and their expected results are also held as one declarative table (`tree/test/fixtures/semantic-home-catalogue/semantic-home-catalogue-cases.fixture.mjs`) whose content digest the conformance binding cites (RR4); a test checks that this table and this spec name the same version and the same case ids. The per-case catalogue tests keep their own trees and assertions, independent of the table, so changing a case's tree and its expectation together in the table alone cannot make the suite pass.
 
 Counts are written `a/b` to mean `a` matching members out of `b` evaluated members on the stated channel. Support share is `a/b`; coverage is evaluated members divided by decision members `|A|`.
 
@@ -1043,7 +1055,7 @@ Each step needs its own authorization:
 5. **Stage 2A.** `treeFolderSemanticHomeReasoning` (S2.1–S2.9) and the S2.11 cases as executable fixtures. Findings stay byte-identical at `repo`, `validator` and `app` scope. In three slices, each separately authorized:
    - **2A-i, candidate reasoning** (done): S2.3–S2.7, the record with `candidateOutcomes` and `memberAttributions`, and the catalogue's candidate outcomes;
    - **2A-ii, placement** (done): S2.8, `placements` and `candidateDiscovery`, the shared Stage 1 comparison operation, and the catalogue's placements;
-   - **2A-iii, conformance binding:** the RR4 binding of the four values, the catalogue version and the reasoning implementation.
+   - **2A-iii, conformance binding** (done): the RR4 binding of the four values, the catalogue identity and the reasoning implementation, checked by `npm test`, and run-time conformance in the parameter set.
 6. **Stage 2B.** Findings reconciliation, one code per pull request, starting with `TREE_FAMILY_SCATTERED` (S2.12).
 7. **Stage 2C.** The legacy `semanticHome` decision (S2.13).
 

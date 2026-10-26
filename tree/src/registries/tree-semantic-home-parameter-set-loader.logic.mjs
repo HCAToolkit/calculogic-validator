@@ -8,11 +8,18 @@
  * - a resolution: the resolved registry, whatever its source;
  * - no resolution and no root, or the Builtin root: the cached Builtin set;
  * - an explicit non-Builtin root without a resolution: `not-prepared`, never Builtin in its place.
+ * It also computes, once per process, the source digest of the reasoning modules actually installed
+ * (RR4, K2) and hands it to the converter; if any bound module cannot be read, the digest is null and
+ * conformance stays `not-checked`.
  */
+import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { digestRegistryPayload } from '../../../src/core/registry-lifecycle/registry-lifecycle-canonical-digest.logic.mjs';
 import { compareResolvedRegistryWithBaseline } from '../../../src/core/registry-lifecycle/registry-lifecycle-baseline-comparison.logic.mjs';
 import { descriptorForPayload } from '../../../src/core/registry-lifecycle/registry-lifecycle-migration.logic.mjs';
+import { TREE_SEMANTIC_HOME_REASONING_MODULES } from '../tree-semantic-home-conformance.knowledge.mjs';
+import { digestTreeSemanticHomeReasoningSources } from '../tree-semantic-home-conformance.logic.mjs';
 import {
   NOT_PREPARED_TREE_SEMANTIC_HOME_PARAMETER_SET,
   prepareTreeSemanticHomeParameterSet,
@@ -29,6 +36,29 @@ import {
 } from './tree-semantic-home-policy-registry.logic.mjs';
 
 const registryEntry = TREE_REGISTRY_INVENTORY.find((entry) => entry.registryId === SEMANTIC_HOME_POLICY_REGISTRY_ID);
+
+// This module sits at `tree/src/registries/` in the repository and in the installed package alike.
+const PACKAGE_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
+
+// K2: the digest of the bound modules under `packageRoot`, or null when any is missing or unreadable.
+export const computeTreeSemanticHomeReasoningSourceDigest = ({ packageRoot = PACKAGE_ROOT } = {}) => {
+  try {
+    return digestTreeSemanticHomeReasoningSources(
+      TREE_SEMANTIC_HOME_REASONING_MODULES.map((modulePath) => ({
+        path: modulePath,
+        text: fs.readFileSync(path.join(packageRoot, ...modulePath.split('/')), 'utf8'),
+      })),
+    );
+  } catch {
+    return null;
+  }
+};
+
+let cachedReasoningSourceDigest;
+const installedReasoningSourceDigest = () => {
+  if (cachedReasoningSourceDigest === undefined) cachedReasoningSourceDigest = computeTreeSemanticHomeReasoningSourceDigest();
+  return cachedReasoningSourceDigest;
+};
 
 // Provenance, comparison and conversion of one payload under one resolution.
 const prepareFromResolution = (registryResolution, payload) => {
@@ -50,6 +80,7 @@ const prepareFromResolution = (registryResolution, payload) => {
       registryId: SEMANTIC_HOME_POLICY_REGISTRY_ID,
       payload,
     }),
+    reasoningSourceDigest: installedReasoningSourceDigest(),
   });
 };
 
