@@ -679,12 +679,32 @@ Stage 2 adds one Tree-owned prepared-evidence record, `treeFolderSemanticHomeRea
 
 - `status`: `evaluated` or `configuration-unavailable` (S2.10, registry architecture). Every other field below except `parameterSet` is present only when `status` is `evaluated`;
 - `semanticEvidenceSource`: a reference to the Stage 1 record;
-- `parameterSet`: the registry identity, `version`, `source` (`builtin`, `custom` or `candidate`) and canonical digest of the resolved `semantic-home-policy` registry. When `status` is `evaluated`, it also holds each parameter's value and `origin`, and the set's `conformance` (S2.10). When `status` is `configuration-unavailable`, it holds the reason instead;
+- `parameterSet`: the loaded parameter set, `treeSemanticHomeParameterSet` (below), held by reference;
 - `candidateOutcomes`: one per candidate, with the candidate identity, governing channel, outcome, reasons, notes, decision counts (`|A|`, `M` split singular and ambiguous, `F` by root, `N` by reason), strength profile, the nested candidates the outcome depends on with the two reference-resolution results (S2.6), and, for `claim-unresolved`, the root reading's outcome, reason and counts (S2.3);
 - `memberAttributions`: the S2.6 records;
 - `placements`: one per file occurrence, with the file identity, state, reason, nearest home, the homes on its relevant lineage, the homes elsewhere, the undetermined candidates consulted, and the run scope.
 
 When `status` is `configuration-unavailable`, Stage 2 did not run: there are no candidate outcomes, member attributions or placements, not even `undetermined` ones. An absent configuration is never read as evidence about any folder or file.
+
+**The parameter set, `treeSemanticHomeParameterSet`.** A Tree loader prepares it, before and separately from reasoning, as a frozen prepared dependency. It is not part of the report payload.
+
+**What the loader reads:**
+- the run's resolved Tree registry root, and nothing else: it never searches Builtin or Custom directories itself;
+- the resolved registry's provenance (`registryProvenance`, lifecycle §11.2);
+- the Baseline entry comparison (lifecycle §11.4).
+
+**What it holds:**
+
+| Field | Content |
+| --- | --- |
+| `registry` | The registry identity (`tree/semantic-home-policy`), its `version`, its `source` (`builtin`, `custom` or `candidate`) and its canonical digest, all as the run's lifecycle resolution reports them |
+| `availability` | `available` when the resolved registry carries the parameter section; `configuration-unavailable` for a readable version-1 registry (RR5), with `reason: parameter-set-absent`. Never Builtin values in place of a missing section |
+| `parameters` | Only when `available`. Keyed by S2.5 name (`P_COVERAGE`, `P_MIN_SUPPORT`, `P_NOT_ELIGIBLE_SHARE`, `P_ELIGIBLE_SHARE`) through the explicit S2.10 identifier table. Each entry holds `parameterId`, `value`, `catalogueCases`, `baselineComparison` and `origin` (RR4) |
+| `conformance` | RR4. Always `not-checked` until Stage 2A |
+
+**Availability is not reasoning status.** `availability: available` says only that parameters were loaded. Stage 2A sets `status: evaluated` after it has evaluated candidates; `configuration-unavailable` carries through unchanged. The loader computes no eligibility, attribution or placement.
+
+**Direct library calls with no lifecycle resolution** load Builtin, as Tree's other registry loaders do (registry lifecycle spec §14). The source is then `builtin`, and the digest is computed with the lifecycle's own canonical digest.
 
 Stage 1 availability and records are held by reference, never copied or recomputed. All collections are sorted deterministically by occurrence identity, then by candidate identity. The record is not part of the report payload. Only findings decided under S2.12 reach the report.
 
@@ -783,15 +803,37 @@ Anything in `semantic-home-policy` is consumer-editable, because the registry be
   A payload that breaks these is invalid, and an invalid active Custom registry blocks the run (registry lifecycle spec §7.1). Validation checks structure, never whether a rationale is convincing.
 
 **RR4. Provenance and conformance are reported separately.**
-- **`origin`, per parameter, says where a value came from:**
-  - `builtin`;
-  - `custom-baseline`: equal to the Custom set's verified Baseline record (lifecycle §4.4);
-  - `custom-override`: different from it.
 
-  `custom-baseline` does not mean the value matches the current Builtin policy or passes the current catalogue: a Baseline may be older.
+`registry.source` (S2.9) says where the run's data came from: `builtin`, `custom` or `candidate`. Per parameter, two further fields say how each record relates to its comparison Baseline:
+
+| `baselineComparison` (lifecycle §11.4) | `origin` (Tree) | Meaning |
+| --- | --- | --- |
+| `not-applicable` | `builtin` | A Builtin record; there is no comparison Baseline |
+| `matches` | `baseline` | Identical to the record in a verified Baseline |
+| `differs` | `override` | The verified Baseline has a record with this identity, and it is not identical |
+| `absent` | `override` | The verified Baseline has no record with this identity |
+| `unverifiable` | `unverified` | The Baseline's integrity or version cannot be established, so no comparison is claimed |
+
+**What the values mean:**
+- **`override`** means the resolved record is not identical to an existing, verified Baseline record. It does not mean the consumer deliberately edited it. A record added in a version transition, absent from an older Baseline, is also `override`, and `baselineComparison: absent` keeps that difference visible.
+- **`unverified`** is never shown as `baseline` or `override`. Under the current lifecycle a successful run can reach it, because a Baseline mismatch and an undescribed Baseline version do not block a run (lifecycle §7.1, §11.4). The lifecycle's diagnostic reason travels with it.
+- **`baseline`** does not mean the value matches the current Builtin policy or passes the current catalogue: a Baseline may be older.
+
+**The comparison Baseline** is the one the run's own lifecycle assessment verified:
+- for a Custom run, the Custom set's manifest and `.baseline/` copies;
+- for a candidate run, **the candidate artifact's own** manifest and `.baseline/` copies (lifecycle §12.12, §12.13), never the repository's Custom set.
+
+No Baseline is ever manufactured. Current Builtin is never used as a historical reference, and a candidate without a manifest cannot resolve (lifecycle §7.1 item 5).
 - **`conformance`, for the whole parameter set, says whether the resolved values satisfy the catalogue (S2.11).** It is judged for the set, because the values are justified together:
-  - `not-checked`: the default for any set resolved from a Custom source. A `custom-override` removes the right to inherit Builtin's conformance claim; it does not establish failure.
+  - `not-checked`: the loader's value for every set, Builtin included, until Stage 2A. Origins never change conformance: an `override` or `unverified` record removes no right and proves no failure.
   - `passed` or `failed`: recorded with the catalogue version checked. Only a mechanical evaluation of S2.11 against the resolved values may produce these. For the Builtin set, that evaluation is the Stage 2A fixture suite, which must pass for the Builtin values in every release.
+  - **Binding (Stage 2A).** A `passed` result inherited at run time must bind together:
+    - the complete set of four values;
+    - the S2.11 catalogue version;
+    - the reasoning implementation the catalogue was evaluated against.
+
+    Matching values alone are not enough once the catalogue or the reasoning has changed. The binding is independent of source: a Builtin set and a Custom or candidate set with identical bound values get the same result.
+  - **Checking any other parameter set** is a separate, read-only facility that evaluates S2.11 and reports per-case results. Its results are not written into the registry, and runs do not read them back.
 - **No self-attestation.** No registry field lets a consumer declare conformance.
 
 **RR5. A legacy registry without parameters is readable, and Stage 2 then reports `configuration-unavailable`.**

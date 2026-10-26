@@ -448,6 +448,36 @@ Naming's `registryState`, `registrySource` and `registryDigests` stay for one tr
 
 The transition ends in a later, deliberately scoped change. The React app captures reports, so the fields are not removed inside #41.
 
+### 11.4 Baseline entry comparison for a resolved registry (slice-facing)
+
+A slice may need to know how each entry of a resolved registry relates to the Baseline the run's assessment verified. One example is a per-parameter provenance (Tree spec, Stage 2 S2.10 RR4).
+
+**Ownership.** The lifecycle owns this comparison, because it owns Baseline verification (§4.4) and entry identity (§8.4). A slice never reads `.baseline/` copies or the manifest itself, and never re-verifies digests. The interface is generic: it uses only comparison declarations and has no slice vocabulary.
+
+**Inputs.** The run's resolution (Custom or candidate), one registry of the run's resolved set, and that registry's resolved payload.
+
+**Output.** For each entry the registry's comparison declaration identifies, one of four states, decided in this order:
+
+| State | When |
+| --- | --- |
+| `not-applicable` | The run's source is Builtin. There is no comparison Baseline |
+| `unverifiable` | The Baseline copy cannot be trusted: its digest differs from the manifest or it is missing (`baseline-mismatch`), or the manifest version has no descriptor in this release. A diagnostic reason is returned with it (`baseline-mismatch` or `baseline-version-undescribed`) |
+| `matches` | The verified Baseline has an entry with the same identity and an identical canonical value |
+| `differs` | The verified Baseline has an entry with the same identity and a different value |
+| `absent` | The verified Baseline has no entry with that identity, for example a record added by a later version of the registry |
+
+`unverifiable` is never turned into `matches`, `differs` or `absent`.
+
+**Which Baseline.**
+- **Custom run:** the Custom set's manifest and `.baseline/` copies.
+- **Candidate run (§12.13):** the candidate artifact's own manifest and `.baseline/` copies (§12.12), never the repository's Custom set.
+
+No Baseline is ever manufactured, and current Builtin is never used as one.
+
+**Reachability.** Under §7.1, a missing manifest, or a manifest without an entry for a present registry, blocks the run, so a slice never sees those cases. `baseline-mismatch` and an undescribed manifest version do not block (§7.2; `import-check`'s refusal of an unverifiable Baseline does not apply to runs). So `unverifiable` is reachable in successful runs.
+
+**Status.** Contract only (calculogic-validator#102). Not yet implemented, and no slice consumes it yet.
+
 ## 12) Commands
 
 ### 12.1 Lifecycle commands (#41)
