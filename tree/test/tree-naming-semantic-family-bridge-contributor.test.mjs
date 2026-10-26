@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   classifyNamingBridgeFolderKinds,
   collectNamingSemanticFamilyBridgeFindings,
+  interpretFamilyLocalFirst,
   prepareNamingBridgeValidatorDevelopmentContext,
   toNamingBridgePlacementRecord,
 } from '../src/contributors/tree-naming-semantic-family-bridge-contributor.logic.mjs';
@@ -14,6 +15,12 @@ import { getBuiltinTreeRepoShapePolicy } from '../src/registries/tree-repo-shape
 // (Refs #34), not from a hard-coded folder name.
 const EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT = 'calculogic-validator';
 const EMBEDDED_BRIDGE_CONTEXT = prepareNamingBridgeValidatorDevelopmentContext(EMBEDDED_VALIDATOR_DEVELOPMENT_ROOT);
+
+// Stage 2B-ii (Tree spec S2.12): TREE_OBSERVED_FAMILY_CLUSTER is retired. The local-first classification it
+// was emitted from is kept unchanged; this reads it directly, with the contributor's default context.
+const localFirstClassificationOf = ({ observations }) =>
+  interpretFamilyLocalFirst(observations.map((observation) => ({ observation, placement: toNamingBridgePlacementRecord(observation) })))
+    .classification;
 
 const createPreparedTreeCoreInputs = (findingContributors = []) => ({
   selectedPaths: [],
@@ -898,9 +905,9 @@ test('tree naming bridge contributor keeps local-density-first families out of b
   const first = collectNamingSemanticFamilyBridgeFindings(payload);
   const second = collectNamingSemanticFamilyBridgeFindings(payload);
   assert.deepEqual(first, second);
-  assert.equal(first.some((finding) => finding.code === 'TREE_FAMILY_SCATTERED'), false);
-  assert.equal(first.some((finding) => finding.code === 'TREE_OBSERVED_FAMILY_CLUSTER'), true);
-  assert.equal(first.some((finding) => finding.code === 'TREE_FAMILY_SUBGROUP_OPPORTUNITY'), false);
+  // Stage 2B-ii: the family is still classified local-density-first, but the retired cluster code is not emitted.
+  assert.equal(localFirstClassificationOf(payload), 'local-density-first');
+  assert.deepEqual(first, []);
 });
 
 test('tree naming bridge contributor keeps local-subgroup-first families out of broad scatter', () => {
@@ -1027,8 +1034,8 @@ test('tree naming bridge contributor stays deterministic for identical unresolve
 });
 
 
-test('tree naming bridge contributor emits one cluster finding for local-density-first family in one semantic container', () => {
-  const findings = collectNamingSemanticFamilyBridgeFindings({
+test('a four-file family in one aligned container is still local-density-first but emits no cluster finding (Stage 2B-ii)', () => {
+  const payload = {
     observations: [
       {
         path: 'calculogic-validator/tree/src/cluster/observed-family.logic.mjs',
@@ -1055,16 +1062,21 @@ test('tree naming bridge contributor emits one cluster finding for local-density
         semanticFamily: 'observed-family',
       },
     ],
-  });
+  };
 
-  const clusterFindings = findings.filter((finding) => finding.code === 'TREE_OBSERVED_FAMILY_CLUSTER');
-  assert.equal(clusterFindings.length, 1);
-  assert.equal(clusterFindings[0].details.aggregationUnit, 'semanticFamily-in-container');
-  assert.equal(clusterFindings[0].details.semanticContainerIdentity, 'calculogic-validator/tree');
+  const interpretation = interpretFamilyLocalFirst(
+    payload.observations.map((observation) => ({ observation, placement: toNamingBridgePlacementRecord(observation) })),
+  );
+  assert.equal(interpretation.classification, 'local-density-first');
+  assert.equal(interpretation.details.semanticContainerIdentity, 'calculogic-validator/tree');
+  assert.deepEqual(collectNamingSemanticFamilyBridgeFindings(payload), []);
+  // One file fewer, with one local home: the same family is expected presence, and still emits nothing.
+  assert.equal(localFirstClassificationOf({ observations: payload.observations.slice(0, 3) }), 'expected-local-presence');
+  assert.deepEqual(collectNamingSemanticFamilyBridgeFindings({ observations: payload.observations.slice(0, 3) }), []);
 });
 
-test('tree naming bridge contributor keeps dense family files in one container from inflating cluster count', () => {
-  const findings = collectNamingSemanticFamilyBridgeFindings({
+test('a dense five-file family in one container stays local-density-first with no cluster finding (Stage 2B-ii)', () => {
+  const payload = {
     observations: [
       {
         path: 'calculogic-validator/tree/src/a/tree-density.logic.mjs',
@@ -1097,12 +1109,13 @@ test('tree naming bridge contributor keeps dense family files in one container f
         semanticFamily: 'tree-density',
       },
     ],
-  });
+  };
 
-  assert.equal(findings.filter((finding) => finding.code === 'TREE_OBSERVED_FAMILY_CLUSTER').length, 1);
+  assert.equal(localFirstClassificationOf(payload), 'local-density-first');
+  assert.deepEqual(collectNamingSemanticFamilyBridgeFindings(payload), []);
 });
 
-test('tree naming bridge contributor can emit distinct cluster observations across semantic containers', () => {
+test('tree naming bridge contributor emits no cluster observation for a family spread across semantic containers', () => {
   const findings = collectNamingSemanticFamilyBridgeFindings({
     observations: [
       {
@@ -2025,4 +2038,31 @@ test('tree shared-root lane advisory scopes semantic-home evidence to its observ
     ),
     false,
   );
+});
+
+// Stage 2B-ii (Tree spec S2.12): the density lane is kept unchanged after the cluster code's retirement.
+const toFamilyPayload = (paths, familyRoot, semanticFamily) => ({
+  observations: paths.map((observationPath) => ({ path: observationPath, semanticName: semanticFamily, familyRoot, semanticFamily })),
+});
+
+test('the density lane keeps its four-file threshold when the count alone decides it (Stage 2B-ii)', () => {
+  // One container-local home, so only the file count can make the family local-density-first.
+  const payload = toFamilyPayload(
+    ['pack.logic.mjs', 'pack.results.mjs', 'pack.knowledge.mjs', 'pack.wiring.mjs'].map((name) => `calculogic-validator/tree/src/${name}`),
+    'tree',
+    'pack',
+  );
+  assert.equal(localFirstClassificationOf(payload), 'local-density-first');
+  assert.equal(localFirstClassificationOf({ observations: payload.observations.slice(0, 3) }), 'expected-local-presence');
+  assert.deepEqual(collectNamingSemanticFamilyBridgeFindings(payload), []);
+});
+
+test('a local-density-first family under a shared root still suppresses shared-root lane spread (Stage 2B-ii)', () => {
+  const payload = toFamilyPayload(
+    ['src/shared/build/shared.build.tsx', 'src/shared/logic/shared.logic.ts', 'src/shared/knowledge/shared.knowledge.ts', 'src/shared/results/shared.results.ts'],
+    'shared',
+    'shared',
+  );
+  assert.equal(localFirstClassificationOf(payload), 'local-density-first');
+  assert.deepEqual(collectNamingSemanticFamilyBridgeFindings(payload), []);
 });

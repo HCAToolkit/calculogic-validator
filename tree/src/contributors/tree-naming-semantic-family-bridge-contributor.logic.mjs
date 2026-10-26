@@ -4,7 +4,9 @@ import {
   toValidatorDevelopmentRootTopLevelFolder,
 } from '../tree-validator-development-root.logic.mjs';
 
-const FAMILY_CLUSTER_INFO_MIN_FILES = 4;
+// Local-first density lane (`local-density-first`). Its former finding, TREE_OBSERVED_FAMILY_CLUSTER, was
+// retired in Stage 2B-ii (Tree spec S2.12); the lane is kept unchanged and no longer changes any finding.
+const FAMILY_LOCAL_DENSITY_MIN_FILES = 4;
 const FAMILY_SUBGROUP_OPPORTUNITY_MIN_FILES_IN_CONTAINER = 4;
 const FAMILY_SUBGROUP_OPPORTUNITY_MIN_DISTINCT_CONTAINER_LOCAL_HOMES = 2;
 const FAMILY_SUBGROUP_OPPORTUNITY_REQUIRES_LOWER_LEVEL_GROUPING_SIGNAL = true;
@@ -581,7 +583,7 @@ const hasLowerLevelGroupingSignal = (observation) => {
   return observation.semanticFamily.startsWith(`${observation.familyRoot}-`);
 };
 
-const interpretFamilyLocalFirst = (familyEntries) => {
+export const interpretFamilyLocalFirst = (familyEntries) => {
   const sortedPaths = familyEntries
     .map(({ observation }) => observation.path)
     .sort((left, right) => left.localeCompare(right));
@@ -613,7 +615,7 @@ const interpretFamilyLocalFirst = (familyEntries) => {
 
   if (allEntriesInsideOneSemanticContainer) {
     const hasContainerLocalDensity =
-      sortedPaths.length >= FAMILY_CLUSTER_INFO_MIN_FILES ||
+      sortedPaths.length >= FAMILY_LOCAL_DENSITY_MIN_FILES ||
       observedContainerLocalHomes.length >= FAMILY_SUBGROUP_OPPORTUNITY_MIN_DISTINCT_CONTAINER_LOCAL_HOMES;
     const hasContainerLocalSubgroupOpportunity =
       sortedPaths.length >= FAMILY_SUBGROUP_OPPORTUNITY_MIN_FILES_IN_CONTAINER &&
@@ -904,38 +906,6 @@ const toSharedRootLaneInterpretation = ({
   };
 };
 
-const collectFamilyClusterFindings = (familySharedSpineAnalysisEntries) =>
-  familySharedSpineAnalysisEntries.flatMap(({ familyAnalysis }) => {
-      const semanticFamily = familyAnalysis.semanticFamily;
-      if (familyAnalysis.localFirstInterpretation.classification !== LOCAL_FIRST_FAMILY_INTERPRETATION.LOCAL_DENSITY_FIRST) {
-        return [];
-      }
-
-      return [
-        {
-          code: 'TREE_OBSERVED_FAMILY_CLUSTER',
-          severity: 'info',
-          path: familyAnalysis.sortedPaths[0],
-          classification: 'advisory-structure',
-          message:
-            'Naming-owned semantic-family cluster size is high enough to consider a clearer structural grouping surface.',
-          ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
-          details: {
-            semanticFamily,
-            semanticContainerIdentity: familyAnalysis.semanticContainerIdentities[0] ?? null,
-            aggregationUnit: familyAnalysis.semanticContainerIdentities.length === 1 ? 'semanticFamily-in-container' : 'semanticFamily',
-            observedCount: familyAnalysis.sortedPaths.length,
-            observedPaths: familyAnalysis.sortedPaths,
-            localFirstInterpretation: familyAnalysis.localFirstInterpretation,
-            ...toSemanticHomeEvidenceDetails(familyAnalysis.familyEntries),
-            threshold: {
-              minFamilyFilesForClusterObservation: FAMILY_CLUSTER_INFO_MIN_FILES,
-            },
-          },
-        },
-      ];
-    });
-
 const collectFamilySubgroupOpportunityFindings = (familySharedSpineAnalysisEntries) =>
   familySharedSpineAnalysisEntries.flatMap(({ familyAnalysis }) => {
       const semanticFamily = familyAnalysis.semanticFamily;
@@ -1105,7 +1075,6 @@ export const collectNamingSemanticFamilyBridgeFindings = (
 
   return [
     ...collectFamilySubgroupOpportunityFindings(familySharedSpineAnalysisEntries),
-    ...collectFamilyClusterFindings(familySharedSpineAnalysisEntries),
     ...collectSharedRootFamilyScatterAcrossLanesFindings(familySharedSpineAnalysisEntries),
   ];
 };
