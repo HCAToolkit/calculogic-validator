@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const testFilePath = fileURLToPath(import.meta.url);
 const validatorPackageRoot = path.resolve(path.dirname(testFilePath), '..');
@@ -115,6 +115,22 @@ test('packed validator artifact installs into a clean consumer host and runs pub
     assert.equal(fsSync.existsSync(path.join(installedPackageRoot, 'naming', 'test')), false);
     assert.equal(fsSync.existsSync(path.join(installedPackageRoot, 'tree', 'test')), false);
     assert.equal(fsSync.existsSync(path.join(installedPackageRoot, 'structural-addressing', 'test')), false);
+
+    // Tree RR4 (K2): the installed package fingerprints its own reasoning modules, so the Builtin set
+    // carries the binding in the standalone layout, not only in the repository checkout.
+    const installedLoader = await import(
+      pathToFileURL(path.join(installedPackageRoot, 'tree', 'src', 'registries', 'tree-semantic-home-parameter-set-loader.logic.mjs')).href
+    );
+    const { TREE_SEMANTIC_HOME_CONFORMANCE_BINDING } = await import(
+      pathToFileURL(path.join(installedPackageRoot, 'tree', 'src', 'tree-semantic-home-conformance.knowledge.mjs')).href
+    );
+    const installedSet = installedLoader.getBuiltinTreeSemanticHomeParameterSet();
+    assert.equal(installedSet.conformance, 'passed');
+    assert.equal(installedSet.conformanceBinding.reasoning.sourceDigest, TREE_SEMANTIC_HOME_CONFORMANCE_BINDING.reasoning.sourceDigest);
+    assert.equal(
+      installedLoader.computeTreeSemanticHomeReasoningSourceDigest(),
+      installedLoader.computeTreeSemanticHomeReasoningSourceDigest({ packageRoot: validatorPackageRoot }),
+    );
 
     const allReport = assertPublicBinReport({
       binName: 'calculogic-validate',

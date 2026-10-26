@@ -111,7 +111,7 @@ test('a version 1 payload is configuration-unavailable, with no parameters and n
   });
 });
 
-test('conformance is not-checked for every source, and the set is deeply frozen from a frozen input', () => {
+test('without an installed source digest, conformance is not-checked for every source, and the set is deeply frozen from a frozen input', () => {
   for (const source of ['builtin', 'custom', 'candidate']) {
     const set = prepareTreeSemanticHomeParameterSet({
       payload: deepFreeze(structuredClone(V2)),

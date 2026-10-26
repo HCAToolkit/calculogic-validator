@@ -15,9 +15,11 @@ import { resolveRegistryLifecyclePaths } from '../src/core/registry-lifecycle/re
 import { useRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-use.logic.mjs';
 import { runValidatorRunner } from '../src/core/validator-runner.logic.mjs';
 import {
+  computeTreeSemanticHomeReasoningSourceDigest,
   getBuiltinTreeSemanticHomeParameterSet,
   loadTreeSemanticHomeParameterSet,
 } from '../tree/src/registries/tree-semantic-home-parameter-set-loader.logic.mjs';
+import { TREE_SEMANTIC_HOME_CONFORMANCE_BINDING } from '../tree/src/tree-semantic-home-conformance.knowledge.mjs';
 import { prepareTreeStructureAdvisorInputs, runTreeStructureAdvisor } from '../tree/src/tree-structure-advisor.wiring.mjs';
 
 // The Semantic Home parameter loader on the real lifecycle (Tree spec S2.9, S2.10 RR4): provenance
@@ -98,7 +100,12 @@ test('Builtin: a Builtin resolution and a direct call give the same set, digest 
     });
     assert.equal(direct.registry.digest, digestRegistryPayload(payload, descriptorForPayload(treeEntry, payload)));
     assert.equal(resolved.availability, 'available');
-    assert.equal(resolved.conformance, 'not-checked');
+    // RR4 (2A-iii): the Builtin values with the installed reasoning modules carry the binding.
+    assert.equal(resolved.conformance, 'passed');
+    assert.deepEqual(resolved.conformanceBinding, {
+      catalogue: { id: 'semantic-home-catalogue', version: '2', digest: TREE_SEMANTIC_HOME_CONFORMANCE_BINDING.catalogue.digest },
+      reasoning: { version: '1', sourceDigest: computeTreeSemanticHomeReasoningSourceDigest() },
+    });
     assert.deepEqual(field(resolved, 'origin'), Array(4).fill('builtin'));
     assert.deepEqual(field(resolved, 'baselineComparison'), Array(4).fill('not-applicable'));
     assert.deepEqual(field(resolved, 'value'), [0.5, 2, 0.25, 0.75]);
@@ -121,6 +128,9 @@ test('Custom: an edited value is override (differs), its values come from the Cu
       assert.deepEqual(field(set, 'origin'), ['override', 'baseline', 'baseline', 'baseline']);
       assert.deepEqual(field(set, 'baselineComparison'), ['differs', 'matches', 'matches', 'matches']);
       assert.deepEqual(field(set, 'value'), [0.6, 2, 0.25, 0.75]);
+      // Different values are not the bound values: not-checked, never failed.
+      assert.equal(set.conformance, 'not-checked');
+      assert.equal(Object.hasOwn(set, 'conformanceBinding'), false);
     },
   );
 });
@@ -137,6 +147,8 @@ test('Custom: a rationale-only edit keeps the value and is override (differs)', 
       assert.equal(set.parameters.P_MIN_SUPPORT.baselineComparison, 'differs');
       assert.equal(Object.hasOwn(set.parameters.P_MIN_SUPPORT, 'rationale'), false);
       assert.deepEqual(field(set, 'origin'), ['baseline', 'override', 'baseline', 'baseline']);
+      // K6: rationale is not bound, and conformance never reads origin.
+      assert.equal(set.conformance, 'passed');
     },
   );
 });
