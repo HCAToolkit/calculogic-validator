@@ -59,8 +59,9 @@ const kindCounts = (members, channel) => {
 // S2.9 decision counts on the governing channel, over the members C definitely holds.
 const decisionCountsOf = (definite, undetermined, channel) => {
   const support = { singular: 0, ambiguous: 0 };
-  const contradictionByRoot = {};
-  const missingByReason = {};
+  // Keys are open Naming values (`familyRoot`), so the working tallies are prototype-free, as in Stage 1.
+  const contradictionByRoot = Object.create(null);
+  const missingByReason = Object.create(null);
   for (const member of definite) {
     const comparison = member.channels[channel];
     if (comparison.result === 'match') support[comparison.ambiguity] += 1;

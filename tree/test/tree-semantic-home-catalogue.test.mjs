@@ -23,6 +23,13 @@ test('C2 all foreign: not-eligible, share 0', () => {
   assert.equal(c.outcomeAt('src').strengthProfile.supportShare, 0);
 });
 
+test('decision counts tally open Naming roots without prototype collisions', () => {
+  const c = buildCatalogueCase({ files: [...files('src', 'constructor', 2), ...files('src', '__proto__', 1), ...files('src', 'toString', 1)] });
+  const outcome = c.outcomeAt('src');
+  assert.deepEqual(Object.entries(outcome.decisionCounts.contradictionByRoot), [['__proto__', 1], ['constructor', 2], ['toString', 1]]);
+  assert.equal(Object.getPrototypeOf(outcome.decisionCounts.contradictionByRoot), Object.prototype);
+});
+
 test('C3 all unevaluated: undetermined on coverage, missing is never contradiction', () => {
   const c = buildCatalogueCase({ files: files('tests', 'x', 6, { noObservation: true }) });
   const outcome = c.outcomeAt('tests');
