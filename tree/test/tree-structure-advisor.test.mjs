@@ -20,14 +20,7 @@ import { prepareTreeFolderKindEvidence } from '../src/tree-folder-kind-evidence.
 import {
   prepareTreeOccurrenceClassificationReplacementRuntime,
 } from '../src/tree-occurrence-classification.logic.mjs';
-import { prepareTreeOccurrenceClassificationParityEvidence } from '../src/tree-occurrence-classification-parity-evidence.logic.mjs';
 import { prepareTreeStructuralContextAssessment } from '../src/tree-structural-context-assessment.logic.mjs';
-import { summarizeTreeOccurrenceClassificationParityEvidence } from '../src/tree-occurrence-classification-parity-summary.logic.mjs';
-import { prepareTreeOccurrenceClassificationShadowReport } from '../src/tree-occurrence-classification-shadow-report.logic.mjs';
-import { evaluateTreeOccurrenceClassificationReplacementReadiness } from '../src/tree-occurrence-classification-replacement-readiness.logic.mjs';
-import { recommendTreeOccurrenceClassificationReplacement } from '../src/tree-occurrence-classification-replacement-recommendation.logic.mjs';
-import { planTreeOccurrenceClassificationRuntimeEvaluation } from '../src/tree-occurrence-classification-runtime-evaluation-plan.logic.mjs';
-import { planTreeOccurrenceClassificationRuntimeExecutionContract } from '../src/tree-occurrence-classification-runtime-execution-contract.logic.mjs';
 import { getBuiltinStructuralHomesRegistry } from '../src/registries/tree-structural-homes-registry.logic.mjs';
 import { getBuiltinFolderKindsRegistry } from '../src/registries/tree-folder-kinds-registry.logic.mjs';
 import { getBuiltinTreeRepoShapePolicy } from '../src/registries/tree-repo-shape-policy-registry.logic.mjs';
@@ -80,6 +73,8 @@ const DOC_ENGINE_REPO_SHAPE_EVIDENCE = prepareTreeRepoShapeEvidence({
 // makes that embedded development context explicit.
 const embeddedPackageRootFor = (fixtureDir) => path.join(fixtureDir, 'calculogic-validator');
 
+// These two records once opened the retired classification readiness gate. Callers may still supply
+// them; the tests below show they no longer affect `TREE_UNEXPECTED_TOP_LEVEL_FOLDER`.
 const READY_OCCURRENCE_CLASSIFICATION_EXECUTION_CONTRACT = {
   source: 'tree-occurrence-classification-runtime-execution-contract',
   executionMode: 'execution-candidate',
@@ -97,6 +92,8 @@ const READY_OCCURRENCE_CLASSIFICATION_REPLACEMENT_READINESS = {
   rationale: 'Test fixture marks replacement readiness as candidate-ready.',
 };
 
+// Prepared inputs with a caller-supplied classification runtime whose repo-top flags come from
+// `classificationsByName`, plus the former readiness records.
 const createReadyClassificationPreparedInputs = ({ topLevelDirectoryNames, classificationsByName }) => {
   const occurrenceRecords = topLevelDirectoryNames.map((directoryName) => ({
     path: directoryName,
@@ -275,13 +272,19 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
     assert.ok(preparedInputs.preparedDependencies.treeStructuralHomeEvidence);
     assert.ok(preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence);
     assert.ok(preparedInputs.preparedDependencies.treeFolderKindEvidence);
-    assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationParityEvidence);
-    assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationParitySummary);
-    assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationShadowReport);
-    assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementReadiness);
-    assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRecommendation);
-    assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationRuntimeEvaluationPlan);
-    assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationRuntimeExecutionContract);
+    // The classification migration's parity and readiness records are retired (Tree spec,
+    // "Classification migration machinery: retired"); the classification runtime stays.
+    for (const retiredKey of [
+      'treeOccurrenceClassificationParityEvidence',
+      'treeOccurrenceClassificationParitySummary',
+      'treeOccurrenceClassificationShadowReport',
+      'treeOccurrenceClassificationReplacementReadiness',
+      'treeOccurrenceClassificationReplacementRecommendation',
+      'treeOccurrenceClassificationRuntimeEvaluationPlan',
+      'treeOccurrenceClassificationRuntimeExecutionContract',
+    ]) {
+      assert.equal(Object.hasOwn(preparedInputs.preparedDependencies, retiredKey), false, retiredKey);
+    }
     assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime);
     assert.deepEqual(
       preparedInputs.preparedDependencies.treeStructuralHomeEvidence,
@@ -313,63 +316,6 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
       treeFolderKindEvidence: preparedInputs.preparedDependencies.treeFolderKindEvidence,
       treeRepoShapePolicy: preparedInputs.preparedDependencies.treeRepoShapePolicy,
     });
-    assert.deepEqual(
-      preparedInputs.preparedDependencies.treeOccurrenceClassificationParityEvidence,
-      prepareTreeOccurrenceClassificationParityEvidence({
-        addressedOccurrenceRecords: snapshot.occurrenceRecords,
-        currentOccurrenceClassificationRecords: expectedOccurrenceClassificationReplacementRuntime.classifyOccurrenceRecords(
-          snapshot.occurrenceRecords,
-        ),
-        treeStructuralHomeEvidence: preparedInputs.preparedDependencies.treeStructuralHomeEvidence,
-        treeFamilyRootFolderEvidence: preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence,
-        treeFolderKindEvidence: preparedInputs.preparedDependencies.treeFolderKindEvidence,
-      }),
-    );
-    assert.deepEqual(
-      preparedInputs.preparedDependencies.treeOccurrenceClassificationParitySummary,
-      summarizeTreeOccurrenceClassificationParityEvidence(preparedInputs.preparedDependencies.treeOccurrenceClassificationParityEvidence),
-    );
-    assert.deepEqual(
-      preparedInputs.preparedDependencies.treeOccurrenceClassificationShadowReport,
-      prepareTreeOccurrenceClassificationShadowReport({
-        treeOccurrenceClassificationParityEvidence: preparedInputs.preparedDependencies.treeOccurrenceClassificationParityEvidence,
-        treeOccurrenceClassificationParitySummary: preparedInputs.preparedDependencies.treeOccurrenceClassificationParitySummary,
-      }),
-    );
-    assert.deepEqual(
-      preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementReadiness,
-      evaluateTreeOccurrenceClassificationReplacementReadiness({
-        treeOccurrenceClassificationParitySummary: preparedInputs.preparedDependencies.treeOccurrenceClassificationParitySummary,
-        treeOccurrenceClassificationShadowReport: preparedInputs.preparedDependencies.treeOccurrenceClassificationShadowReport,
-      }),
-    );
-    assert.deepEqual(
-      preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRecommendation,
-      recommendTreeOccurrenceClassificationReplacement({
-        treeOccurrenceClassificationReplacementReadiness: preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementReadiness,
-        treeOccurrenceClassificationShadowReport: preparedInputs.preparedDependencies.treeOccurrenceClassificationShadowReport,
-        treeOccurrenceClassificationParitySummary: preparedInputs.preparedDependencies.treeOccurrenceClassificationParitySummary,
-      }),
-    );
-    assert.deepEqual(
-      preparedInputs.preparedDependencies.treeOccurrenceClassificationRuntimeEvaluationPlan,
-      planTreeOccurrenceClassificationRuntimeEvaluation({
-        treeOccurrenceClassificationReplacementRecommendation: preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRecommendation,
-        treeOccurrenceClassificationReplacementReadiness: preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementReadiness,
-        treeOccurrenceClassificationShadowReport: preparedInputs.preparedDependencies.treeOccurrenceClassificationShadowReport,
-        treeOccurrenceClassificationParitySummary: preparedInputs.preparedDependencies.treeOccurrenceClassificationParitySummary,
-      }),
-    );
-    assert.deepEqual(
-      preparedInputs.preparedDependencies.treeOccurrenceClassificationRuntimeExecutionContract,
-      planTreeOccurrenceClassificationRuntimeExecutionContract({
-        treeOccurrenceClassificationRuntimeEvaluationPlan: preparedInputs.preparedDependencies.treeOccurrenceClassificationRuntimeEvaluationPlan,
-        treeOccurrenceClassificationReplacementRecommendation: preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRecommendation,
-        treeOccurrenceClassificationReplacementReadiness: preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementReadiness,
-        treeOccurrenceClassificationShadowReport: preparedInputs.preparedDependencies.treeOccurrenceClassificationShadowReport,
-        treeOccurrenceClassificationParitySummary: preparedInputs.preparedDependencies.treeOccurrenceClassificationParitySummary,
-      }),
-    );
     assert.equal(
       preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime.source,
       expectedOccurrenceClassificationReplacementRuntime.source,
@@ -381,57 +327,6 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
       ),
       expectedOccurrenceClassificationReplacementRuntime.classifyOccurrenceRecords(snapshot.occurrenceRecords),
     );
-    const runtimeExecutionContract = preparedInputs.preparedDependencies.treeOccurrenceClassificationRuntimeExecutionContract;
-    assert.deepEqual(Object.keys(runtimeExecutionContract).sort(), ['executionMode', 'executionStatus', 'rationale', 'requiredGuards', 'source', 'summary']);
-    assert.equal(
-      ['finding', 'findingCode', 'severity', 'verdict', 'placementVerdict', 'advisorDecision'].some((key) => Object.hasOwn(runtimeExecutionContract, key)),
-      false,
-    );
-    assert.equal(
-      ['finding', 'findingCode', 'severity', 'verdict', 'placementVerdict', 'advisorDecision'].some((key) => Object.hasOwn(runtimeExecutionContract.summary, key)),
-      false,
-    );
-    assert.equal(
-      runtimeExecutionContract.requiredGuards.some((guard) =>
-        ['finding', 'findingCode', 'severity', 'verdict', 'placementVerdict', 'advisorDecision'].some((key) => Object.hasOwn(guard, key))),
-      false,
-    );
-    const {
-      treeOccurrenceClassificationRuntimeExecutionContract: _omittedRuntimeExecutionContract,
-      ...preparedDependenciesWithoutRuntimeExecutionContract
-    } = preparedInputs.preparedDependencies;
-    assert.deepEqual(
-      runTreeStructureAdvisorRuntime(preparedInputs),
-      runTreeStructureAdvisorRuntime({
-        ...preparedInputs,
-        preparedDependencies: preparedDependenciesWithoutRuntimeExecutionContract,
-      }),
-    );
-    const runtimeEvaluationPlan = preparedInputs.preparedDependencies.treeOccurrenceClassificationRuntimeEvaluationPlan;
-    assert.deepEqual(Object.keys(runtimeEvaluationPlan).sort(), ['evaluationMode', 'evaluationStatus', 'rationale', 'source', 'summary']);
-    assert.equal(
-      ['finding', 'findingCode', 'severity', 'verdict', 'placementVerdict', 'advisorDecision'].some((key) => Object.hasOwn(runtimeEvaluationPlan, key)),
-      false,
-    );
-    assert.equal(
-      ['finding', 'findingCode', 'severity', 'verdict', 'placementVerdict', 'advisorDecision'].some((key) => Object.hasOwn(runtimeEvaluationPlan.summary, key)),
-      false,
-    );
-    assert.deepEqual(
-      runtimeEvaluationPlan,
-      planTreeOccurrenceClassificationRuntimeEvaluation({
-        treeOccurrenceClassificationReplacementRecommendation: preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRecommendation,
-        treeOccurrenceClassificationReplacementReadiness: preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementReadiness,
-        treeOccurrenceClassificationShadowReport: preparedInputs.preparedDependencies.treeOccurrenceClassificationShadowReport,
-        treeOccurrenceClassificationParitySummary: preparedInputs.preparedDependencies.treeOccurrenceClassificationParitySummary,
-      }),
-    );
-    const replacementRecommendation = preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRecommendation;
-    assert.deepEqual(Object.keys(replacementRecommendation).sort(), ['confidence', 'rationale', 'recommendation', 'source', 'summary']);
-    assert.equal(
-      ['finding', 'findingCode', 'severity', 'verdict', 'placementVerdict', 'advisorDecision'].some((key) => Object.hasOwn(replacementRecommendation, key)),
-      false,
-    );
     const structuralHomeEvidenceRecords = preparedInputs.preparedDependencies.treeStructuralHomeEvidence.evidenceRecords;
     assert.equal(Array.isArray(structuralHomeEvidenceRecords), true);
     assert.equal(structuralHomeEvidenceRecords.some((record) => record.path === 'src'), true);
@@ -442,15 +337,6 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
       false,
     );
     assert.deepEqual(preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords, []);
-    const parityEvidence = preparedInputs.preparedDependencies.treeOccurrenceClassificationParityEvidence;
-    assert.equal(Array.isArray(parityEvidence.parityRecords), true);
-    assert.equal(typeof parityEvidence.summary, 'object');
-    assert.equal(
-      parityEvidence.parityRecords.some((record) =>
-        ['finding', 'findingCode', 'severity', 'verdict', 'placementVerdict', 'advisorDecision'].some((key) =>
-          Object.hasOwn(record, key))),
-      false,
-    );
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }
@@ -761,7 +647,7 @@ test('tree-structure-advisor structural-address handoff preserves file target ki
   }
 });
 
-test('tree-structure-advisor runtime fallback preserves unexpected top-level folder findings without replacement runtime', () => {
+test('tree-structure-advisor runtime reports unexpected top-level folders without a prepared classification runtime', () => {
   const result = runTreeStructureAdvisorRuntime({
     selectedPaths: [],
     topLevelDirectoryNames: ['src', 'experiments'],
@@ -783,9 +669,48 @@ test('tree-structure-advisor runtime fallback preserves unexpected top-level fol
   assert.equal(Object.hasOwn(advisory.details, 'knownRoots'), false);
 });
 
-test('tree-structure-advisor fallback honors the prepared effective policy over a runtime closed over the builtin policy', () => {
-  // A direct runtime caller supplies a contextual effective policy, but its replacement runtime closed
-  // over the builtin allowlist and the replacement route is not ready (no execution contract).
+test('tree-structure-advisor top-level advisory reports policy outsiders in name order, at repo scope only', () => {
+  const runAt = (scope) => runTreeStructureAdvisorRuntime({
+    scope,
+    selectedPaths: [],
+    topLevelDirectoryNames: ['zeta-folder', 'src', 'experiments', 'doc'],
+    targets: [],
+  });
+  const unexpectedOf = (result) => result.findings
+    .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER')
+    .map((finding) => finding.path);
+
+  assert.deepEqual(unexpectedOf(runAt('repo')), ['experiments', 'zeta-folder']);
+  assert.deepEqual(unexpectedOf(runAt('app')), []);
+});
+
+test('tree-structure-advisor file reasoning uses a supplied runtime only when it has the full runtime shape', () => {
+  const occurrenceRecords = [
+    { resolvedPath: 'src', occurrenceType: 'folder' },
+    { resolvedPath: 'src/a.logic.mjs', occurrenceType: 'file' },
+  ];
+  const dropEverything = () => [];
+  const runWith = (runtime) => runTreeStructureAdvisorRuntime({
+    scope: 'repo',
+    selectedPaths: [],
+    topLevelDirectoryNames: ['src'],
+    targets: [],
+    structuralAddressSnapshot: { occurrenceRecords },
+    preparedDependencies: { treeOccurrenceClassificationReplacementRuntime: runtime },
+  });
+
+  // Without `collectUnexpectedTopLevelDirectoryNames` the object is not a prepared runtime, so records
+  // are kept as they are; with it, its classification is used.
+  assert.equal(runWith({ classifyOccurrenceRecords: dropEverything }).totalFilesScanned, 1);
+  assert.equal(
+    runWith({ classifyOccurrenceRecords: dropEverything, collectUnexpectedTopLevelDirectoryNames: () => [] }).totalFilesScanned,
+    0,
+  );
+});
+
+test('tree-structure-advisor top-level advisory honors the prepared effective policy over a runtime closed over the builtin policy', () => {
+  // A direct runtime caller supplies a contextual effective policy, but its classification runtime
+  // closed over the builtin allowlist.
   const builtinAllowedSet = new Set(getBuiltinTreeRepoShapePolicy().allowedTopLevelDirectories);
   const effectivePolicy = prepareContextualTreeRepoShapePolicy({
     registryPolicy: getBuiltinTreeRepoShapePolicy(),
@@ -812,9 +737,9 @@ test('tree-structure-advisor fallback honors the prepared effective policy over 
   assert.equal(unexpected[0].details.allowedTopLevelDirectories.includes('calculogic-validator'), true);
 });
 
-test('tree-structure-advisor ready route falls back when the runtime classified against a different repo-shape policy', () => {
-  // A direct runtime caller supplies a contextual effective policy, but a gate-ready runtime classified
-  // against the builtin policy, so its `isRepoShapeAllowedTopLevelDirectory` flags disagree with it.
+test('tree-structure-advisor top-level advisory follows the effective policy whatever policy a supplied runtime classified against', () => {
+  // A direct runtime caller supplies a contextual effective policy, but its runtime classified against
+  // the builtin policy, so its `isRepoShapeAllowedTopLevelDirectory` flags disagree with it.
   const registryPolicy = getBuiltinTreeRepoShapePolicy();
   const builtinAllowedSet = new Set(registryPolicy.allowedTopLevelDirectories);
   const effectivePolicy = prepareContextualTreeRepoShapePolicy({
@@ -846,23 +771,23 @@ test('tree-structure-advisor ready route falls back when the runtime classified 
   for (const [label, runtimeOverrides] of [
     ['declared builtin allowlist', { allowedTopLevelDirectories: registryPolicy.allowedTopLevelDirectories }],
     ['undeclared allowlist', { allowedTopLevelDirectories: undefined }],
+    ['declared effective allowlist', { allowedTopLevelDirectories: effectivePolicy.allowedTopLevelDirectories }],
   ]) {
     const unexpected = unexpectedOf(runWith(runtimeOverrides));
     assert.deepEqual(unexpected.map((finding) => finding.path), ['experiments'], label);
     assert.deepEqual(unexpected[0].details.allowedTopLevelDirectories, effectivePolicy.allowedTopLevelDirectories, label);
   }
 
-  // Positive anchor: a runtime that declares the effective policy keeps the ready route active, so its
-  // (here deliberately stale) classification flag still applies.
-  const consistent = unexpectedOf(runWith({ allowedTopLevelDirectories: effectivePolicy.allowedTopLevelDirectories }));
-  assert.deepEqual(consistent.map((finding) => finding.path), ['calculogic-validator', 'experiments']);
+  // Even a runtime declaring the effective policy cannot add `calculogic-validator` through a stale
+  // flag: the retired readiness gate no longer lets classification decide membership.
 });
 
-test('tree-structure-advisor top-level advisory uses ready replacement classification for delta cases', () => {
+test('tree-structure-advisor top-level advisory: classification marking an allowed folder unexpected adds no finding', () => {
   const result = runTreeStructureAdvisorRuntime(createReadyClassificationPreparedInputs({
-    topLevelDirectoryNames: ['doc', 'src'],
+    topLevelDirectoryNames: ['doc', 'experiments', 'src'],
     classificationsByName: new Map([
       ['doc', false],
+      ['experiments', true],
       ['src', true],
     ]),
   }));
@@ -871,11 +796,12 @@ test('tree-structure-advisor top-level advisory uses ready replacement classific
     .filter((finding) => finding.code === 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER')
     .map((finding) => finding.path);
 
-  assert.deepEqual(unexpectedTopLevelPaths, ['doc']);
+  // `doc` is allowed by policy and `experiments` is not; the classification flags change neither.
+  assert.deepEqual(unexpectedTopLevelPaths, ['experiments']);
   assert.deepEqual(result.findings[0], {
     code: 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER',
     severity: 'info',
-    path: 'doc',
+    path: 'experiments',
     classification: 'advisory-structure',
     message: 'Top-level folder is outside the known project shape for this repository and may indicate structural drift.',
     ruleRef: 'calculogic-validator/doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md',
@@ -902,7 +828,7 @@ test('tree-structure-advisor top-level advisory keeps repo-shape policy ahead of
   assert.equal(result.findings[0].details.allowedTopLevelDirectories.includes('data'), false);
 });
 
-test('tree-structure-advisor top-level advisory stays stable when fallback and ready classification agree', () => {
+test('tree-structure-advisor top-level advisory is the same with and without a supplied classification runtime', () => {
   const replacementReadyResult = runTreeStructureAdvisorRuntime(createReadyClassificationPreparedInputs({
     topLevelDirectoryNames: ['doc', 'experiments', 'src'],
     classificationsByName: new Map([
@@ -921,7 +847,7 @@ test('tree-structure-advisor top-level advisory stays stable when fallback and r
   assert.deepEqual(replacementReadyResult, fallbackResult);
 });
 
-test('tree-structure-advisor top-level advisory falls back when replacement evidence is missing or not ready', () => {
+test('tree-structure-advisor top-level advisory ignores missing readiness records and missing occurrence evidence', () => {
   const preparedInputs = createReadyClassificationPreparedInputs({
     topLevelDirectoryNames: ['experiments', 'src'],
     classificationsByName: new Map([
@@ -949,7 +875,7 @@ test('tree-structure-advisor top-level advisory falls back when replacement evid
   assert.deepEqual(withoutOccurrenceEvidence, withoutExecutionContract);
 });
 
-test('tree-structure-advisor top-level advisory falls back when ready replacement classification is malformed', () => {
+test('tree-structure-advisor top-level advisory is unaffected by a malformed supplied classification', () => {
   const preparedInputs = createReadyClassificationPreparedInputs({
     topLevelDirectoryNames: ['experiments', 'src'],
     classificationsByName: new Map([
@@ -1175,8 +1101,7 @@ test('tree-structure-advisor ready route keeps semantic package roots non-unexpe
     const fallbackUnexpected = preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime
       .collectUnexpectedTopLevelDirectoryNames(preparedInputs.topLevelDirectoryNames);
     assert.deepEqual(fallbackUnexpected, ['unmatched-package']);
-    // Wiring prepares the runtime from the same effective policy, so the ready route's policy
-    // consistency gate passes and classification stays active.
+    // Wiring prepares the runtime from the same effective policy it reports.
     assert.deepEqual(
       preparedInputs.preparedDependencies.treeOccurrenceClassificationReplacementRuntime.allowedTopLevelDirectories,
       preparedInputs.preparedDependencies.treeRepoShapePolicy.allowedTopLevelDirectories,

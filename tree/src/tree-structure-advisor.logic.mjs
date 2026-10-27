@@ -33,19 +33,15 @@ const isValidatorOwnedBasenameSignal = (basename, signalPolicy) =>
 // Classification that keeps records as they are, used when no replacement runtime is prepared.
 const neutralClassifyOccurrenceRecords = (occurrenceRecords = []) => occurrenceRecords;
 
-const createNeutralReplacementRuntime = (allowedTopLevelDirectoryNameSet) => ({
-  classifyOccurrenceRecords: neutralClassifyOccurrenceRecords,
-  collectUnexpectedTopLevelDirectoryNames: (topLevelDirectoryNames = []) => {
-    if (!Array.isArray(topLevelDirectoryNames)) {
-      throw new Error('Tree unexpected top-level fallback runtime requires topLevelDirectoryNames array.');
-    }
-
-    return topLevelDirectoryNames
-      .filter((directoryName) => typeof directoryName === 'string' && directoryName.length > 0)
-      .filter((directoryName) => !allowedTopLevelDirectoryNameSet.has(directoryName))
-      .sort((left, right) => left.localeCompare(right));
-  },
-});
+// `TREE_UNEXPECTED_TOP_LEVEL_FOLDER` membership: the top-level folders the effective repo-shape policy
+// does not allow. The policy is the only authority; occurrence classification is not consulted (Tree
+// spec, "Classification migration machinery: retired").
+// `assertPreparedTreeInputs` has already required `topLevelDirectoryNames` to be an array.
+const collectUnexpectedTopLevelDirectoryNames = (topLevelDirectoryNames, allowedTopLevelDirectoryNameSet) =>
+  topLevelDirectoryNames
+    .filter((directoryName) => typeof directoryName === 'string' && directoryName.length > 0)
+    .filter((directoryName) => !allowedTopLevelDirectoryNameSet.has(directoryName))
+    .sort((left, right) => left.localeCompare(right));
 
 // The effective repo-shape policy is prepared by Tree wiring for each run from the resolved registry
 // root; direct runtime callers that omit it fall back to the Builtin policy.
@@ -56,6 +52,8 @@ const resolveAllowedTopLevelDirectoryNames = (preparedDependencies) => {
     : getBuiltinTreeRepoShapePolicy().allowedTopLevelDirectories;
 };
 
+// The prepared runtime's recognition shape (both methods) is unchanged; file reasoning uses only
+// `classifyOccurrenceRecords`.
 const isReplacementRuntime = (replacementRuntime) => (
   replacementRuntime &&
   typeof replacementRuntime === 'object' &&
@@ -71,142 +69,20 @@ const resolveOccurrenceClassifier = (replacementRuntime) =>
     ? replacementRuntime
     : { classifyOccurrenceRecords: neutralClassifyOccurrenceRecords };
 
-const isRuntimeExecutionReadyForReplacementRoute = (preparedDependencies = {}) => {
-  const runtimeExecutionContract = preparedDependencies.treeOccurrenceClassificationRuntimeExecutionContract;
-  const replacementReadiness = preparedDependencies.treeOccurrenceClassificationReplacementReadiness;
-
-  return (
-    runtimeExecutionContract &&
-    typeof runtimeExecutionContract === 'object' &&
-    !Array.isArray(runtimeExecutionContract) &&
-    runtimeExecutionContract.executionMode === 'execution-candidate' &&
-    runtimeExecutionContract.executionStatus === 'ready-for-future-execution-contract' &&
-    replacementReadiness &&
-    typeof replacementReadiness === 'object' &&
-    !Array.isArray(replacementReadiness) &&
-    replacementReadiness.replacementDecision === 'candidate-ready'
-  );
-};
-
-const isClassifiedRepoTopFolderRecord = (record) => (
-  record &&
-  typeof record === 'object' &&
-  !Array.isArray(record) &&
-  record.occurrenceType === 'folder' &&
-  record.isRepoTopOccurrence === true &&
-  typeof record.resolvedPath === 'string' &&
-  record.resolvedPath.length > 0 &&
-  !record.resolvedPath.includes('/') &&
-  typeof record.isRepoShapeAllowedTopLevelDirectory === 'boolean'
-);
-
-// The ready route trusts classification flags only when the runtime classified against the same
-// effective policy this run reports; a runtime prepared from a different policy falls back.
-const isReplacementRuntimePolicyConsistent = (replacementRuntime, allowedTopLevelDirectoryNameSet) => {
-  const declared = replacementRuntime.allowedTopLevelDirectories;
-  if (!Array.isArray(declared)) {
-    return false;
-  }
-
-  const declaredSet = new Set(declared);
-  return (
-    declaredSet.size === allowedTopLevelDirectoryNameSet.size &&
-    [...declaredSet].every((directoryName) => allowedTopLevelDirectoryNameSet.has(directoryName))
-  );
-};
-
-const collectUnexpectedTopLevelDirectoryNamesFromClassification = ({
-  topLevelDirectoryNames,
-  preparedInputs,
-  replacementRuntime,
-  preparedDependencies,
-  allowedTopLevelDirectoryNameSet,
-}) => {
-  if (
-    !Array.isArray(topLevelDirectoryNames) ||
-    !isReplacementRuntime(replacementRuntime) ||
-    !isRuntimeExecutionReadyForReplacementRoute(preparedDependencies) ||
-    !isReplacementRuntimePolicyConsistent(replacementRuntime, allowedTopLevelDirectoryNameSet)
-  ) {
-    return null;
-  }
-
-  const occurrenceRecords = preparedInputs.structuralAddressSnapshot?.occurrenceRecords;
-
-  if (!Array.isArray(occurrenceRecords)) {
-    return null;
-  }
-
-  let classifiedOccurrenceRecords;
-  try {
-    classifiedOccurrenceRecords = replacementRuntime.classifyOccurrenceRecords(occurrenceRecords);
-  } catch {
-    return null;
-  }
-
-  if (!Array.isArray(classifiedOccurrenceRecords)) {
-    return null;
-  }
-
-  const repoTopFolderRecordsByName = new Map();
-  for (const record of classifiedOccurrenceRecords) {
-    if (!isClassifiedRepoTopFolderRecord(record)) {
-      continue;
-    }
-
-    if (repoTopFolderRecordsByName.has(record.resolvedPath)) {
-      continue;
-    }
-
-    repoTopFolderRecordsByName.set(record.resolvedPath, record);
-  }
-
-  const normalizedTopLevelDirectoryNames = topLevelDirectoryNames
-    .filter((directoryName) => typeof directoryName === 'string' && directoryName.length > 0)
-    .sort((left, right) => left.localeCompare(right));
-
-  if (normalizedTopLevelDirectoryNames.some((directoryName) => !repoTopFolderRecordsByName.has(directoryName))) {
-    return null;
-  }
-
-  return normalizedTopLevelDirectoryNames
-    .filter((directoryName) => {
-      const classification = repoTopFolderRecordsByName.get(directoryName);
-      return (
-        !allowedTopLevelDirectoryNameSet.has(directoryName) ||
-        classification.isRepoShapeAllowedTopLevelDirectory === false
-      );
-    })
-    .sort((left, right) => left.localeCompare(right));
-};
-
-// Fallback membership always comes from the effective policy, so a finding never disagrees with the
-// `details.allowedTopLevelDirectories` it reports, even when a supplied replacement runtime closed
-// over a different allowlist.
-const collectFallbackUnexpectedTopLevelDirectoryNames = (topLevelDirectoryNames, allowedTopLevelDirectoryNameSet) =>
-  createNeutralReplacementRuntime(allowedTopLevelDirectoryNameSet).collectUnexpectedTopLevelDirectoryNames(
-    topLevelDirectoryNames,
-  );
-
-const collectTopLevelUnexpectedFolderFindings = (preparedInputs, replacementRuntime) => {
+const collectTopLevelUnexpectedFolderFindings = (preparedInputs) => {
   if ((preparedInputs.scope ?? 'repo') !== 'repo') {
     return [];
   }
 
   const allowedTopLevelDirectoryNames = resolveAllowedTopLevelDirectoryNames(preparedInputs.preparedDependencies);
   const allowedTopLevelDirectoryNameSet = new Set(allowedTopLevelDirectoryNames);
-  const unexpectedDirectoryNames = collectUnexpectedTopLevelDirectoryNamesFromClassification({
-    topLevelDirectoryNames: preparedInputs.topLevelDirectoryNames,
-    preparedInputs,
-    replacementRuntime,
-    preparedDependencies: preparedInputs.preparedDependencies,
+  const unexpectedDirectoryNames = collectUnexpectedTopLevelDirectoryNames(
+    preparedInputs.topLevelDirectoryNames,
     allowedTopLevelDirectoryNameSet,
-  }) ?? collectFallbackUnexpectedTopLevelDirectoryNames(preparedInputs.topLevelDirectoryNames, allowedTopLevelDirectoryNameSet);
-
+  );
   const allowedTopLevelDirectories = [...allowedTopLevelDirectoryNames];
 
   return unexpectedDirectoryNames
-    .sort((left, right) => left.localeCompare(right))
     .map((directoryName) => ({
       code: 'TREE_UNEXPECTED_TOP_LEVEL_FOLDER',
       severity: 'info',
@@ -443,7 +319,7 @@ export const runTreeStructureAdvisor = (preparedInputs = {}) => {
   const selectedPathsForReasoning = fileReasoningInput.resolvedFilePaths;
 
   const findings = [
-    ...collectTopLevelUnexpectedFolderFindings(prepared, replacementRuntime),
+    ...collectTopLevelUnexpectedFolderFindings(prepared),
     ...collectValidatorOwnedOutsideTreeFindings(
       selectedPathsForReasoning,
       prepared.validatorDevelopmentRoot,

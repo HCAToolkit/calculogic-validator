@@ -21,14 +21,7 @@ import { prepareTreeFolderKindEvidence } from './tree-folder-kind-evidence.logic
 import {
   prepareTreeOccurrenceClassificationReplacementRuntime,
 } from './tree-occurrence-classification.logic.mjs';
-import { prepareTreeOccurrenceClassificationParityEvidence } from './tree-occurrence-classification-parity-evidence.logic.mjs';
 import { prepareTreeStructuralContextAssessment } from './tree-structural-context-assessment.logic.mjs';
-import { summarizeTreeOccurrenceClassificationParityEvidence } from './tree-occurrence-classification-parity-summary.logic.mjs';
-import { prepareTreeOccurrenceClassificationShadowReport } from './tree-occurrence-classification-shadow-report.logic.mjs';
-import { evaluateTreeOccurrenceClassificationReplacementReadiness } from './tree-occurrence-classification-replacement-readiness.logic.mjs';
-import { recommendTreeOccurrenceClassificationReplacement } from './tree-occurrence-classification-replacement-recommendation.logic.mjs';
-import { planTreeOccurrenceClassificationRuntimeEvaluation } from './tree-occurrence-classification-runtime-evaluation-plan.logic.mjs';
-import { planTreeOccurrenceClassificationRuntimeExecutionContract } from './tree-occurrence-classification-runtime-execution-contract.logic.mjs';
 import { prepareNamingSemanticEvidenceBridge } from '../../naming/src/naming-semantic-evidence-bridge.logic.mjs';
 import { projectNamingFolderCompositionBridge } from '../../naming/src/naming-folder-composition-projection.logic.mjs';
 import { prepareTreeNamingSectionIntake } from './tree-naming-section-intake.logic.mjs';
@@ -265,42 +258,6 @@ export const prepareTreeStructureAdvisorInputs = (
     structuralContextAssessmentPoliciesRegistry,
   });
 
-  const treeOccurrenceClassificationParityEvidence = prepareTreeOccurrenceClassificationParityEvidence({
-    addressedOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
-    currentOccurrenceClassificationRecords,
-    treeStructuralHomeEvidence,
-    treeFamilyRootFolderEvidence,
-    treeSemanticNamingFolderTypeRelationshipEvidence,
-    treeFolderKindEvidence,
-  });
-
-  const treeOccurrenceClassificationParitySummary = summarizeTreeOccurrenceClassificationParityEvidence(treeOccurrenceClassificationParityEvidence);
-  const treeOccurrenceClassificationShadowReport = prepareTreeOccurrenceClassificationShadowReport({
-    treeOccurrenceClassificationParityEvidence,
-    treeOccurrenceClassificationParitySummary,
-  });
-  const treeOccurrenceClassificationReplacementReadiness = evaluateTreeOccurrenceClassificationReplacementReadiness({
-    treeOccurrenceClassificationParitySummary,
-    treeOccurrenceClassificationShadowReport,
-  });
-  const treeOccurrenceClassificationReplacementRecommendation = recommendTreeOccurrenceClassificationReplacement({
-    treeOccurrenceClassificationReplacementReadiness,
-    treeOccurrenceClassificationShadowReport,
-    treeOccurrenceClassificationParitySummary,
-  });
-  const treeOccurrenceClassificationRuntimeEvaluationPlan = planTreeOccurrenceClassificationRuntimeEvaluation({
-    treeOccurrenceClassificationReplacementRecommendation,
-    treeOccurrenceClassificationReplacementReadiness,
-    treeOccurrenceClassificationShadowReport,
-    treeOccurrenceClassificationParitySummary,
-  });
-  const treeOccurrenceClassificationRuntimeExecutionContract = planTreeOccurrenceClassificationRuntimeExecutionContract({
-    treeOccurrenceClassificationRuntimeEvaluationPlan,
-    treeOccurrenceClassificationReplacementRecommendation,
-    treeOccurrenceClassificationReplacementReadiness,
-    treeOccurrenceClassificationShadowReport,
-    treeOccurrenceClassificationParitySummary,
-  });
   return {
     scope: scopedSnapshotInputs.scope,
     selectedPaths,
@@ -319,13 +276,6 @@ export const prepareTreeStructureAdvisorInputs = (
       treeRepoShapeEvidence,
       treeSignalPolicy,
       treeStructuralContextAssessment,
-      treeOccurrenceClassificationParityEvidence,
-      treeOccurrenceClassificationParitySummary,
-      treeOccurrenceClassificationShadowReport,
-      treeOccurrenceClassificationReplacementReadiness,
-      treeOccurrenceClassificationReplacementRecommendation,
-      treeOccurrenceClassificationRuntimeEvaluationPlan,
-      treeOccurrenceClassificationRuntimeExecutionContract,
       treeOccurrenceClassificationReplacementRuntime,
       treeNamingOccurrenceBridgeIntake,
       treeNamingSectionIntake,
