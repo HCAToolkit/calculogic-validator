@@ -1,21 +1,28 @@
+// Tree family-root folder evidence (Tree slice spec S2.13; calculogic-validator#102). A folder whose
+// name Naming reads as a family root, joined to its addressed occurrence; a repository-top folder only
+// through Tree's `semantic-repository-top-family-home` relationship, which takes precedence. It is a
+// lexical claim, not a Semantic Home: whether a folder is an eligible home is decided only by Stage 2A
+// (`treeFolderSemanticHomeReasoning`). It replaces the retired `treeSemanticHomeEvidence`, whose
+// `semanticHome` copied `semanticFamily`; the folder records and their values are unchanged.
+
 import {
   TREE_NAMING_EVIDENCE_STRENGTHS,
   deriveTreeNamingEvidenceStrength,
 } from './tree-naming-evidence-strength.logic.mjs';
 
-const SOURCE_ID = 'tree-semantic-home-evidence';
+const SOURCE_ID = 'tree-family-root-folder-evidence';
 
 const assertValidInput = (input) => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    throw new Error('Tree semantic-home evidence input must be an object.');
+    throw new Error('Tree family-root folder evidence input must be an object.');
   }
 
   if (!Array.isArray(input.addressedOccurrenceRecords)) {
-    throw new Error('Tree semantic-home evidence input addressedOccurrenceRecords must be an array.');
+    throw new Error('Tree family-root folder evidence input addressedOccurrenceRecords must be an array.');
   }
 
   if (!Array.isArray(input.namingSemanticEvidenceRecords)) {
-    throw new Error('Tree semantic-home evidence input namingSemanticEvidenceRecords must be an array.');
+    throw new Error('Tree family-root folder evidence input namingSemanticEvidenceRecords must be an array.');
   }
 
   if (
@@ -25,15 +32,17 @@ const assertValidInput = (input) => {
       Array.isArray(input.treeSemanticNamingFolderTypeRelationshipEvidence) ||
       !Array.isArray(input.treeSemanticNamingFolderTypeRelationshipEvidence.relationshipRecords))
   ) {
-    throw new Error('Tree semantic-home evidence input treeSemanticNamingFolderTypeRelationshipEvidence.relationshipRecords must be an array when provided.');
+    throw new Error('Tree family-root folder evidence input treeSemanticNamingFolderTypeRelationshipEvidence.relationshipRecords must be an array when provided.');
   }
 };
 
-const SEMANTIC_HOME_ELIGIBLE_NAMING_EVIDENCE_KINDS = new Set(['semantic-family-root-folder']);
+// Naming records the join may use: family-root folder observations, and records without a kind, which
+// the join accepted before and keeps accepting so the folder records stay as they were.
+const FAMILY_ROOT_NAMING_EVIDENCE_KINDS = new Set(['semantic-family-root-folder']);
 
-const isSemanticHomeEligibleNamingRecord = (record) => (
+const isFamilyRootNamingRecord = (record) => (
   record?.semanticEvidenceKind === undefined ||
-  SEMANTIC_HOME_ELIGIBLE_NAMING_EVIDENCE_KINDS.has(record.semanticEvidenceKind)
+  FAMILY_ROOT_NAMING_EVIDENCE_KINDS.has(record.semanticEvidenceKind)
 );
 
 const toDeterministicNamingRecordsByPath = (namingSemanticEvidenceRecords) => {
@@ -48,7 +57,7 @@ const toDeterministicNamingRecordsByPath = (namingSemanticEvidenceRecords) => {
       continue;
     }
 
-    if (!isSemanticHomeEligibleNamingRecord(record)) {
+    if (!isFamilyRootNamingRecord(record)) {
       continue;
     }
 
@@ -122,9 +131,8 @@ const toRelationshipRecordsByPath = (relationshipRecords = []) => {
 };
 
 // A Naming record's strength comes from its ambiguity facts (#82). A relationship record is Tree's own
-// interpretation and carries no Naming facts; it stays bounded, as before, until folder-level
-// semantic-home reasoning defines how relationship evidence is weighed.
-const toSemanticHomeEvidenceStrength = (namingRecord) =>
+// interpretation and carries no Naming facts; it stays bounded, as before.
+const toFamilyRootEvidenceStrength = (namingRecord) =>
   typeof namingRecord.relationshipPerspective === 'string'
     ? TREE_NAMING_EVIDENCE_STRENGTHS.BOUNDED
     : deriveTreeNamingEvidenceStrength(namingRecord);
@@ -135,9 +143,7 @@ const toEvidenceRecord = (occurrenceRecord, namingRecord) => ({
   path: occurrenceRecord.path,
   name: occurrenceRecord.name ?? null,
   occurrenceType: occurrenceRecord.occurrenceType ?? null,
-  semanticHome: namingRecord.semanticFamily,
-  semanticHomeSource: SOURCE_ID,
-  semanticHomeEvidenceStrength: toSemanticHomeEvidenceStrength(namingRecord),
+  familyRootEvidenceStrength: toFamilyRootEvidenceStrength(namingRecord),
   semanticName: namingRecord.semanticName,
   semanticFamily: namingRecord.semanticFamily,
   familyRoot: namingRecord.familyRoot,
@@ -148,11 +154,11 @@ const toEvidenceRecord = (occurrenceRecord, namingRecord) => ({
   ...(typeof namingRecord.relationshipPerspective === 'string' ? { relationshipPerspective: namingRecord.relationshipPerspective } : {}),
   ...(typeof namingRecord.relationshipSource === 'string' ? { relationshipSource: namingRecord.relationshipSource } : {}),
   rationale: typeof namingRecord.relationshipPerspective === 'string'
-    ? 'Tree semantic-home evidence consumed semantic-naming-to-folder-type relationship interpretation.'
-    : 'Tree joined addressed occurrence path with Naming-prepared semantic evidence path.',
+    ? 'Tree family-root folder evidence consumed semantic-naming-to-folder-type relationship interpretation.'
+    : 'Tree joined addressed folder occurrence path with Naming-prepared family-root evidence path.',
 });
 
-export const prepareTreeSemanticHomeEvidence = (input) => {
+export const prepareTreeFamilyRootFolderEvidence = (input) => {
   assertValidInput(input);
 
   const namingRecordsByPath = toDeterministicNamingRecordsByPath(input.namingSemanticEvidenceRecords);
@@ -163,6 +169,11 @@ export const prepareTreeSemanticHomeEvidence = (input) => {
 
   for (const occurrenceRecord of input.addressedOccurrenceRecords) {
     if (!occurrenceRecord || typeof occurrenceRecord !== 'object' || Array.isArray(occurrenceRecord)) {
+      continue;
+    }
+
+    // Folders only: a file record carried only the file's own `semanticFamily`, which nothing read.
+    if (occurrenceRecord.occurrenceType !== 'folder') {
       continue;
     }
 

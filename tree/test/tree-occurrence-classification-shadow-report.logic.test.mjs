@@ -19,7 +19,7 @@ const baseInput = () => ({
         currentIsSemanticRoot: false,
         replacementFolderKind: 'structural',
         replacementStructuralHome: 'workspace',
-        replacementSemanticHome: null,
+        replacementFamilyRootSemanticFamily: null,
         parityStatus: 'matches',
         rationale: 'match rationale',
       },
@@ -75,7 +75,7 @@ test('carries current and replacement fields and replacement readiness metadata 
   assert.equal(record.currentIsSemanticRoot, false);
   assert.equal(record.replacementFolderKind, 'structural');
   assert.equal(record.replacementStructuralHome, 'workspace');
-  assert.equal(record.replacementSemanticHome, null);
+  assert.equal(record.replacementFamilyRootSemanticFamily, null);
   assert.equal(record.replacementReadinessStatus, 'needs-review');
   assert.equal(result.summary.replacementReadinessStatus, 'needs-review');
 });

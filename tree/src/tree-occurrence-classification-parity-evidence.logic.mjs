@@ -21,12 +21,12 @@ const assertValidInput = (input) => {
     throw new Error('Tree occurrence classification parity evidence treeStructuralHomeEvidence.evidenceRecords must be an array.');
   }
 
-  if (!input.treeSemanticHomeEvidence || typeof input.treeSemanticHomeEvidence !== 'object' || Array.isArray(input.treeSemanticHomeEvidence)) {
-    throw new Error('Tree occurrence classification parity evidence input must include treeSemanticHomeEvidence object.');
+  if (!input.treeFamilyRootFolderEvidence || typeof input.treeFamilyRootFolderEvidence !== 'object' || Array.isArray(input.treeFamilyRootFolderEvidence)) {
+    throw new Error('Tree occurrence classification parity evidence input must include treeFamilyRootFolderEvidence object.');
   }
 
-  if (!Array.isArray(input.treeSemanticHomeEvidence.evidenceRecords)) {
-    throw new Error('Tree occurrence classification parity evidence treeSemanticHomeEvidence.evidenceRecords must be an array.');
+  if (!Array.isArray(input.treeFamilyRootFolderEvidence.evidenceRecords)) {
+    throw new Error('Tree occurrence classification parity evidence treeFamilyRootFolderEvidence.evidenceRecords must be an array.');
   }
 
   if (!input.treeFolderKindEvidence || typeof input.treeFolderKindEvidence !== 'object' || Array.isArray(input.treeFolderKindEvidence)) {
@@ -111,12 +111,12 @@ const toCurrentClassLabel = (record) => {
   return 'non-root-or-unknown';
 };
 
-const toReplacementClassLabel = ({ replacementFolderKind, replacementStructuralHome, replacementSemanticHome }) => {
+const toReplacementClassLabel = ({ replacementFolderKind, replacementStructuralHome, replacementFamilyRootSemanticFamily }) => {
   if (replacementFolderKind === 'structural' || replacementStructuralHome) {
     return 'structural-root';
   }
 
-  if (replacementFolderKind === 'semantic' || replacementSemanticHome) {
+  if (replacementFolderKind === 'semantic' || replacementFamilyRootSemanticFamily) {
     return 'semantic-root';
   }
 
@@ -161,7 +161,7 @@ const toRationale = ({ parityStatus, currentClassLabel, replacementClassLabel })
   }
 
   if (parityStatus === 'insufficient-evidence') {
-    return 'Tree-owned folder-kind/structural-home/semantic-home evidence did not safely resolve a replacement class.';
+    return 'Tree-owned folder-kind/structural-home/family-root folder evidence did not safely resolve a replacement class.';
   }
 
   if (parityStatus === 'matches') {
@@ -184,7 +184,7 @@ export const prepareTreeOccurrenceClassificationParityEvidence = (input) => {
   assertValidInput(input);
 
   const structuralHomeLookup = toEvidenceLookup(input.treeStructuralHomeEvidence.evidenceRecords, 'structuralHome');
-  const semanticHomeLookup = toEvidenceLookup(input.treeSemanticHomeEvidence.evidenceRecords, 'semanticHome');
+  const familyRootSemanticFamilyLookup = toEvidenceLookup(input.treeFamilyRootFolderEvidence.evidenceRecords, 'semanticFamily');
   const folderKindLookup = toEvidenceLookup(input.treeFolderKindEvidence.evidenceRecords, 'folderKind');
 
   const currentByIdentity = new Map();
@@ -205,7 +205,7 @@ export const prepareTreeOccurrenceClassificationParityEvidence = (input) => {
 
     const replacementFolderKind = lookupFirstAvailable(folderKindLookup, occurrenceRecord);
     const replacementStructuralHome = lookupFirstAvailable(structuralHomeLookup, occurrenceRecord);
-    const replacementSemanticHome = lookupFirstAvailable(semanticHomeLookup, occurrenceRecord);
+    const replacementFamilyRootSemanticFamily = lookupFirstAvailable(familyRootSemanticFamilyLookup, occurrenceRecord);
 
     const currentClassLabel = toCurrentClassLabel(currentRecord);
     const isTopRootCandidate = isTopRootCandidateOccurrence(occurrenceRecord, currentRecord);
@@ -213,7 +213,7 @@ export const prepareTreeOccurrenceClassificationParityEvidence = (input) => {
     const replacementClassLabel = toReplacementClassLabel({
       replacementFolderKind,
       replacementStructuralHome,
-      replacementSemanticHome,
+      replacementFamilyRootSemanticFamily,
     });
 
     const parityStatus = toParityStatus({
@@ -237,7 +237,7 @@ export const prepareTreeOccurrenceClassificationParityEvidence = (input) => {
       currentIsSemanticRoot: currentRecord?.isSemanticRoot ?? false,
       replacementFolderKind,
       replacementStructuralHome,
-      replacementSemanticHome,
+      replacementFamilyRootSemanticFamily,
       parityStatus,
       rationale: toRationale({ parityStatus, currentClassLabel, replacementClassLabel }),
     });

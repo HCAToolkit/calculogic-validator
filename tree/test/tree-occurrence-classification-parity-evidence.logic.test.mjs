@@ -16,7 +16,7 @@ const baseInput = () => ({
     { addressPath: 'D', path: 'README.md', occurrenceType: 'file', structuralClass: 'unclassified', structuralKind: 'unknown', isRepoShapeAllowedTopLevelDirectory: false, isStructuralRoot: false, isSemanticRoot: false },
   ],
   treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [{ addressPath: 'A', path: 'src', occurrenceType: 'folder', structuralHome: 'src' }] },
-  treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [{ addressPath: 'B', path: 'docs', occurrenceType: 'folder', semanticHome: 'documentation' }] },
+  treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [{ addressPath: 'B', path: 'docs', occurrenceType: 'folder', semanticFamily: 'documentation' }] },
   treeFolderKindEvidence: {
     source: 'x',
     evidenceRecords: [
@@ -44,7 +44,7 @@ test('records insufficient-evidence without guessing and omits advisor output fi
   const input = baseInput();
   input.treeFolderKindEvidence = { source: 'x', evidenceRecords: [] };
   input.treeStructuralHomeEvidence = { source: 'x', evidenceRecords: [] };
-  input.treeSemanticHomeEvidence = { source: 'x', evidenceRecords: [] };
+  input.treeFamilyRootFolderEvidence = { source: 'x', evidenceRecords: [] };
 
   const result = prepareTreeOccurrenceClassificationParityEvidence(input);
   const docsRecord = result.parityRecords.find((record) => record.path === 'docs');
@@ -62,7 +62,7 @@ test('handles empty input safely', () => {
     addressedOccurrenceRecords: [],
     currentOccurrenceClassificationRecords: [],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeFolderKindEvidence: { source: 'x', evidenceRecords: [] },
   });
 
@@ -90,7 +90,7 @@ test('falls back from addressPath to path+occurrenceType for current and replace
       { path: 'src', occurrenceType: 'folder', structuralClass: 'repo-top-structural-root', structuralKind: 'top-root-structural', isRepoShapeAllowedTopLevelDirectory: true, isStructuralRoot: true, isSemanticRoot: false },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [{ path: 'src', occurrenceType: 'folder', structuralHome: 'src' }] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeFolderKindEvidence: { source: 'x', evidenceRecords: [{ path: 'src', occurrenceType: 'folder', folderKind: 'structural' }] },
   });
 
@@ -111,7 +111,7 @@ test('falls back to path when only path evidence exists and preserves precedence
       { path: 'lib', structuralClass: 'repo-top-semantic-root', structuralKind: 'semantic-root', isRepoShapeAllowedTopLevelDirectory: true, isStructuralRoot: false, isSemanticRoot: true },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [{ path: 'lib', structuralHome: 'lib' }] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [{ path: 'docs', semanticHome: 'documentation' }] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [{ path: 'docs', semanticFamily: 'documentation' }] },
     treeFolderKindEvidence: {
       source: 'x',
       evidenceRecords: [
@@ -143,7 +143,7 @@ test('addressPath match wins and avoids opportunistic file/folder merge when occ
       { path: 'pkg', occurrenceType: 'file', structuralClass: 'unclassified', structuralKind: 'unknown', isRepoShapeAllowedTopLevelDirectory: false, isStructuralRoot: false, isSemanticRoot: false },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [{ path: 'pkg', occurrenceType: 'folder', structuralHome: 'pkg' }] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [{ path: 'pkg', occurrenceType: 'file', semanticHome: 'file-semantic' }] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [{ path: 'pkg', occurrenceType: 'file', semanticFamily: 'file-semantic' }] },
     treeFolderKindEvidence: {
       source: 'x',
       evidenceRecords: [
@@ -173,14 +173,14 @@ test('nested folder with replacement folder-kind evidence remains not-applicable
       { path: 'src/nested', occurrenceType: 'folder', structuralClass: 'unclassified', structuralKind: 'unknown', isRepoShapeAllowedTopLevelDirectory: false, isStructuralRoot: false, isSemanticRoot: false },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeFolderKindEvidence: { source: 'x', evidenceRecords: [{ path: 'src/nested', occurrenceType: 'folder', folderKind: 'structural' }] },
   });
 
   assert.equal(result.parityRecords[0].parityStatus, 'not-applicable');
 });
 
-test('nested folder with semantic-home evidence remains not-applicable', () => {
+test('nested folder with family-root folder evidence remains not-applicable', () => {
   const result = prepareTreeOccurrenceClassificationParityEvidence({
     addressedOccurrenceRecords: [
       { addressPath: 'A.B', parentAddressPath: 'A', path: 'docs/guide', name: 'guide', occurrenceType: 'folder', depth: 1 },
@@ -189,7 +189,7 @@ test('nested folder with semantic-home evidence remains not-applicable', () => {
       { path: 'docs/guide', occurrenceType: 'folder', structuralClass: 'unclassified', structuralKind: 'unknown', isRepoShapeAllowedTopLevelDirectory: false, isStructuralRoot: false, isSemanticRoot: false },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [{ path: 'docs/guide', occurrenceType: 'folder', semanticHome: 'documentation' }] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [{ path: 'docs/guide', occurrenceType: 'folder', semanticFamily: 'documentation' }] },
     treeFolderKindEvidence: { source: 'x', evidenceRecords: [{ path: 'docs/guide', occurrenceType: 'folder', folderKind: 'semantic' }] },
   });
 
@@ -203,7 +203,7 @@ test('top-root candidate with missing current classification becomes insufficien
     ],
     currentOccurrenceClassificationRecords: [],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [{ path: 'src', occurrenceType: 'folder', structuralHome: 'src' }] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeFolderKindEvidence: { source: 'x', evidenceRecords: [{ path: 'src', occurrenceType: 'folder', folderKind: 'structural' }] },
   });
 
@@ -219,7 +219,7 @@ test('matched current non-root remains distinguishable from missing current clas
       { path: 'feature', occurrenceType: 'folder', structuralClass: 'unclassified', structuralKind: 'unknown', isRepoShapeAllowedTopLevelDirectory: false, isStructuralRoot: false, isSemanticRoot: false },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeFolderKindEvidence: { source: 'x', evidenceRecords: [{ path: 'feature', occurrenceType: 'folder', folderKind: 'unspecified' }] },
   });
 
@@ -229,7 +229,7 @@ test('matched current non-root remains distinguishable from missing current clas
     ],
     currentOccurrenceClassificationRecords: [],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeFolderKindEvidence: { source: 'x', evidenceRecords: [{ path: 'feature', occurrenceType: 'folder', folderKind: 'unspecified' }] },
   });
 

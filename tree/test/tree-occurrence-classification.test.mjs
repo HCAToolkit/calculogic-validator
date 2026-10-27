@@ -39,9 +39,9 @@ const classifySnapshot = (snapshot) => {
       source: 'test',
       evidenceRecords: [{ path: 'src', occurrenceType: 'folder', structuralHome: 'src' }],
     },
-    treeSemanticHomeEvidence: {
+    treeFamilyRootFolderEvidence: {
       source: 'test',
-      evidenceRecords: [{ path: 'calculogic-validator', occurrenceType: 'folder', semanticHome: 'validator' }],
+      evidenceRecords: [{ path: 'calculogic-validator', occurrenceType: 'folder', semanticFamily: 'validator' }],
     },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
@@ -155,9 +155,9 @@ test('tree occurrence classification replacement runtime classifies from prepare
       source: 'test',
       evidenceRecords: [{ path: 'src', occurrenceType: 'folder', structuralHome: 'src' }],
     },
-    treeSemanticHomeEvidence: {
+    treeFamilyRootFolderEvidence: {
       source: 'test',
-      evidenceRecords: [{ path: 'calculogic-validator', occurrenceType: 'folder', semanticHome: 'validator' }],
+      evidenceRecords: [{ path: 'calculogic-validator', occurrenceType: 'folder', semanticFamily: 'validator' }],
     },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
@@ -192,9 +192,9 @@ test('tree occurrence classification replacement runtime collects unexpected top
       source: 'test',
       evidenceRecords: [{ path: 'src', occurrenceType: 'folder', structuralHome: 'src' }],
     },
-    treeSemanticHomeEvidence: {
+    treeFamilyRootFolderEvidence: {
       source: 'test',
-      evidenceRecords: [{ path: 'calculogic-validator', occurrenceType: 'folder', semanticHome: 'validator' }],
+      evidenceRecords: [{ path: 'calculogic-validator', occurrenceType: 'folder', semanticFamily: 'validator' }],
     },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
@@ -224,7 +224,7 @@ test('tree unexpected top-level replacement policy does not allow general struct
         { path: 'ops', occurrenceType: 'folder', structuralHome: 'ops' },
       ],
     },
-    treeSemanticHomeEvidence: {
+    treeFamilyRootFolderEvidence: {
       source: 'test',
       evidenceRecords: [],
     },
@@ -249,7 +249,7 @@ test('tree unexpected top-level replacement policy does not allow general struct
 test('tree occurrence classification consumes approved relationship-qualified folder-kind evidence by exact address identity', () => {
   const replacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence: { source: 'test', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'test', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'test', evidenceRecords: [] },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
       source: 'test',
@@ -300,7 +300,7 @@ test('tree occurrence classification consumes approved relationship-qualified fo
 test('tree occurrence classification does not consume stale same-path relationship-qualified folder-kind evidence', () => {
   const replacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence: { source: 'test', evidenceRecords: [{ path: 'src', occurrenceType: 'folder', structuralHome: 'src' }] },
-    treeSemanticHomeEvidence: { source: 'test', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'test', evidenceRecords: [] },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
       source: 'test',
@@ -345,7 +345,7 @@ test('tree occurrence classification rejects unapproved relationship-qualified f
   }));
   const replacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence: { source: 'test', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'test', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'test', evidenceRecords: [] },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: { source: 'test', evidenceRecords: candidateEvidenceRecords },
   });
@@ -366,7 +366,7 @@ test('tree occurrence classification rejects unapproved relationship-qualified f
 test('tree occurrence classification requires explicit structural role for relationship-qualified folder-kind evidence', () => {
   const replacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence: { source: 'test', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'test', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'test', evidenceRecords: [] },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
       source: 'test',
@@ -403,7 +403,7 @@ test('tree occurrence classification requires explicit structural role for relat
 test('tree occurrence classification keeps files outside the relationship-qualified folder route', () => {
   const replacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence: { source: 'test', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'test', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'test', evidenceRecords: [] },
     treeRepoShapePolicy: TEST_REPO_SHAPE_POLICY,
     treeFolderKindEvidence: {
       source: 'test',

@@ -1210,7 +1210,7 @@ test('Tree ignores the Naming semantic-evidence enrichment section: intake, evid
     for (const key of [
       'treeNamingOccurrenceBridgeIntake',
       'addressedNamingSemanticEvidenceBridge',
-      'treeSemanticHomeEvidence',
+      'treeFamilyRootFolderEvidence',
       'treeSemanticNamingFolderTypeRelationshipEvidence',
     ]) {
       assert.deepEqual(preparedWith[key], preparedWithout[key], `${key} must not change`);
@@ -1262,7 +1262,7 @@ test('Tree ignores the Naming folder-label observation section: intake, evidence
     for (const key of [
       'treeNamingOccurrenceBridgeIntake',
       'addressedNamingSemanticEvidenceBridge',
-      'treeSemanticHomeEvidence',
+      'treeFamilyRootFolderEvidence',
       'treeSemanticNamingFolderTypeRelationshipEvidence',
     ]) {
       assert.deepEqual(preparedWith[key], preparedWithout[key], `${key} must not change`);

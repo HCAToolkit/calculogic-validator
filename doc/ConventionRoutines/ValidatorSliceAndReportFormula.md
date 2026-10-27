@@ -157,7 +157,7 @@ Bridge requirements:
 - Ambiguity/confidence limitations documented in the bridge contract or output shape.
 - Tests proving the consumer uses the prepared bridge input and does not silently re-derive provider semantics.
 
-Precedent: Naming prepares semantic-family bridge output. Tree consumes that prepared output for semantic-home evidence while retaining Tree-owned placement interpretation.
+Precedent: Naming prepares semantic-family bridge output. Tree consumes that prepared output for family-root folder evidence (formerly semantic-home evidence; Tree slice spec S2.13) while retaining Tree-owned placement interpretation.
 
 Structural Addressing direction: Addressing should later provide addressed snapshots through an explicit provider/bridge boundary. Tree should consume addressed snapshots and keep placement interpretation in Tree.
 

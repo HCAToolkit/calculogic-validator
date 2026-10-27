@@ -89,7 +89,7 @@ export const prepareTreeOccurrenceClassificationShadowReport = (input) => {
     currentIsSemanticRoot: parityRecord?.currentIsSemanticRoot ?? false,
     replacementFolderKind: parityRecord?.replacementFolderKind ?? null,
     replacementStructuralHome: parityRecord?.replacementStructuralHome ?? null,
-    replacementSemanticHome: parityRecord?.replacementSemanticHome ?? null,
+    replacementFamilyRootSemanticFamily: parityRecord?.replacementFamilyRootSemanticFamily ?? null,
     parityStatus: parityRecord?.parityStatus ?? null,
     replacementReadinessStatus: paritySummary?.replacementReadinessStatus ?? null,
     comparisonStatus: toComparisonStatus(parityRecord?.parityStatus),

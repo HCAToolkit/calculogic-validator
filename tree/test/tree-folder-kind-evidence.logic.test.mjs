@@ -24,8 +24,8 @@ test('returns deterministic evidence-only records from tree-owned inputs', () =>
     evidenceRecords: [{ path: 'src', structuralHome: 'src' }],
   };
   const semanticEvidence = {
-    source: 'tree-semantic-home-evidence',
-    evidenceRecords: [{ path: 'src/runtime', semanticHome: 'runtime-core' }],
+    source: 'tree-family-root-folder-evidence',
+    evidenceRecords: [{ path: 'src/runtime', semanticFamily: 'runtime-core' }],
   };
 
   const beforeAddressed = structuredClone(addressedOccurrenceRecords);
@@ -36,7 +36,7 @@ test('returns deterministic evidence-only records from tree-owned inputs', () =>
   const result = prepareTreeFolderKindEvidence({
     addressedOccurrenceRecords,
     treeStructuralHomeEvidence: structuralEvidence,
-    treeSemanticHomeEvidence: semanticEvidence,
+    treeFamilyRootFolderEvidence: semanticEvidence,
     folderKindsRegistry: folderKindsRegistryFixture,
   });
 
@@ -46,6 +46,10 @@ test('returns deterministic evidence-only records from tree-owned inputs', () =>
   assert.deepEqual(folderKindsRegistryFixture, beforeRegistry);
   assert.deepEqual(result.evidenceRecords.map((record) => record.path), ['src', 'src/runtime']);
   assert.deepEqual(result.evidenceRecords.map((record) => record.folderKind), ['structural', 'semantic']);
+  // S2.13: a Naming family-root claim, not a Stage 2A home; the value is the evidence's `semanticFamily`.
+  assert.equal(result.evidenceRecords[1].folderKindEvidenceStrength, 'derived-from-naming-family-root-evidence');
+  assert.equal(result.evidenceRecords[1].rationale, 'Tree family-root folder evidence linked this folder path to a Naming family-root claim.');
+  assert.equal(result.evidenceRecords[1].semanticFamily, 'runtime-core');
   assert.deepEqual(Object.keys(result.evidenceRecords[0]).sort(), [
     'addressPath',
     'folderKind',
@@ -56,7 +60,7 @@ test('returns deterministic evidence-only records from tree-owned inputs', () =>
     'parentAddressPath',
     'path',
     'rationale',
-    'semanticHome',
+    'semanticFamily',
     'structuralHome',
   ]);
 });
@@ -70,7 +74,7 @@ test('emits relationship-qualified folder-kind evidence only for aligned mixed-f
       { addressPath: 'A.3', parentAddressPath: null, path: 'calculogic-validator/naming-without-context/naming-src', name: 'naming-src', occurrenceType: 'folder' },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticNamingFolderTypeRelationshipEvidence: {
       relationshipRecords: [
         { addressPath: 'A.1', path: 'calculogic-validator/naming/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
@@ -85,7 +89,7 @@ test('emits relationship-qualified folder-kind evidence only for aligned mixed-f
   assert.equal(result.evidenceRecords[0].folderKind, 'semantic-qualified-structural-container');
   assert.equal(result.evidenceRecords[0].relationshipQualified, true);
   assert.equal(result.evidenceRecords[0].relationshipInterpretation, 'semantic-qualified-structural-container-aligned');
-  assert.equal(result.evidenceRecords[0].semanticHome, null);
+  assert.equal(result.evidenceRecords[0].semanticFamily, null);
 });
 
 
@@ -95,7 +99,7 @@ test('skips aligned relationship-qualified folder-kind evidence when addressed i
       { addressPath: 'B.1', parentAddressPath: null, path: 'calculogic-validator/naming/naming-src', name: 'naming-src', occurrenceType: 'folder' },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticNamingFolderTypeRelationshipEvidence: {
       relationshipRecords: [
         { addressPath: 'A.4.2', path: 'calculogic-validator/naming/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
@@ -119,7 +123,7 @@ test('skips aligned relationship-qualified folder-kind evidence outside the curr
       { addressPath: 'A.2', parentAddressPath: null, path: 'calculogic-validator/tree/naming-src', name: 'naming-src', occurrenceType: 'folder' },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticNamingFolderTypeRelationshipEvidence: {
       relationshipRecords: [
         { addressPath: 'A.1', path: 'calculogic-validator/naming/naming-src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
@@ -141,7 +145,7 @@ test('stale same-path relationship evidence does not suppress generic structural
       { addressPath: 'B.1', parentAddressPath: null, path: 'src', name: 'src', occurrenceType: 'folder' },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [{ path: 'src', structuralHome: 'src' }] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     treeSemanticNamingFolderTypeRelationshipEvidence: {
       relationshipRecords: [
         { addressPath: 'A.4.2', path: 'src', relationshipPerspective: 'semantic-qualified-structural-container', relationshipInterpretation: 'semantic-qualified-structural-container-aligned', structuralRole: 'implementation-container', establishedSemanticContext: 'naming', semanticContextEvidenceAddressPath: 'A.naming' },
@@ -161,7 +165,7 @@ test('does not emit findings/verdict or retired root-classification fields', () 
   const result = prepareTreeFolderKindEvidence({
     addressedOccurrenceRecords: [{ addressPath: 'A', parentAddressPath: null, path: 'src', name: 'src', occurrenceType: 'folder' }],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [{ path: 'src', structuralHome: 'src' }] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     folderKindsRegistry: folderKindsRegistryFixture,
   });
 
@@ -190,7 +194,7 @@ test('skips unlinked evidence and handles empty input safely without basename in
       { addressPath: 'A', parentAddressPath: null, path: 'src/semantic', name: 'semantic', occurrenceType: 'folder' },
     ],
     treeStructuralHomeEvidence: { source: 'x', evidenceRecords: [] },
-    treeSemanticHomeEvidence: { source: 'x', evidenceRecords: [] },
+    treeFamilyRootFolderEvidence: { source: 'x', evidenceRecords: [] },
     folderKindsRegistry: {
       version: '1',
       folderKinds: [
@@ -215,6 +219,6 @@ test('rejects invalid input deterministically', () => {
       folderKindsRegistry: { folderKinds: [] },
       treeStructuralHomeEvidence: { evidenceRecords: [] },
     }),
-    /must include treeSemanticHomeEvidence object/u,
+    /must include treeFamilyRootFolderEvidence object/u,
   );
 });

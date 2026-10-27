@@ -43,6 +43,14 @@ const FILES = {
   'src/app-shell.logic.mjs': { semanticName: 'app-shell', semanticFamily: 'app-shell', familyRoot: 'app', familySubgroup: 'shell' },
 };
 
+// Family-root folder observations carrying the same facts: Tree's family-root folder evidence is
+// folder-only (S2.13), so the strength rule is observed there.
+const FAMILY_ROOT_FOLDERS = {
+  'src/order-payment': { ...FILES['src/order-payment-flow-step.logic.mjs'] },
+  'src/build-surface': { ...FILES['src/build-surface.logic.mjs'] },
+  'src/app-shell': { ...FILES['src/app-shell.logic.mjs'] },
+};
+
 const withFixture = (run) => {
   const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tree-naming-evidence-strength-'));
   try {
@@ -51,6 +59,11 @@ const withFixture = (run) => {
     for (const filePath of Object.keys(FILES)) {
       fs.writeFileSync(path.join(fixtureDir, filePath), 'export {};\n');
     }
+    for (const folderPath of Object.keys(FAMILY_ROOT_FOLDERS)) {
+      fs.mkdirSync(path.join(fixtureDir, folderPath));
+      // The address snapshot walks only folders with content.
+      fs.writeFileSync(path.join(fixtureDir, folderPath, 'placeholder.logic.mjs'), 'export {};\n');
+    }
     return run(fixtureDir);
   } finally {
     fs.rmSync(fixtureDir, { recursive: true, force: true });
@@ -58,7 +71,15 @@ const withFixture = (run) => {
 };
 
 const namingSemanticFamilyBridge = {
-  observations: Object.entries(FILES).map(([filePath, fields]) => ({ path: filePath, ...structuredClone(fields) })),
+  observations: [
+    ...Object.entries(FILES).map(([filePath, fields]) => ({ path: filePath, ...structuredClone(fields) })),
+    ...Object.entries(FAMILY_ROOT_FOLDERS).map(([folderPath, fields]) => ({
+      path: folderPath,
+      occurrenceType: 'folder',
+      semanticEvidenceKind: 'semantic-family-root-folder',
+      ...structuredClone(fields),
+    })),
+  ],
 };
 
 const assertAmbiguityReachesTree = (preparedDependencies) => {
@@ -69,7 +90,7 @@ const assertAmbiguityReachesTree = (preparedDependencies) => {
     preparedDependencies.addressedNamingSemanticEvidenceBridge.observations.map((observation) => [observation.path, observation]),
   );
   const strengthByPath = new Map(
-    preparedDependencies.treeSemanticHomeEvidence.evidenceRecords.map((record) => [record.path, record.semanticHomeEvidenceStrength]),
+    preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords.map((record) => [record.path, record.familyRootEvidenceStrength]),
   );
 
   // The transported payload keeps both source facts separately and never carries a strength.
@@ -89,9 +110,9 @@ const assertAmbiguityReachesTree = (preparedDependencies) => {
 
   // Tree's strength follows the facts.
   assert.deepEqual(Object.fromEntries(strengthByPath), {
-    'src/app-shell.logic.mjs': 'high',
-    'src/build-surface.logic.mjs': 'bounded',
-    'src/order-payment-flow-step.logic.mjs': 'bounded',
+    'src/app-shell': 'high',
+    'src/build-surface': 'bounded',
+    'src/order-payment': 'bounded',
   });
 };
 
@@ -124,7 +145,7 @@ test('caller-supplied occurrence bridge: Naming ambiguity facts survive to Tree 
   });
 });
 
-test('relationship evidence takes its strength from the Tree rule; relationship-qualified semantic homes stay bounded', () => {
+test('relationship evidence takes its strength from the Tree rule; relationship-qualified family-root folders stay bounded', () => {
   const strengthsFor = (extraFacts) => {
     const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tree-naming-relationship-strength-'));
     try {
@@ -147,8 +168,8 @@ test('relationship evidence takes its strength from the Tree rule; relationship-
         },
       });
       const [relationship] = preparedDependencies.treeSemanticNamingFolderTypeRelationshipEvidence.relationshipRecords;
-      const [semanticHome] = preparedDependencies.treeSemanticHomeEvidence.evidenceRecords;
-      return [relationship.relationshipEvidenceStrength, semanticHome.semanticHomeEvidenceStrength];
+      const [familyRootFolder] = preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords;
+      return [relationship.relationshipEvidenceStrength, familyRootFolder.familyRootEvidenceStrength];
     } finally {
       fs.rmSync(fixtureDir, { recursive: true, force: true });
     }

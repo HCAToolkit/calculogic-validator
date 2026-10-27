@@ -14,7 +14,7 @@ import {
 } from '../src/tree-structure-advisor.logic.mjs';
 import { collectShimCompatFindings, prepareShimValidatorDevelopmentContext } from '../src/tree-shim-detection.logic.mjs';
 import { prepareTreeStructuralHomeEvidence } from '../src/tree-structural-home-evidence.logic.mjs';
-import { prepareTreeSemanticHomeEvidence } from '../src/tree-semantic-home-evidence.logic.mjs';
+import { prepareTreeFamilyRootFolderEvidence } from '../src/tree-family-root-folder-evidence.logic.mjs';
 import { prepareTreeSemanticNamingFolderTypeRelationshipEvidence } from '../src/tree-semantic-naming-folder-type-relationship.logic.mjs';
 import { prepareTreeFolderKindEvidence } from '../src/tree-folder-kind-evidence.logic.mjs';
 import {
@@ -273,7 +273,7 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
     assert.equal(snapshot.occurrenceRecords.every((record) => Number.isInteger(record.orderIndex)), true);
     assert.ok(preparedInputs.preparedDependencies);
     assert.ok(preparedInputs.preparedDependencies.treeStructuralHomeEvidence);
-    assert.ok(preparedInputs.preparedDependencies.treeSemanticHomeEvidence);
+    assert.ok(preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence);
     assert.ok(preparedInputs.preparedDependencies.treeFolderKindEvidence);
     assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationParityEvidence);
     assert.ok(preparedInputs.preparedDependencies.treeOccurrenceClassificationParitySummary);
@@ -291,8 +291,8 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
       }),
     );
     assert.deepEqual(
-      preparedInputs.preparedDependencies.treeSemanticHomeEvidence,
-      prepareTreeSemanticHomeEvidence({
+      preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence,
+      prepareTreeFamilyRootFolderEvidence({
         addressedOccurrenceRecords: snapshot.occurrenceRecords,
         namingSemanticEvidenceRecords: [],
       }),
@@ -303,13 +303,13 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
       prepareTreeFolderKindEvidence({
         addressedOccurrenceRecords: snapshot.occurrenceRecords,
         treeStructuralHomeEvidence: preparedInputs.preparedDependencies.treeStructuralHomeEvidence,
-        treeSemanticHomeEvidence: preparedInputs.preparedDependencies.treeSemanticHomeEvidence,
+        treeFamilyRootFolderEvidence: preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence,
         folderKindsRegistry: getBuiltinFolderKindsRegistry(),
       }),
     );
     const expectedOccurrenceClassificationReplacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
       treeStructuralHomeEvidence: preparedInputs.preparedDependencies.treeStructuralHomeEvidence,
-      treeSemanticHomeEvidence: preparedInputs.preparedDependencies.treeSemanticHomeEvidence,
+      treeFamilyRootFolderEvidence: preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence,
       treeFolderKindEvidence: preparedInputs.preparedDependencies.treeFolderKindEvidence,
       treeRepoShapePolicy: preparedInputs.preparedDependencies.treeRepoShapePolicy,
     });
@@ -321,7 +321,7 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
           snapshot.occurrenceRecords,
         ),
         treeStructuralHomeEvidence: preparedInputs.preparedDependencies.treeStructuralHomeEvidence,
-        treeSemanticHomeEvidence: preparedInputs.preparedDependencies.treeSemanticHomeEvidence,
+        treeFamilyRootFolderEvidence: preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence,
         treeFolderKindEvidence: preparedInputs.preparedDependencies.treeFolderKindEvidence,
       }),
     );
@@ -441,7 +441,7 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
         ['findingCode', 'severity', 'placementVerdict', 'confidenceScore', 'report', 'isRepoShapeAllowedTopLevelDirectory', 'isStructuralRoot', 'isSemanticRoot', 'structuralClass', 'structuralKind'].some((key) => Object.hasOwn(record, key))),
       false,
     );
-    assert.deepEqual(preparedInputs.preparedDependencies.treeSemanticHomeEvidence.evidenceRecords, []);
+    assert.deepEqual(preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords, []);
     const parityEvidence = preparedInputs.preparedDependencies.treeOccurrenceClassificationParityEvidence;
     assert.equal(Array.isArray(parityEvidence.parityRecords), true);
     assert.equal(typeof parityEvidence.summary, 'object');
@@ -456,8 +456,8 @@ test('tree-structure-advisor wiring carries neutral structural-address snapshot 
   }
 });
 
-test('tree-structure-advisor wiring prepares semantic-home evidence using naming semantic bridge inputs without changing runtime output', async () => {
-  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-semantic-home-evidence-'));
+test('tree-structure-advisor wiring prepares family-root folder evidence using naming semantic bridge inputs without changing runtime output', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tree-structure-family-root-folder-evidence-'));
 
   try {
     await writeBaseFixtureRepo(fixtureDir);
@@ -489,30 +489,31 @@ test('tree-structure-advisor wiring prepares semantic-home evidence using naming
 
     const preparedInputs = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', namingSemanticFamilyBridge });
     const namingSemanticEvidenceBridge = prepareNamingSemanticEvidenceBridge(namingSemanticFamilyBridge);
-    const expectedSemanticHomeEvidence = prepareTreeSemanticHomeEvidence({
+    const expectedFamilyRootFolderEvidence = prepareTreeFamilyRootFolderEvidence({
       addressedOccurrenceRecords: preparedInputs.structuralAddressSnapshot.occurrenceRecords,
       namingSemanticEvidenceRecords: namingSemanticEvidenceBridge.observations,
     });
 
-    assert.deepEqual(preparedInputs.preparedDependencies.treeSemanticHomeEvidence, expectedSemanticHomeEvidence);
+    assert.deepEqual(preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence, expectedFamilyRootFolderEvidence);
     assert.equal(
-      preparedInputs.preparedDependencies.treeSemanticHomeEvidence.evidenceRecords.some((record) => record.path === 'src'),
+      preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords.some((record) => record.path === 'src'),
+      false,
+    );
+    // S2.13: folders only; a file's own `semanticFamily` is not family-root folder evidence.
+    assert.equal(
+      preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords.some(
+        (record) => record.path === 'src/semantic-family.topic-core.logic.mjs',
+      ),
       false,
     );
     assert.equal(
-      preparedInputs.preparedDependencies.treeSemanticHomeEvidence.evidenceRecords.some(
-        (record) => record.path === 'src/semantic-family.topic-core.logic.mjs',
-      ),
-      true,
-    );
-    assert.equal(
-      preparedInputs.preparedDependencies.treeSemanticHomeEvidence.evidenceRecords.some(
+      preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords.some(
         (record) => !Object.hasOwn(record, 'addressPath') || !Object.hasOwn(record, 'parentAddressPath'),
       ),
       false,
     );
     assert.equal(
-      preparedInputs.preparedDependencies.treeSemanticHomeEvidence.evidenceRecords.some(
+      preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords.some(
         (record) =>
           ['finding', 'findingCode', 'severity', 'verdict', 'placementVerdict', 'advisorDecision', 'isRepoShapeAllowedTopLevelDirectory', 'isStructuralRoot', 'isSemanticRoot', 'structuralClass', 'structuralKind'].some((key) =>
             Object.hasOwn(record, key)),
@@ -567,7 +568,7 @@ test('tree semantic naming folder-type relationship classifies only repository-t
     treeRepoShapePolicy: embeddedRepoShapePolicy,
     relationshipsRegistry: getBuiltinSemanticNamingFolderTypeRelationshipsRegistry(),
   });
-  const semanticHomeEvidence = prepareTreeSemanticHomeEvidence({
+  const familyRootFolderEvidence = prepareTreeFamilyRootFolderEvidence({
     addressedOccurrenceRecords,
     namingSemanticEvidenceRecords,
     treeSemanticNamingFolderTypeRelationshipEvidence: relationshipEvidence,
@@ -575,12 +576,12 @@ test('tree semantic naming folder-type relationship classifies only repository-t
   const folderKindEvidence = prepareTreeFolderKindEvidence({
     addressedOccurrenceRecords,
     treeStructuralHomeEvidence: structuralHomeEvidence,
-    treeSemanticHomeEvidence: semanticHomeEvidence,
+    treeFamilyRootFolderEvidence: familyRootFolderEvidence,
     folderKindsRegistry: getBuiltinFolderKindsRegistry(),
   });
   const replacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence: structuralHomeEvidence,
-    treeSemanticHomeEvidence: semanticHomeEvidence,
+    treeFamilyRootFolderEvidence: familyRootFolderEvidence,
     treeFolderKindEvidence: folderKindEvidence,
     treeRepoShapePolicy: embeddedRepoShapePolicy,
   });
@@ -1066,15 +1067,15 @@ test('tree-structure-advisor runner staging receives addressed Naming package-ro
       'semantic-qualified-structural-container-semantic-context-mismatch',
     );
 
-    const semanticHomesByPath = Object.fromEntries(
-      preparedInputs.preparedDependencies.treeSemanticHomeEvidence.evidenceRecords.map((record) => [record.path, record]),
+    const familyRootFoldersByPath = Object.fromEntries(
+      preparedInputs.preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords.map((record) => [record.path, record]),
     );
     const folderKindsByPath = Object.fromEntries(
       preparedInputs.preparedDependencies.treeFolderKindEvidence.evidenceRecords.map((record) => [record.path, record]),
     );
 
-    assert.equal(Object.hasOwn(semanticHomesByPath, 'calculogic-validator/naming/naming-src'), false);
-    assert.equal(Object.hasOwn(semanticHomesByPath, 'calculogic-validator/tree/naming-src'), false);
+    assert.equal(Object.hasOwn(familyRootFoldersByPath, 'calculogic-validator/naming/naming-src'), false);
+    assert.equal(Object.hasOwn(familyRootFoldersByPath, 'calculogic-validator/tree/naming-src'), false);
     assert.equal(folderKindsByPath['calculogic-validator/naming/naming-src'].folderKind, 'semantic-qualified-structural-container');
     assert.equal(folderKindsByPath['calculogic-validator/naming/naming-src'].relationshipQualified, true);
     assert.equal(Object.hasOwn(folderKindsByPath, 'calculogic-validator/tree/naming-src'), false);
@@ -2708,7 +2709,7 @@ test('semantic-qualified structural-container relationship uses addressed semant
   assert.equal(treeStructuralHomeEvidence.evidenceRecords.some((record) => record.path === 'calculogic-validator/naming/naming-src'), false);
   assert.equal(treeStructuralHomeEvidence.evidenceRecords.some((record) => record.path === 'src' && record.structuralHome === 'src'), true);
 
-  const semanticHomeEvidence = prepareTreeSemanticHomeEvidence({
+  const familyRootFolderEvidence = prepareTreeFamilyRootFolderEvidence({
     addressedOccurrenceRecords,
     namingSemanticEvidenceRecords,
     treeSemanticNamingFolderTypeRelationshipEvidence: relationshipEvidence,
@@ -2716,16 +2717,16 @@ test('semantic-qualified structural-container relationship uses addressed semant
   const folderKindEvidence = prepareTreeFolderKindEvidence({
     addressedOccurrenceRecords,
     treeStructuralHomeEvidence,
-    treeSemanticHomeEvidence: semanticHomeEvidence,
+    treeFamilyRootFolderEvidence: familyRootFolderEvidence,
     treeSemanticNamingFolderTypeRelationshipEvidence: relationshipEvidence,
     folderKindsRegistry: getBuiltinFolderKindsRegistry(),
   });
-  const semanticHomesByPath = Object.fromEntries(semanticHomeEvidence.evidenceRecords.map((record) => [record.path, record]));
+  const familyRootFoldersByPath = Object.fromEntries(familyRootFolderEvidence.evidenceRecords.map((record) => [record.path, record]));
   const folderKindsByPath = Object.fromEntries(folderKindEvidence.evidenceRecords.map((record) => [record.path, record]));
 
-  assert.equal(Object.hasOwn(semanticHomesByPath, 'calculogic-validator/naming/naming-src'), false);
-  assert.equal(Object.hasOwn(semanticHomesByPath, 'calculogic-validator/tree/naming-src'), false);
-  assert.equal(Object.hasOwn(semanticHomesByPath, 'calculogic-validator/naming-without-context/naming-src'), false);
+  assert.equal(Object.hasOwn(familyRootFoldersByPath, 'calculogic-validator/naming/naming-src'), false);
+  assert.equal(Object.hasOwn(familyRootFoldersByPath, 'calculogic-validator/tree/naming-src'), false);
+  assert.equal(Object.hasOwn(familyRootFoldersByPath, 'calculogic-validator/naming-without-context/naming-src'), false);
   assert.equal(folderKindsByPath['calculogic-validator/naming/naming-src'].folderKind, 'semantic-qualified-structural-container');
   assert.equal(folderKindsByPath['calculogic-validator/naming/naming-src'].relationshipQualified, true);
   assert.equal(Object.hasOwn(folderKindsByPath, 'calculogic-validator/tree/naming-src'), false);
@@ -2734,7 +2735,7 @@ test('semantic-qualified structural-container relationship uses addressed semant
 
   const classificationRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence,
-    treeSemanticHomeEvidence: semanticHomeEvidence,
+    treeFamilyRootFolderEvidence: familyRootFolderEvidence,
     treeSemanticNamingFolderTypeRelationshipEvidence: relationshipEvidence,
     treeFolderKindEvidence: folderKindEvidence,
     treeRepoShapePolicy: { allowedTopLevelDirectories: ['calculogic-doc-engine', 'calculogic-validator', 'src'] },
@@ -2773,7 +2774,7 @@ test('semantic-qualified structural-container relationship uses addressed semant
       .sort(),
     ['calculogic-doc-engine', 'calculogic-validator'],
   );
-  assert.equal(semanticHomesByPath['calculogic-doc-engine'].semanticHome, 'calculogic-doc-engine');
+  assert.equal(familyRootFoldersByPath['calculogic-doc-engine'].semanticFamily, 'calculogic-doc-engine');
   assert.equal(folderKindsByPath['calculogic-doc-engine'].folderKind, 'semantic');
   assert.equal(folderKindsByPath.src.folderKind, 'structural');
 });

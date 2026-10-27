@@ -374,7 +374,7 @@ Path fallback is current implementation reality and must not be removed in this 
 | Structural-addressing `depth` | Approved future bridge enrichment source for `occurrenceDepth`; it remains neutral context evidence. |
 | Structural-addressing `orderIndex` | Approved future bridge enrichment source for `occurrenceOrderIndex`; it remains deterministic ordering/diagnostic evidence, not identity. |
 | Current Naming bridge `path` observations | Current runtime truth and temporary compatibility alias. Future bridge observations should preserve `repoRelativePath` / `path` compatibility during migration. |
-| Current Tree semantic-home evidence join by `path` | Current runtime truth and temporary fallback path. Future Tree consumption should prefer address-keyed joins only when contract fields are present and Tree-owned qualification accepts them. |
+| Current Tree family-root folder evidence join by `path` (formerly semantic-home evidence; Tree slice spec S2.13) | Current runtime truth and temporary fallback path. Future Tree consumption should prefer address-keyed joins only when contract fields are present and Tree-owned qualification accepts them. |
 
 ## 10. Unresolved naming and migration follow-up notes
 
