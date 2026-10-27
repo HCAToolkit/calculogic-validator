@@ -147,12 +147,12 @@ const assertReplacementRuntimeInput = (input) => {
     throw new Error('Tree occurrence classification replacement runtime treeStructuralHomeEvidence.evidenceRecords must be an array.');
   }
 
-  if (!input.treeSemanticHomeEvidence || typeof input.treeSemanticHomeEvidence !== 'object' || Array.isArray(input.treeSemanticHomeEvidence)) {
-    throw new Error('Tree occurrence classification replacement runtime input must include treeSemanticHomeEvidence object.');
+  if (!input.treeFamilyRootFolderEvidence || typeof input.treeFamilyRootFolderEvidence !== 'object' || Array.isArray(input.treeFamilyRootFolderEvidence)) {
+    throw new Error('Tree occurrence classification replacement runtime input must include treeFamilyRootFolderEvidence object.');
   }
 
-  if (!Array.isArray(input.treeSemanticHomeEvidence.evidenceRecords)) {
-    throw new Error('Tree occurrence classification replacement runtime treeSemanticHomeEvidence.evidenceRecords must be an array.');
+  if (!Array.isArray(input.treeFamilyRootFolderEvidence.evidenceRecords)) {
+    throw new Error('Tree occurrence classification replacement runtime treeFamilyRootFolderEvidence.evidenceRecords must be an array.');
   }
 
   if (!input.treeFolderKindEvidence || typeof input.treeFolderKindEvidence !== 'object' || Array.isArray(input.treeFolderKindEvidence)) {
@@ -182,7 +182,7 @@ const assertReplacementRuntimeInput = (input) => {
   }
 };
 
-const toReplacementRootClassification = ({ folderKind, structuralHome, semanticHome, isRepoShapeAllowedTopLevelDirectory, classificationExplanation }) => {
+const toReplacementRootClassification = ({ folderKind, structuralHome, familyRootSemanticFamily, isRepoShapeAllowedTopLevelDirectory, classificationExplanation }) => {
   if (folderKind === 'structural' || structuralHome) {
     return {
       structuralClass: 'repo-top-structural-root',
@@ -193,7 +193,9 @@ const toReplacementRootClassification = ({ folderKind, structuralHome, semanticH
     };
   }
 
-  if (folderKind === 'semantic' || semanticHome) {
+  // The family-root claim is read directly as well as through `folderKind`, so a Custom folder-kinds
+  // registry without `semantic` still classifies a family-root repository-top folder as before.
+  if (folderKind === 'semantic' || familyRootSemanticFamily) {
     return {
       structuralClass: 'repo-top-semantic-root',
       structuralKind: 'semantic-root',
@@ -213,7 +215,7 @@ const toReplacementRootClassification = ({ folderKind, structuralHome, semanticH
   };
 };
 
-const classifyWithPreparedEvidence = ({ occurrenceRecord, structuralHomeLookup, semanticHomeLookup, folderKindLookup, relationshipQualifiedFolderKindLookupByAddressPath, relationshipExplanationLookup, allowedTopLevelDirectorySet }) => {
+const classifyWithPreparedEvidence = ({ occurrenceRecord, structuralHomeLookup, familyRootSemanticFamilyLookup, folderKindLookup, relationshipQualifiedFolderKindLookupByAddressPath, relationshipExplanationLookup, allowedTopLevelDirectorySet }) => {
   if (!occurrenceRecord || typeof occurrenceRecord !== 'object') {
     return {
       structuralClass: 'unclassified',
@@ -242,7 +244,7 @@ const classifyWithPreparedEvidence = ({ occurrenceRecord, structuralHomeLookup, 
       ...toReplacementRootClassification({
         folderKind: lookupFirstAvailable(folderKindLookup, occurrenceRecord),
         structuralHome: lookupFirstAvailable(structuralHomeLookup, occurrenceRecord),
-        semanticHome: lookupFirstAvailable(semanticHomeLookup, occurrenceRecord),
+        familyRootSemanticFamily: lookupFirstAvailable(familyRootSemanticFamilyLookup, occurrenceRecord),
         isRepoShapeAllowedTopLevelDirectory: allowedTopLevelDirectorySet.has(resolvedPath),
         classificationExplanation: lookupFirstAvailable(relationshipExplanationLookup, occurrenceRecord),
       }),
@@ -295,7 +297,7 @@ export const prepareTreeOccurrenceClassificationReplacementRuntime = (input) => 
   assertReplacementRuntimeInput(input);
 
   const structuralHomeLookup = toEvidenceLookup(input.treeStructuralHomeEvidence.evidenceRecords, 'structuralHome');
-  const semanticHomeLookup = toEvidenceLookup(input.treeSemanticHomeEvidence.evidenceRecords, 'semanticHome');
+  const familyRootSemanticFamilyLookup = toEvidenceLookup(input.treeFamilyRootFolderEvidence.evidenceRecords, 'semanticFamily');
   const folderKindLookup = toEvidenceLookup(input.treeFolderKindEvidence.evidenceRecords, 'folderKind');
   const relationshipQualifiedFolderKindLookupByAddressPath = toRelationshipQualifiedFolderKindLookupByAddressPath(
     input.treeFolderKindEvidence.evidenceRecords,
@@ -327,7 +329,7 @@ export const prepareTreeOccurrenceClassificationReplacementRuntime = (input) => 
         ...classifyWithPreparedEvidence({
           occurrenceRecord,
           structuralHomeLookup,
-          semanticHomeLookup,
+          familyRootSemanticFamilyLookup,
           folderKindLookup,
           relationshipQualifiedFolderKindLookupByAddressPath,
           relationshipExplanationLookup,

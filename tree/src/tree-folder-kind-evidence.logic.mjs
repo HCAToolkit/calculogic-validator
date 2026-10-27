@@ -25,12 +25,12 @@ const assertValidInput = (input) => {
     throw new Error('Tree folder-kind evidence treeStructuralHomeEvidence.evidenceRecords must be an array.');
   }
 
-  if (!input.treeSemanticHomeEvidence || typeof input.treeSemanticHomeEvidence !== 'object' || Array.isArray(input.treeSemanticHomeEvidence)) {
-    throw new Error('Tree folder-kind evidence input must include treeSemanticHomeEvidence object.');
+  if (!input.treeFamilyRootFolderEvidence || typeof input.treeFamilyRootFolderEvidence !== 'object' || Array.isArray(input.treeFamilyRootFolderEvidence)) {
+    throw new Error('Tree folder-kind evidence input must include treeFamilyRootFolderEvidence object.');
   }
 
-  if (!Array.isArray(input.treeSemanticHomeEvidence.evidenceRecords)) {
-    throw new Error('Tree folder-kind evidence treeSemanticHomeEvidence.evidenceRecords must be an array.');
+  if (!Array.isArray(input.treeFamilyRootFolderEvidence.evidenceRecords)) {
+    throw new Error('Tree folder-kind evidence treeFamilyRootFolderEvidence.evidenceRecords must be an array.');
   }
 
   if (
@@ -118,7 +118,7 @@ const toRelationshipQualifiedFolderKindEvidenceRecords = ({ relationshipRecords,
         folderKindSource: SOURCE_ID,
         folderKindEvidenceStrength: 'derived-from-aligned-relationship-evidence',
         structuralHome: null,
-        semanticHome: null,
+        semanticFamily: null,
         extraFields: {
           relationshipQualified: true,
           relationshipPerspective: relationshipRecord.relationshipPerspective,
@@ -134,7 +134,7 @@ const toRelationshipQualifiedFolderKindEvidenceRecords = ({ relationshipRecords,
     .filter(Boolean);
 };
 
-const toEvidenceRecord = ({ occurrenceRecord, folderKind, folderKindSource, folderKindEvidenceStrength, structuralHome, semanticHome, rationale, extraFields = {} }) => ({
+const toEvidenceRecord = ({ occurrenceRecord, folderKind, folderKindSource, folderKindEvidenceStrength, structuralHome, semanticFamily, rationale, extraFields = {} }) => ({
   addressPath: occurrenceRecord.addressPath ?? null,
   parentAddressPath: occurrenceRecord.parentAddressPath ?? null,
   path: occurrenceRecord.path ?? null,
@@ -144,7 +144,7 @@ const toEvidenceRecord = ({ occurrenceRecord, folderKind, folderKindSource, fold
   folderKindSource,
   folderKindEvidenceStrength,
   structuralHome,
-  semanticHome,
+  semanticFamily,
   ...extraFields,
   rationale,
 });
@@ -154,7 +154,7 @@ export const prepareTreeFolderKindEvidence = (input) => {
 
   const supportedFolderKinds = toSupportedFolderKindSet(input.folderKindsRegistry.folderKinds);
   const structuralHomeByPath = toPathLookup(input.treeStructuralHomeEvidence.evidenceRecords, 'structuralHome');
-  const semanticHomeByPath = toPathLookup(input.treeSemanticHomeEvidence.evidenceRecords, 'semanticHome');
+  const semanticFamilyByPath = toPathLookup(input.treeFamilyRootFolderEvidence.evidenceRecords, 'semanticFamily');
   const addressedOccurrenceRecordsByPath = new Map(
     input.addressedOccurrenceRecords
       .filter((record) => record?.occurrenceType === 'folder' && typeof record.path === 'string' && record.path.length > 0)
@@ -198,7 +198,7 @@ export const prepareTreeFolderKindEvidence = (input) => {
     }
 
     const structuralHome = structuralHomeByPath.get(occurrenceRecord.path) ?? null;
-    const semanticHome = semanticHomeByPath.get(occurrenceRecord.path) ?? null;
+    const semanticFamily = semanticFamilyByPath.get(occurrenceRecord.path) ?? null;
 
     if (structuralHome && supportedFolderKinds.has('structural')) {
       evidenceRecords.push(
@@ -208,23 +208,23 @@ export const prepareTreeFolderKindEvidence = (input) => {
           folderKindSource: SOURCE_ID,
           folderKindEvidenceStrength: 'derived-from-structural-home-evidence',
           structuralHome,
-          semanticHome,
+          semanticFamily,
           rationale: 'Tree structural-home evidence linked this folder path to a structural home.',
         }),
       );
       continue;
     }
 
-    if (semanticHome && supportedFolderKinds.has('semantic')) {
+    if (semanticFamily && supportedFolderKinds.has('semantic')) {
       evidenceRecords.push(
         toEvidenceRecord({
           occurrenceRecord,
           folderKind: 'semantic',
           folderKindSource: SOURCE_ID,
-          folderKindEvidenceStrength: 'derived-from-semantic-home-evidence',
+          folderKindEvidenceStrength: 'derived-from-naming-family-root-evidence',
           structuralHome,
-          semanticHome,
-          rationale: 'Tree semantic-home evidence linked this folder path to a semantic home.',
+          semanticFamily,
+          rationale: 'Tree family-root folder evidence linked this folder path to a Naming family-root claim.',
         }),
       );
       continue;
@@ -238,8 +238,8 @@ export const prepareTreeFolderKindEvidence = (input) => {
           folderKindSource: SOURCE_ID,
           folderKindEvidenceStrength: 'insufficient-tree-owned-evidence',
           structuralHome,
-          semanticHome,
-          rationale: 'Tree-owned structural-home and semantic-home evidence did not resolve a stronger folder kind.',
+          semanticFamily,
+          rationale: 'Tree-owned structural-home and family-root folder evidence did not resolve a stronger folder kind.',
         }),
       );
     }
