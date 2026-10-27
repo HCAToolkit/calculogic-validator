@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { sha256Hex } from '../validator-report-meta.logic.mjs';
 import { assessCustomRegistrySet } from './registry-lifecycle-assessment.logic.mjs';
+import { customBridgeSides, resolveBridgeCompatibility } from './registry-lifecycle-bridge-compatibility.logic.mjs';
 import { digestRegistrySet } from './registry-lifecycle-canonical-digest.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
 import { artifactProblems, materializePortableSet, relocate } from './registry-lifecycle-portable-set.logic.mjs';
@@ -81,6 +82,15 @@ export const resolveCandidateRegistrySet = ({ artifactBytes, slices = REGISTRY_L
         orphanRegistries: [...assessment.orphanRegistries],
         customIssues: assessment.customIssues.map((issue) => ({ ...issue })),
         resolvedSetDigest: digestRegistrySet(resolvedDigests),
+        // The candidate's own bridges (spec §9.4), read from the materialized candidate files.
+        bridgeCompatibility: relocate(
+          resolveBridgeCompatibility({
+            set: REGISTRY_RUN_SOURCE_CANDIDATE,
+            sideOf: customBridgeSides({ paths, assessment, slices }),
+            slices,
+          }),
+          replacements,
+        ),
       },
       registryProvenance: buildRegistryProvenance({ source: REGISTRY_RUN_SOURCE_CANDIDATE, resolvedDigests, slices }),
       // The candidate root's own manifest and `.baseline/` copies (spec §11.4), never the repository's.

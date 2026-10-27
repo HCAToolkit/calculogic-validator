@@ -241,14 +241,23 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
   const trustedManifestEntries = manifestError ? {} : manifestEntries;
 
   const sliceFailuresById = new Map();
+  // Why each slice whose registry-set validation did not run was skipped, as sorted reason texts.
+  // A classification of a registry in such a slice is never evidence that its contents were
+  // validated, so readers that need validated contents (bridge compatibility, spec §9.4) check here.
+  const unvalidatedSlices = {};
   for (const slice of slices) {
     const customSliceRoot = path.join(paths.customRoot, slice.sliceId);
     // A slice with an escaping registry file is not validated: that file is already reported
     // unreadable, and slice validation would read through it.
-    const sliceHasEscapingFile = currentEntries.some(
-      (current) => current.slice.sliceId === slice.sliceId && current.custom.escapes,
-    );
-    if (sliceHasEscapingFile || !isDirectory(customSliceRoot)) {
+    const escapingRegistryIds = currentEntries
+      .filter((current) => current.slice.sliceId === slice.sliceId && current.custom.escapes)
+      .map((current) => current.entry.registryId);
+    const skipReasons = [
+      ...escapingRegistryIds.map((registryId) => `${registryId} resolves outside the validation target.`),
+      ...(isDirectory(customSliceRoot) ? [] : [`the Custom slice directory ${slice.sliceId}/ is absent.`]),
+    ].sort(compareOrdinal);
+    if (skipReasons.length > 0) {
+      unvalidatedSlices[slice.sliceId] = Object.freeze(skipReasons);
       continue;
     }
 
@@ -388,6 +397,7 @@ export const assessCustomRegistrySet = ({ paths, slices = REGISTRY_LIFECYCLE_SLI
     registries: registries.sort((left, right) => compareOrdinal(left.registryId, right.registryId)),
     builtinDigests,
     customDigests,
+    unvalidatedSlices: Object.freeze(unvalidatedSlices),
   };
 
   if (manifestError) {

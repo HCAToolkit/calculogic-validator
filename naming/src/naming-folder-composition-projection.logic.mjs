@@ -15,9 +15,22 @@ const toActivePatternsByFolderName = (patterns = [], { expectedKind } = {}) => {
   return patternsByFolderName;
 };
 
+const isEmittingCompositionPattern = (pattern) =>
+  typeof pattern.semanticQualifier === 'string' && pattern.semanticQualifier.length > 0 &&
+  typeof pattern.structuralRoleToken === 'string' && pattern.structuralRoleToken.length > 0;
+
+// The composition patterns that emit an observation for a folder of their name, keyed by folder
+// name: the first active pattern of the kind per name, kept only when it has a qualifier and a
+// structural-role token. The projection and Naming's bridge-domain resolver share this selection
+// (lifecycle spec §9.4), so the emitted domain reported for a registry is the one the projection uses.
+export const selectEmittingFolderCompositionPatterns = (patterns = []) =>
+  new Map(
+    [...toActivePatternsByFolderName(patterns, {
+      expectedKind: NAMING_FOLDER_COMPOSITION_KINDS.SEMANTIC_QUALIFIED_STRUCTURAL_CONTAINER,
+    })].filter(([, pattern]) => isEmittingCompositionPattern(pattern)),
+  );
+
 const toFolderCompositionObservation = ({ occurrenceRecord, pattern }) => {
-  if (typeof pattern.semanticQualifier !== 'string' || pattern.semanticQualifier.length === 0) return null;
-  if (typeof pattern.structuralRoleToken !== 'string' || pattern.structuralRoleToken.length === 0) return null;
 
   return {
     path: occurrenceRecord.path,
@@ -66,9 +79,8 @@ const toFolderSemanticContextObservation = ({ occurrenceRecord, pattern }) => {
 };
 
 export const projectNamingFolderCompositionBridge = ({ folderOccurrenceRecords = [], folderCompositionPatternsRegistry = {} } = {}) => {
-  const compositionPatternsByFolderName = toActivePatternsByFolderName(
+  const compositionPatternsByFolderName = selectEmittingFolderCompositionPatterns(
     folderCompositionPatternsRegistry.folderCompositionPatterns,
-    { expectedKind: NAMING_FOLDER_COMPOSITION_KINDS.SEMANTIC_QUALIFIED_STRUCTURAL_CONTAINER },
   );
   const semanticContextPatternsByFolderName = toActivePatternsByFolderName(
     folderCompositionPatternsRegistry.folderSemanticContextPatterns,
@@ -81,8 +93,7 @@ export const projectNamingFolderCompositionBridge = ({ folderOccurrenceRecords =
     if (typeof folderName !== 'string' || folderName.length === 0) continue;
 
     const compositionPattern = compositionPatternsByFolderName.get(folderName);
-    const compositionObservation = compositionPattern ? toFolderCompositionObservation({ occurrenceRecord, pattern: compositionPattern }) : null;
-    if (compositionObservation) observations.push(compositionObservation);
+    if (compositionPattern) observations.push(toFolderCompositionObservation({ occurrenceRecord, pattern: compositionPattern }));
 
     const semanticContextPattern = semanticContextPatternsByFolderName.get(folderName);
     const semanticContextObservation = semanticContextPattern ? toFolderSemanticContextObservation({ occurrenceRecord, pattern: semanticContextPattern }) : null;

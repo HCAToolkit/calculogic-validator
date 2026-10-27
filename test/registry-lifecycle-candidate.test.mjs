@@ -148,7 +148,8 @@ test('a candidate run uses the candidate: Naming and Tree findings change, with 
     assert.deepEqual(registrySet.candidate, { artifactSha256: sha256(fs.readFileSync(artifactPath)), exportedBy: { validatorVersion: VERSION } });
     assert.equal(registrySet.activeSet, undefined);
     assert.equal(registrySet.customExists, undefined);
-    assert.deepEqual(Object.keys(registrySet), ['source', 'candidate', 'customDiffers', 'basedOn', 'builtinDriftSinceBaseline', 'orphanRegistries', 'customIssues', 'resolvedSetDigest']);
+    assert.deepEqual(Object.keys(registrySet), ['source', 'candidate', 'customDiffers', 'basedOn', 'builtinDriftSinceBaseline', 'orphanRegistries', 'customIssues', 'resolvedSetDigest', 'bridgeCompatibility']);
+    assert.equal(registrySet.bridgeCompatibility.set, 'candidate');
     assert.equal(registrySet.customDiffers, true);
     const provenances = [candidateReport.registryProvenance, ...candidateReport.validators.map((entry) => entry.meta.registryProvenance)];
     for (const provenance of provenances) {

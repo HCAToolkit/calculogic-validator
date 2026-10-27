@@ -30,7 +30,26 @@
     "customDiffers": false,
     "orphanRegistries": [],
     "customIssues": [],
-    "resolvedSetDigest": "cade92d7bab01c0436d26b8253cf6f002c408ce778ebef039f173553083b52a0"
+    "resolvedSetDigest": "cade92d7bab01c0436d26b8253cf6f002c408ce778ebef039f173553083b52a0",
+    "bridgeCompatibility": {
+      "set": "builtin",
+      "bridges": [
+        {
+          "bridgeId": "naming/folder-composition-structural-role-token",
+          "perspective": "semantic-qualified-structural-container",
+          "emitter": {
+            "sliceId": "naming",
+            "registryId": "naming/folder-composition-patterns"
+          },
+          "consumer": {
+            "sliceId": "tree",
+            "registryId": "tree/structural-role-tokens"
+          },
+          "state": "compatible",
+          "uninterpretable": []
+        }
+      ]
+    }
   },
   "registryProvenance": {
     "naming/agnostic-core-meanings": {

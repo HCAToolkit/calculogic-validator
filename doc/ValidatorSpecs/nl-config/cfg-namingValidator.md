@@ -159,6 +159,7 @@ Runtime behavior resolves Naming registries from one resolved registry root (`do
   - the composed entries are flattened into `{ role, category, status, notes? }` and validated against `categories.registry.json` from the same root
   - reportable extensions, reportable root files, summary buckets, missing-role patterns, finding policy and case rules come from the same root
 - walk exclusions, special cases and folder-composition patterns are loaded from the same root by their registry modules
+- `folder-composition-patterns` emits the cross-slice bridge `naming/folder-composition-structural-role-token` (lifecycle spec §9.4, #61). Naming's bridge-domain resolver (`naming/src/registries/naming-registry-bridge-domains.logic.mjs`) reports the structural-role tokens it can emit, each with its pattern, through `selectEmittingFolderCompositionPatterns`, the same selection the folder-composition projection uses, so the reported domain is the one that runs
 - Naming's registry-set validation entry point (`validateNamingRegistrySet(registryRoot)`) runs the same shape and reference checks per registry and returns `{ registryId, detail }` failures; suite core calls it on Custom roots
 - resolver returns normalized arrays for `reportableExtensions` and `roles`, plus `reportableRootFiles` and `summaryBuckets`
 - wiring converts arrays into runtime structures expected by naming runtime:

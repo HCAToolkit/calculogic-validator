@@ -27,6 +27,7 @@ Status: **implemented through slice 3 (Issue #41) and the original scope of #60*
 - #60 slice 15: candidate preview (spec §12.13): `resolveCandidateRegistrySet` (5.2.23), the `--registry-candidate` option of the Validator commands (5.4), and candidate provenance (7.1), with Naming's transitional fields taken from the run's source (spec §11.3).
 - #60 correction: the conditions that refuse a new Custom set are one shared list (5.2.6), so `init-custom` also refuses while `registry-state.json` selects `custom` (spec §12.1 "No activation by creation"), as `import` did.
 - The original scope of #60 is implemented. Deferred extensions, tracked separately: applying add-alongside (#78), a replacing import (#79) and optional per-run source choices (#80); and the cross-slice compatibility check (#61).
+- #61: cross-slice bridge compatibility (spec §9.4): `bridges` and `interprets` declarations (6.1), the Naming and Tree bridge-domain resolvers and their static bridge, and `resolveBridgeCompatibility` (5.2.25), reported as `registrySet.bridgeCompatibility` by active and candidate resolution (5.2.5, 5.2.23, 7.1) and as the Custom set's `bridgeCompatibility` in `status` (7.2).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.3] cfg-registryLifecycle · Primitive · "…"`).
 
@@ -143,6 +144,7 @@ While a lifecycle transaction directory exists (`lifecycleTransactionPending`, 5
 `verifyBaselineCopy({ paths, slice, entry, manifestEntry })` is the one rule for a current-inventory Baseline copy, shared with 5.2.24: `undescribed` when the manifest version has no descriptor, `mismatch` (with the detail) when the copy's digest differs from the manifest or the copy is missing, unreadable or escaping, otherwise `verified` with the parsed payload.
 
 Every current-inventory payload (Builtin, Custom, `.baseline/`) is digested with the descriptor of its own `version` (`descriptorForPayload`, 5.2.15; spec §5), so an old-version Baseline copy stays verifiable. A copy whose manifest `version` this release has no descriptor for (`isVersionDescribed`, 5.2.15) is not verified: `baselineMismatch` is `null`, unverifiable rather than mismatched.
+- **Unvalidated slices** (internal, not part of `status` output): `unvalidatedSlices` maps each slice whose registry-set validation was skipped to its sorted reasons: each registry file of the slice that resolves outside the validation target, and an absent slice directory. A registry classification in such a slice does not establish that its contents were validated; bridge compatibility reads this record (5.2.25).
 
 #### 5.2.5 Workflow: `resolveActiveRegistrySet`
 
@@ -359,6 +361,15 @@ Spec §11.4. `registry-lifecycle-baseline-comparison.logic.mjs`, `compareResolve
 - **Output:** frozen `{ registryId, source, entries: [{ address, baselineComparison, reason? }] }` in ordinal address order, `reason` only with `unverifiable`. No origin, conformance or other slice vocabulary.
 - Writes nothing; the payload passed in is never changed.
 
+#### 5.2.25 Workflow: cross-slice bridge compatibility (`resolveBridgeCompatibility`)
+
+Spec §9.4. `registry-lifecycle-bridge-compatibility.logic.mjs`, with the slice resolvers reached through `registry-lifecycle-slice-bridge-domains.logic.mjs`.
+- **Declarations** (`assertBridgeDeclarations`): every `bridges` item is `{ bridgeId, perspective, consumer }`, its id `<sliceId>/<name>` and unique, its consumer a current registry of another slice; every bridge has exactly one `interprets` item `{ bridgeId }`, on its consumer; the emitting slice's resolver has `resolveEmitted` and the consuming slice's `resolveInterpretable`, each covering every readable version of its registry. A violation is a `BridgeDeclarationError`, a programming error.
+- **Resolvers** (slice-owned): `resolveEmitted({ bridgeId, perspective, registryId, payload })` → `[{ value, source: { collection, groups, key } }]` and `resolveInterpretable(…)` → `[{ value }]`, each over a deep-frozen copy of its own payload. Naming's (`naming-registry-bridge-domains.logic.mjs`) uses the folder-composition projection's `selectEmittingFolderCompositionPatterns`; Tree's (`tree-registry-bridge-domains.logic.mjs`) uses the relationship's `selectInterpretableStructuralRoleTokens`. Suite core checks the output's shape, that every value is a provenance string, that every source is a keyed entry of the payload (addressed with `keyedEntryAddress`, 5.2.9), and that nothing repeats.
+- **Sides:** `sideOf(entry)` gives `{ payload, entries }` or `{ unavailable: { registryId, condition, detail } }`. `builtinBridgeSides` reads the package Builtin roots through `inspectReferenceRegistry` (5.2.20). `customBridgeSides({ paths, assessment })` makes a side unavailable when its assessment classification is `missing`, `invalid` or `version-incompatible`, with that classification and the status detail (`Absent from the Custom set.` for `missing`); otherwise as `not-validated` when its slice is in the assessment's `unvalidatedSlices` (5.2.4), with `Slice <sliceId> was not validated: ` and every recorded reason; and otherwise reads it through the containment-checked reader.
+- **Output:** `{ set, bridges }`, sorted by `bridgeId`: `compatible` or `gaps` with `uninterpretable: [{ value, emittedBy }]` (values and addresses in ordinal order), or `unavailable` with every unavailable side, emitter first, and no resolver called for that bridge.
+- **Callers:** 5.2.5 (Builtin sides, or Custom sides for an active Custom set), 5.2.23 (the candidate root's Custom sides) and 7.2 (`status`, Custom sides, with `interruptedTransaction: true` while `customIssues` holds `interrupted-transaction`). It never blocks, writes nothing and changes no other output field.
+
 ### 5.3 Container `Lifecycle commands` (`src/core/registry-lifecycle/` CLI host, bin `calculogic-validator-registry`)
 
 - `init-custom` → 5.2.6.
@@ -399,7 +410,7 @@ The runner and direct slice CLIs call 5.2.5 once per run, before slice execution
 - `tree/src/registries/tree-registry-inventory.knowledge.mjs`
 - `src/registries/suite-registry-inventory.knowledge.mjs`
 
-Each is owned by its slice and lists only that slice's registries. Every entry carries a canonical-form `descriptor` (spec §5), a `comparison` identity declaration (spec §8.4), a `reconciliation` capability declaration (spec §12.7, possibly empty) a `migrations` declaration (spec §8.3, empty for every current registry) and a `references` declaration (spec §12.11; the five Naming and Tree edges on their source registries, empty elsewhere). They are separate concerns, identity is never inferred from `descriptor.setLike`, and capabilities are never inferred from either. The reasons behind the reconciliation declarations are recorded in `doc/Audits/registry-reconciliation-capabilities.audit.md`, and the reference edges with their validation evidence in `doc/Audits/registry-reference-edges.audit.md`. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
+Each is owned by its slice and lists only that slice's registries. Every entry carries a canonical-form `descriptor` (spec §5), a `comparison` identity declaration (spec §8.4), a `reconciliation` capability declaration (spec §12.7, possibly empty) a `migrations` declaration (spec §8.3; `tree/semantic-home-policy` and `naming/walk-exclusions` have one step each, the others none), a `references` declaration (spec §12.11; the five Naming and Tree edges on their source registries, empty elsewhere), and `bridges` and `interprets` declarations (spec §9.4; the one bridge on `naming/folder-composition-patterns`, interpreted by `tree/structural-role-tokens`, empty elsewhere). They are separate concerns, identity is never inferred from `descriptor.setLike`, and capabilities are never inferred from either. The reasons behind the reconciliation declarations are recorded in `doc/Audits/registry-reconciliation-capabilities.audit.md`, and the reference edges with their validation evidence in `doc/Audits/registry-reference-edges.audit.md`. Each also exports a retired inventory: the registry id and canonical-form descriptor of every registry a release removed or renamed, so orphan Baseline copies stay verifiable (spec §12.1 "Retired descriptors"). It is empty until a registry is retired.
 
 ### 6.2 Suite inventory aggregate
 
@@ -416,6 +427,7 @@ Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` 
 - `registrySet` in the runner envelope and in each direct slice report.
 - `registryProvenance` per slice report.
 - Naming's derived transitional `registryState`, `registrySource` and `registryDigests`, as defined in the spec §11.
+- `registrySet.bridgeCompatibility` (5.2.25): the resolved set's bridges, with `set` taken from the run's source.
 - A candidate run (5.2.23) reports `registrySet.source: 'candidate'` with `candidate: { artifactSha256, exportedBy }`, the candidate's assessment fields and no `activeSet` or `customExists`; per-registry `source: 'candidate'`; and Naming's `registryState` and `registrySource` as `candidate` (spec §11).
 
 ### 7.2 Status output
@@ -423,7 +435,8 @@ Lifecycle root segments (`.calculogic/registries`), file names, `schemaVersion` 
 Deterministic JSON with:
 - the three facts and the Baseline;
 - drift and orphans;
-- per-registry classification and digests.
+- per-registry classification and digests;
+- with a Custom set, `bridgeCompatibility` for it (5.2.25; spec §12.1): `set: "custom"`, `interruptedTransaction: true` while a transaction is pending, and each bridge `compatible`, `gaps` or `unavailable` by the side classifications of the same output.
 
 The same on-disk state always gives byte-identical output.
 
@@ -471,6 +484,8 @@ src/core/registry-lifecycle/
   registry-lifecycle-portable-set.logic.mjs        5.2.22
   registry-lifecycle-candidate.logic.mjs           5.2.23
   registry-lifecycle-baseline-comparison.logic.mjs 5.2.24
+  registry-lifecycle-bridge-compatibility.logic.mjs 5.2.25
+  registry-lifecycle-slice-bridge-domains.logic.mjs 5.2.25 (each slice's bridge-domain resolver)
   registry-lifecycle-status.logic.mjs              7.2
   registry-lifecycle-cli.logic.mjs                 5.3
 bin/calculogic-validator-registry.host.mjs         5.3 (package bin)
@@ -480,6 +495,8 @@ tree/src/registries/tree-registry-inventory.knowledge.mjs       6.1
 src/registries/suite-registry-inventory.knowledge.mjs           6.1
 naming/src/registries/naming-registry-references.logic.mjs      5.2.20 (Naming reference resolver)
 tree/src/registries/tree-registry-references.logic.mjs          5.2.20 (Tree reference resolver)
+naming/src/registries/naming-registry-bridge-domains.logic.mjs  5.2.25 (Naming bridge-domain resolver)
+tree/src/registries/tree-registry-bridge-domains.logic.mjs      5.2.25 (Tree bridge-domain resolver)
 naming/src/registries/registry-state.logic.mjs     Naming entry point (validateNamingRegistrySet)
 tree/src/registries/tree-registry-set.logic.mjs    Tree entry point (validateTreeRegistrySet)
 tree/src/registries/tree-runtime-registries.logic.mjs   Tree runtime registries from one resolved root (5.4)
