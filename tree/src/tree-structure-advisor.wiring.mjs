@@ -9,6 +9,7 @@ import {
 } from './tree-structure-advisor-contributors-assembly.wiring.mjs';
 import {
   collectSuiteScopedSnapshotInputs,
+  toReportedScopeExclusions,
 } from '../../src/core/suite-scoped-snapshot-input.logic.mjs';
 import { resolveValidatorDevelopmentContext } from '../../src/core/validator-development-context.logic.mjs';
 import { prepareTreeCodebaseValidationInput } from '../../structural-addressing/src/structural-addressing-tree-codebase-validation-input.logic.mjs';
@@ -261,6 +262,8 @@ export const prepareTreeStructureAdvisorInputs = (
   return {
     scope: scopedSnapshotInputs.scope,
     selectedPaths,
+    // Suite-owned nested-entry exclusions (#56), in their reported form.
+    scopeExclusions: toReportedScopeExclusions(scopedSnapshotInputs.scopeExclusions),
     validatorDevelopmentRoot,
     topLevelDirectoryNames: collectTopLevelDirectoryNames(repositoryRoot),
     targets: scopedSnapshotInputs.targets,

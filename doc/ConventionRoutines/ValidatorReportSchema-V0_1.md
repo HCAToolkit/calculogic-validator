@@ -66,6 +66,7 @@ Current naming CLI output includes:
 
 - `validatorVersion` (string; currently emitted alongside `toolVersion`)
 - `configDigest` (string; emitted when config is supplied)
+- `scopeExclusions` (array; emitted only when at least one nested entry was excluded by suite-owned nested-entry membership, #56): `[{ path, reason }]`, sorted like selected paths, at most one record per path. `path` is the entry's repo-relative lexical path; `reason` is `escaping-symlink`, `unresolvable-symlink`, `directory-symlink` or `non-regular-entry`. It never carries a symlink destination, a resolved or absolute path, or file content, and it does not affect findings, counts or exit policy. Contract: `ValidatorSuite-Contracts-And-Modes.md` §6.6
 - `registrySet` (object; set-level registry lifecycle facts for the run: `activeSet`, `customExists`, `customDiffers`, optional `basedOn` and `builtinDriftSinceBaseline`, `orphanRegistries`, `customIssues`, `resolvedSetDigest`)
 - `registryProvenance` (object; `{ [registryId]: { source, digest } }` for every Naming registry)
 - `registryState` (`"builtin" | "custom"`; derived, deprecated: equals `registrySet.activeSet`)
@@ -125,6 +126,7 @@ Entry-level optional fields:
 - `counts` (object)
 - `meta` (object)
   - `meta.filters` (object; present when target filtering is active)
+  - `meta.scopeExclusions` (array; present only when the slice's collection excluded at least one nested entry: the same records as the slice envelope's `scopeExclusions`, §4, for that slice's own collection and candidate policy)
   - `meta.registry` (object; present when slice exposes registry metadata)
   - `meta.registryProvenance` (object; the slice's own registries, `{ [registryId]: { source, digest } }`; Naming from #41 slice 2, Tree from #41 slice 3)
   - `meta.semanticHomeReasoning` (object; Tree only, present when Tree prepared Semantic Home reasoning: `{ status, reason?, conformance, conformanceBinding?, registry?, governedCodes }`, Tree spec S2.12 B6; calculogic-validator#102)

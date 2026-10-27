@@ -336,6 +336,7 @@ export const runTreeStructureAdvisor = (preparedInputs = {}) => {
     findings,
     totalFilesScanned: selectedPathsForReasoning.length,
     scope: prepared.scope ?? 'repo',
+    ...(prepared.scopeExclusions?.length > 0 ? { scopeExclusions: prepared.scopeExclusions } : {}),
     filters: {
       isFiltered: prepared.targets.length > 0,
       ...(prepared.targets.length > 0

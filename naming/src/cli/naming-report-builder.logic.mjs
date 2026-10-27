@@ -7,6 +7,7 @@ export const buildNamingValidatorReport = ({
   totalFilesScanned,
   scope,
   filters,
+  scopeExclusions,
   registry,
   registrySet,
   registryProvenance,
@@ -42,6 +43,7 @@ export const buildNamingValidatorReport = ({
     scope,
     totalFilesScanned,
     filters,
+    ...(scopeExclusions?.length > 0 ? { scopeExclusions } : {}),
     scopeSummary: {
       scope,
       reportableFilesInScope: totalFilesScanned,

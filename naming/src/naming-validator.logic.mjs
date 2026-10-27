@@ -10,6 +10,7 @@ import {
 } from '../../src/core/validator-scopes.logic.mjs';
 import { normalizePath } from '../../src/core/scoped-target-paths.logic.mjs';
 import { collectValidatorCandidatePaths } from '../../src/core/validator-candidate-collection.logic.mjs';
+import { toReportedScopeExclusions } from '../../src/core/suite-scoped-snapshot-input.logic.mjs';
 import { createValidatorCandidatePolicyFromValues } from '../../src/core/validator-candidate-policy.logic.mjs';
 import { parseCanonicalName } from './rules/naming-rule-parse-canonical.logic.mjs';
 import {
@@ -375,10 +376,14 @@ export const runNamingValidator = (preparedInputs = {}) => {
     ),
   );
 
+  const scopeExclusions = toReportedScopeExclusions(preparedInputs.scopeExclusions ?? []);
+
   return {
     findings,
     totalFilesScanned: selectedPaths.length,
     scope: preparedInputs.scope ?? DEFAULT_VALIDATOR_SCOPE,
+    // Suite-owned nested-entry exclusions (#56), present only when an entry was excluded.
+    ...(scopeExclusions.length > 0 ? { scopeExclusions } : {}),
     filters: {
       isFiltered: resolvedTargets.length > 0,
       ...(resolvedTargets.length > 0
