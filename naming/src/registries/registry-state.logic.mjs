@@ -608,7 +608,8 @@ const validateCategoryRolePerspectiveReferences = ({ registryRoot }) => {
 };
 
 // Root fields of each Naming registry besides `version`. Payload roots are closed: a loader ignores
-// an undeclared root field, so it would pass validation and never reach runtime.
+// an undeclared root field, so it would pass validation and never reach runtime. A registry whose
+// root fields depend on its version maps each readable version to its fields.
 const NAMING_REGISTRY_ROOT_FIELDS = Object.freeze({
   'agnostic-core-meanings': ['meanings'],
   'case-rules': ['semanticName'],
@@ -622,8 +623,22 @@ const NAMING_REGISTRY_ROOT_FIELDS = Object.freeze({
   roles: ['roles'],
   'special-cases': ['specialCases'],
   'summary-buckets': ['classificationBuckets', 'secondaryBucketFamilies'],
-  'walk-exclusions': ['excludedDirectories', 'skipDotDirectories', 'allowDotFiles'],
+  // Version "1" also had `allowDotFiles` (retired, calculogic-validator#54); it is no longer read.
+  'walk-exclusions': Object.freeze({ 2: ['excludedDirectories', 'skipDotDirectories'] }),
 });
+
+// The declared root fields for a payload. For a version-keyed registry, a version it does not list
+// has none (null): the root check is skipped, and lifecycle status reports the version as
+// `version-incompatible` (lifecycle spec §7.1) rather than its old fields as unsupported, so a
+// Custom registry at an older version is still offered its migration.
+const rootFieldsOf = (name, payload) => {
+  const declared = NAMING_REGISTRY_ROOT_FIELDS[name];
+  if (Array.isArray(declared)) {
+    return declared;
+  }
+  const version = payload !== null && typeof payload === 'object' ? payload.version : undefined;
+  return typeof version === 'string' && Object.hasOwn(declared, version) ? declared[version] : null;
+};
 
 // Naming's registry-set validation entry point (lifecycle spec §9.3). Runs Naming's own shape and
 // reference validation over one registry root, one registry at a time, and returns a
@@ -669,7 +684,10 @@ export const validateNamingRegistrySet = (registryRoot) => {
   for (const [name, check] of checks) {
     try {
       const payload = loadJsonFile(path.join(registryRoot, `${name}.registry.json`));
-      assertRegistryRootFields(payload, NAMING_REGISTRY_ROOT_FIELDS[name], { registryLabel: name });
+      const rootFields = rootFieldsOf(name, payload);
+      if (rootFields) {
+        assertRegistryRootFields(payload, rootFields, { registryLabel: name });
+      }
       assertNoPaddedStrings(payload, { registryLabel: name });
       check();
     } catch (error) {

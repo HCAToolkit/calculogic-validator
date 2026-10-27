@@ -62,8 +62,9 @@ const migrate1to2 = (payload) => ({
 const migrate2to3 = (payload) => ({ version: '3', items: payload.items.map(({ title, ...rest }) => ({ ...rest, heading: title })) });
 const SLICE_TRANSFORMS = Object.freeze({ 'thing-1-to-2': migrate1to2, 'thing-2-to-3': migrate2to3 });
 // The synthetic transforms sit beside each slice's real ones, so the real inventory declarations
-// (Tree's semantic-home-policy migration) stay backed.
+// (Naming's walk-exclusions and Tree's semantic-home-policy migrations) stay backed.
 const TRANSFORMS = Object.freeze({
+  naming: SLICE_MIGRATION_TRANSFORMS.naming,
   suite: { ...SLICE_MIGRATION_TRANSFORMS.suite, ...SLICE_TRANSFORMS },
   tree: { ...SLICE_MIGRATION_TRANSFORMS.tree, ...SLICE_TRANSFORMS },
 });

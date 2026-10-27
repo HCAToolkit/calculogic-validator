@@ -126,7 +126,7 @@ test('extraction addresses every kind deterministically and ignores formatting a
   assert.deepEqual(ordered.get('missingRolePatterns[patternId="first"]').extensionSegmentIndexes, [1, 2]);
 
   const walkExclusions = extractComparisonEntries(
-    { version: '1', excludedDirectories: ['b', 'a'], skipDotDirectories: true, allowDotFiles: [] },
+    { version: '2', excludedDirectories: ['b', 'a'], skipDotDirectories: true },
     entryOf('naming/walk-exclusions'),
   );
   assert.deepEqual([...walkExclusions.keys()], ['excludedDirectories["a"]', 'excludedDirectories["b"]', 'skipDotDirectories']);

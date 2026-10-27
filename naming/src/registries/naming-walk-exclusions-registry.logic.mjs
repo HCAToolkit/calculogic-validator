@@ -28,10 +28,6 @@ const loadWalkExclusionsFromFile = (registryFilePath) => {
     throw new Error('Invalid walk-exclusions registry: missing boolean skipDotDirectories.');
   }
 
-  if (!Array.isArray(payload.allowDotFiles)) {
-    throw new Error('Invalid walk-exclusions registry: missing allowDotFiles array.');
-  }
-
   const ensureNonEmptyStringArray = (values, fieldName) => {
     values.forEach((value, index) => {
       if (typeof value !== 'string' || value.length === 0) {
@@ -51,12 +47,10 @@ const loadWalkExclusionsFromFile = (registryFilePath) => {
       );
     }
   });
-  ensureNonEmptyStringArray(payload.allowDotFiles, 'allowDotFiles');
 
   return {
     excludedDirectories: new Set(payload.excludedDirectories),
     skipDotDirectories: payload.skipDotDirectories,
-    allowDotFiles: new Set(payload.allowDotFiles),
   };
 };
 
