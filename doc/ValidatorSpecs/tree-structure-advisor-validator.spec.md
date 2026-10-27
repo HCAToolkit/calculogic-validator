@@ -1090,8 +1090,8 @@ The literal thresholds of the codes that keep their basis are not moved into the
 **Compatibility.** Runner reports are byte-identical at every scope in this repository and in Calculogic_React_App (e660781). Classification, parity summaries, readiness, recommendation, execution contract, structural-context assessment, Stage 1 candidates and Stage 2A reasoning are identical; prepared dependencies differ only by the renames above and the removed file records. The Stage 2A conformance binding and source digest are unchanged; none of these modules is bound. The report schema is unchanged. The tests that keep `semanticHome` out of Naming, Structural Addressing and report-capture outputs stay: they guard the retired Tree-owned concept.
 
 **Known parity defects (not changed here).** Two classification-parity problems found during the Stage 2C review are tracked separately; correcting either could change the classification contract:
-- both sides of the semantic-root comparison read the same family-root evidence, so a match does not independently establish the replacement class;
-- an allowed but unclassified repository-top folder gets `repo-shape-allowed-top-level-directory` on the current side and `non-root-or-unknown` on the replacement side, which can change readiness.
+- both sides of the semantic-root comparison read the same family-root evidence, so a match does not independently establish the replacement class (calculogic-validator#118);
+- an allowed but unclassified repository-top folder gets `repo-shape-allowed-top-level-directory` on the current side and `non-root-or-unknown` on the replacement side, which can change readiness (calculogic-validator#119).
 
 #### S2.14 Slicing and authorization (F5)
 
