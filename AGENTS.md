@@ -273,6 +273,12 @@ registry migration performs this sequence.
   `npm run validate:tree -- --scope=validator`.
 - Do not substitute direct internal script invocation for the documented root npm
   interface unless the task specifically tests that internal boundary.
+- When selecting checks, preserve the report-first, scope, mode, target,
+  report-envelope, and exit-policy contracts
+  (`doc/ConventionRoutines/ValidatorSuite-Contracts-And-Modes.md`). Checks used to
+  verify behavior governed by these contracts must not bypass or weaken the
+  relevant contract boundaries. This rule governs check selection only; it adds no
+  baseline reading requirement.
 - Record exact commands and observed outcomes in the PR. Distinguish a passing
   check, an environment-limited check, and a check not run; do not rewrite history
   as a generic “tests passed.”
