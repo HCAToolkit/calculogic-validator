@@ -20,17 +20,26 @@ const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 // `reconciliation` declares which of its collections accept merge-fields or add-alongside (spec
 // §12.7); the reasons are recorded in doc/Audits/registry-reconciliation-capabilities.audit.md.
 // `migrations` declares the steps from older `version` values, each naming a transform of the
-// slice's migration module and the descriptor of its source version (spec §8.3). Empty while no
-// registry has changed shape. `references` declares the entries of other registries of the same slice
+// slice's migration module and the descriptor of its source version (spec §8.3); `readableVersions`
+// lists the versions the runtime reads, which need not include a version that can only be migrated
+// from. `references` declares the entries of other registries of the same slice
 // that this registry's entries name (spec §12.11): each edge's id, target registry and target `keyed`
 // collection. The slice's reference resolver interprets them; the edges are recorded with the
 // validation that enforces them in doc/Audits/registry-reference-edges.audit.md.
-const defineNamingRegistry = (name, descriptor, comparison, reconciliation = [], migrations = [], references = []) =>
+const defineNamingRegistry = (
+  name,
+  descriptor,
+  comparison,
+  reconciliation = [],
+  migrations = [],
+  references = [],
+  readableVersions = READABLE_VERSIONS_V1,
+) =>
   Object.freeze({
     registryId: `${NAMING_REGISTRY_SLICE_ID}/${name}`,
     name,
     fileName: `${name}.registry.json`,
-    readableVersions: READABLE_VERSIONS_V1,
+    readableVersions: Object.freeze([...readableVersions]),
     descriptor: Object.freeze(descriptor),
     comparison: Object.freeze(comparison.map((collection) => Object.freeze(collection))),
     reconciliation: Object.freeze(
@@ -128,13 +137,27 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
     { kind: 'value', path: 'classificationBuckets' },
     { kind: 'value', path: 'secondaryBucketFamilies' },
   ]),
-  defineNamingRegistry('walk-exclusions', {
-    setLike: [{ path: 'excludedDirectories' }, { path: 'allowDotFiles' }],
-  }, [
-    { kind: 'members', path: 'excludedDirectories' },
-    { kind: 'members', path: 'allowDotFiles' },
-    { kind: 'value', path: 'skipDotDirectories' },
-  ]),
+  // Version "2" retired `allowDotFiles` (calculogic-validator#54): no runtime consumer had read it
+  // since dot-file discovery was restored, so it is migrated away and version "1" is no longer read.
+  defineNamingRegistry(
+    'walk-exclusions',
+    { setLike: [{ path: 'excludedDirectories' }] },
+    [
+      { kind: 'members', path: 'excludedDirectories' },
+      { kind: 'value', path: 'skipDotDirectories' },
+    ],
+    [],
+    [
+      {
+        from: '1',
+        to: '2',
+        transform: 'walk-exclusions-v1-to-v2',
+        fromDescriptor: { setLike: [{ path: 'excludedDirectories' }, { path: 'allowDotFiles' }] },
+      },
+    ],
+    [],
+    ['2'],
+  ),
 ]);
 
 // [6.1] cfg-registryLifecycle · Container · "Naming retired registry inventory"

@@ -57,9 +57,10 @@ const THING_V3 = defineThing({
 });
 
 // The slice-owned transforms. `status` is required in version "2"; its default is the transform's
-// decision, never a Builtin value. Tree keeps its real transforms, so its real inventory declaration
-// (semantic-home-policy) stays backed.
+// decision, never a Builtin value. Naming and Tree keep their real transforms, so their real inventory
+// declarations (walk-exclusions, semantic-home-policy) stay backed.
 const TRANSFORMS = Object.freeze({
+  naming: SLICE_MIGRATION_TRANSFORMS.naming,
   tree: SLICE_MIGRATION_TRANSFORMS.tree,
   suite: Object.freeze({
     'thing-1-to-2': (payload) => ({
@@ -146,20 +147,29 @@ const snapshotTree = (root) =>
       return [relativePath, fs.statSync(filePath).isFile() ? fs.readFileSync(filePath, 'base64') : null];
     });
 
-test('the only declared migration is tree/semantic-home-policy 1 → 2, backed by the only slice transform', () => {
+// The declared migrations, each backed by its slice's transform: tree/semantic-home-policy 1 → 2
+// (both versions readable) and naming/walk-exclusions 1 → 2 (only version "2" readable, #54).
+const DECLARED_MIGRATIONS = Object.freeze({
+  'tree/semantic-home-policy': { transform: 'semantic-home-policy-v1-to-v2', readableVersions: ['1', '2'] },
+  'naming/walk-exclusions': { transform: 'walk-exclusions-v1-to-v2', readableVersions: ['2'] },
+});
+
+test('the declared migrations are tree/semantic-home-policy and naming/walk-exclusions 1 → 2, each backed by its slice transform', () => {
+  const transformsBySlice = { naming: ['walk-exclusions-v1-to-v2'], tree: ['semantic-home-policy-v1-to-v2'], suite: [] };
   for (const slice of REGISTRY_LIFECYCLE_SLICES) {
     const transforms = SLICE_MIGRATION_TRANSFORMS[slice.sliceId];
-    assert.deepEqual(Object.keys(transforms), slice.sliceId === 'tree' ? ['semantic-home-policy-v1-to-v2'] : [], slice.sliceId);
+    assert.deepEqual(Object.keys(transforms), transformsBySlice[slice.sliceId], slice.sliceId);
     for (const entry of slice.inventory) {
       assertMigrationDeclaration(entry, transforms);
       assert.ok(Object.isFrozen(entry.migrations), entry.registryId);
       assert.ok(Object.isFrozen(entry.readableVersions), entry.registryId);
-      if (entry.registryId === 'tree/semantic-home-policy') {
+      const declared = DECLARED_MIGRATIONS[entry.registryId];
+      if (declared) {
         assert.deepEqual(
           entry.migrations.map(({ from, to, transform }) => ({ from, to, transform })),
-          [{ from: '1', to: '2', transform: 'semantic-home-policy-v1-to-v2' }],
+          [{ from: '1', to: '2', transform: declared.transform }],
         );
-        assert.deepEqual(entry.readableVersions, ['1', '2']);
+        assert.deepEqual(entry.readableVersions, declared.readableVersions);
       } else {
         assert.deepEqual(entry.migrations, [], entry.registryId);
         assert.deepEqual(entry.readableVersions, ['1'], entry.registryId);
@@ -210,7 +220,10 @@ test('the plan refuses an invalid declaration in any inventory entry before read
     assert.throws(() => check(slices, { kind: 'x' }), /more than one step leaves version "1"/u);
     // A transform the slice does not provide.
     assert.throws(
-      () => plan(release(THING_V2, B0_MIGRATED), { migrationTransforms: { tree: SLICE_MIGRATION_TRANSFORMS.tree } }),
+      () =>
+        plan(release(THING_V2, B0_MIGRATED), {
+          migrationTransforms: { naming: SLICE_MIGRATION_TRANSFORMS.naming, tree: SLICE_MIGRATION_TRANSFORMS.tree },
+        }),
       /names transform "thing-1-to-2", which the slice does not provide/u,
     );
   });

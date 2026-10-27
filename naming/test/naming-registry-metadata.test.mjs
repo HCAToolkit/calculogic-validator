@@ -30,7 +30,7 @@ test('prepareNamingRuntimeInputs exposes prepared dependencies and stable regist
   assert.ok(Array.isArray(prepared.namingRolesRuntime.roleSuffixes));
   assert.ok(prepared.walkExclusions.excludedDirectories instanceof Set);
   assert.equal(typeof prepared.walkExclusions.skipDotDirectories, 'boolean');
-  assert.ok(prepared.walkExclusions.allowDotFiles instanceof Set);
+  assert.equal(Object.hasOwn(prepared.walkExclusions, 'allowDotFiles'), false);
   assert.ok(Array.isArray(prepared.summaryBucketsRuntime.classificationBuckets));
   assert.ok(Array.isArray(prepared.summaryBucketsRuntime.secondaryBucketFamilies));
   assert.ok(Array.isArray(prepared.missingRolePatternsRuntime));

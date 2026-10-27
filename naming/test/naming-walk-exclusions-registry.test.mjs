@@ -24,7 +24,10 @@ test('runtime walk exclusions are loaded from builtin registry json', () => {
     [...registryJson.excludedDirectories].sort(),
   );
   assert.equal(runtime.skipDotDirectories, registryJson.skipDotDirectories);
-  assert.deepEqual(Array.from(runtime.allowDotFiles).sort(), [...registryJson.allowDotFiles].sort());
+  // `allowDotFiles` was retired in version "2" (#54): it is neither in the registry nor in runtime form.
+  assert.equal(registryJson.version, '2');
+  assert.equal(Object.hasOwn(registryJson, 'allowDotFiles'), false);
+  assert.deepEqual(Object.keys(runtime).sort(), ['excludedDirectories', 'skipDotDirectories']);
 });
 
 test('collectRepositoryPaths preserves excluded-directories and dot-directory behavior while allowing reportable dot-files', () => {

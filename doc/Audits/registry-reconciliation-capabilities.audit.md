@@ -41,6 +41,8 @@ These follow from the contract (spec §12.7) and are not repeated per registry:
 | `walk-exclusions` · `excludedDirectories`, `allowDotFiles` | members | no | no |
 | `walk-exclusions` · `skipDotDirectories` | value: boolean | no | no: value |
 
+*Status (#54):* the `walk-exclusions` rows describe version `"1"`, as audited. Version `"2"` retired `allowDotFiles`, so the registry's current comparison collections are `excludedDirectories` (members) and `skipDotDirectories` (value); neither declares merge-fields or add-alongside. The findings above are unchanged.
+
 ## 4. Tree
 
 | Registry · collection | Shape | merge-fields | add-alongside |

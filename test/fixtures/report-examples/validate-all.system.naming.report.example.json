@@ -11,7 +11,7 @@
     "customDiffers": false,
     "orphanRegistries": [],
     "customIssues": [],
-    "resolvedSetDigest": "e3e58ae8cdeffc91bba608a50d3a7e3682d00ae0d73174dc1ea809eda056b92c"
+    "resolvedSetDigest": "cade92d7bab01c0436d26b8253cf6f002c408ce778ebef039f173553083b52a0"
   },
   "registryProvenance": {
     "suite/exit-policy": {
@@ -146,7 +146,7 @@
           },
           "naming/walk-exclusions": {
             "source": "builtin",
-            "digest": "94f9f3caf8541dffdfe4636ce38473c09928ac17f0229600e8acbc959703de85"
+            "digest": "4e3af109533a6f025c57c3541bcaad57eac7496f4ef5bd6850487c951a49bfae"
           }
         }
       }

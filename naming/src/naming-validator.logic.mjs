@@ -162,8 +162,7 @@ const assertPreparedWalkExclusions = (walkExclusions) => {
   if (
     walkExclusions &&
     walkExclusions.excludedDirectories instanceof Set &&
-    typeof walkExclusions.skipDotDirectories === 'boolean' &&
-    walkExclusions.allowDotFiles instanceof Set
+    typeof walkExclusions.skipDotDirectories === 'boolean'
   ) {
     return walkExclusions;
   }

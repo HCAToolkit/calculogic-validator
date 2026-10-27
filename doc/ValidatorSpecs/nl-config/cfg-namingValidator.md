@@ -201,9 +201,15 @@ Runtime walk policy fields:
 
 - `excludedDirectories`: directory basenames skipped during recursive walk.
 - `skipDotDirectories`: when `true`, dot-directories are skipped.
-- `allowDotFiles`: retained registry compatibility field (loaded at runtime) for explicit dot-file entries such as `.eslintrc`; it does **not** act as a deny-by-default switch for all other dot-files.
 
 This slice preserves default builtin walk behavior (`.git`, `.vite`, `coverage`, `dist`, `node_modules`; skip dot-directories) while allowing reportable dot-files to flow through standard reportable-file checks.
+
+Registry version `"2"` is the only readable version (calculogic-validator#54). Version `"1"` also carried `allowDotFiles`, an allowlist of dot-file names that excepted them from a dot-file deny. The deny was removed when dot-file discovery was restored, so no runtime path read the field after that. Version `"2"` retires it:
+
+- the field is not loaded or prepared at runtime, and a version `"2"` payload that carries it is invalid (an unsupported root field), so a registry that passes validation means exactly what the walk does;
+- a Custom `walk-exclusions` registry at version `"1"` is `version-incompatible` (lifecycle spec §7.1), which blocks an active Custom set and is reported for an inactive one. Naming's slice validation keys this registry's root fields by version and skips the root check for a version it does not list, so the old field is reported through the version, not as an unsupported field;
+- `registry:migrate` moves it to version `"2"` with the Naming transform `walk-exclusions-v1-to-v2` (lifecycle spec §8.3), which keeps `excludedDirectories` and `skipDotDirectories`, including a consumer's edits to them, and drops `allowDotFiles`. A Custom difference confined to `allowDotFiles` is discarded, because it never changed a run. Validation never migrates a Custom set;
+- dot-file selection is unchanged: a reportable dot-file is selected through the reportable extension and root-file checks, as before.
 
 ### 2.9 Semantic-name case rules runtime source (V0.1.18)
 
@@ -228,7 +234,7 @@ Prepared runtime dependency contract:
 
 - `namingRolesRuntime` supplied by wiring (shape: `roleMetadata`, `activeRoles`, `roleSuffixes`)
 - `reportableExtensions` supplied by wiring as runtime `Set`
-- `walkExclusions` supplied by wiring (shape: `excludedDirectories`, `skipDotDirectories`, `allowDotFiles`)
+- `walkExclusions` supplied by wiring (shape: `excludedDirectories`, `skipDotDirectories`; `allowDotFiles` retired in registry version `"2"`, #54)
 
 Ownership and precedence requirements:
 
