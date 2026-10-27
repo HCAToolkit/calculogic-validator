@@ -235,6 +235,7 @@ Ownership and precedence requirements:
 - runtime does not resolve registry state and does not build builtin runtime defaults at module scope.
 - runtime does not import builtin walk-exclusions registry loaders and does not own builtin fallback seams.
 - runtime behavior remains responsible for scanning, scope filtering, target filtering, classification, and summarization.
+- scope membership comes from the suite-core collector (suite contracts §6.6): Naming follows a contained symlinked scope root under its own lexical spelling, as Tree does, and no longer keeps the pre-extraction walk's skip of it (#57). Naming's candidate policy (reportable extensions, root files, walk exclusions) then selects its candidates from that shared membership.
 - host/wiring public behavior remains unchanged; config continues to override builtin defaults via resolver + converter flow before runtime execution.
 
 Future alignment note:
