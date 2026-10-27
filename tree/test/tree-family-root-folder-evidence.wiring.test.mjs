@@ -1,7 +1,7 @@
 // Tree slice spec S2.13 (calculogic-validator#102): the retired `treeSemanticHomeEvidence` is replaced by
 // `treeFamilyRootFolderEvidence` without changing what Tree classifies. These tests hold the behaviour
-// the migration must preserve: a family-root repository-top folder stays a semantic root, its
-// classification parity still matches, and replacement readiness stays `candidate-ready`.
+// the migration must preserve: a family-root repository-top folder stays a semantic root. (The
+// classification parity and readiness records it once also checked were retired afterwards.)
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -51,7 +51,7 @@ const collectKeys = (value, keys = new Set()) => {
   return keys;
 };
 
-test('a family-root repository-top folder keeps its semantic-root classification, parity and readiness', () => {
+test('a family-root repository-top folder keeps its semantic-root classification', () => {
   const { structuralAddressSnapshot, preparedDependencies } = prepareFamilyRootRepositoryTop();
 
   const [evidence] = preparedDependencies.treeFamilyRootFolderEvidence.evidenceRecords;
@@ -69,12 +69,6 @@ test('a family-root repository-top folder keeps its semantic-root classification
     .find((record) => record.path === FAMILY_ROOT_FOLDER && record.occurrenceType === 'folder');
   assert.equal(classification.structuralClass, 'repo-top-semantic-root');
   assert.equal(classification.isSemanticRoot, true);
-
-  const parity = preparedDependencies.treeOccurrenceClassificationParityEvidence.parityRecords.find((record) => record.path === FAMILY_ROOT_FOLDER);
-  assert.equal(parity.parityStatus, 'matches');
-  assert.equal(parity.replacementFamilyRootSemanticFamily, FAMILY_ROOT_FOLDER);
-  assert.equal(preparedDependencies.treeOccurrenceClassificationParitySummary.differedRecords, 0);
-  assert.equal(preparedDependencies.treeOccurrenceClassificationReplacementReadiness.replacementDecision, 'candidate-ready');
 });
 
 test('prepared dependencies carry no retired `semanticHome` key', () => {
