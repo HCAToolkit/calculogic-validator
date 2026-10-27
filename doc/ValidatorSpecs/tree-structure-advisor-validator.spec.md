@@ -1833,6 +1833,7 @@ Deferred candidates above are a documentation menu only. They are not current ru
 - Optional composition field:
   - `findingContributors` (array of contributor callbacks)
 - Tree core does **not** require `getFileContent(relativePath)`.
+- The shim diagnostics contributor's `getFileContent` re-checks a selected path immediately before reading it (#56), with the shared containment rule and a regular-file check. A path that no longer resolves inside the target, is not a regular file, or cannot be read yields no content, and shim detection uses path-only evidence for it. Suite core already admits only contained regular files; this check is defensive. It checks then reads by path, so it is not race-proof: an entry retargeted or replaced between the check and the read can still be read.
 - Current tree runtime does **not** consume tree-specific config surfaces. The dedicated CLI may accept `--config=<path>` through shared suite runner plumbing, but current tree behavior only validates/normalizes the shared config shape and exposes `configDigest` at the runner envelope when config is supplied.
 - Current tree runtime does **not** emit tree addresses or move proposals. Naming bridge payload is consumed as contributor input and is not re-emitted as a raw payload surface.
 

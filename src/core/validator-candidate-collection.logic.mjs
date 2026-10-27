@@ -50,6 +50,10 @@ export const collectValidatorCandidatePaths = (
     includeRootFiles: scopedSnapshot.includeRootFiles,
     inScopePaths: inScopeCandidatePaths,
     selectedPaths: filterValidatorCandidatePaths(scopedSnapshot.selectedPaths, normalizedPolicy),
+    // An exclusion is reported only where the entry would otherwise have been a candidate (#56).
+    scopeExclusions: scopedSnapshot.scopeExclusions.filter((exclusion) =>
+      isValidatorCandidatePath(exclusion.path, normalizedPolicy),
+    ),
     targetDescriptors: scopedSnapshot.targetDescriptors,
     targets: scopedSnapshot.targets,
   };

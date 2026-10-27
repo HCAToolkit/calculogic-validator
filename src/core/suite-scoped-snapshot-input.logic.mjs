@@ -6,8 +6,9 @@ import {
   describeTargetsForSelectedPaths,
   resolveScopedTargets,
   filterScopedPathsByTargets,
+  filterScopeExclusionsByTargets,
 } from './scoped-target-paths.logic.mjs';
-import { classifyTargetPathContainment } from './target-path-containment.logic.mjs';
+import { classifyTargetPathContainment, isPathInsideTarget } from './target-path-containment.logic.mjs';
 
 const sortPaths = (paths) => Array.from(paths).sort((left, right) => left.localeCompare(right));
 
@@ -56,6 +57,48 @@ const assertScopeEntriesContained = (repositoryRoot, { includeRoots, includeRoot
   }
 };
 
+// Nested-entry membership (#56): below a scope root, an entry is a candidate only when it is
+// positively established as a contained regular file. A regular file is; a symlink is when it
+// resolves inside the target to a regular file, and keeps its own lexical path. Every other entry
+// is excluded and recorded with one reason, never read and never traversed:
+// - `escaping-symlink`: resolves outside the target;
+// - `unresolvable-symlink`: cannot be resolved or inspected (dangling, a looping chain, or a
+//   permission or I/O error; `cause` keeps the error code for diagnosis, it is not reported);
+// - `directory-symlink`: resolves inside the target to a directory, which is not followed;
+// - `non-regular-entry`: a FIFO, socket or device, or a contained symlink to one.
+// A symlink whose name a directory walk rule excludes (`walkExcludedDirectories`, dot directories)
+// is skipped without a record unless it resolves to a contained regular file, as the directory of
+// that name would be. Declared scope roots keep their own rule (#53).
+export const SCOPE_EXCLUSION_REASONS = Object.freeze({
+  escapingSymlink: 'escaping-symlink',
+  unresolvableSymlink: 'unresolvable-symlink',
+  directorySymlink: 'directory-symlink',
+  nonRegularEntry: 'non-regular-entry',
+});
+
+const inspectSymlinkEntry = (repositoryRoot, absoluteEntryPath) => {
+  let realPath;
+  let realStat;
+  try {
+    realPath = fs.realpathSync(absoluteEntryPath);
+    realStat = fs.statSync(realPath);
+  } catch (error) {
+    return { reason: SCOPE_EXCLUSION_REASONS.unresolvableSymlink, cause: error?.code ?? 'UNKNOWN' };
+  }
+
+  if (!isPathInsideTarget(repositoryRoot, realPath)) {
+    return { reason: SCOPE_EXCLUSION_REASONS.escapingSymlink };
+  }
+
+  if (realStat.isFile()) {
+    return { member: true };
+  }
+
+  return {
+    reason: realStat.isDirectory() ? SCOPE_EXCLUSION_REASONS.directorySymlink : SCOPE_EXCLUSION_REASONS.nonRegularEntry,
+  };
+};
+
 const collectPathsFromScopeRoot = (
   repositoryRoot,
   scopeRoot,
@@ -67,8 +110,9 @@ const collectPathsFromScopeRoot = (
   } = {},
 ) => {
   const absoluteRoot = path.resolve(repositoryRoot, scopeRoot);
+  const empty = { paths: [], exclusions: [] };
   if (!fs.existsSync(absoluteRoot)) {
-    return [];
+    return empty;
   }
 
   const isRepositoryRootScope = path.normalize(scopeRoot) === '.';
@@ -77,15 +121,18 @@ const collectPathsFromScopeRoot = (
     !isRepositoryRootScope &&
     fs.lstatSync(absoluteRoot).isSymbolicLink()
   ) {
-    return [];
+    return empty;
   }
 
   const rootStat = fs.statSync(absoluteRoot);
   if (!rootStat.isDirectory()) {
-    return [];
+    return empty;
   }
 
   const collected = [];
+  const exclusions = [];
+  const isExcludedDirectoryName = (name) =>
+    walkExcludedDirectories.has(name) || (skipDotDirectories && name.startsWith('.'));
 
   const walk = (absoluteDirectoryPath) => {
     const entries = fs
@@ -93,28 +140,54 @@ const collectPathsFromScopeRoot = (
       .sort((left, right) => left.name.localeCompare(right.name));
 
     for (const entry of entries) {
+      const absoluteEntryPath = path.join(absoluteDirectoryPath, entry.name);
       if (entry.isDirectory()) {
-        if (walkExcludedDirectories.has(entry.name)) {
+        if (isExcludedDirectoryName(entry.name)) {
           continue;
         }
 
-        if (skipDotDirectories && entry.name.startsWith('.')) {
-          continue;
-        }
-
-        walk(path.join(absoluteDirectoryPath, entry.name));
+        walk(absoluteEntryPath);
         continue;
       }
 
-      const relativeFilePath = normalizePath(
-        path.relative(repositoryRoot, path.join(absoluteDirectoryPath, entry.name)),
-      );
-      collected.push(relativeFilePath);
+      const relativeEntryPath = normalizePath(path.relative(repositoryRoot, absoluteEntryPath));
+      if (entry.isFile()) {
+        collected.push(relativeEntryPath);
+        continue;
+      }
+
+      const inspection = entry.isSymbolicLink()
+        ? inspectSymlinkEntry(repositoryRoot, absoluteEntryPath)
+        : { reason: SCOPE_EXCLUSION_REASONS.nonRegularEntry };
+      if (inspection.member) {
+        collected.push(relativeEntryPath);
+        continue;
+      }
+
+      if (entry.isSymbolicLink() && isExcludedDirectoryName(entry.name)) {
+        continue;
+      }
+
+      exclusions.push({
+        path: relativeEntryPath,
+        reason: inspection.reason,
+        ...(inspection.cause ? { cause: inspection.cause } : {}),
+      });
     }
   };
 
   walk(absoluteRoot);
-  return collected;
+  return { paths: collected, exclusions };
+};
+
+// The reported form of scope exclusions: repo-relative path and reason only. The internal `cause`
+// never reaches a report, and neither does a symlink destination or file content.
+export const toReportedScopeExclusions = (scopeExclusions = []) =>
+  scopeExclusions.map(({ path: exclusionPath, reason }) => ({ path: exclusionPath, reason }));
+
+const sortScopeExclusions = (exclusions) => {
+  const byPath = new Map(exclusions.map((exclusion) => [exclusion.path, exclusion]));
+  return sortPaths(byPath.keys()).map((exclusionPath) => byPath.get(exclusionPath));
 };
 
 const collectPathsFromRootFiles = (repositoryRoot, includeRootFiles) => {
@@ -165,13 +238,14 @@ export const collectSuiteScopedPaths = (
   const profile = scopeResolution.profile;
   assertScopeEntriesContained(repositoryRoot, profile);
 
-  const scopedPaths = profile.includeRoots.flatMap((scopeRoot) =>
+  const rootCollections = profile.includeRoots.map((scopeRoot) =>
     collectPathsFromScopeRoot(repositoryRoot, scopeRoot, {
       walkExcludedDirectories,
       skipDotDirectories,
       skipSymlinkedCandidateScopeRoots,
     }),
   );
+  const scopedPaths = rootCollections.flatMap((collection) => collection.paths);
   const rootFilePaths = collectPathsFromRootFiles(repositoryRoot, profile.includeRootFiles);
 
   return {
@@ -179,6 +253,7 @@ export const collectSuiteScopedPaths = (
     includeRoots: [...profile.includeRoots],
     includeRootFiles: [...profile.includeRootFiles],
     inScopePaths: sortPaths(new Set([...scopedPaths, ...rootFilePaths])),
+    scopeExclusions: sortScopeExclusions(rootCollections.flatMap((collection) => collection.exclusions)),
   };
 };
 
@@ -204,11 +279,13 @@ export const collectSuiteScopedSnapshotInputs = (
   });
   const resolvedTargets = resolveScopedTargets(repositoryRoot, targets);
   const selectedPaths = filterScopedPathsByTargets(repositoryRoot, scopedCollection.inScopePaths, resolvedTargets);
+  const scopeExclusions = filterScopeExclusionsByTargets(repositoryRoot, scopedCollection.scopeExclusions, resolvedTargets);
   const targetDescriptors = describeTargetsForSelectedPaths(repositoryRoot, selectedPaths, resolvedTargets);
 
   return {
     ...scopedCollection,
     selectedPaths,
+    scopeExclusions,
     targetDescriptors,
     targets: targetDescriptors.map((target) => target.relPath),
   };

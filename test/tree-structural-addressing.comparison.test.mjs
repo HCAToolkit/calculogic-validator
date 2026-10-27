@@ -197,7 +197,8 @@ const GET_TREE_EXCLUDED_NAMES = new Set(
 // Classifies every occurrence present on only one side by the documented membership rules and
 // returns the ones no rule explains:
 //   Tree-only:     a path segment get-tree excludes by name, of any type and at any depth (I3,
-//                  including `build` folders and `.git` or excluded-name files), or a symlink (D3);
+//                  including `build` folders and `.git` or excluded-name files), or a contained file
+//                  symlink (D3; a directory symlink is excluded from the suite walk since #56);
 //   get-tree-only: inside or itself a dot directory (I1), or a folder with no file descendant
 //                  outside a dot directory (I2, including folders whose files all sit under a
 //                  dot directory that I1 skips).
@@ -875,7 +876,7 @@ test('comparison B: membership rules differ between Tree input collection and th
   }
 });
 
-test('comparison B, defect candidate D3: symlinks to directories and files are Tree file occurrences skipped by get-tree', async (t) => {
+test('comparison B, D3 resolved by #56: a directory symlink is excluded; a contained file symlink stays a Tree file occurrence that get-tree skips', async (t) => {
   const root = createStandaloneFixture(t, { 'src/a.logic.mjs': 'x\n' });
   if (!tryCreateFixtureSymlinks(root, [['src-link', 'src'], ['src/a-link.logic.mjs', 'src/a.logic.mjs']])) {
     t.skip('Symlink creation not supported in this environment.');
@@ -886,13 +887,15 @@ test('comparison B, defect candidate D3: symlinks to directories and files are T
   const treeByPath = byPath(treeInputs.structuralAddressSnapshot.occurrenceRecords, 'resolvedPath');
   const addressingPaths = new Set(addressing.occurrenceRecords.map((record) => stripNamespace(record.path)));
 
-  // The suite walk collects every non-directory entry, so a directory symlink becomes a file occurrence
-  // (without its contents) and a file symlink is collected too; get-tree skips both.
+  // Since #56 the suite walk excludes a directory symlink (`directory-symlink`), so it is no longer a
+  // file occurrence; a symlink resolving to a contained regular file is a member under its own path.
+  // get-tree skips every symlink, so that file symlink is the remaining classified difference.
   assert.deepEqual(
     [...treeByPath.keys()].filter((occurrencePath) => !addressingPaths.has(occurrencePath)).sort(),
-    ['src-link', 'src/a-link.logic.mjs'],
+    ['src/a-link.logic.mjs'],
   );
-  assert.equal(treeByPath.get('src-link').occurrenceType, 'file');
+  assert.equal(treeByPath.has('src-link'), false);
+  assert.deepEqual(treeInputs.scopeExclusions, [{ path: 'src-link', reason: 'directory-symlink' }]);
   assert.deepEqual(
     listUnclassifiedMembershipDifferences(root, treeInputs.structuralAddressSnapshot, addressing),
     { treeOnly: [], getTreeOnly: [] },

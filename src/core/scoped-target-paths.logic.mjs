@@ -106,6 +106,22 @@ export const filterScopedPathsByTargets = (
   return sortPaths(new Set(selectedPaths));
 };
 
+// Scope exclusions (#56) follow the same target interpretation as selected paths: an entry is kept
+// when its location is selected by a target. Its location is its real parent directory plus its own
+// name, which for a regular file is exactly its real path; an excluded entry's own real path may lie
+// outside the target or not exist, so it cannot be used. A file target selects only that location.
+export const filterScopeExclusionsByTargets = (repositoryRoot, scopeExclusions, resolvedTargets = []) => {
+  if (!resolvedTargets.length) {
+    return [...scopeExclusions];
+  }
+
+  return scopeExclusions.filter((exclusion) => {
+    const absolutePath = path.resolve(repositoryRoot, exclusion.path);
+    const locationRealPath = path.join(toRealPath(path.dirname(absolutePath)), path.basename(absolutePath));
+    return resolvedTargets.some((target) => isRealPathUnderTarget(locationRealPath, target));
+  });
+};
+
 export const buildScopePathPredicate = (scopeProfile) => {
   const includeRootSet = new Set((scopeProfile?.includeRoots ?? []).map(normalizePath));
   const includeRootFileSet = new Set((scopeProfile?.includeRootFiles ?? []).map(normalizePath));

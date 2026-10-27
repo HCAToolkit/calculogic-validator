@@ -132,6 +132,7 @@ export const prepareNamingValidatorInputs = (
     ...runtimeInputs,
     scope: candidatePaths.scope,
     selectedPaths: candidatePaths.selectedPaths,
+    scopeExclusions: candidatePaths.scopeExclusions,
     targets: candidatePaths.targets,
   };
 };

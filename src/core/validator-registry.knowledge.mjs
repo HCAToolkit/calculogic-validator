@@ -20,6 +20,10 @@ const runNamingValidatorHook = (repositoryRoot, options = {}) => {
     };
   }
 
+  if (namingResult.scopeExclusions?.length > 0) {
+    meta.scopeExclusions = namingResult.scopeExclusions;
+  }
+
   if (namingResult.registry) {
     meta.registry = namingResult.registry;
   }
@@ -57,6 +61,10 @@ const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
       isFiltered: true,
       targets: treeStructureAdvisorResult.filters.targets,
     };
+  }
+
+  if (treeStructureAdvisorResult.scopeExclusions?.length > 0) {
+    meta.scopeExclusions = treeStructureAdvisorResult.scopeExclusions;
   }
 
   // Tree's own registries, from the run's one lifecycle resolution (lifecycle spec §11.2).

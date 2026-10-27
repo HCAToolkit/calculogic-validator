@@ -60,6 +60,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
   - `includeRoots` walking
   - `includeRootFiles` inclusion
   - scope-root containment: every declared `includeRoots` / `includeRootFiles` entry is checked against the target before traversal (see 3.9)
+  - nested-entry membership (#56): below a scope root only contained regular files (including contained file symlinks) are collected; every other entry is excluded with a reason and returned as `scopeExclusions` (with an internal `cause` for inspection errors), filtered by the same target interpretation as selected paths; `toReportedScopeExclusions` gives the reported `{ path, reason }` form
   - normalized path collection
   - optional target filtering
   - deterministic sort/dedupe for selected path sets
@@ -212,7 +213,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
   - `classifyTargetPathContainment(targetRoot, candidatePath)` → `contained` / `escaping` / `unresolvable`
   - `isPathInsideTarget(targetRoot, candidatePath)`
   - `resolveRealPath(candidatePath)`, which resolves a not-yet-existing path through its nearest existing ancestor
-- **Current consumers:** the scoped snapshot/input helper (scope roots and root files, 3.2) and the registry lifecycle (lifecycle paths, 3.7).
+- **Current consumers:** the scoped snapshot/input helper (scope roots and root files, and nested symlink entries, 3.2), the registry lifecycle (lifecycle paths, 3.7), and the Tree shim diagnostics read guard, which re-checks a selected path immediately before reading its content (#56).
 - **When to reuse:** any new place that reads or writes a target path a consumer can influence (a registry value, a profile entry, a lifecycle file).
 - **When not to reuse:** CLI `--target` resolution keeps its own existence-and-escape check in `scoped-target-paths.logic.mjs`, which also requires the target to exist.
 - **Reuse boundary type:** helper-area reuse

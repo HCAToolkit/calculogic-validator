@@ -11,6 +11,8 @@ import {
 } from '../src/core/validator-registry.knowledge.mjs';
 import { runValidatorRunner } from '../src/core/validator-runner.logic.mjs';
 import { getValidatorReportIdentity } from '../src/core/validator-report-identity.logic.mjs';
+import { runNamingValidator } from '../naming/src/naming-validator.host.mjs';
+import { buildNamingValidatorReport } from '../naming/src/cli/naming-report-builder.logic.mjs';
 
 const rootPackageJson = JSON.parse(
   fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -215,5 +217,48 @@ test('registry metadata is serializable and only run hooks remain executable fun
     assert.deepEqual(visitFunctionPaths(validator.metadata), []);
     assert.deepEqual(visitFunctionPaths(validator), ['run']);
     assert.equal(typeof validator.run, 'function');
+  }
+});
+
+// #56: suite-owned scope exclusions reach each runner entry as `meta.scopeExclusions`, per slice, and
+// the direct Naming report as top-level `scopeExclusions`; both are absent when nothing was excluded.
+test('scope exclusions appear per slice in runner entries and the direct Naming report, only when non-empty', async () => {
+  const fixtureRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), 'validator-registry-scope-exclusions-'));
+
+  try {
+    await fsPromises.mkdir(path.join(fixtureRoot, 'src'), { recursive: true });
+    await fsPromises.mkdir(path.join(fixtureRoot, 'lib'), { recursive: true });
+    await fsPromises.writeFile(path.join(fixtureRoot, 'src', 'regular.logic.mjs'), 'export {};\n');
+    await fsPromises.writeFile(path.join(fixtureRoot, 'lib', 'behind.logic.mjs'), 'export {};\n');
+
+    const before = runValidatorRunner(fixtureRoot, { scope: 'app' });
+    for (const entry of before.validators) {
+      assert.equal(Object.hasOwn(entry.meta ?? {}, 'scopeExclusions'), false, entry.id);
+    }
+
+    await fsPromises.symlink('missing.logic.mjs', path.join(fixtureRoot, 'src', 'dangling.logic.mjs'));
+    await fsPromises.symlink(path.join(fixtureRoot, 'lib'), path.join(fixtureRoot, 'src', 'linked-lib'), 'dir');
+
+    const report = runValidatorRunner(fixtureRoot, { scope: 'app' });
+    const metaOf = (id) => report.validators.find((entry) => entry.id === id).meta;
+    // Naming's candidate policy drops the extensionless directory link; Tree has no such policy.
+    assert.deepEqual(metaOf('naming').scopeExclusions, [{ path: 'src/dangling.logic.mjs', reason: 'unresolvable-symlink' }]);
+    assert.deepEqual(metaOf('tree-structure-advisor').scopeExclusions, [
+      { path: 'src/dangling.logic.mjs', reason: 'unresolvable-symlink' },
+      { path: 'src/linked-lib', reason: 'directory-symlink' },
+    ]);
+    assert.equal(report.validators.every((entry) => entry.totalFilesScanned === 1), true);
+
+    const namingResult = runNamingValidator(fixtureRoot, { scope: 'app' });
+    const reportTimes = { startedAtDate: new Date(0), endedAtDate: new Date(0) };
+    const namingReport = buildNamingValidatorReport({ ...namingResult, ...reportTimes, registryEntry: getValidatorById('naming') });
+    assert.deepEqual(namingReport.scopeExclusions, [{ path: 'src/dangling.logic.mjs', reason: 'unresolvable-symlink' }]);
+    const { scopeExclusions: _omitted, ...withoutExclusions } = namingResult;
+    assert.equal(
+      Object.hasOwn(buildNamingValidatorReport({ ...withoutExclusions, ...reportTimes, registryEntry: getValidatorById('naming') }), 'scopeExclusions'),
+      false,
+    );
+  } finally {
+    await fsPromises.rm(fixtureRoot, { recursive: true, force: true });
   }
 });
