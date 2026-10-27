@@ -201,15 +201,24 @@ Keep these boundaries explicit:
 ## Structural addressing
 
 For structural addresses, address examples, NL/comment address synchronization, or
-structural-address validator work, also read:
+structural-address validator work, also read both:
 
-- `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md`
+- `doc/ValidatorSpecs/structural-addressing-shared-contract.spec.md` for the shared
+  addressing model and cross-profile architecture: profiles, occurrence records,
+  ordering, counting, markers, namespaces, identity kinds and comparison boundaries.
+- `doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md` for its
+  specialized host/concern-slot grammar, authoritative within its declared scope.
 
-Use its canonical grammar and explicitly closed repository scope only as documented.
-Keep illustrative/placeholding addresses labeled, keep canonical addresses concrete,
-and do not present deferred parser, validator, or cross-repository decisions as
-implemented. Structural addressing owns address grammar; it does not take over
-Naming interpretation or Tree placement policy.
+Use the draft's canonical grammar and explicitly closed repository scope only as
+documented. Keep illustrative/placeholding addresses labeled, keep canonical addresses
+concrete, and do not present deferred parser, validator, or cross-repository decisions
+as implemented.
+
+Structural Addressing owns the shared addressing model and profile contracts. Each
+profile defines its address grammar and interpretation within its declared scope.
+Domain-specific grammar specifications remain authoritative within their own scope
+and must not be generalized to other profiles. Structural Addressing does not take
+over Naming interpretation or Tree placement policy.
 
 ## Registries and deterministic reasoning
 

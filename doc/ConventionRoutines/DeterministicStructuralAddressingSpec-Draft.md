@@ -12,6 +12,7 @@
   - `doc/ConventionRoutines/NL-First-Workflow.md` (workflow precedence)
   - `doc/ConventionRoutines/FileNamingMasterList-V1_1.md` (naming pattern baseline)
   - `doc/Architecture/BuildSurfaceGlobalHostSequencePlan.md` (global host sequencing context)
+  - `doc/ValidatorSpecs/structural-addressing-shared-contract.spec.md` (shared addressing model and profile contracts; see the scope note in §2)
 - **Last reviewed:** 2026-02-23
 
 > Terminology note: in this document, unscoped `host` references for address grammar/namespace semantics should be interpreted as `address_host` (see `doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md`). UI composition-shell meanings belong to `ui_host_surface` terminology in architecture docs.
@@ -30,6 +31,8 @@ This layer **complements and does not replace**:
 
 Addressing answers: “Where is this structural node in a deterministic sequence?”
 It does **not** redefine concern semantics, file naming, or provenance policy.
+
+> Scope note: the shared addressing model (occurrences, profiles, ordering, counting, markers, namespaces, identity kinds and cross-profile comparison boundaries) is defined in `doc/ValidatorSpecs/structural-addressing-shared-contract.spec.md`. This draft remains authoritative for its own host/concern-slot grammar within its declared and closed scope. Its segment meanings do not define how other profiles read their addresses (for example the implemented `tree-codebase` profile or a future code-file profile), and the shared contract does not supersede this draft. Reconciliation between them is a deferred, explicit decision recorded in the shared contract.
 
 > Terminology scoping note (V1): within this draft, address syntax/notation rules are treated as `canonical_grammar` concerns, while sequence/slot stability is treated as `canonical_order` concerns (see `doc/ConventionRoutines/TerminologyScoping-Conventions-V1.md`).
 
