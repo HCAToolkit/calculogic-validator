@@ -215,6 +215,107 @@ test('availability follows the status classification: version-incompatible, slic
   });
 });
 
+// Replaces a Custom registry file with a symlink to a copy outside the validation target.
+const escapeCustomFile = (customFile, registryId) => {
+  const filePath = customFile(registryId);
+  const outside = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'registry-bridge-outside-')), path.basename(filePath));
+  fs.copyFileSync(filePath, outside);
+  fs.rmSync(filePath);
+  fs.symlinkSync(outside, filePath);
+  return () => fs.rmSync(path.dirname(outside), { recursive: true, force: true });
+};
+
+test('a side in a slice whose validation was skipped is not-validated: status never throws or publishes an unvalidated domain (Codex review on #126)', () => {
+  const tokenEdits = [
+    // Codex's reproduction: a token that only Naming's skipped validation would have rejected.
+    ['malformed token', (update) => update(BRIDGE.emitter.registryId, (payload) => ({
+      ...payload,
+      folderCompositionPatterns: payload.folderCompositionPatterns.map((pattern) => ({ ...pattern, structuralRoleToken: ' src' })),
+    }))],
+    // Well-formed, so it would otherwise be reported as an ordinary gap.
+    ['well-formed token', (update, addLibPattern) => addLibPattern()],
+  ];
+  for (const [label, editToken] of tokenEdits) {
+    withCustomSet(({ targetRoot, status, update, customFile, addLibPattern }) => {
+      editToken(update, addLibPattern);
+      const cleanup = escapeCustomFile(customFile, 'naming/case-rules');
+      try {
+        const reported = status();
+        assert.deepEqual(
+          reported.bridgeCompatibility,
+          unavailable('custom', [
+            {
+              side: 'emitter',
+              registryId: BRIDGE.emitter.registryId,
+              condition: 'not-validated',
+              detail: 'Slice naming was not validated: naming/case-rules resolves outside the validation target.',
+            },
+          ]),
+          label,
+        );
+        // Classifications, Custom issues and activation are as before: not-validated is a bridge
+        // condition only.
+        assert.equal(reported.registries.find((entry) => entry.registryId === BRIDGE.emitter.registryId).classification, 'custom-modified', label);
+        assert.deepEqual(reported.customIssues.map((issue) => `${issue.registryId}:${issue.condition}`), ['naming/case-rules:invalid'], label);
+        assert.throws(() => useRegistrySet({ targetRoot, activeSet: 'custom' }), /naming\/case-rules: invalid/u, label);
+      } finally {
+        cleanup();
+      }
+    });
+  }
+});
+
+test('not-validated: every recorded reason is listed in order; the consumer side and the escaping registry itself are handled; validated slices compare normally', () => {
+  // Two escaping files in the emitter's slice: both reasons, in ordinal order.
+  withCustomSet(({ status, customFile }) => {
+    const cleanups = [escapeCustomFile(customFile, 'naming/roles'), escapeCustomFile(customFile, 'naming/case-rules')];
+    try {
+      assert.equal(
+        status().bridgeCompatibility.bridges[0].unavailable[0].detail,
+        'Slice naming was not validated: naming/case-rules resolves outside the validation target. naming/roles resolves outside the validation target.',
+      );
+    } finally {
+      cleanups.forEach((cleanup) => cleanup());
+    }
+  });
+  // An escaping file in the consumer's slice makes the consumer side not-validated.
+  withCustomSet(({ status, customFile }) => {
+    const cleanup = escapeCustomFile(customFile, 'tree/folder-kinds');
+    try {
+      assert.deepEqual(status().bridgeCompatibility.bridges[0].unavailable, [
+        {
+          side: 'consumer',
+          registryId: BRIDGE.consumer.registryId,
+          condition: 'not-validated',
+          detail: 'Slice tree was not validated: tree/folder-kinds resolves outside the validation target.',
+        },
+      ]);
+    } finally {
+      cleanup();
+    }
+  });
+  // The escaping registry itself keeps its own classification as the condition.
+  withCustomSet(({ status, customFile }) => {
+    const cleanup = escapeCustomFile(customFile, BRIDGE.emitter.registryId);
+    try {
+      const [side] = status().bridgeCompatibility.bridges[0].unavailable;
+      assert.deepEqual([side.side, side.condition], ['emitter', 'invalid']);
+    } finally {
+      cleanup();
+    }
+  });
+  // A skipped slice that is neither side leaves the bridge's validated slices comparable.
+  withCustomSet(({ status, customFile, addLibPattern }) => {
+    addLibPattern();
+    const cleanup = escapeCustomFile(customFile, 'suite/exit-policy');
+    try {
+      assert.deepEqual(status().bridgeCompatibility, gaps('custom', [{ value: 'lib', emittedBy: [LIB_PATTERN] }]));
+    } finally {
+      cleanup();
+    }
+  });
+});
+
 test('a malformed manifest leaves the registries comparable', () => {
   withCustomSet(({ status, paths, addLibPattern }) => {
     addLibPattern();

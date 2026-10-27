@@ -32,6 +32,10 @@ const UNAVAILABLE_CLASSIFICATIONS = new Set([
   CUSTOM_ISSUE_CONDITIONS.versionIncompatible,
 ]);
 const MISSING_DETAIL = 'Absent from the Custom set.';
+// A side whose slice's registry-set validation did not run (spec §9.4): its classification does not
+// establish that its contents were validated, so it has no domain. A bridge-availability condition,
+// never a registry classification.
+const NOT_VALIDATED_CONDITION = 'not-validated';
 
 // [5.2.25] cfg-registryLifecycle · Primitive · "BridgeDeclarationError"
 // A declaration or resolver-output problem: a programming error in a slice, never a data finding.
@@ -240,12 +244,15 @@ export const builtinBridgeSides = ({ slices = REGISTRY_LIFECYCLE_SLICES } = {}) 
 };
 
 // [5.2.25] cfg-registryLifecycle · Derived value · "customBridgeSides"
-// `sideOf` for a Custom (or candidate) set: a registry whose status classification is `missing`,
-// `invalid` or `version-incompatible` is unavailable with that condition and the status detail, so
-// availability is the assessment's judgement, never a second one; any other registry is read through
-// the assessment's containment-checked reader.
+// `sideOf` for a Custom (or candidate) set, decided only from the assessment, never a second judgement:
+// - a registry whose status classification is `missing`, `invalid` or `version-incompatible` is
+//   unavailable with that condition and the status detail;
+// - any other registry of a slice whose registry-set validation did not run is unavailable as
+//   `not-validated`, with every reason the assessment recorded;
+// - any other registry is read through the assessment's containment-checked reader.
 export const customBridgeSides = ({ paths, assessment, slices = REGISTRY_LIFECYCLE_SLICES }) => {
   const statusById = new Map(assessment.registries.map((statusEntry) => [statusEntry.registryId, statusEntry]));
+  const sliceIdById = new Map(slices.flatMap((slice) => slice.inventory.map((entry) => [entry.registryId, slice.sliceId])));
   const inputOf = customReferenceInputs({ paths, slices });
   return (entry) => {
     const statusEntry = statusById.get(entry.registryId);
@@ -255,6 +262,17 @@ export const customBridgeSides = ({ paths, assessment, slices = REGISTRY_LIFECYC
           registryId: entry.registryId,
           condition: statusEntry.classification,
           detail: statusEntry.detail ?? MISSING_DETAIL,
+        },
+      };
+    }
+    const sliceId = sliceIdById.get(entry.registryId);
+    const skipReasons = assessment.unvalidatedSlices?.[sliceId];
+    if (skipReasons) {
+      return {
+        unavailable: {
+          registryId: entry.registryId,
+          condition: NOT_VALIDATED_CONDITION,
+          detail: `Slice ${sliceId} was not validated: ${skipReasons.join(' ')}`,
         },
       };
     }
