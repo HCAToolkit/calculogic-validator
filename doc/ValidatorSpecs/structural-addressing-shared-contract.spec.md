@@ -108,7 +108,7 @@ The snapshot envelope adds `snapshotOutputId`, `profileId`, `domainPrefix`, `sou
 | record fields | the fields its records carry beyond §4.2's |
 | input contract | what it consumes, and which owner supplies membership |
 
-A profile **must not** interpret meaning: no role, placement, terminology or correctness judgement.
+A profile may interpret source structure as needed to identify and address occurrences, but must not perform slice-owned semantic judgments about role, placement correctness, terminology, or responsibility.
 
 ### 5.2 Profiles
 
@@ -221,7 +221,7 @@ Four kinds, related but never interchangeable (Contract):
 2. Order is evaluated under an explicit correspondence and ordering contract. Not every documentation section or code occurrence needs a one-to-one counterpart.
 3. A reported mismatch names which check failed, so ownership stays attributable.
 
-`Illustrative`: code `…a.1` "Validate registry", `…a.2` "Generate report"; documentation `…a.1` "Generate report", `…a.2` "Validate registry". The positions align; ordering coherence fails.
+`Illustrative`: code `…a.1` "Validate registry", `…a.2` "Generate report"; documentation `…a.1` "Generate report", `…a.2` "Validate registry". Where the operations are established as corresponding, the example demonstrates an ordering-coherence mismatch despite positional alignment. Without that evidence, the comparison reports unresolved correspondence instead.
 
 ### 9.3 Not current
 
