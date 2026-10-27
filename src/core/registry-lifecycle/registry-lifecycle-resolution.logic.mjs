@@ -10,6 +10,7 @@
  */
 import path from 'node:path';
 import { assessCustomRegistrySet } from './registry-lifecycle-assessment.logic.mjs';
+import { builtinBridgeSides, customBridgeSides, resolveBridgeCompatibility } from './registry-lifecycle-bridge-compatibility.logic.mjs';
 import { digestRegistrySet } from './registry-lifecycle-canonical-digest.logic.mjs';
 import { REGISTRY_LIFECYCLE_SLICES } from './registry-lifecycle-inventory.knowledge.mjs';
 import {
@@ -28,7 +29,9 @@ export const getBuiltinRegistryRoots = ({ slices = REGISTRY_LIFECYCLE_SLICES } =
   Object.freeze(Object.fromEntries(slices.map((slice) => [slice.sliceId, slice.builtinRoot])));
 
 // [7.1] cfg-registryLifecycle · Primitive · "buildRegistrySetReport"
-const buildRegistrySetReport = ({ activeSet, assessment, resolvedDigests }) => ({
+// `bridgeCompatibility` describes the resolved set only (spec §9.4): a run never reports an inactive
+// Custom set's bridges, which `status` describes.
+const buildRegistrySetReport = ({ activeSet, assessment, resolvedDigests, bridgeCompatibility }) => ({
   activeSet,
   customExists: assessment.customExists,
   customDiffers: assessment.customDiffers,
@@ -39,6 +42,7 @@ const buildRegistrySetReport = ({ activeSet, assessment, resolvedDigests }) => (
   orphanRegistries: [...assessment.orphanRegistries],
   customIssues: assessment.customIssues.map((issue) => ({ ...issue })),
   resolvedSetDigest: digestRegistrySet(resolvedDigests),
+  bridgeCompatibility,
 });
 
 // [7.1] cfg-registryLifecycle · Primitive · "buildRegistryProvenance"
@@ -131,7 +135,16 @@ export const resolveActiveRegistrySet = ({
     activeSet,
     registryRoots: isCustomActive ? customRegistryRoots : getBuiltinRegistryRoots({ slices }),
     ...(customRegistryRoots ? { customRegistryRoots } : {}),
-    registrySet: buildRegistrySetReport({ activeSet, assessment, resolvedDigests }),
+    registrySet: buildRegistrySetReport({
+      activeSet,
+      assessment,
+      resolvedDigests,
+      bridgeCompatibility: resolveBridgeCompatibility({
+        set: activeSet,
+        sideOf: isCustomActive ? customBridgeSides({ paths, assessment, slices }) : builtinBridgeSides({ slices }),
+        slices,
+      }),
+    }),
     registryProvenance: buildRegistryProvenance({ source: activeSet, resolvedDigests, slices }),
     ...(isCustomActive ? { baselineReference: Object.freeze({ paths, slices }) } : {}),
   };

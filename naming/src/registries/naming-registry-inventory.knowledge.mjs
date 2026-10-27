@@ -25,7 +25,9 @@ const READABLE_VERSIONS_V1 = Object.freeze(['1']);
 // from. `references` declares the entries of other registries of the same slice
 // that this registry's entries name (spec §12.11): each edge's id, target registry and target `keyed`
 // collection. The slice's reference resolver interprets them; the edges are recorded with the
-// validation that enforces them in doc/Audits/registry-reference-edges.audit.md.
+// validation that enforces them in doc/Audits/registry-reference-edges.audit.md. `bridges` declares
+// the cross-slice bridges whose values this registry emits, and `interprets` the bridges whose values
+// it interprets (spec §9.4); the slice's bridge-domain resolver resolves each side's values.
 const defineNamingRegistry = (
   name,
   descriptor,
@@ -34,6 +36,7 @@ const defineNamingRegistry = (
   migrations = [],
   references = [],
   readableVersions = READABLE_VERSIONS_V1,
+  { bridges = [], interprets = [] } = {},
 ) =>
   Object.freeze({
     registryId: `${NAMING_REGISTRY_SLICE_ID}/${name}`,
@@ -56,6 +59,8 @@ const defineNamingRegistry = (
       migrations.map((step) => Object.freeze({ ...step, fromDescriptor: Object.freeze(step.fromDescriptor) })),
     ),
     references: Object.freeze(references.map((edge) => Object.freeze({ ...edge }))),
+    bridges: Object.freeze(bridges.map((bridge) => Object.freeze({ ...bridge }))),
+    interprets: Object.freeze(interprets.map((interpretation) => Object.freeze({ ...interpretation }))),
   });
 
 // [6.1] cfg-registryLifecycle · Container · "Naming registry inventory"
@@ -112,7 +117,16 @@ export const NAMING_REGISTRY_INVENTORY = Object.freeze([
       path: 'folderSemanticContextPatterns',
       mergeFields: [['status'], ['definition'], ['confidence', 'folderName', 'qualification', 'semanticContext']],
     },
-  ]),
+  ], [], [], READABLE_VERSIONS_V1, {
+    // Structural-role tokens reach Tree through the folder-composition projection (calculogic-validator#61).
+    bridges: [
+      {
+        bridgeId: 'naming/folder-composition-structural-role-token',
+        perspective: 'semantic-qualified-structural-container',
+        consumer: 'tree/structural-role-tokens',
+      },
+    ],
+  }),
   // Detection is first-match, so pattern order is part of the policy.
   defineNamingRegistry('missing-role-patterns', {
     setLike: [{ path: 'missingRolePatterns[].extensionSegmentIndexes' }],

@@ -1692,6 +1692,20 @@ test('without a Custom set, resolution returns Builtin roots and builtin provena
       orphanRegistries: [],
       customIssues: [],
       resolvedSetDigest: digestRegistrySet(digestBuiltinRegistrySet()),
+      // The Builtin set's one bridge is compatible (spec §9.4).
+      bridgeCompatibility: {
+        set: 'builtin',
+        bridges: [
+          {
+            bridgeId: 'naming/folder-composition-structural-role-token',
+            perspective: 'semantic-qualified-structural-container',
+            emitter: { sliceId: 'naming', registryId: 'naming/folder-composition-patterns' },
+            consumer: { sliceId: 'tree', registryId: 'tree/structural-role-tokens' },
+            state: 'compatible',
+            uninterpretable: [],
+          },
+        ],
+      },
     });
     assert.deepEqual(Object.keys(resolution.registryProvenance), ['naming', 'tree', 'suite']);
     for (const sliceProvenance of Object.values(resolution.registryProvenance)) {

@@ -98,12 +98,18 @@ const assertValidInput = (input) => {
 };
 
 
-const toStructuralRoleTokenLookup = (registry = {}) => {
+const SEMANTIC_QUALIFIED_STRUCTURAL_CONTAINER = 'semantic-qualified-structural-container';
+
+// The structural-role tokens Tree interprets for one relationship perspective, keyed by token: the
+// first active entry per token with a structural role. The relationship and Tree's bridge-domain
+// resolver share this selection (lifecycle spec §9.4), so the interpretable domain reported for a
+// registry is the one the relationship uses.
+export const selectInterpretableStructuralRoleTokens = (registry = {}, relationshipPerspective = SEMANTIC_QUALIFIED_STRUCTURAL_CONTAINER) => {
   const lookup = new Map();
   for (const entry of registry.structuralRoleTokens ?? []) {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
     if (entry.status !== 'active') continue;
-    if (entry.relationshipPerspective !== 'semantic-qualified-structural-container') continue;
+    if (entry.relationshipPerspective !== relationshipPerspective) continue;
     if (typeof entry.token !== 'string' || entry.token.length === 0) continue;
     if (typeof entry.structuralRole !== 'string' || entry.structuralRole.length === 0) continue;
     if (!lookup.has(entry.token)) lookup.set(entry.token, entry);
@@ -274,7 +280,7 @@ export const prepareTreeSemanticNamingFolderTypeRelationshipEvidence = (input) =
   const namingLookup = toEvidenceLookup(input.namingSemanticEvidenceRecords);
   const structuralLookup = toEvidenceLookup(input.treeStructuralHomeEvidence.evidenceRecords);
   const allowedTopLevelDirectorySet = toAllowedTopLevelDirectorySet(input.treeRepoShapePolicy);
-  const structuralRoleTokenLookup = toStructuralRoleTokenLookup(input.structuralRoleTokensRegistry);
+  const structuralRoleTokenLookup = selectInterpretableStructuralRoleTokens(input.structuralRoleTokensRegistry);
   const occurrenceRecordsByAddress = toRecordsByAddress(input.addressedOccurrenceRecords);
   const ancestorSemanticContextLookup = toAncestorSemanticContextLookup(input.namingSemanticEvidenceRecords);
   const relationshipRecords = [];
