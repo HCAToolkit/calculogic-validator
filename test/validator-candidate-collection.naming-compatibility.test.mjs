@@ -12,8 +12,11 @@ import {
   summarizeFindings,
 } from '../naming/src/naming-validator.wiring.mjs';
 import { runNamingValidator as runNamingValidatorRuntime } from '../naming/src/naming-validator.logic.mjs';
+import { runNamingValidator as runNamingValidatorHost, prepareNamingTreeStagingInputs } from '../naming/src/naming-validator.host.mjs';
+import { prepareTreeStructureAdvisorInputs } from '../tree/src/tree-structure-advisor.wiring.mjs';
 import { createValidatorCandidatePolicyFromValues } from '../src/core/validator-candidate-policy.logic.mjs';
 import { collectValidatorCandidatePaths } from '../src/core/validator-candidate-collection.logic.mjs';
+import { collectSuiteScopedSnapshotInputs, toReportedScopeExclusions } from '../src/core/suite-scoped-snapshot-input.logic.mjs';
 import { resolveActiveRegistrySet } from '../src/core/registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
 import { NAMING_BUILTIN_REGISTRY_ROOT } from '../naming/src/registries/naming-registry-inventory.knowledge.mjs';
 import {
@@ -39,6 +42,10 @@ const isLegacyNamingReportablePath = (relativePath, reportableExtensions, report
   reportableExtensions.has(path.extname(relativePath)) ||
   reportableRootFiles.has(path.basename(relativePath));
 
+// The pre-extraction Naming walk, kept as a reference for Naming's candidate collection. Its
+// equivalence holds for symlink-free trees only: symlink membership is now the suite contract's
+// (declared roots #53 and #57, nested entries #56), which this walk predates (it neither enters a
+// symlinked scope root nor excludes a nested link).
 const collectLegacyNamingWalkPaths = (repositoryRoot, options = {}) => {
   const absoluteRoot = path.resolve(repositoryRoot);
   if (!fsSync.existsSync(absoluteRoot) || !fsSync.statSync(absoluteRoot).isDirectory()) {
@@ -240,31 +247,36 @@ test('suite-core candidate helper reproduces current Naming scoped candidate col
   }
 });
 
-test('Naming candidate helper skips internal symlinked scoped roots to preserve legacy walk behavior', async () => {
+// #57: Naming follows a contained symlinked scope root as Tree does, under the root's lexical
+// spelling. The slices share scope membership; their candidate sets still differ by candidate policy.
+test('Naming and Tree share membership under an internal symlinked scope root, spelled through the root', async () => {
   const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'naming-symlink-scope-'));
 
   try {
     await writeFixtureFile(fixtureDir, 'packages/app-src/inside.logic.ts', 'export const inside = true;\n');
-    await fs.symlink(path.join(fixtureDir, 'packages', 'app-src'), path.join(fixtureDir, 'src'), 'dir');
+    await writeFixtureFile(fixtureDir, 'packages/app-src/notes.txt', 'not a Naming candidate\n');
     await writeFixtureFile(fixtureDir, 'test/inside.test.js', 'export const inside = true;\n');
+    await fs.symlink('missing.logic.ts', path.join(fixtureDir, 'packages', 'app-src', 'dangling.logic.ts'));
+    await fs.symlink(path.join(fixtureDir, 'packages', 'app-src'), path.join(fixtureDir, 'src'), 'dir');
 
-    const runtimeInputs = prepareNamingRuntimeInputs();
-    const legacyAppPaths = collectLegacyNamingRepositoryPaths(fixtureDir, {
-      scope: 'app',
-      reportableExtensions: runtimeInputs.reportableExtensions,
-      reportableRootFiles: runtimeInputs.reportableRootFiles,
-      walkExclusions: runtimeInputs.walkExclusions,
-    });
     const namingAppPaths = collectNamingRepositoryPaths(fixtureDir, { scope: 'app' });
-    const directCandidatePaths = collectValidatorCandidatePaths(fixtureDir, {
-      scope: 'app',
-      skipSymlinkedCandidateScopeRoots: true,
-      candidatePolicy: createNamingCandidatePolicy(),
-    });
+    const namingCandidates = collectValidatorCandidatePaths(fixtureDir, { scope: 'app', candidatePolicy: createNamingCandidatePolicy() });
+    const suiteMembership = collectSuiteScopedSnapshotInputs(fixtureDir, { scope: 'app' });
 
-    assert.deepEqual(legacyAppPaths, ['test/inside.test.js']);
-    assert.deepEqual(namingAppPaths, legacyAppPaths);
-    assert.deepEqual(directCandidatePaths.selectedPaths, legacyAppPaths);
+    assert.deepEqual(namingAppPaths, ['src/inside.logic.ts', 'test/inside.test.js']);
+    assert.deepEqual(namingCandidates.selectedPaths, namingAppPaths);
+    // Shared membership: Naming's candidates are the suite members its candidate policy accepts.
+    assert.deepEqual(suiteMembership.selectedPaths, ['src/inside.logic.ts', 'src/notes.txt', 'test/inside.test.js']);
+    assert.deepEqual(
+      suiteMembership.selectedPaths.filter((candidate) => namingAppPaths.includes(candidate)),
+      namingAppPaths,
+    );
+    // #56 still applies below the followed root, spelled through it.
+    assert.deepEqual(toReportedScopeExclusions(namingCandidates.scopeExclusions), [{ path: 'src/dangling.logic.ts', reason: 'unresolvable-symlink' }]);
+    // A target written through the link, or as the physical path behind it, selects the same paths.
+    for (const target of ['src', 'packages/app-src']) {
+      assert.deepEqual(collectNamingRepositoryPaths(fixtureDir, { scope: 'app', targets: [target] }), ['src/inside.logic.ts'], target);
+    }
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }
@@ -305,7 +317,6 @@ test('Naming candidate helper follows symlinked repository root for repo scope',
     const namingRepoPaths = collectNamingRepositoryPaths(repositoryLink, { scope: 'repo' });
     const directCandidatePaths = collectValidatorCandidatePaths(repositoryLink, {
       scope: 'repo',
-      skipSymlinkedCandidateScopeRoots: true,
       candidatePolicy: createNamingCandidatePolicy(),
     });
 
@@ -438,6 +449,39 @@ test('Naming report findings and summaries remain stable when selected paths com
     assert.equal(migratedReport.totalFilesScanned, legacyReport.totalFilesScanned);
     assert.deepEqual(migratedReport.filters, legacyReport.filters);
     assert.deepEqual(migratedSummary, legacySummary);
+  } finally {
+    await fs.rm(fixtureDir, { recursive: true, force: true });
+  }
+});
+
+// #57: under a symlinked scope root, Naming evidence reaches Tree for the files Tree validates. The
+// Naming observations join Tree's addressed occurrences one to one, spelled through the root, so
+// Stage 2A no longer lacks Naming observations for them; Tree's reasoning itself is unchanged.
+test('Naming observations join Tree occurrences under a symlinked scope root without duplicate identities', async () => {
+  const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'naming-tree-symlink-root-'));
+
+  try {
+    await writeFixtureFile(fixtureDir, 'package.json', '{"name":"fixture","private":true}\n');
+    for (const file of ['app-shell.logic.ts', 'widget/widget-card.logic.ts', 'widget/widget-card.results.ts']) {
+      await writeFixtureFile(fixtureDir, `packages/app-src/${file}`, 'export {};\n');
+    }
+    await fs.symlink(path.join(fixtureDir, 'packages', 'app-src'), path.join(fixtureDir, 'src'), 'dir');
+
+    const registryResolution = resolveActiveRegistrySet({ targetRoot: fixtureDir });
+    const naming = runNamingValidatorHost(fixtureDir, { scope: 'app', registryResolution });
+    const staged = prepareNamingTreeStagingInputs(naming, { registryResolution });
+    const { structuralAddressSnapshot, preparedDependencies } = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'app', registryResolution, ...staged });
+
+    const occurrenceAddresses = structuralAddressSnapshot.occurrenceRecords.map((record) => record.addressPath);
+    assert.equal(new Set(occurrenceAddresses).size, occurrenceAddresses.length);
+    const observedPaths = preparedDependencies.addressedNamingSemanticEvidenceBridge.observations.map((observation) => observation.path).sort();
+    assert.deepEqual(observedPaths, ['src/app-shell.logic.ts', 'src/widget/widget-card.logic.ts', 'src/widget/widget-card.results.ts']);
+    const filePaths = structuralAddressSnapshot.occurrenceRecords.filter((record) => record.occurrenceType === 'file').map((record) => record.resolvedPath);
+    for (const observedPath of observedPaths) {
+      assert.equal(filePaths.filter((filePath) => filePath === observedPath).length, 1, observedPath);
+    }
+    const placements = preparedDependencies.treeFolderSemanticHomeReasoning.placements;
+    assert.equal(placements.some((placement) => placement.reason === 'no-semantic-observation'), false);
   } finally {
     await fs.rm(fixtureDir, { recursive: true, force: true });
   }

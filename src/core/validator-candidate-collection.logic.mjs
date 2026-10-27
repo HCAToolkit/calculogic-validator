@@ -22,7 +22,6 @@ export const collectValidatorCandidatePaths = (
     scope,
     targets = [],
     candidatePolicy,
-    skipSymlinkedCandidateScopeRoots = false,
     packageRoot,
     registryRoots,
   } = {},
@@ -34,7 +33,6 @@ export const collectValidatorCandidatePaths = (
     targets,
     walkExcludedDirectories: policySets.walkExcludedDirectories,
     skipDotDirectories: policySets.skipDotDirectories,
-    skipSymlinkedCandidateScopeRoots,
     packageRoot,
     registryRoots,
   });

@@ -100,7 +100,6 @@ const collectNamingCandidatePaths = (repositoryRoot, {
   collectValidatorCandidatePaths(repositoryRoot, {
     scope,
     targets,
-    skipSymlinkedCandidateScopeRoots: true,
     packageRoot,
     registryRoots,
     candidatePolicy: createNamingCandidatePolicy({

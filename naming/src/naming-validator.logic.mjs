@@ -219,7 +219,6 @@ export const collectRepositoryPaths = (rootDirectory, options = {}) => {
   return collectValidatorCandidatePaths(rootDirectory, {
     scope: options.scope ?? DEFAULT_VALIDATOR_SCOPE,
     targets: options.targets ?? [],
-    skipSymlinkedCandidateScopeRoots: true,
     candidatePolicy,
   }).selectedPaths;
 };

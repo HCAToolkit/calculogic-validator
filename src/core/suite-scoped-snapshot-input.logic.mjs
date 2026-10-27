@@ -68,7 +68,8 @@ const assertScopeEntriesContained = (repositoryRoot, { includeRoots, includeRoot
 // - `non-regular-entry`: a FIFO, socket or device, or a contained symlink to one.
 // A symlink whose name a directory walk rule excludes (`walkExcludedDirectories`, dot directories)
 // is skipped without a record unless it resolves to a contained regular file, as the directory of
-// that name would be. Declared scope roots keep their own rule (#53).
+// that name would be. Declared scope roots keep their own rule (#53): a contained symlinked scope
+// root is followed, under its own lexical spelling, for every slice (#57).
 export const SCOPE_EXCLUSION_REASONS = Object.freeze({
   escapingSymlink: 'escaping-symlink',
   unresolvableSymlink: 'unresolvable-symlink',
@@ -105,22 +106,12 @@ const collectPathsFromScopeRoot = (
   {
     walkExcludedDirectories = new Set(),
     skipDotDirectories = true,
-    skipSymlinkedCandidateScopeRoots = false,
     packageRoot,
   } = {},
 ) => {
   const absoluteRoot = path.resolve(repositoryRoot, scopeRoot);
   const empty = { paths: [], exclusions: [] };
   if (!fs.existsSync(absoluteRoot)) {
-    return empty;
-  }
-
-  const isRepositoryRootScope = path.normalize(scopeRoot) === '.';
-  if (
-    skipSymlinkedCandidateScopeRoots &&
-    !isRepositoryRootScope &&
-    fs.lstatSync(absoluteRoot).isSymbolicLink()
-  ) {
     return empty;
   }
 
@@ -215,7 +206,6 @@ export const collectSuiteScopedPaths = (
     scope,
     walkExcludedDirectories = new Set(),
     skipDotDirectories = true,
-    skipSymlinkedCandidateScopeRoots = false,
     packageRoot,
     registryRoots,
   } = {},
@@ -242,7 +232,6 @@ export const collectSuiteScopedPaths = (
     collectPathsFromScopeRoot(repositoryRoot, scopeRoot, {
       walkExcludedDirectories,
       skipDotDirectories,
-      skipSymlinkedCandidateScopeRoots,
     }),
   );
   const scopedPaths = rootCollections.flatMap((collection) => collection.paths);
@@ -264,7 +253,6 @@ export const collectSuiteScopedSnapshotInputs = (
     targets = [],
     walkExcludedDirectories = new Set(),
     skipDotDirectories = true,
-    skipSymlinkedCandidateScopeRoots = false,
     packageRoot,
     registryRoots,
   } = {},
@@ -273,7 +261,6 @@ export const collectSuiteScopedSnapshotInputs = (
     scope,
     walkExcludedDirectories,
     skipDotDirectories,
-    skipSymlinkedCandidateScopeRoots,
     packageRoot,
     registryRoots,
   });
