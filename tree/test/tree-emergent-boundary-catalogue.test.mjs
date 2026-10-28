@@ -92,7 +92,8 @@ test('integrity: candidates are the focus directory\'s files carrying the prefix
   for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
     const inDirectory = expandFiles(entry.tree).filter((item) => item.dir === entry.directory && Array.isArray(item.tokens));
     if (entry.directoryMembers !== undefined) {
-      assert.equal(new Set(inDirectory.map((item) => item.semanticName)).size, entry.directoryMembers, `${entry.id}: the focus directory has the members S3.9 states`);
+      // S3.2: a member is a file occurrence with an evaluated identity, so occurrences are counted, not names.
+      assert.equal(inDirectory.length, entry.directoryMembers, `${entry.id}: the focus directory has the member occurrences S3.9 states`);
     }
     const prefixes = entry.candidates.map((candidate) => prefixKey(candidate.prefix));
     assert.equal(new Set(prefixes).size, prefixes.length, `${entry.id}: one candidate per prefix`);

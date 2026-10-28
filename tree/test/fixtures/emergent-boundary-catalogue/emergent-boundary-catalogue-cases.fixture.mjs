@@ -12,7 +12,7 @@
 // - `tree`: files for `buildCatalogueCase`. Each file is `{ dir, root, count, tokens?, semanticName?,
 //   role?, roleCategory?, noObservation?, ambiguous? }`; file `i` of the expanded list is
 //   `<dir>/<root>-<i>.logic.mjs`. Folder labels are the basename's hyphen tokens.
-// - `directoryMembers`: where S3.9 states it, the focus directory's member count (checked).
+// - `directoryMembers`: where S3.9 states it, the focus directory's member occurrences (S3.2; checked).
 // - `directory`, `lineageTokens`: the focus directory and the leading N1 tokens its lineage expresses
 //   (checked as a precondition, never derived here).
 // - `candidates`: the focus directory's candidates (S3.3). `prefix` is the shared residual prefix;
@@ -300,6 +300,7 @@ export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
     (() => {
       // Simplified on purpose: the measured specs also share a fourth token (`retirement`, five of eight),
       // a nested group S3.9 does not address; distinct fourth tokens keep this case to the agreed E8.
+      // That nested group is deferred evidence for the provisional selection rule (S3.8), not dropped.
       const knownRoots = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel'].map((rest) =>
         file('doc/specs', ['tree', 'known', 'roots', rest], spec),
       );
