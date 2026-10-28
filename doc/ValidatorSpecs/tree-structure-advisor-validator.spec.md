@@ -1229,9 +1229,17 @@ Each candidate keeps its full discovered membership and partitions it into three
 |---|---|---|
 | **supported** | placement `inside-home` at an ancestor, `no-home`, or `home-elsewhere` only at broader homes; primary or supporting responsibility class | — |
 | **conflicting** | `home-elsewhere` at a supported home with a **different** claim | *positive evidence of another destination*: the home's identity and claim |
-| **unresolved** | `undetermined` placement, or unresolved responsibility class | *insufficient evidence for a decision*: the undetermined placement reason or the missing role evidence |
+| **unresolved** | `undetermined` placement (except an undetermined ancestor alone, below), or unresolved responsibility class | *insufficient evidence for a decision*: the undetermined placement reason or the missing role evidence |
 
 Conflicting and unresolved members are both excluded from any suggested boundary. Their explanations stay distinct: a conflicting member belongs somewhere else, while an unresolved member is undecided.
+
+**Undetermined ancestors.** A placement that is `undetermined` only because a candidate on the member's relevant lineage is undetermined (`home-on-lineage-undetermined`) does **not by itself** make the member unresolved.
+- That uncertainty concerns the larger area the ancestor would own, not the relationships inside the directory, just as a supported ancestor home explains ownership and not decomposition (above).
+- The member is placed by its other evidence. The ancestor's undetermined candidate is retained on the record as contextual evidence (`related-folder-undetermined`); it is not dismissed.
+- It still counts where it bears on the grouping:
+  - an undetermined ancestor whose candidate **corresponds** to the grouping makes the candidate `insufficient-evidence` (`corresponding-home-unresolved`), as any corresponding undetermined folder does;
+  - a member whose placement also consulted an undetermined candidate **elsewhere** is unresolved for that reason, as in E15.
+- Membership itself is formed from Stage 1 comparisons (S3.2), so an ancestor's Stage 2 status never changes which files are members.
 
 **Only the supported set may satisfy opportunity criteria.** Every dimension below is evaluated on the supported members alone:
 - minimum units;
@@ -1255,6 +1263,8 @@ Each dimension records its evidence. None is a score, and they are never combine
 
 **Partial-evidence aggregation (open; S3.8).** How large the conflicting or unresolved share may be before a candidate with a sufficient supported set becomes `insufficient-evidence` (`member-placement-unresolved`) is not decided. Both absolute support (independently supported primary units) and support proportion (the established share of membership) may matter. The catalogue fixes only that **one** conflicting or unresolved member in a group of five does not suppress a sufficient supported set (E14, E15).
 
+Until the limits are decided, only that catalogue point is used. A candidate whose supported set is otherwise sufficient, and which has conflicting or unresolved members, proceeds only when it is at least as strong as E14/E15 on **both** measures: at least **four** supported primary units, and at most **one in five** of its member files outside the supported set. This assumes that more absolute support and a smaller unsupported share never weaken a candidate. Any other share leaves the assessment incomplete for `partial-evidence-aggregation` (S3.6).
+
 #### S3.6 Outcomes
 
 Each candidate receives exactly one outcome, with reasons from a closed vocabulary:
@@ -1274,13 +1284,56 @@ Rules:
 - **Selection.** When related candidates (S3.4) both reach `opportunity`, both are kept, and the record names the one selected as actionable, with its reason *(selection rule provisional, S3.8)*.
 - **The actionable membership of an `opportunity` is its supported set.** Conflicting and unresolved members stay on the record with their explanations.
 
+##### Evidence evaluation and outcome resolution
+
+Assessment has two operations:
+- **Evidence evaluation** computes every dimension and every rule below independently, and records them all.
+- **Outcome resolution** applies the order below to that evidence. The first rule that applies gives the outcome and its one **decisive reason**. `opportunity` carries its supporting dimensions instead.
+
+A decisive rule never hides other evidence. For example, a candidate with low coverage and too few primary units is `insufficient-evidence` (`low-coverage`), and its record still shows the unit count.
+
+Resolution order, with each step's provenance (*established*: a catalogue case where both rules apply fixes the order; *bounded choice*: no case does, so the order is a stated decision, not a finding):
+
+1. **`existing-structure`**: `explained-by-existing-structure`, or `corresponding-home-unresolved` or `internal-boundary-deferred` (S3.5).
+   - Before minimum units and partial evidence: established by E2 `structural-addressing`, whose members are unresolved.
+   - Before specificity: established by E8 `tree`.
+   - First overall: bounded choice. Positive evidence of existing structure answers the question before any property of the grouping does.
+2. **`coverage`**: `low-coverage`.
+   - Before redundancy, whole directory and specificity: established by E12 (S3.9: "any candidate").
+   - Before single responsibility: bounded choice. A grouping read from a mostly unrecognized directory is not assessed further.
+3. **`single-responsibility`**: `single-responsibility-unit`.
+   - Before minimum units and specificity: established by E5.
+   - Before redundancy: established by E4 `semantic`.
+   - Before whole directory: bounded choice. E4 and E5 exercise it only as built, since S3.9 does not fix their directories' other contents. Affirmative evidence is preferred to an undetermined value.
+4. **`redundancy`**: `redundant-with`, for the less specific candidate of a `redundant` pair.
+   - Before specificity: established by E2 `structural`, E7 `semantic`, E14 and E15 `semantic`.
+   - Before minimum units and partial evidence: established by E2 `structural`, whose members are unresolved.
+5. **`whole-directory`**: `whole-directory-value-undetermined`, measured on the supported set (S3.5).
+   - Before specificity: established by E9 `date` and E10 `rule`.
+6. **`specificity`**: `low-specificity`.
+7. **`minimum-units`**: `below-minimum-units`.
+   - Specificity before minimum units: bounded choice. No case is both one-word and below the minimum.
+8. **`partial-evidence`**: `member-placement-unresolved` or `responsibility-evidence-insufficient`, by the kind of evidence missing.
+   - Last before `opportunity`: from S3.5, where the tolerance question arises only for a supported set that is otherwise sufficient. A supported set that fails an earlier rule is decided by that rule.
+   - Under the experimental policy the step either passes (the E14/E15 point) or leaves the assessment incomplete, so neither reason is reachable yet.
+9. **`opportunity`**: every rule above passed.
+
+`competing-candidate-unresolved` has no position: `competing` is unreachable under V0 (S3.4). It is placed when a discovery method can produce it.
+
+**Assessment completion.** Each candidate's assessment is `complete` or `incomplete`. This is a status, not a fifth outcome.
+- When a rule's evaluation needs a provisional decision (S3.8) that the policy in use leaves unresolved:
+  - if an earlier rule already applies, the outcome stands and the assessment is `complete`;
+  - otherwise the assessment is `incomplete`. It carries no outcome and names the unresolved decision.
+- An unresolved decision that no rule on the candidate's path needs never blocks its outcome.
+- An unresolved selection rule never removes an outcome: related opportunities are all kept, and the selection is recorded as unresolved.
+
 #### S3.7 Output
 
 A prepared evidence record, `treeEmergentBoundaryReasoning`. It holds, per directory:
 - its candidates and their discovery method;
 - the candidate relations;
 - the three member sets with their explanations;
-- dimension evidence and outcomes;
+- dimension evidence and outcomes, each with its assessment completion and the policy that produced it (S3.6, S3.8);
 - the selected actionable candidates;
 - coverage;
 - the S3.10 limitations the run met.
@@ -1298,6 +1351,29 @@ None of the following is binding:
 - the **selection rule** between related opportunities.
 
 No value is adopted without catalogue evidence (as S2.10), and none compensates for an upstream evidence gap (S2.15). Adopted values become Tree registry data through the registry migration sequence.
+
+**Experimental policy.** Until values are adopted, outcomes are produced only under an **explicitly supplied, named experimental policy**.
+- There is no default policy. Without one, candidates, relations, member sets, coverage and limitations are still prepared, and no outcome is.
+- Each assessment records the policy's id and version, and the rule and value that decided it.
+- An experimental policy is not adopted policy, and is never Tree registry data.
+
+The catalogue is evaluated under `emergent-boundary-experimental`, version `1`:
+
+| Decision | Value in `emergent-boundary-experimental` v1 | Basis |
+|---|---|---|
+| `minimum-primary-units` | 3 | S3.9 testing value |
+| `one-word-prefix` | no allowance: a one-word prefix is `low-specificity` | S3.9 testing value |
+| `responsibility-class-mapping` | the S3.5 provisional mapping; `documentation` is primary in a grouping whose supported members are all `documentation`, and a mixed grouping's documentation members leave the decision unresolved | S3.5 |
+| `separation-value-limit` | `whole-directory-only` | see below |
+| `coverage-share` | unresolved | no catalogue case fixes it (E12) |
+| `partial-evidence-aggregation` | unresolved beyond the E14/E15 point | S3.5 |
+| `opportunity-selection` | unresolved | no catalogue case needs it |
+
+**`whole-directory-only`** means that a grouping whose supported set does not cover the whole directory has **separation potential**: it would separate some members from others.
+- It does not establish that the separation is beneficial. For example, three files among twenty can be separated, but that alone does not justify a folder.
+- It never produces `opportunity` by itself. It is one of the dimensions every `opportunity` needs, and not an adopted organizational-quality standard.
+- Its basis is the catalogue's contrast: E9 and E10 `rule`, which cover the whole directory, against E1, E6, E7 and E8, which cover part of it.
+- E14 and E15 inform partial-evidence tolerance, not this limit.
 
 #### S3.9 Evidence catalogue
 
@@ -1317,6 +1393,17 @@ Catalogue `emergent-boundary-catalogue`, version `1`.
   - In the executable catalogue, a known discrepancy is a distinctly marked **known-gap case**: it records both outcomes and its cause, and checks that the discrepancy is still exactly as recorded.
   - It does not fail the test suite, so unrelated Tree work is not blocked. When the cause is removed, the check fails until the case is reclassified as an ordinary case, so a fixed gap cannot go unnoticed.
   - It stays visible in the catalogue and blocks the finding decision (S3.11 step 5).
+- **A case whose expected outcome needs a decision the experimental policy leaves unresolved is a policy-incomplete case** (see E12). It is not a known discrepancy:
+
+  | | Known-gap case (E10) | Policy-incomplete case (E12) |
+  |---|---|---|
+  | Problem | the rules reach a known incorrect conclusion | a policy value is missing |
+  | Status under the experimental policy | evaluated, with the known discrepancy | assessment `incomplete` (S3.6) |
+  | Resolved by | correct upstream evidence, or a justified reasoning change | an adopted, or explicitly experimental, value for the decision |
+  | Executable check | the discrepancy is still exactly as recorded | the assessment is incomplete for exactly the recorded decision |
+
+  - Its expected outcome stays recorded. Incompleteness is an assessment-completion status, not a fifth outcome and not a defect.
+  - When a policy supplies the decision, the check fails until the case is re-evaluated against that value and reclassified, and the result is recorded here.
 
 | Case | Tree | Expected outcome |
 |---|---|---|
@@ -1329,12 +1416,54 @@ Catalogue `emergent-boundary-catalogue`, version `1`.
 | E7 | `tree/src`: `tree-folder-*`, 5 units | `folder`: `insufficient-evidence` (`low-specificity`). The relation of `tree-folder-semantic-home-reasoning` to `semantic-home` is **not discovered** (S3.10) |
 | E8 | `doc/ValidatorSpecs`: twelve `tree-*` specs, `home-elsewhere` at `tree/` (root claim `tree`, held by the B2 pairing); `tree-owned/` undetermined, with only `possible-root-reading` relations | `tree`: **`explained-by-existing-structure`** (`tree/`). `tree-known-roots` (8): **`opportunity`** (`tree/` is broader; `tree-owned/` does not correspond). `tree-known`: `not-an-opportunity` (`redundant-with`) |
 | E9 | synthetic: `src/utils/` whose every member is `date-*` | `date`: `insufficient-evidence` (`whole-directory-value-undetermined`) |
-| E10 | `naming/src/rules`: `naming-rule-check-*`, 3 primary units; `rules` is not related to `rule` by any prepared evidence | `rule` (8): `insufficient-evidence` (`whole-directory-value-undetermined`). `rule-check`: expected **`insufficient-evidence`** (`low-specificity`). **Known discrepancy (known-gap case):** the rules of this section would produce `opportunity`, because without the `rule`/`rules` relationship the folder's own concept stays in the residual and inflates specificity. The cause is the S3.10 singular/plural limit, owned by Naming or a shared Linguistic Foundation. The case stays a known-gap case until that cause is removed |
+| E10 | `naming/src/rules`: `naming-rule-check-*`, 3 primary units; `rules` is not related to `rule` by any prepared evidence; the members' placements are `home-on-lineage-undetermined` (`naming/`), which leaves them supported (S3.5, undetermined ancestors) | `rule` (8): `insufficient-evidence` (`whole-directory-value-undetermined`). `rule-check`: expected **`insufficient-evidence`** (`low-specificity`). **Known discrepancy (known-gap case):** the rules of this section would produce `opportunity`, because without the `rule`/`rules` relationship the folder's own concept stays in the residual and inflates specificity. The cause is the S3.10 singular/plural limit, owned by Naming or a shared Linguistic Foundation. The case stays a known-gap case until that cause is removed |
 | E11 | plural folder names (`naming/src/rules`, `tree/src/registries`) | **Not discovered** (S3.10): groupings that would relate `rule` and `rules` are never formed. Measured effects: E10's discrepancy, and spurious whole-directory candidates |
-| E12 | a directory whose members mostly lack a semantic identity | any candidate: `insufficient-evidence` (`low-coverage`) |
+| E12 | a directory whose members mostly lack a semantic identity | any candidate: `insufficient-evidence` (`low-coverage`). **Policy-incomplete case:** no catalogue case fixes the `coverage-share` decision (S3.8), so under the experimental policy the assessment is incomplete for that decision |
 | E13 | E1 with every member flagged `family-boundary-heuristic` | as E1 (Stage 2 D2) |
 | E14 | synthetic: an E1-like group of five, where one member is `home-elsewhere` at a supported home whose claim is **different** | **`opportunity`** on the supported set of four. One conflicting member is recorded with its home and excluded |
 | E15 | synthetic: an E1-like group of five, where one member's placement is `undetermined` against a non-corresponding candidate | **`opportunity`** on the supported set of four. One unresolved member is recorded as undecided and excluded |
+
+##### Evidence sufficiency and policy dependency (S3.11 step 3)
+
+This record traces each expected outcome through the resolution order (S3.6) under `emergent-boundary-experimental` v1 (S3.8). For each case it gives:
+- whether the case can be evaluated;
+- the rule that decides each candidate;
+- every provisional decision on the path to that rule;
+- the limitation, if any, that blocks a justified conclusion.
+
+A decision is depended on only where the path reaches it:
+- `one-word-prefix`: only for a one-word prefix;
+- `coverage-share`: only where the directory has non-members;
+- `partial-evidence-aggregation`: only where members fall outside the supported set.
+
+Outcomes decided by `existing-structure` rest on the Stage 2 preconditions the catalogue checks.
+
+| Case | Status | Decisive rule per candidate | Decisions depended on | Limitation |
+|---|---|---|---|---|
+| E1 | evaluable | `semantic-home`: `opportunity`. `semantic`: `specificity`. `semantic-home-reasoning`: `minimum-units` | `minimum-primary-units`, `one-word-prefix`, `responsibility-class-mapping`, `separation-value-limit` | — |
+| E2 | evaluable | `structural-addressing`: `existing-structure`. `structural`: `redundancy` | `responsibility-class-mapping` | none blocks the expected outcome. The undetermined `structural-addressing/` it records is an upstream coverage effect (S3.10) |
+| E3 | evaluable | `registry`: `specificity` | `one-word-prefix`, `responsibility-class-mapping` | — |
+| E4 | evaluable | `semantic-home`, `semantic`: `single-responsibility` | `responsibility-class-mapping` | — |
+| E5 | evaluable | `loader`: `single-responsibility` | `responsibility-class-mapping` | — |
+| E6 | evaluable | `registry-lifecycle`: `opportunity`. `registry`: `specificity` | `minimum-primary-units`, `one-word-prefix`, `responsibility-class-mapping`, `separation-value-limit` | — |
+| E7 | evaluable | `folder`: `specificity`. `folder-semantic`: `minimum-units`. `semantic-home`: `opportunity`. `semantic`: `redundancy` | `minimum-primary-units`, `one-word-prefix`, `responsibility-class-mapping`, `separation-value-limit` | relationships away from leading tokens: a discovery limit that changes no listed outcome |
+| E8 | evaluable | `tree`: `existing-structure`. `tree-known-roots`: `opportunity`. `tree-known`: `redundancy` | `minimum-primary-units`, `responsibility-class-mapping`, `separation-value-limit` | — |
+| E9 | evaluable | `date`: `whole-directory` | `responsibility-class-mapping` | — |
+| E10 | evaluable, known gap | `rule`: `whole-directory`. `rule-check`: expected `specificity`; the rules reach `opportunity` | `minimum-primary-units`, `responsibility-class-mapping`, `separation-value-limit` | singular/plural relationship (Naming): blocks the justified `rule-check` conclusion |
+| E11 | evaluable | `registry`: `specificity` | `one-word-prefix`, `responsibility-class-mapping` | singular/plural relationship: a discovery limit that changes no listed outcome |
+| E12 | policy-incomplete | `widget-panel`, `widget`: `coverage` | `coverage-share` | `coverage-share` is unresolved |
+| E13 | evaluable | as E1 | `minimum-primary-units`, `one-word-prefix`, `responsibility-class-mapping`, `separation-value-limit` | — |
+| E14 | evaluable | `semantic-home`: `opportunity`. `semantic`: `redundancy` | `minimum-primary-units`, `partial-evidence-aggregation`, `responsibility-class-mapping`, `separation-value-limit` | — |
+| E15 | evaluable | `semantic-home`: `opportunity`. `semantic`: `redundancy` | `minimum-primary-units`, `partial-evidence-aggregation`, `responsibility-class-mapping`, `separation-value-limit` | — |
+
+Further observations:
+- **Decisions no case depends on.**
+  - `opportunity-selection`: no case has two related opportunities. The first will be E8's deferred nested `retirement` group.
+  - Documentation in a mixed grouping (`responsibility-class-mapping`): no case has one.
+- **Every expected `opportunity` depends on `separation-value-limit`.** Outcomes are reachable only because the experimental policy supplies it explicitly. Under a policy that leaves it unresolved, every one of them, E10's known gap included, would be incomplete.
+- **Catalogue fidelity corrections (calculogic-validator#134).** These change no expected outcome:
+  - E3 and E6 are built with unrelated siblings, so their groups no longer cover the whole directory, which would have made them E9's case;
+  - E12's `widget` records the decisive reason this table states.
 
 #### S3.10 Limitations: discovery coverage and assessment evidence
 
@@ -1354,7 +1483,7 @@ Two kinds of limitation are recorded separately, so a missing candidate is never
 Each step needs its own authorization:
 1. This contract (documentation only).
 2. The S3.9 catalogue as executable fixtures, with expected outcomes as stated. Known discrepancies are known-gap cases (S3.9) with their cause; their expected outcomes are never rewritten to match the reasoning.
-3. An evidence-sufficiency record for the fixtures: which cases current evidence decides, and which limitations block a justified conclusion.
+3. An evidence-sufficiency record for the fixtures: which cases current evidence decides, and which limitations block a justified conclusion (S3.9, Evidence sufficiency and policy dependency).
 4. Prepared-evidence implementation (`treeEmergentBoundaryReasoning`), with findings byte-identical at `repo`, `validator` and `app` scope.
 5. The advisory finding decision, with before/after tables, as Stage 2B did.
    - **It is blocked while the catalogue holds a known discrepancy that the reasoning cannot detect** (today E10).

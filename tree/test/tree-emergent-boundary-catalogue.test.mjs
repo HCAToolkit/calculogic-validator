@@ -4,9 +4,14 @@
 // Stage 2 evidence each case's expectation rests on, through the real Stage 1 preparers and Stage 2A
 // reasoning (`buildCatalogueCase`).
 //
+// They also verify the S3.9 evidence-sufficiency record (S3.11 step 3) against the declared catalogue:
+// each expected outcome is traced through the S3.6 resolution order over the case's declared files and
+// member sets, and the decisive rule, the S3.8 decisions on its path and the case's status must agree
+// with the record. This traces declared data; it is not Stage 3 reasoning over prepared evidence.
+//
 // What they do NOT verify: any Stage 3 outcome. Stage 3 reasoning is not implemented (S3.11 step 4);
 // each case's `expected` outcome is data, recorded for that step, and is never asserted here. E10's
-// known-gap behaviour is likewise checked only once the reasoning exists.
+// known-gap and E12's policy-incomplete behaviour are likewise checked only once the reasoning exists.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -14,7 +19,11 @@ import { EMERGENT_BOUNDARY_CATALOGUE } from './fixtures/emergent-boundary-catalo
 import { buildCatalogueCase, files } from './fixtures/semantic-home-catalogue/semantic-home-catalogue.fixture.mjs';
 
 const SPEC = fs.readFileSync(new URL('../../doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md', import.meta.url), 'utf8');
-const S3_9 = SPEC.slice(SPEC.indexOf('#### S3.9 Evidence catalogue'), SPEC.indexOf('#### S3.10'));
+const section = (start, end) => SPEC.slice(SPEC.indexOf(start), SPEC.indexOf(end));
+const S3_6 = section('#### S3.6 Outcomes', '#### S3.7');
+const S3_8 = section('#### S3.8 Parameters', '#### S3.9');
+const S3_9 = section('#### S3.9 Evidence catalogue', '##### Evidence sufficiency and policy dependency');
+const S3_9_RECORD = section('##### Evidence sufficiency and policy dependency', '#### S3.10');
 
 // S3.6: the closed outcome vocabulary and its reasons. `opportunity` reasons are the S3.5 dimensions.
 const REASONS_BY_OUTCOME = Object.freeze({
@@ -35,6 +44,46 @@ const REASONS_BY_OUTCOME = Object.freeze({
 });
 // S3.4. Under V0 prefix discovery `competing` cannot arise, so no case may record it.
 const V0_RELATIONS = ['nested-subgroup', 'redundant', 'disjoint'];
+// S3.6 outcome resolution: the order, and the rule each decisive reason belongs to.
+// (`competing-candidate-unresolved` has no position under V0.)
+const RESOLUTION_ORDER = [
+  'existing-structure',
+  'coverage',
+  'single-responsibility',
+  'redundancy',
+  'whole-directory',
+  'specificity',
+  'minimum-units',
+  'partial-evidence',
+  'opportunity',
+];
+const RULE_OF_REASON = Object.freeze({
+  'corresponding-home-unresolved': 'existing-structure',
+  'internal-boundary-deferred': 'existing-structure',
+  'low-coverage': 'coverage',
+  'single-responsibility-unit': 'single-responsibility',
+  'redundant-with': 'redundancy',
+  'whole-directory-value-undetermined': 'whole-directory',
+  'low-specificity': 'specificity',
+  'below-minimum-units': 'minimum-units',
+  'member-placement-unresolved': 'partial-evidence',
+  'responsibility-evidence-insufficient': 'partial-evidence',
+});
+const ruleOf = ({ outcome, reasons }) => {
+  if (outcome === 'opportunity') return 'opportunity';
+  if (outcome === 'explained-by-existing-structure') return 'existing-structure';
+  return RULE_OF_REASON[reasons[0]];
+};
+// S3.8: the provisional decisions and their values under `emergent-boundary-experimental` v1.
+const EXPERIMENTAL_POLICY = Object.freeze({
+  minimumPrimaryUnits: 3,
+  // The E14/E15 point (S3.5): at least four supported primary units and at most one in five outside.
+  partialEvidencePoint: { supportedPrimaryUnits: 4, outsideShare: 1 / 5 },
+});
+const UNRESOLVED_DECISIONS = ['coverage-share', 'opportunity-selection'];
+// S3.5 provisional responsibility-class mapping (S3.8); `documentation` is primary in an all-documentation grouping.
+const PRIMARY_CATEGORIES = new Set(['concern-core', 'architecture-support', 'surface-system', 'data-model', 'indexing-registry']);
+const SUPPORTING_CATEGORIES = new Set(['quality-support']);
 
 // The tree's files in the order `buildCatalogueCase` builds them, each with its path and N1 tokens.
 const expandFiles = (tree) => {
@@ -52,6 +101,7 @@ test('integrity: the table names the S3.9 catalogue, version and cases, in order
   assert.equal(EMERGENT_BOUNDARY_CATALOGUE.id, 'emergent-boundary-catalogue');
   assert.equal(EMERGENT_BOUNDARY_CATALOGUE.version, '1');
   const specIds = [...S3_9.matchAll(/^\| (E\d+) \|/gmu)].map((match) => match[1]);
+  assert.deepEqual([...S3_9_RECORD.matchAll(/^\| (E\d+) \|/gmu)].map((match) => match[1]), specIds, 'the sufficiency record has one row per case');
   assert.deepEqual(specIds, Array.from({ length: 15 }, (_, index) => `E${index + 1}`));
   assert.deepEqual(
     EMERGENT_BOUNDARY_CATALOGUE.cases.map((entry) => entry.id),
@@ -126,6 +176,142 @@ test('integrity: a case with lineage tokens shows them expressed by a lineage fo
       (comparison) => comparison.result === 'match' && [...allMembers].every((name) => comparison.names.includes(name)),
     );
     assert.ok(covering, `${entry.id}: a root-match precondition covers every member`);
+  }
+});
+
+test('integrity: the policy-incomplete marker is on exactly the cases S3.9 names, for unresolved decisions only', () => {
+  const specCases = [...S3_9.matchAll(/^\| (E\d+) \|.*\*\*Policy-incomplete case:\*\*/gmu)].map((match) => match[1]);
+  const tableCases = EMERGENT_BOUNDARY_CATALOGUE.cases.filter((entry) => entry.policyIncomplete).map((entry) => entry.id);
+  assert.deepEqual(tableCases, specCases);
+  assert.deepEqual(tableCases, ['E12']);
+  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases.filter((candidateCase) => candidateCase.policyIncomplete)) {
+    const { candidates, unresolvedDecisions, cause } = entry.policyIncomplete;
+    assert.ok(!entry.knownGap, `${entry.id}: a policy-incomplete case is not a known gap`);
+    for (const prefix of candidates) assert.ok(entry.candidates.some((item) => prefixKey(item.prefix) === prefix), `${entry.id}: ${prefix} is a candidate`);
+    for (const decision of unresolvedDecisions) assert.ok(UNRESOLVED_DECISIONS.includes(decision), `${entry.id}: ${decision} is unresolved in the experimental policy`);
+    assert.ok(cause.length > 0, `${entry.id}: the cause is recorded`);
+  }
+});
+
+test('integrity: S3.6 states the resolution order, and S3.8 the experimental policy\'s decisions', () => {
+  assert.deepEqual([...S3_6.matchAll(/^\d+\. \*\*`([a-z-]+)`\*\*/gmu)].map((match) => match[1]), RESOLUTION_ORDER);
+  assert.match(S3_8, /under `emergent-boundary-experimental`, version `1`/u);
+  const rows = Object.fromEntries([...S3_8.matchAll(/^\| `([a-z-]+)` \| ([^|]+) \|/gmu)].map((match) => [match[1], match[2].trim()]));
+  assert.deepEqual(Object.keys(rows), [
+    'minimum-primary-units',
+    'one-word-prefix',
+    'responsibility-class-mapping',
+    'separation-value-limit',
+    'coverage-share',
+    'partial-evidence-aggregation',
+    'opportunity-selection',
+  ]);
+  assert.equal(rows['minimum-primary-units'], String(EXPERIMENTAL_POLICY.minimumPrimaryUnits));
+  assert.equal(rows['separation-value-limit'], '`whole-directory-only`');
+  for (const decision of UNRESOLVED_DECISIONS) assert.equal(rows[decision], 'unresolved', `${decision} is unresolved`);
+});
+
+// The S3.6 resolution path of one candidate over its declared files and member sets: the decisive rule
+// and the S3.8 decisions on the path (S3.9 record). `existing-structure` rests on Stage 2 evidence the
+// preconditions check, so it is taken from the expectation. `incomplete` means an unresolved decision
+// is needed before any rule applies.
+const tracePath = (entry, candidate) => {
+  const inDirectory = expandFiles(entry.tree).filter((item) => item.dir === entry.directory);
+  const memberFiles = inDirectory.filter((item) => Array.isArray(item.tokens));
+  const candidateFiles = memberFiles.filter((item) => candidate.members.includes(item.semanticName));
+  const supportedNames = candidate.memberSets?.supported ?? candidate.members;
+  const supported = memberFiles.filter((item) => supportedNames.includes(item.semanticName));
+  const dependsOn = new Set();
+  const result = (rule) => ({ rule, incomplete: rule === null, dependsOn: [...dependsOn].sort() });
+
+  if (ruleOf(candidate.expected) === 'existing-structure') return result('existing-structure');
+  if (inDirectory.length > memberFiles.length) {
+    dependsOn.add('coverage-share');
+    return result(null);
+  }
+  dependsOn.add('responsibility-class-mapping');
+  const allDocumentation = supported.every((item) => item.roleCategory === 'documentation');
+  const classOf = (item) => {
+    const category = item.roleCategory ?? 'concern-core';
+    if (PRIMARY_CATEGORIES.has(category) || (category === 'documentation' && allDocumentation)) return 'primary';
+    if (SUPPORTING_CATEGORIES.has(category)) return 'supporting';
+    // A mixed grouping's documentation, or no category: no catalogue case reaches it.
+    throw new Error(`${entry.id} ${prefixKey(candidate.prefix)}: unresolved responsibility class for ${item.semanticName}`);
+  };
+  const primaryUnits = new Set(supported.filter((item) => classOf(item) === 'primary').map((item) => item.semanticName)).size;
+  if (primaryUnits === 1) return result('single-responsibility');
+  if ((candidate.relations ?? []).some((relation) => relation.relation === 'redundant')) return result('redundancy');
+  if (supported.length === memberFiles.length) return result('whole-directory');
+  if (candidate.prefix.length === 1) {
+    dependsOn.add('one-word-prefix');
+    return result('specificity');
+  }
+  dependsOn.add('minimum-primary-units');
+  if (primaryUnits < EXPERIMENTAL_POLICY.minimumPrimaryUnits) return result('minimum-units');
+  const outside = candidateFiles.length - supported.length;
+  if (outside > 0) {
+    dependsOn.add('partial-evidence-aggregation');
+    const point = EXPERIMENTAL_POLICY.partialEvidencePoint;
+    if (primaryUnits < point.supportedPrimaryUnits || outside / candidateFiles.length > point.outsideShare) return result(null);
+  }
+  dependsOn.add('separation-value-limit');
+  return result('opportunity');
+};
+
+test('integrity: a redundant relation names the more specific candidate with the same members', () => {
+  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
+    for (const candidate of entry.candidates) {
+      for (const relation of (candidate.relations ?? []).filter((item) => item.relation === 'redundant')) {
+        const other = entry.candidates.find((item) => prefixKey(item.prefix) === relation.to);
+        const label = `${entry.id} ${prefixKey(candidate.prefix)}`;
+        assert.ok(other.prefix.length > candidate.prefix.length && candidate.prefix.every((token, index) => other.prefix[index] === token), `${label}: ${relation.to} extends it`);
+        assert.deepEqual([...other.members].sort(), [...candidate.members].sort(), `${label}: same members as ${relation.to}`);
+      }
+    }
+  }
+});
+
+test('sufficiency record: every expected outcome follows the S3.6 resolution order, with the recorded rules, decisions and status', () => {
+  const recordRows = Object.fromEntries(
+    [...S3_9_RECORD.matchAll(/^\| (E\d+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|/gmu)].map((match) => [
+      match[1],
+      { status: match[2].trim(), rules: match[3].trim(), decisions: [...match[4].matchAll(/`([a-z-]+)`/gu)].map((item) => item[1]).sort() },
+    ]),
+  );
+  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
+    const decisions = new Set();
+    const rules = new Set();
+    for (const candidate of entry.candidates) {
+      const label = `${entry.id} ${prefixKey(candidate.prefix)}`;
+      const traced = tracePath(entry, candidate);
+      traced.dependsOn.forEach((decision) => decisions.add(decision));
+      const expectedRule = ruleOf(candidate.expected);
+      assert.ok(RESOLUTION_ORDER.includes(expectedRule), `${label}: the expected reason belongs to a rule`);
+      if (entry.knownGap?.candidate === prefixKey(candidate.prefix)) {
+        // A known gap: the rules reach what the gap records, never the expected outcome.
+        assert.equal(traced.rule, ruleOf(entry.knownGap.rulesWouldProduce), `${label}: the rules reach the recorded discrepancy`);
+        assert.notEqual(traced.rule, expectedRule, `${label}: the discrepancy is real`);
+        rules.add(traced.rule);
+      } else if (entry.policyIncomplete?.candidates.includes(prefixKey(candidate.prefix))) {
+        assert.ok(traced.incomplete, `${label}: the assessment is incomplete`);
+        assert.deepEqual(traced.dependsOn, [...entry.policyIncomplete.unresolvedDecisions].sort(), `${label}: incomplete for exactly the recorded decisions`);
+        // The expected outcome's rule is the one the missing decision blocks.
+        assert.equal(expectedRule, 'coverage', `${label}: the blocked rule is the expected one`);
+      } else {
+        assert.ok(!traced.incomplete, `${label}: the assessment completes under the experimental policy`);
+        assert.equal(traced.rule, expectedRule, `${label}: the resolution order reaches the expected outcome`);
+      }
+      rules.add(expectedRule);
+    }
+    const row = recordRows[entry.id];
+    assert.ok(row, `${entry.id}: a sufficiency record row`);
+    const status = entry.knownGap ? 'evaluable, known gap' : entry.policyIncomplete ? 'policy-incomplete' : 'evaluable';
+    assert.equal(row.status, status, `${entry.id}: status`);
+    assert.deepEqual(row.decisions, [...decisions].sort(), `${entry.id}: the decisions on the candidates' paths`);
+    const reference = row.rules.match(/^as (E\d+)$/u);
+    const rulesText = reference ? recordRows[reference[1]].rules : row.rules;
+    for (const rule of rules) assert.ok(rulesText.includes(`\`${rule}\``), `${entry.id}: the record names rule ${rule}`);
+    for (const candidate of entry.candidates) assert.ok(rulesText.includes(`\`${prefixKey(candidate.prefix)}\``), `${entry.id}: the record names ${prefixKey(candidate.prefix)}`);
   }
 });
 
