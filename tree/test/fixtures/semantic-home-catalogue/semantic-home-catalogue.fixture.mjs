@@ -24,6 +24,8 @@ const section = (contractVersion, records) => ({
 // - `tokens`: N1 tokens (default `[root, 'item']`); `null` means the token group is not provided.
 // - `noObservation: true`: no v1 observation (and no N1 record).
 // - `ambiguous: true`: the observation carries `family-boundary-heuristic`.
+// - `semanticName`, `role`, `roleCategory`: per-file overrides of the defaults (`<root>-item`, `logic`,
+//   `concern-core`), used by the Stage 3 catalogue; the S2.11 cases never set them.
 export const files = (dir, root, n, options = {}) => Array.from({ length: n }, () => ({ dir, root, ...options }));
 
 // `folders`: `{ path, context?: root, packageRoot?: root }` (labels are the basename's hyphen
@@ -62,12 +64,13 @@ export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs
     if (spec.noObservation) return;
     observations.push({
       ...tuple(address),
-      semanticName: `${spec.root}-item`,
+      semanticName: spec.semanticName ?? `${spec.root}-item`,
       familyRoot: spec.root,
       semanticFamily: spec.root,
       ...(spec.ambiguous ? { ambiguityFlags: ['family-boundary-heuristic'] } : {}),
     });
-    n1.push(spec.tokens === null ? { ...tuple(address), ...ROLE } : { ...tuple(address), semanticTokens: spec.tokens ?? [spec.root, 'item'], ...ROLE });
+    const role = spec.role ? { role: spec.role, roleCategory: spec.roleCategory, roleStatus: 'active' } : ROLE;
+    n1.push(spec.tokens === null ? { ...tuple(address), ...role } : { ...tuple(address), semanticTokens: spec.tokens ?? [spec.root, 'item'], ...role });
   });
   for (const folder of folderSpecs) {
     const address = addressByPath.get(folder.path);
