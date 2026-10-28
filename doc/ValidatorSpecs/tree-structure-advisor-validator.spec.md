@@ -1043,7 +1043,7 @@ Principle (Stage 2B): not every piece of prepared reasoning needs a finding. The
   These measurements establish the problem for the current evidence model and this repository; they do not show that reliable subgroup evidence could never exist.
 - **What stays.** Only the emitter and its details (including the former `scopeBoundary` text) are removed. `interpretFamilyLocalFirst`, its `local-subgroup-first` classification and the decision order are unchanged; the thresholds are renamed `FAMILY_LOCAL_SUBGROUP_MIN_FILES` (4) and `FAMILY_LOCAL_SUBGROUP_MIN_DISTINCT_LOCAL_HOMES` (2), values and behavior unchanged, and the lower-level grouping signal is still required. The former `FAMILY_SUBGROUP_OPPORTUNITY_REQUIRES_LOWER_LEVEL_GROUPING_SIGNAL` constant only fed the retired finding's `details.thresholds` and is removed with them. Retaining them does not validate them. After Stage 2B-ii and 2B-iii, only the two divergence lanes can affect a finding (through `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES`); whether the spine is simplified belongs to that code's slice (E3).
 - **Compatibility.** The code is intentionally retired and no longer emitted; every runner report stays byte-identical at `repo`, `validator` and `app` scope because it emitted nothing. `governedCodes` is unchanged. The consumer inventory found no reference to the code or its details in Calculogic_React_App (at e660781) or in this repository's report tooling; the remaining mentions are historical audits.
-- **Deferred capability (E2).** Potential subgroup or subfolder discovery remains a possible future extension of Stage 2 reasoning. Unlike the retired `TREE_FAMILY_SUBGROUP_OPPORTUNITY` heuristic, such a capability would need independently justified evidence for hypothetical folder claims, explicit uncertainty handling, and its own contract, catalogue, parameter, and conformance decisions. This retirement neither authorizes nor commits to that extension. It would be potential-home discovery, distinct from Semantic Home evaluation, which decides relationships involving existing folders.
+- **Deferred capability (E2).** Potential subgroup or subfolder discovery remains a possible future extension of Stage 2 reasoning. Unlike the retired `TREE_FAMILY_SUBGROUP_OPPORTUNITY` heuristic, such a capability would need independently justified evidence for hypothetical folder claims, explicit uncertainty handling, and its own contract, catalogue, parameter, and conformance decisions. This retirement neither authorizes nor commits to that extension. It would be potential-home discovery, distinct from Semantic Home evaluation, which decides relationships involving existing folders. The capability is now specified as a contract in Stage 3, emergent structural-boundary opportunities (S3.1–S3.12), and is still not implemented.
 
 **`TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES`: retired in Stage 2B-iv (implemented; calculogic-validator#102, L1–L4), together with the Naming semantic-family bridge contributor.**
 - **Before:** singular (unflagged) observations grouped by `semanticFamily`, under the shared root `src/shared` in at least 2 of the lane partitions `build`, `build-style`, `logic`, `knowledge`, `results`, `results-style`, `tests`, `docs`, with at least 3 files; emitted only when the local-first spine classified the family in one of its two divergence lanes and the broader-spread review was unresolved. It recommended `src/shared/<semanticFamily>` (`details.suggestedSemanticTargetRoot`). 0 emissions at `repo`, `validator` and `app` scope at 92c3b91, and 0 in Calculogic_React_App at e660781 (its `src/shared` holds no lane partition and no Naming observation). The thresholds and the shared-root and lane lists were code literals with no recorded rationale.
@@ -1128,6 +1128,249 @@ Each step needs its own authorization:
 - Compensating for known Naming evidence gaps through parameter values (S2.10, D3).
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
+
+### Emergent structural-boundary opportunities, Stage 3 (Status: Contract. Not implemented. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
+
+This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
+
+**Conformance and opportunity.** Stage 2 and the existing findings answer conformance questions: how files relate to structure that exists. Stage 3 answers an opportunity question: whether structure that does not exist yet would improve the organization.
+- An opportunity never makes valid placement invalid. Every Stage 2 placement and existing finding is unchanged by Stage 3.
+- The absence of an opportunity is not approval. The organization may be improvable in ways Stage 3 does not model.
+- A new folder is the only improvement Stage 3 models. It is not the only kind of structural improvement. Merging, renaming, moving between existing homes and reshaping a directory are outside this section.
+
+**Principle (from Stage 2).** Every conclusion names the evidence that justifies it. Where evidence does not justify an opportunity, the result is recorded as insufficient, explained or not an opportunity, never as an affirmative suggestion. Uncertainty is never treated as negative evidence.
+
+**Relationship to Stage 2.** Stage 2 decides relationships between files and folders that exist. Stage 3 considers folders that do not exist. It reads Stage 2's records by reference and never changes them.
+
+#### S3.1 Inputs and ownership
+
+Stage 3 reads only prepared evidence, by reference:
+- the addressed snapshot (Structural Addressing): directories, their direct file members, sibling sets and lineage, joined by addressed occurrence identity, never by path;
+- the Stage 1 Naming intake: each file's accepted semantic identity, including N1 token sequence, `semanticName`, `role`, `roleCategory` and ambiguity flags;
+- the Stage 1 comparison operation (S1.5), to decide whether an ancestor folder expresses a file's leading tokens;
+- the Stage 2A record: candidate outcomes, claims, governing channels and placements.
+
+Stage 3 never reinterprets Naming material:
+- It never tokenizes, stems, singularizes or derives families.
+- It reads N1 token sequences as Naming supplies them.
+- A lexical relationship Naming does not supply (for example between `rule` and `rules`) is not assumed and not approximated. Its absence is recorded (S3.10).
+
+Naming supplies semantic evidence; Tree decides what structural reading it supports. Stage 3 owns:
+- candidate discovery;
+- relationships between candidates;
+- member sets;
+- assessment, outcomes;
+- any future advisory finding.
+
+#### S3.2 Terms
+
+- **Directory:** a folder occurrence in the addressed snapshot.
+- **Member:** a file occurrence directly inside a directory with an evaluated semantic identity. Files without one are not members; they are counted as coverage (S3.5).
+- **Lineage-expressed prefix:** the leading N1 tokens of a member that an ancestor folder on its relevant lineage (S2.8) already expresses, by the Stage 1 root or prefix comparison.
+- **Residual tokens:** a member's N1 tokens after its lineage-expressed prefix. This is a positional reading of Naming's sequence, not re-tokenization.
+- **Shared residual prefix:** a leading sequence of residual tokens common to several members of one directory. Its length is its **lexical specificity**.
+- **Primary unit:** a distinct `semanticName` among members in a primary responsibility class (S3.5).
+- **Grouping candidate:** a directory, a shared residual prefix, the discovery method, and the members that carry the prefix.
+
+#### S3.3 Candidate discovery (prefix-based, V0)
+
+**Prefix-based discovery V0 is Tree's first discovery method, not its definition of a semantic grouping.**
+- It finds only relationships expressed by shared leading residual tokens. Relationships expressed elsewhere in a name are not discovered (S3.10).
+- Later methods may use Naming-provided relationship evidence without changing Tree's ownership. Each is added by amendment, and every candidate records the method that discovered it.
+
+**Discovery and assessment are separate steps.**
+- **Discovery** finds possible groupings from the available evidence, however weak.
+- **Assessment** (S3.5, S3.6) decides whether a grouping supports a recommendation.
+
+Discovery applies no evidence-quality or threshold filter. For each directory it forms one candidate for every shared residual prefix, at every specificity, carried by **at least two member files**. Two files is the structural minimum for a group to exist, not an evidence threshold. Responsibility units are counted only in assessment (S3.5), so a single name with several files (E5) is discovered and assessed, not filtered out.
+
+**Every discovered candidate is preserved.** None is discarded because it overlaps another or because it is weak. Its assessment outcome records why it is not recommended.
+
+#### S3.4 Relationships between candidates
+
+For each pair of candidates in one directory, exactly one relation is recorded:
+
+| Relation | Condition |
+|---|---|
+| `nested-subgroup` | One candidate's prefix extends the other's, and its members are a proper subset of the other's. |
+| `redundant` | Both have the same members. |
+| `competing` | They share members, but neither is nested in the other. |
+| `disjoint` | No shared members. |
+
+Under V0 prefix discovery `competing` cannot arise: a member's residual has one leading sequence, so two prefixes that do not extend one another share no members. The relation exists for later discovery methods.
+
+A nested subgroup does not cancel its parent; both are assessed. Selecting an actionable boundary among related candidates happens only in S3.6.
+
+#### S3.5 Assessment
+
+##### Existing structure and correspondence
+
+**Correspondence is decided from prepared evidence, never from folder-name strings.** An existing folder's candidate *corresponds* to a grouping when both hold:
+- the members' Stage 2 placements record that candidate as consulted with relation `match`;
+- the candidate's claim tokens equal the grouping's shared prefix.
+
+A claim that is a proper leading part of the shared prefix is **broader**. Any other claim is **different**. `possible-root-reading` and `possible-unevaluated` relations never establish correspondence.
+
+| Semantic Home evidence | Effect |
+|---|---|
+| A supported home is an ancestor of the candidate's directory | **Compatible.** A Semantic Home explains ownership of the larger area, not its internal decomposition. |
+| The candidate's directory is itself a supported home | Internal subdivision. The home relationship is recorded as supported and the candidate as discovered. **Recommendation is deferred** in this version (`insufficient-evidence`, `internal-boundary-deferred`). |
+| A supported home elsewhere corresponds to the grouping | The existing home is the destination: **`explained-by-existing-structure`**. Every member matching that claim matches the home, so this is decided for the group. |
+| A supported home elsewhere with a broader claim | Recorded. Not decisive. |
+| A corresponding folder whose candidate is undetermined | **`insufficient-evidence`** (`corresponding-home-unresolved`). It is neither treated as the home nor ignored. |
+| An unrelated or broader undetermined folder | Does not block assessment. Noted (`related-folder-undetermined`). |
+| No supported home | Neither establishes nor rules out an opportunity. |
+
+##### Member sets
+
+Each candidate keeps its full discovered membership and partitions it into three sets:
+
+| Set | Condition | Explanation recorded |
+|---|---|---|
+| **supported** | placement `inside-home` at an ancestor, `no-home`, or `home-elsewhere` only at broader homes; primary or supporting responsibility class | — |
+| **conflicting** | `home-elsewhere` at a supported home with a **different** claim | *positive evidence of another destination*: the home's identity and claim |
+| **unresolved** | `undetermined` placement, or unresolved responsibility class | *insufficient evidence for a decision*: the undetermined placement reason or the missing role evidence |
+
+Conflicting and unresolved members are both excluded from any suggested boundary. Their explanations stay distinct: a conflicting member belongs somewhere else, while an unresolved member is undecided.
+
+**Only the supported set may satisfy opportunity criteria.** Every dimension below is evaluated on the supported members alone:
+- minimum units;
+- specificity;
+- responsibility diversity;
+- separation value.
+
+A conflicting or unresolved member never counts toward a minimum or toward cohesion. A candidate with two supported primary units and three unresolved members does not reach a minimum of three.
+
+##### Dimensions
+
+Each dimension records its evidence. None is a score, and they are never combined into one.
+
+| Dimension | Evidence (supported members only) | Rule |
+|---|---|---|
+| Concentration | primary units and member files | the minimum primary units for `opportunity` is a provisional parameter (S3.8) |
+| Lexical specificity | shared residual prefix length | an evidence-strength consideration, not an eligibility rule. In this version a one-word prefix reaches no `opportunity` (`low-specificity`), as a provisional limit (S3.8) |
+| Responsibility diversity | `semanticName`, `role`, `roleCategory` | members are classed *(provisional mapping, S3.8)* as **primary** (a contributing function, for example `concern-core`, `architecture-support`, `surface-system`, `data-model`, `indexing-registry`, and `documentation` for documentation groupings), **supporting** (for example `quality-support`) or **unresolved** (no role category). Primary units are counted separately from supporting files. **A role does not identify a responsibility:** a primary-unit count is evidence of diversity, not proof |
+| Separation value | supported members as a share of the directory's members | a grouping covering the whole directory separates nothing inside it (S3.6) |
+| Evidence quality | coverage (non-members in the directory), ambiguity flags | per Stage 2 D2, the family-boundary flag does not qualify token-sequence comparisons, so a shared residual prefix is full support. The flag is recorded, and no family- or subgroup-level conclusion counts flagged evidence |
+
+**Partial-evidence aggregation (open; S3.8).** How large the conflicting or unresolved share may be before a candidate with a sufficient supported set becomes `insufficient-evidence` (`member-placement-unresolved`) is not decided. Both absolute support (independently supported primary units) and support proportion (the established share of membership) may matter. The catalogue fixes only that **one** conflicting or unresolved member in a group of five does not suppress a sufficient supported set (E14, E15).
+
+#### S3.6 Outcomes
+
+Each candidate receives exactly one outcome, with reasons from a closed vocabulary:
+
+| Outcome | Meaning | Reasons |
+|---|---|---|
+| `opportunity` | The supported set positively supports that a new boundary would clarify the directory | the supporting dimensions |
+| `insufficient-evidence` | The evidence does not justify an opportunity or its absence | `below-minimum-units`, `low-specificity`, `corresponding-home-unresolved`, `responsibility-evidence-insufficient`, `low-coverage`, `member-placement-unresolved`, `internal-boundary-deferred`, `competing-candidate-unresolved`, `whole-directory-value-undetermined` |
+| `explained-by-existing-structure` | A supported home elsewhere corresponds to the grouping | the home's identity and claim |
+| `not-an-opportunity` | **Affirmative evidence** shows that the specific boundary assessed would add nothing | `single-responsibility-unit`, `redundant-with` |
+
+Rules:
+- **`not-an-opportunity` needs an affirmative reason.** Failing a threshold, or not knowing whether a boundary adds value, is `insufficient-evidence`.
+- **`single-responsibility-unit`** means the supported set contains exactly one primary unit, and every other supported member is in a supporting class. It does not claim that the supporting members belong to that unit, because Naming supplies no such relation. It is a structural assessment of the recognized members: they show one primary unit and no other, so on the observed evidence a boundary around them would separate nothing. It is not a statement that the grouping can hold no other responsibility. Its affirmative basis is the responsibility-class mapping, which is provisional (S3.8).
+- **A grouping covering the whole directory** is `insufficient-evidence` (`whole-directory-value-undetermined`). A subfolder separates nothing, but the directory itself may deserve renaming or reshaping, which Stage 3 does not model.
+- `insufficient-evidence` is never treated as `not-an-opportunity` and never produces a finding.
+- **Selection.** When related candidates (S3.4) both reach `opportunity`, both are kept, and the record names the one selected as actionable, with its reason *(selection rule provisional, S3.8)*.
+- **The actionable membership of an `opportunity` is its supported set.** Conflicting and unresolved members stay on the record with their explanations.
+
+#### S3.7 Output
+
+A prepared evidence record, `treeEmergentBoundaryReasoning`. It holds, per directory:
+- its candidates and their discovery method;
+- the candidate relations;
+- the three member sets with their explanations;
+- dimension evidence and outcomes;
+- the selected actionable candidates;
+- coverage;
+- the S3.10 limitations the run met.
+
+**This version emits no finding.** Any advisory finding is decided under S3.11 step 5.
+
+#### S3.8 Parameters (all provisional)
+
+None of the following is binding:
+- the **minimum primary units** for `opportunity`. The catalogue is evaluated at **3**, as a testing value. Three is not a rule that three units justify a folder. It may be profile-aware (documentation versus implementation, by `roleCategory`), and it carries over to no other structural domain;
+- whether, and how, independent supporting evidence lets a **one-word prefix** reach `opportunity`. This version makes no allowance; that is a limit, not a permanent rule;
+- the **responsibility-class mapping** over Naming's role categories;
+- the **separation-value** limit and the **coverage** share for `low-coverage`;
+- the **partial-evidence aggregation** limits (absolute support and support proportion);
+- the **selection rule** between related opportunities.
+
+No value is adopted without catalogue evidence (as S2.10), and none compensates for an upstream evidence gap (S2.15). Adopted values become Tree registry data through the registry migration sequence.
+
+#### S3.9 Evidence catalogue
+
+Catalogue `emergent-boundary-catalogue`, version `1`.
+- **One case is one fixture.** Its candidates and their outcomes are nested within it.
+- Each case records:
+  - the prepared evidence;
+  - the candidates discovery forms;
+  - the relevant relations;
+  - its **expected outcome**;
+  - any missing evidence.
+- Measured cases cite `calculogic-validator` at `667a151`, with Stage 2 evidence prepared as full runs prepare it.
+- **Stage 3 is not implemented.** "Reasoning result" below means what the rules of this section would produce once implemented. It is **not** current runtime behavior.
+- **Expected outcomes are provisional.** They are what the proposed evidence model concludes under the provisional values of S3.8 (minimum 3; no one-word allowance). They are catalogue expectations, **not mandatory recommendations**. In particular, the `opportunity` outcomes of E1 (`semantic-home/`) and E8 (`tree-known-roots/`) do not establish that those folders should be created. Each case's expectation may change when a provisional value or rule is adopted, and the change is recorded in this table first, with a catalogue version increase.
+- **The expected outcome is what correct reasoning concludes, not what the proposed rules produce.** Where the two differ, the case is a **known discrepancy** (see E10).
+  - Its expected outcome is never adjusted to match the reasoning.
+  - In the executable catalogue, a known discrepancy is a distinctly marked **known-gap case**: it records both outcomes and its cause, and checks that the discrepancy is still exactly as recorded.
+  - It does not fail the test suite, so unrelated Tree work is not blocked. When the cause is removed, the check fails until the case is reclassified as an ordinary case, so a fixed gap cannot go unnoticed.
+  - It stays visible in the catalogue and blocks the finding decision (S3.11 step 5).
+
+| Case | Tree | Expected outcome |
+|---|---|---|
+| E1 | `tree/src`: `tree-semantic-home-*`, 8 primary units of 28 members; supported home `tree/` is an ancestor | `semantic-home`: **`opportunity`**. `semantic` (9): `insufficient-evidence` (`low-specificity`). `semantic-home-reasoning` (2): `insufficient-evidence` (`below-minimum-units`) |
+| E2 | `doc/ValidatorSpecs`: three `structural-addressing-*` specs; the `structural-addressing/` candidate matches them (`match`), claims `structural addressing`, and is undetermined (coverage 5/11) | `structural-addressing`: **`insufficient-evidence`** (`corresponding-home-unresolved`). `structural`: `not-an-opportunity` (`redundant-with`) |
+| E3 | synthetic: five `registry-*` primary units | `registry`: `insufficient-evidence` (`low-specificity`) |
+| E4 | synthetic: `semantic-home-report.logic` (`concern-core`, primary) and `semantic-home-test.fixture` (`quality-support`, supporting): two different names | `semantic-home`: **`not-an-opportunity`** (`single-responsibility-unit`). Two different names do not make two responsibilities: the supported set holds one primary unit and one supporting member. Depends on the provisional responsibility-class mapping (S3.8). Unrecognized files and coverage are E12's question |
+| E5 | synthetic: `loader.logic`, `loader.test`, `loader.fixture` | **`not-an-opportunity`** (`single-responsibility-unit`) |
+| E6 | synthetic: `registry-lifecycle-{loader,resolver,state}` plus `registry-{policy,report}` | `registry-lifecycle`: **`opportunity`**. `registry`: `insufficient-evidence` (`low-specificity`); relation `nested-subgroup` |
+| E7 | `tree/src`: `tree-folder-*`, 5 units | `folder`: `insufficient-evidence` (`low-specificity`). The relation of `tree-folder-semantic-home-reasoning` to `semantic-home` is **not discovered** (S3.10) |
+| E8 | `doc/ValidatorSpecs`: twelve `tree-*` specs, `home-elsewhere` at `tree/` (root claim `tree`, held by the B2 pairing); `tree-owned/` undetermined, with only `possible-root-reading` relations | `tree`: **`explained-by-existing-structure`** (`tree/`). `tree-known-roots` (8): **`opportunity`** (`tree/` is broader; `tree-owned/` does not correspond). `tree-known`: `not-an-opportunity` (`redundant-with`) |
+| E9 | synthetic: `src/utils/` whose every member is `date-*` | `date`: `insufficient-evidence` (`whole-directory-value-undetermined`) |
+| E10 | `naming/src/rules`: `naming-rule-check-*`, 3 primary units; `rules` is not related to `rule` by any prepared evidence | `rule` (8): `insufficient-evidence` (`whole-directory-value-undetermined`). `rule-check`: expected **`insufficient-evidence`** (`low-specificity`). **Known discrepancy (known-gap case):** the rules of this section would produce `opportunity`, because without the `rule`/`rules` relationship the folder's own concept stays in the residual and inflates specificity. The cause is the S3.10 singular/plural limit, owned by Naming or a shared Linguistic Foundation. The case stays a known-gap case until that cause is removed |
+| E11 | plural folder names (`naming/src/rules`, `tree/src/registries`) | **Not discovered** (S3.10): groupings that would relate `rule` and `rules` are never formed. Measured effects: E10's discrepancy, and spurious whole-directory candidates |
+| E12 | a directory whose members mostly lack a semantic identity | any candidate: `insufficient-evidence` (`low-coverage`) |
+| E13 | E1 with every member flagged `family-boundary-heuristic` | as E1 (Stage 2 D2) |
+| E14 | synthetic: an E1-like group of five, where one member is `home-elsewhere` at a supported home whose claim is **different** | **`opportunity`** on the supported set of four. One conflicting member is recorded with its home and excluded |
+| E15 | synthetic: an E1-like group of five, where one member's placement is `undetermined` against a non-corresponding candidate | **`opportunity`** on the supported set of four. One unresolved member is recorded as undecided and excluded |
+
+#### S3.10 Limitations: discovery coverage and assessment evidence
+
+Two kinds of limitation are recorded separately, so a missing candidate is never mistaken for an assessed, inconclusive one:
+
+| Limitation | Kind | Effect | Owner if pursued |
+|---|---|---|---|
+| Singular/plural lexical relationship | discovery coverage; inflates specificity | `rule` and `rules` never relate. A folder's own concept stays in members' residuals (E10 known discrepancy; E11) | Naming, or a shared Linguistic Foundation |
+| Relationships away from leading tokens | discovery coverage | a name related to a group through middle tokens is not a member (E7) | a later discovery method using Naming relationship evidence |
+| Files without an evaluated identity | discovery coverage and assessment | not members; they lower coverage (E12). They also drive upstream Stage 2 coverage outcomes (E2: `*.test.mjs` files) | Naming coverage |
+| Members without a role category | assessment | unresolved responsibility class | Naming role evidence |
+
+**Tree does not work around a limitation.** In particular, Stage 3 never approximates a lexical relationship by comparing residual tokens with folder labels as strings. That would be stemming under another name.
+
+#### S3.11 Slicing and authorization
+
+Each step needs its own authorization:
+1. This contract (documentation only).
+2. The S3.9 catalogue as executable fixtures, with expected outcomes as stated. Known discrepancies are known-gap cases (S3.9) with their cause; their expected outcomes are never rewritten to match the reasoning.
+3. An evidence-sufficiency record for the fixtures: which cases current evidence decides, and which limitations block a justified conclusion.
+4. Prepared-evidence implementation (`treeEmergentBoundaryReasoning`), with findings byte-identical at `repo`, `validator` and `app` scope.
+5. The advisory finding decision, with before/after tables, as Stage 2B did.
+   - **It is blocked while the catalogue holds a known discrepancy that the reasoning cannot detect** (today E10).
+   - It is unblocked only when upstream evidence removes the cause and the case is reclassified as an ordinary case. Authorizing a finding cannot accept a known discrepancy in its place.
+   - Until then, no outcome affected by a known discrepancy is reported as a confirmed opportunity.
+
+#### S3.12 Non-goals
+
+- Changing Stage 1 or Stage 2 evidence, outcomes or findings.
+- Tree stemming, singularizing or any other lexical interpretation.
+- Treating an opportunity as misplacement, or its absence as approval.
+- Mutating files or reorganizing automatically.
+- Requiring every related group to have its own folder.
+- Restructurings other than a new folder.
+- Recommending subdivisions inside a directory that is itself a supported home (deferred; S3.5).
+- Any single strength score, or ranking across directories.
 
 ### Naming-bridge folder-kind interpretation + placement model (Status: Bounded modeling note)
 
