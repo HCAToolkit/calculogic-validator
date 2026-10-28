@@ -62,6 +62,8 @@ const REVIEWED_UNPACKAGED_REFERENCES = Object.freeze({
   'doc/ConventionRoutines/CCPP.md -> doc/nl-config/cfg-tabNavigation.md': 'illustrative',
   'doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md -> doc/Architecture/BuildSurfaceGlobalHostSequencePlan.md':
     'external',
+  'doc/ConventionRoutines/DeterministicStructuralAddressingSpec-Draft.md -> doc/ValidatorSpecs/structural-addressing-shared-contract.spec.md':
+    'development-only',
   'doc/ConventionRoutines/ValidatorBridgeContracts.md -> doc/Audits/validator-slice-formula-alignment.audit.md':
     'development-only',
   'doc/ConventionRoutines/ValidatorBridgeContracts.md -> doc/ValidatorSpecs/structural-addressing-tree-codebase-validation-input.spec.md':
