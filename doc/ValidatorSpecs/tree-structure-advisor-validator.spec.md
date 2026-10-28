@@ -1182,7 +1182,7 @@ Naming supplies semantic evidence; Tree decides what structural reading it suppo
 - **Discovery** finds possible groupings from the available evidence, however weak.
 - **Assessment** (S3.5, S3.6) decides whether a grouping supports a recommendation.
 
-Discovery applies no evidence-quality or threshold filter. For each directory it forms one candidate for every shared residual prefix, at every specificity, carried by **at least two units**. Two is the structural minimum for a group to exist, not an evidence threshold.
+Discovery applies no evidence-quality or threshold filter. For each directory it forms one candidate for every shared residual prefix, at every specificity, carried by **at least two member files**. Two files is the structural minimum for a group to exist, not an evidence threshold. Responsibility units are counted only in assessment (S3.5), so a single name with several files (E5) is discovered and assessed, not filtered out.
 
 **Every discovered candidate is preserved.** None is discarded because it overlaps another or because it is weak. Its assessment outcome records why it is not recommended.
 
@@ -1357,7 +1357,7 @@ Each step needs its own authorization:
 4. Prepared-evidence implementation (`treeEmergentBoundaryReasoning`), with findings byte-identical at `repo`, `validator` and `app` scope.
 5. The advisory finding decision, with before/after tables, as Stage 2B did.
    - **It is blocked while the catalogue holds a known discrepancy that the reasoning cannot detect** (today E10).
-   - It is unblocked when upstream evidence removes the cause, or when the decision explicitly accepts that discrepancy class.
+   - It is unblocked only when upstream evidence removes the cause and the case is reclassified as an ordinary case. Authorizing a finding cannot accept a known discrepancy in its place.
    - Until then, no outcome affected by a known discrepancy is reported as a confirmed opportunity.
 
 #### S3.12 Non-goals
