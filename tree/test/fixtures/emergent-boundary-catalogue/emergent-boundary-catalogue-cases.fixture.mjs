@@ -12,6 +12,7 @@
 // - `tree`: files for `buildCatalogueCase`. Each file is `{ dir, root, count, tokens?, semanticName?,
 //   role?, roleCategory?, noObservation?, ambiguous? }`; file `i` of the expanded list is
 //   `<dir>/<root>-<i>.logic.mjs`. Folder labels are the basename's hyphen tokens.
+// - `directoryMembers`: where S3.9 states it, the focus directory's member count (checked).
 // - `directory`, `lineageTokens`: the focus directory and the leading N1 tokens its lineage expresses
 //   (checked as a precondition, never derived here).
 // - `candidates`: the focus directory's candidates (S3.3). `prefix` is the shared residual prefix;
@@ -34,14 +35,36 @@ const unobserved = (dir, count) => ({ dir, root: 'unobserved', count, noObservat
 const others = (dir, root, count) => ({ dir, root, count, tokens: [root, 'item'] });
 const names = (files) => files.map((entry) => entry.semanticName);
 
-// E1, E13: tree/src with eight semantic-home units, one more `semantic` unit and four unrelated units.
+// E1, E13: tree/src with eight semantic-home units among 28 direct members (S3.9): one more `semantic`
+// unit and nineteen unrelated units.
 const E1_SEMANTIC_HOME = ['attribution', 'conformance', 'eligibility', 'parameter-set', 'placement', 'reasoning', 'reasoning-report', 'strength-profile'].map(
   (rest) => file('tree/src', ['tree', 'semantic', 'home', ...rest.split('-')]),
 );
 const E1_FILES = [
   ...E1_SEMANTIC_HOME,
   file('tree/src', ['tree', 'semantic', 'naming', 'folder', 'type', 'relationship']),
-  ...['shim-detection', 'occurrence-classification', 'repo-shape-evidence', 'structure-advisor'].map((rest) => file('tree/src', ['tree', ...rest.split('-')])),
+  // Nineteen units whose residuals share no leading token, so they form no candidate; E1 has 28 members.
+  ...[
+    'shim-detection',
+    'occurrence-classification',
+    'repo-shape-evidence',
+    'structure-advisor',
+    'addressed-occurrence-snapshot',
+    'contextual-repo-shape-policy',
+    'family-root-folder-evidence',
+    'naming-occurrence-intake',
+    'structural-context-assessment',
+    'validator-development-root',
+    'folder-candidates',
+    'kind-evidence',
+    'fact-evidence',
+    'section-intake',
+    'signal-policy',
+    'surface-perspective',
+    'owned-signals',
+    'role-tokens',
+    'home-attribution',
+  ].map((rest) => file('tree/src', ['tree', ...rest.split('-')])),
 ];
 const E1_CANDIDATES = [
   {
@@ -111,6 +134,7 @@ export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
       source: 'measured',
       tree: { files: E1_FILES },
       directory: 'tree/src',
+      directoryMembers: 28,
       lineageTokens: ['tree'],
       candidates: E1_CANDIDATES,
       preconditions: E1_PRECONDITIONS,
@@ -452,11 +476,13 @@ export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
     {
       id: 'E13',
       source: 'synthetic',
-      tree: { files: E1_FILES.map((entry) => (E1_SEMANTIC_HOME.includes(entry) ? { ...entry, ambiguous: true } : entry)) },
+      // S3.9: E1 with every member flagged `family-boundary-heuristic`.
+      tree: { files: E1_FILES.map((entry) => ({ ...entry, ambiguous: true })) },
       directory: 'tree/src',
+      directoryMembers: 28,
       lineageTokens: ['tree'],
       candidates: E1_CANDIDATES,
-      preconditions: { ...E1_PRECONDITIONS, ambiguous: names(E1_SEMANTIC_HOME) },
+      preconditions: { ...E1_PRECONDITIONS, ambiguous: names(E1_FILES) },
     },
     partialEvidenceCase({
       id: 'E14',

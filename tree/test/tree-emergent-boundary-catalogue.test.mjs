@@ -91,6 +91,9 @@ test('integrity: every expected outcome and reason comes from the S3.6 vocabular
 test('integrity: candidates are the focus directory\'s files carrying the prefix, with at least two files', () => {
   for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
     const inDirectory = expandFiles(entry.tree).filter((item) => item.dir === entry.directory && Array.isArray(item.tokens));
+    if (entry.directoryMembers !== undefined) {
+      assert.equal(new Set(inDirectory.map((item) => item.semanticName)).size, entry.directoryMembers, `${entry.id}: the focus directory has the members S3.9 states`);
+    }
     const prefixes = entry.candidates.map((candidate) => prefixKey(candidate.prefix));
     assert.equal(new Set(prefixes).size, prefixes.length, `${entry.id}: one candidate per prefix`);
     for (const candidate of entry.candidates) {
