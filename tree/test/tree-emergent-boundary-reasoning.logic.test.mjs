@@ -92,6 +92,33 @@ test('E8: the explained candidate names its home; E2: the corresponding undeterm
   assert.deepEqual(blocking.map((candidateId) => e2.built.pathOfAddress.get(candidateId.folderAddressPath)), ['structural-addressing']);
 });
 
+test('a corresponding undetermined folder blocks the grouping even when its members are inside a home (S3.5)', () => {
+  // `alpha/` is eligible, so the `alpha/src` members are inside-home; the empty `alpha-beta-gamma/`
+  // folder is undetermined and matches them, with a claim equal to their leading tokens.
+  const file = (dir, tokens) => ({ dir, root: tokens[0], count: 1, tokens, semanticName: tokens.join('-') });
+  const built = buildCatalogueCase({
+    files: [
+      ...['one', 'two', 'three', 'four'].map((rest) => file('alpha', ['alpha', rest])),
+      ...['x', 'y', 'z'].map((rest) => file('alpha/src', ['alpha', 'beta', 'gamma', rest])),
+      file('alpha/src', ['alpha', 'delta', 'item']),
+      file('alpha/src', ['alpha', 'epsilon', 'item']),
+    ].flatMap(({ dir, root, count, ...options }) => files(dir, root, count, options)),
+    folders: [{ path: 'alpha-beta-gamma' }],
+  });
+  const record = prepareTreeEmergentBoundaryReasoning({
+    factEvidence: built.factEvidence,
+    semanticEvidence: built.semanticEvidence,
+    sectionIntake: built.sectionIntake,
+    semanticHomeReasoning: built.reasoning,
+    policy: EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY,
+  });
+  const candidate = record.directories.find((directory) => directory.path === 'alpha/src').candidates.find((item) => prefixKey(item.prefix) === 'beta-gamma');
+  assert.ok(candidate.members.every((member) => member.set === 'supported'));
+  assert.deepEqual(candidate.existingStructure.correspondingUndeterminedCandidates.map((candidateId) => built.pathOfAddress.get(candidateId.folderAddressPath)), ['alpha-beta-gamma']);
+  assert.equal(candidate.assessment.outcome, 'insufficient-evidence');
+  assert.deepEqual(candidate.assessment.reasons, ['corresponding-home-unresolved']);
+});
+
 test('E10 (S3.5 undetermined ancestors): every member stays supported, with the undetermined ancestor kept as context', () => {
   const { built, candidateAt } = runCase(byId.E10);
   for (const member of candidateAt('rule-check').members) {

@@ -252,10 +252,9 @@ const classifyMember = ({ member, prefix, placement, claimOf, outcomeOf, existin
   const note = (set, explanation = null, notes = []) => ({ set, explanation, notes });
 
   if (!placement) return note(SETS.unresolved, { reason: EXPLANATIONS.placementUndetermined, placementReason: null });
-  if (placement.state === SEMANTIC_HOME_PLACEMENT_STATES.insideHome) return note(SETS.supported);
-  if (placement.state === SEMANTIC_HOME_PLACEMENT_STATES.noHome) return note(SETS.supported);
 
-  // Eligible homes elsewhere: a corresponding one explains the grouping, a broader one is recorded,
+  // Existing-structure evidence is collected from every placement, whatever its state, before the
+  // member's set is decided. Eligible homes elsewhere: a corresponding one explains the grouping, a broader one is recorded,
   // a different one is another destination.
   const differentHomes = [];
   for (const candidateId of placement.elsewhereHomes ?? []) {
@@ -278,6 +277,8 @@ const classifyMember = ({ member, prefix, placement, claimOf, outcomeOf, existin
     (consulted.location === SEMANTIC_HOME_PLACEMENT_LOCATIONS.lineage ? undeterminedOnLineage : undeterminedElsewhere).push(consulted.candidateId);
   }
 
+  // S3.5: inside a home on the lineage, or with no home, the member is supported.
+  if (placement.state === SEMANTIC_HOME_PLACEMENT_STATES.insideHome || placement.state === SEMANTIC_HOME_PLACEMENT_STATES.noHome) return note(SETS.supported);
   if (differentHomes.length > 0) {
     return note(SETS.conflicting, {
       reason: EXPLANATIONS.homeElsewhereDifferentClaim,
