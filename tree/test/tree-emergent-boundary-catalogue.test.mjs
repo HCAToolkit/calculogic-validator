@@ -9,13 +9,14 @@
 // member sets, and the decisive rule, the S3.8 decisions on its path and the case's status must agree
 // with the record. This traces declared data; it is not Stage 3 reasoning over prepared evidence.
 //
-// What they do NOT verify: any Stage 3 outcome. Stage 3 reasoning is not implemented (S3.11 step 4);
-// each case's `expected` outcome is data, recorded for that step, and is never asserted here. E10's
-// known-gap and E12's policy-incomplete behaviour are likewise checked only once the reasoning exists.
+// What they do NOT verify: any Stage 3 outcome of the implemented reasoning. Those run in
+// `tree-emergent-boundary-reasoning.logic.test.mjs` (S3.11 step 4), with E10's known gap and E12's
+// policy-incomplete behaviour.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { EMERGENT_BOUNDARY_CATALOGUE } from './fixtures/emergent-boundary-catalogue/emergent-boundary-catalogue-cases.fixture.mjs';
+import { EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY } from './fixtures/emergent-boundary-catalogue/emergent-boundary-experimental-policy.fixture.mjs';
 import { buildCatalogueCase, files } from './fixtures/semantic-home-catalogue/semantic-home-catalogue.fixture.mjs';
 
 const SPEC = fs.readFileSync(new URL('../../doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md', import.meta.url), 'utf8');
@@ -74,16 +75,18 @@ const ruleOf = ({ outcome, reasons }) => {
   if (outcome === 'explained-by-existing-structure') return 'existing-structure';
   return RULE_OF_REASON[reasons[0]];
 };
-// S3.8: the provisional decisions and their values under `emergent-boundary-experimental` v1.
+// S3.8: the provisional decisions under `emergent-boundary-experimental` v1, from the policy fixture
+// the reasoning tests run under (bound to the S3.8 table below).
+const POLICY_DECISIONS = EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY.decisions;
 const EXPERIMENTAL_POLICY = Object.freeze({
-  minimumPrimaryUnits: 3,
-  // The E14/E15 point (S3.5): at least four supported primary units and at most one in five outside.
+  minimumPrimaryUnits: POLICY_DECISIONS['minimum-primary-units'].value,
+  // The E14/E15 point (S3.5, contract): at least four supported primary units and at most one in five outside.
   partialEvidencePoint: { supportedPrimaryUnits: 4, outsideShare: 1 / 5 },
 });
-const UNRESOLVED_DECISIONS = ['coverage-share', 'opportunity-selection'];
+const UNRESOLVED_DECISIONS = Object.keys(POLICY_DECISIONS).filter((id) => POLICY_DECISIONS[id].status === 'unresolved');
 // S3.5 provisional responsibility-class mapping (S3.8); `documentation` is primary in an all-documentation grouping.
-const PRIMARY_CATEGORIES = new Set(['concern-core', 'architecture-support', 'surface-system', 'data-model', 'indexing-registry']);
-const SUPPORTING_CATEGORIES = new Set(['quality-support']);
+const PRIMARY_CATEGORIES = new Set(POLICY_DECISIONS['responsibility-class-mapping'].value.primary);
+const SUPPORTING_CATEGORIES = new Set(POLICY_DECISIONS['responsibility-class-mapping'].value.supporting);
 
 // The tree's files in the order `buildCatalogueCase` builds them, each with its path and N1 tokens.
 const expandFiles = (tree) => {
@@ -206,9 +209,14 @@ test('integrity: S3.6 states the resolution order, and S3.8 the experimental pol
     'partial-evidence-aggregation',
     'opportunity-selection',
   ]);
+  assert.deepEqual(Object.keys(POLICY_DECISIONS), Object.keys(rows), 'the policy fixture states every S3.8 decision');
   assert.equal(rows['minimum-primary-units'], String(EXPERIMENTAL_POLICY.minimumPrimaryUnits));
-  assert.equal(rows['separation-value-limit'], '`whole-directory-only`');
-  for (const decision of UNRESOLVED_DECISIONS) assert.equal(rows[decision], 'unresolved', `${decision} is unresolved`);
+  assert.match(rows['one-word-prefix'], /^no allowance/u);
+  assert.equal(POLICY_DECISIONS['one-word-prefix'].value, 'no-allowance');
+  assert.equal(rows['separation-value-limit'], `\`${POLICY_DECISIONS['separation-value-limit'].value}\``);
+  assert.deepEqual(UNRESOLVED_DECISIONS, ['coverage-share', 'partial-evidence-aggregation', 'opportunity-selection']);
+  // `partial-evidence-aggregation` is unresolved beyond the S3.5 point; the others plainly so.
+  for (const decision of UNRESOLVED_DECISIONS) assert.match(rows[decision], /^unresolved/u, `${decision} is unresolved`);
 });
 
 // The S3.6 resolution path of one candidate over its declared files and member sets: the decisive rule

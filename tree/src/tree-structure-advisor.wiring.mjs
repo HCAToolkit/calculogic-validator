@@ -42,6 +42,7 @@ import {
 } from './registries/tree-runtime-registries.logic.mjs';
 import { TREE_REGISTRY_SLICE_ID } from './registries/tree-registry-inventory.knowledge.mjs';
 import { prepareTreeFolderSemanticHomeReasoning } from './tree-folder-semantic-home-reasoning.logic.mjs';
+import { prepareTreeEmergentBoundaryReasoning } from './tree-emergent-boundary-reasoning.logic.mjs';
 
 const TOP_LEVEL_SCAN_EXCLUSIONS = new Set(['.git', 'node_modules']);
 const TREE_ADDRESS_PROFILE_ID = 'tree-structure-advisor-address-profile';
@@ -82,6 +83,9 @@ const resolveRegistryRoots = ({ registryResolution, registryRoots }) => {
   return registryResolution.registryRoots;
 };
 
+// `emergentBoundaryPolicy` is a programmatic argument only (Tree spec S3.8): no CLI flag, config file,
+// registry or suite hook supplies it, so a validation run prepares Stage 3 evidence without outcomes.
+
 export const prepareTreeStructureAdvisorInputs = (
   repositoryRoot,
   {
@@ -95,6 +99,7 @@ export const prepareTreeStructureAdvisorInputs = (
     preparedAddressKeyedJoinEvidence,
     registryResolution,
     registryRoots: suppliedRegistryRoots,
+    emergentBoundaryPolicy,
   } = {},
 ) => {
   const registryRoots = resolveRegistryRoots({ registryResolution, registryRoots: suppliedRegistryRoots });
@@ -243,6 +248,16 @@ export const prepareTreeStructureAdvisorInputs = (
     parameterSet: treeSemanticHomeParameterSet,
     scope: scopedSnapshotInputs.scope,
   });
+  // Stage 3 (S3.1-S3.10), evidence only: discovery, relations and member sets from the Stage 1 and
+  // Stage 2 records by reference; outcomes only under an explicitly supplied experimental policy. No
+  // finding, report field or `meta` entry reads it.
+  const treeEmergentBoundaryReasoning = prepareTreeEmergentBoundaryReasoning({
+    factEvidence: treeFolderFactEvidence,
+    semanticEvidence: treeFolderSemanticEvidence,
+    sectionIntake: treeNamingSectionIntake,
+    semanticHomeReasoning: treeFolderSemanticHomeReasoning,
+    policy: emergentBoundaryPolicy,
+  });
   const treeOccurrenceClassificationReplacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence,
     treeFamilyRootFolderEvidence,
@@ -286,6 +301,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeFolderSemanticEvidence,
       treeSemanticHomeParameterSet,
       treeFolderSemanticHomeReasoning,
+      treeEmergentBoundaryReasoning,
     },
     findingContributors: collectDefaultTreeStructureAdvisorContributors({
       repositoryRoot,
@@ -311,6 +327,7 @@ export const runTreeStructureAdvisor = (
     preparedAddressKeyedJoinEvidence,
     registryResolution,
     registryRoots,
+    emergentBoundaryPolicy,
   } = {},
 ) => {
   const preparedInputs = prepareTreeStructureAdvisorInputs(repositoryRoot, {
@@ -324,6 +341,7 @@ export const runTreeStructureAdvisor = (
     preparedAddressKeyedJoinEvidence,
     registryResolution,
     registryRoots,
+    emergentBoundaryPolicy,
   });
   return runTreeStructureAdvisorRuntime(preparedInputs);
 };

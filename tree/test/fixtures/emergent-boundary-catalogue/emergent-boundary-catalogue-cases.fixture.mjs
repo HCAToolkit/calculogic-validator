@@ -1,8 +1,8 @@
 // The Stage 3 evidence catalogue (Tree spec S3.9) as one declarative table (calculogic-validator#130).
-// Data only. Stage 3 reasoning is not implemented (S3.11 step 4), so nothing here is a reasoning
-// result: `expected` is what correct reasoning concludes, and is not asserted against anything yet.
-// What is executable now is the table's integrity and each case's Stage 1 and Stage 2 `preconditions`,
-// which run through `buildCatalogueCase` against the existing implementation.
+// Data only, and never a reasoning result: `expected` is what correct reasoning concludes. The table's
+// integrity and each case's Stage 1 and Stage 2 `preconditions` are checked in
+// `tree-emergent-boundary-catalogue.test.mjs`; the Stage 3 reasoning (S3.11 step 4) is checked against
+// `expected` in `tree-emergent-boundary-reasoning.logic.test.mjs`.
 //
 // `source: 'measured'` cases reproduce, as fixed synthetic trees, the evidence measured on this
 // repository at 667a151 (S3.9); they do not change as the repository grows. `synthetic` cases are
