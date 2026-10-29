@@ -123,6 +123,21 @@ test('a policy-incomplete case is re-evaluated once a policy supplies its decisi
   }
 });
 
+test('S3.6: evidence is evaluated before resolution, so an early decisive rule hides none of it', () => {
+  // Coverage decides (resolved) or blocks (unresolved) E12 before the responsibility rules are reached.
+  for (const policy of [EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY, withDecision('coverage-share', { status: 'resolved', value: 0.5 })]) {
+    const { evidence } = runCase(byId.E12, { policy }).candidateAt('widget-panel').assessment;
+    assert.deepEqual(evidence, { primaryUnitCount: 3, supportingMemberFileCount: 0 });
+  }
+  // E2 `structural-addressing` is decided by existing structure; its unresolved members are still counted.
+  const { evidence } = runCase(byId.E2).candidateAt('structural-addressing').assessment;
+  assert.deepEqual(evidence, { primaryUnitCount: 0, supportingMemberFileCount: 0, partialEvidence: { outsideMemberFileCount: 3, withinCataloguePoint: false } });
+  // With the mapping unresolved, the record says so instead of omitting the counts silently.
+  const unmapped = runCase(byId.E1, { policy: withDecision('responsibility-class-mapping', { status: 'unresolved' }) }).candidateAt('semantic-home').assessment;
+  assert.deepEqual(unmapped.evidence, { responsibilityClasses: { unresolvedDecision: 'responsibility-class-mapping' } });
+  assert.deepEqual(unmapped.unresolvedDecisions, ['responsibility-class-mapping']);
+});
+
 test('D2: under a policy leaving the separation limit unresolved, every expected opportunity is incomplete, E10\'s known gap included', () => {
   const policy = withDecision('separation-value-limit', { status: 'unresolved' });
   for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {

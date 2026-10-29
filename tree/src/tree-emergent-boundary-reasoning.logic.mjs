@@ -337,6 +337,30 @@ const assessCandidate = ({ candidate, policy }) => {
   const incomplete = (rule, decisions) =>
     finish({ completion: EMERGENT_BOUNDARY_COMPLETION.incomplete, outcome: null, reasons: [], unresolvedDecisions: decisions, blockedAt: { rule, ...policyRef } });
 
+  // Evidence evaluation (S3.6): every policy-dependent dimension is computed before resolution, so a
+  // rule that decides early never hides the rest.
+  const supported = candidate.members.filter((member) => member.set === SETS.supported);
+  const outside = candidate.members.length - supported.length;
+  let primaryUnitCount = null;
+  if (!unresolved(DECISIONS.responsibilityClassMapping)) {
+    const mapping = valueOf(DECISIONS.responsibilityClassMapping);
+    const allDocumentation = supported.length > 0 && supported.every((member) => member.roleCategory === DOCUMENTATION);
+    const classes = supported.map((member) => classOf(mapping, member.roleCategory, allDocumentation));
+    if (!classes.includes(null)) {
+      primaryUnitCount = new Set(supported.filter((_, index) => classes[index] === EMERGENT_BOUNDARY_RESPONSIBILITY_CLASSES.primary).map((member) => member.semanticName)).size;
+      assessmentEvidence.primaryUnitCount = primaryUnitCount;
+      assessmentEvidence.supportingMemberFileCount = classes.filter((value) => value === EMERGENT_BOUNDARY_RESPONSIBILITY_CLASSES.supporting).length;
+    }
+  }
+  if (primaryUnitCount === null) assessmentEvidence.responsibilityClasses = { unresolvedDecision: DECISIONS.responsibilityClassMapping };
+  let withinPoint = null;
+  if (outside > 0) {
+    const point = EMERGENT_BOUNDARY_PARTIAL_EVIDENCE_POINT;
+    withinPoint = primaryUnitCount !== null && primaryUnitCount >= point.supportedPrimaryUnits && outside * 5 <= candidate.members.length * point.outsideFilesPerFive;
+    assessmentEvidence.partialEvidence = { outsideMemberFileCount: outside, withinCataloguePoint: withinPoint };
+  }
+
+  // Outcome resolution, in the S3.6 order.
   // 1. Existing structure, in the S3.5 table's row order.
   const existing = candidate.existingStructure;
   if (existing.directoryHomes.length > 0) return decided(RULES.existingStructure, OUTCOMES.insufficientEvidence, [REASONS.internalBoundaryDeferred]);
@@ -355,15 +379,7 @@ const assessCandidate = ({ candidate, policy }) => {
   }
 
   // 3. Single responsibility, under the responsibility-class mapping.
-  if (unresolved(DECISIONS.responsibilityClassMapping)) return incomplete(RULES.singleResponsibility, [DECISIONS.responsibilityClassMapping]);
-  const mapping = valueOf(DECISIONS.responsibilityClassMapping);
-  const supported = candidate.members.filter((member) => member.set === SETS.supported);
-  const allDocumentation = supported.length > 0 && supported.every((member) => member.roleCategory === DOCUMENTATION);
-  const classes = supported.map((member) => classOf(mapping, member.roleCategory, allDocumentation));
-  if (classes.includes(null)) return incomplete(RULES.singleResponsibility, [DECISIONS.responsibilityClassMapping]);
-  const primaryUnitCount = new Set(supported.filter((_, index) => classes[index] === EMERGENT_BOUNDARY_RESPONSIBILITY_CLASSES.primary).map((member) => member.semanticName)).size;
-  assessmentEvidence.primaryUnitCount = primaryUnitCount;
-  assessmentEvidence.supportingMemberFileCount = classes.filter((value) => value === EMERGENT_BOUNDARY_RESPONSIBILITY_CLASSES.supporting).length;
+  if (primaryUnitCount === null) return incomplete(RULES.singleResponsibility, [DECISIONS.responsibilityClassMapping]);
   if (primaryUnitCount === 1) return decided(RULES.singleResponsibility, OUTCOMES.notAnOpportunity, [REASONS.singleResponsibilityUnit], {}, DECISIONS.responsibilityClassMapping);
 
   // 4. Redundancy: the less specific candidate of a redundant pair.
@@ -385,13 +401,7 @@ const assessCandidate = ({ candidate, policy }) => {
   }
 
   // 8. Partial evidence: only the S3.5 point lets members outside the supported set through.
-  const outside = candidate.members.length - supported.length;
-  if (outside > 0) {
-    const point = EMERGENT_BOUNDARY_PARTIAL_EVIDENCE_POINT;
-    const withinPoint = primaryUnitCount >= point.supportedPrimaryUnits && outside * 5 <= candidate.members.length * point.outsideFilesPerFive;
-    assessmentEvidence.partialEvidence = { outsideMemberFileCount: outside, withinCataloguePoint: withinPoint };
-    if (!withinPoint) return incomplete(RULES.partialEvidence, [DECISIONS.partialEvidenceAggregation]);
-  }
+  if (outside > 0 && !withinPoint) return incomplete(RULES.partialEvidence, [DECISIONS.partialEvidenceAggregation]);
 
   // 9. Opportunity: every dimension holds, separation by the policy's limit.
   if (unresolved(DECISIONS.separationValueLimit)) return incomplete(RULES.opportunity, [DECISIONS.separationValueLimit]);
