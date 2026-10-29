@@ -21,6 +21,10 @@
 // - `notDiscovered`: relationships V0 discovery cannot form (S3.10).
 // - `knownGap`: only on a known discrepancy (S3.9): the expected outcome, what the specified rules would
 //   produce, and the cause.
+// - `policyIncomplete`: only on a policy-incomplete case (S3.9): the candidates whose assessment the
+//   experimental policy cannot complete, the unresolved decisions (S3.8), and the cause.
+// - Without `memberSets`, every member is supported, except where `existing-structure` or `redundancy`
+//   decides the candidate first (E2), so the partition cannot matter (S3.6).
 // - `preconditions`: Stage 2 candidate outcomes, Stage 2 placements of named files, and Stage 1 root
 //   comparisons of named files against a folder's label candidate. Names select files in the focus
 //   directory only (a semantic name can recur elsewhere, as E2's spec and logic file do).
@@ -190,7 +194,8 @@ export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
       return {
         id: 'E3',
         source: 'synthetic',
-        tree: { files: units },
+        // Unrelated siblings: S3.9 does not make the group the whole directory, which would be E9's case.
+        tree: { files: [...units, others('lib', 'cache', 1), others('lib', 'schema', 1)] },
         directory: 'lib',
         lineageTokens: [],
         candidates: [{ prefix: ['registry'], members: names(units), expected: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] } }],
@@ -237,7 +242,8 @@ export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
       return {
         id: 'E6',
         source: 'synthetic',
-        tree: { files: [...lifecycle, ...broader] },
+        // Unrelated siblings, as in E3: `registry` must not be the whole directory.
+        tree: { files: [...lifecycle, ...broader, others('lib', 'cache', 1), others('lib', 'schema', 1)] },
         directory: 'lib',
         lineageTokens: [],
         candidates: [
@@ -388,10 +394,17 @@ export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
         directory: 'naming/src/rules',
         lineageTokens: ['naming'],
         candidates: [
-          { prefix: ['rule'], members: names(rules), expected: { outcome: 'insufficient-evidence', reasons: ['whole-directory-value-undetermined'] } },
+          // S3.5 (undetermined ancestors): `home-on-lineage-undetermined` alone leaves every member supported.
+          {
+            prefix: ['rule'],
+            members: names(rules),
+            memberSets: { supported: names(rules), conflicting: [], unresolved: [] },
+            expected: { outcome: 'insufficient-evidence', reasons: ['whole-directory-value-undetermined'] },
+          },
           {
             prefix: ['rule', 'check'],
             members: names(check),
+            memberSets: { supported: names(check), conflicting: [], unresolved: [] },
             expected: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] },
             relations: [{ to: 'rule', relation: 'nested-subgroup' }],
           },
@@ -461,10 +474,15 @@ export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
           {
             prefix: ['widget'],
             members: names(evaluated),
-            expected: { outcome: 'insufficient-evidence', reasons: ['low-specificity', 'low-coverage'] },
+            expected: { outcome: 'insufficient-evidence', reasons: ['low-coverage'] },
             relations: [{ to: 'widget-panel', relation: 'redundant' }],
           },
         ],
+        policyIncomplete: {
+          candidates: ['widget-panel', 'widget'],
+          unresolvedDecisions: ['coverage-share'],
+          cause: 'No catalogue case fixes the coverage share for `low-coverage` (S3.8), and coverage comes before every other rule that applies (S3.6).',
+        },
         preconditions: {
           candidates: [{ folder: 'lib', outcome: 'undetermined', reason: 'insufficient-evaluated-coverage' }],
           placements: [
