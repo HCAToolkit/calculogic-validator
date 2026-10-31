@@ -1129,7 +1129,7 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-### Emergent structural-boundary opportunities, Stage 3 (Status: Contract. Not implemented. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
+### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are not yet in the runtime: S3.9 companion cases. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
 
 This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
 
@@ -1229,17 +1229,33 @@ Each candidate keeps its full discovered membership and partitions it into three
 |---|---|---|
 | **supported** | placement `inside-home` at an ancestor, `no-home`, or `home-elsewhere` only at broader homes; primary or supporting responsibility class | — |
 | **conflicting** | `home-elsewhere` at a supported home with a **different** claim | *positive evidence of another destination*: the home's identity and claim |
-| **unresolved** | `undetermined` placement (except an undetermined ancestor alone, below), or unresolved responsibility class | *insufficient evidence for a decision*: the undetermined placement reason or the missing role evidence |
+| **unresolved** | `undetermined` placement, unless every candidate it consulted puts forward a broader claim (claim-relative uncertainty, below), or unresolved responsibility class | *insufficient evidence for a decision*: the undetermined placement reason, the candidate that could be another destination, or the missing role evidence |
 
 Conflicting and unresolved members are both excluded from any suggested boundary. Their explanations stay distinct: a conflicting member belongs somewhere else, while an unresolved member is undecided.
 
-**Undetermined ancestors.** A placement that is `undetermined` only because a candidate on the member's relevant lineage is undetermined (`home-on-lineage-undetermined`) does **not by itself** make the member unresolved.
-- That uncertainty concerns the larger area the ancestor would own, not the relationships inside the directory, just as a supported ancestor home explains ownership and not decomposition (above).
-- The member is placed by its other evidence. The ancestor's undetermined candidate is retained on the record as contextual evidence (`related-folder-undetermined`); it is not dismissed.
-- It still counts where it bears on the grouping:
-  - an undetermined ancestor whose candidate **corresponds** to the grouping makes the candidate `insufficient-evidence` (`corresponding-home-unresolved`), as any corresponding undetermined folder does;
-  - a member whose placement also consulted an undetermined candidate **elsewhere** is unresolved for that reason, as in E15.
-- Membership itself is formed from Stage 1 comparisons (S3.2), so an ancestor's Stage 2 status never changes which files are members.
+**Claim-relative uncertainty** (calculogic-validator#138; runtime pending, S3.9 companion cases). A member's placement may consult candidates that do not settle it:
+- an `undetermined` candidate, through any relation;
+- any candidate through a `possible-*` relation (S2.8).
+
+Each such candidate is judged by **the claim its relation puts forward**, compared with the member's leading tokens for the grouping (its lineage-expressed tokens followed by the shared prefix, as for correspondence above):
+- A relation puts forward a claim when it compares the file with one reading of the candidate's claim:
+  - `match` puts forward the candidate's governing claim;
+  - `possible-root-reading` puts forward its root reading's claim, the candidate's lexical root.
+- A relation that compared nothing (`possible-unevaluated`) puts forward no claim.
+- A future Stage 2 relation type states which claim, if any, it puts forward. The table below then applies to it unchanged; no relation label has a rule of its own.
+
+| Claim put forward, compared with the grouping | Effect |
+|---|---|
+| **corresponds** | The grouping is `insufficient-evidence` (`corresponding-home-unresolved`), as in the existing-structure table above. The member is unresolved |
+| **broader** | Contextual evidence, retained on the record (`related-folder-undetermined`). It does not by itself make the member unresolved: the candidate would own a larger area, which says nothing about the relationships inside the directory |
+| **different** | The member is unresolved: the candidate is a possible other destination (as E15) |
+| **none** | The member is unresolved: the comparison that would decide it is missing |
+
+- **Location does not change the rule.** An undetermined ancestor is one case of it: its claim is a leading part of the member's own tokens, so it is broader, or corresponding. This is the rule #135 stated for ancestors.
+- **The rule decides only members whose placement is `undetermined`.** `inside-home`, `no-home` and `home-elsewhere` placements are decided by the member-set table. Correspondence is collected from every placement, whatever its state.
+- A placement left undetermined for a run-wide reason (`candidate-discovery-incomplete`) leaves the member unresolved.
+- **Membership itself is formed from Stage 1 comparisons** (S3.2), so no candidate's Stage 2 status changes which files are members.
+- **Example (E10.1).** `naming-owned/` is undetermined (`claim-unresolved`): its root reading `naming` would be eligible, and its prefix reading `naming-owned` is not settled. Through `possible-root-reading` it puts forward `naming`. That is broader than `naming-rule-check`, so the `naming/src/rules` members stay supported, with the folder kept as context.
 
 **Only the supported set may satisfy opportunity criteria.** Every dimension below is evaluated on the supported members alone:
 - minimum units;
@@ -1298,7 +1314,7 @@ Resolution order, with each step's provenance (*established*: a catalogue case w
    - Before minimum units and partial evidence: established by E2 `structural-addressing`, whose members are unresolved.
    - Before specificity: established by E8 `tree`.
    - First overall: bounded choice. Positive evidence of existing structure answers the question before any property of the grouping does.
-2. **`coverage`**: `low-coverage`.
+2. **`coverage`**: `low-coverage`. In a directory with unrecognized files, the candidate proceeds only when its conclusion is invariant under every admissible completion (below). Otherwise it needs the `coverage-share` decision (S3.8).
    - Before redundancy, whole directory and specificity: established by E12 (S3.9: "any candidate").
    - Before single responsibility: bounded choice. A grouping read from a mostly unrecognized directory is not assessed further.
 3. **`single-responsibility`**: `single-responsibility-unit`.
@@ -1326,6 +1342,65 @@ Resolution order, with each step's provenance (*established*: a catalogue case w
   - otherwise the assessment is `incomplete`. It carries no outcome and names the unresolved decision.
 - An unresolved decision that no rule on the candidate's path needs never blocks its outcome.
 - An unresolved selection rule never removes an outcome: related opportunities are all kept, and the selection is recorded as unresolved.
+
+##### Coverage: conclusion invariance under admissible completions
+
+(calculogic-validator#138; runtime pending, S3.9 companion cases.)
+
+A global coverage share answers *how much information is missing*. The coverage step answers instead *whether the missing information could change this candidate's conclusion*.
+
+**Unrecognized files and completions.**
+- An **unrecognized file** is a file occurrence directly in the directory without an evaluated identity: a non-member (S3.2). `k` is their number in the directory.
+- An **admissible completion** assigns each unrecognized file evidence it could have if it were recognized. Held fixed:
+  - every other occurrence's Stage 1 and Stage 2 records;
+  - every Stage 2 candidate outcome (Stage 3 never changes them, S3.1);
+  - the policy.
+- Relative to a candidate C, a completion makes each unrecognized file either:
+  - **not a member of C**; or
+  - **a member of C**, and possibly of any more specific candidate as well, in any member set, with any responsibility category and any unit identity, new or existing.
+- Several files complete independently.
+
+**What a completion can change for C** (`P` primary units, `O` member files outside the supported set and `n` member files, all under current evidence):
+
+| Property | Range over every admissible completion |
+|---|---|
+| Primary units | `P` to `P + k`: each joining file adds at most one new unit |
+| Member files outside the supported set | `O` to `O + k` |
+| Member files | `n` to `n + k` |
+| Responsibility classes | A joining file may carry any category, so an all-documentation supported set can become mixed, and any other set can gain a documentation member |
+| Redundancy with a more specific candidate | If it holds, it can break: a file may carry C's prefix but not the partner's. If it does not hold, no completion creates it: an equal partner would need all of C's current members, and C has at least two (S3.3) |
+| Covering the whole directory | If it holds, it can break: a file may stay outside C. If it does not hold, no completion creates it: a current member stays outside |
+| Existing structure | Unchanged. Stage 2 outcomes are fixed, and any candidate that could correspond to C already relates to C's current members, so their placements already show it |
+| Prefix length | Unchanged |
+
+**Invariance test.** C's conclusion is invariant when every rule on its resolution path, up to and including the deciding one, applies alike across the whole range. Per rule:
+
+| Rule | Applies alike over every completion when |
+|---|---|
+| `single-responsibility` | `P ≥ 2`, and no joining file can leave a responsibility class unresolved under the policy's mapping |
+| `redundancy` | C is not redundant with a more specific candidate |
+| `whole-directory` | C does not cover the whole directory |
+| `specificity` | always |
+| `minimum-units` | `P ≥` the minimum, or `P + k <` the minimum |
+| `partial-evidence` | Either every completion passes (`P ≥ 4` and `5(O + k) ≤ n + k`), or every completion fails (`P + k < 4`, or `5·O > n + k`), against the S3.5 point |
+| `opportunity` | no further condition |
+
+When the conclusion is not invariant, the record lists the rules whose application varies.
+
+**Soundness, including several unrecognized files.**
+- Each rule above depends on the changeable properties only through comparisons that move one way as a property grows. So the ends of each range decide the whole range: a condition that holds, or fails, at both ends holds, or fails, for every completion. That includes every mix of assignments over several files, because a mix only moves each property within its range.
+- Responsibility categories and redundancy are not ordered quantities. The table treats them as variant whenever any completion can change them.
+- This is a bound, not an enumeration of assignments. It is conservative: a range may include combinations that no completion realizes, so it may deny invariance where it holds, but it never asserts invariance where it fails. Where it cannot show invariance, the assessment stays `incomplete`.
+
+**Rejected shortcut.** Three completions (files absent; joining C and its more specific partners; joining C alone, each time as unresolved members) do not bound the range. They miss:
+- a joining file that is a new supported unit, which can change single responsibility, minimum units and partial evidence;
+- a joining file with another category, which can make a grouping mixed.
+
+E8.1 is the counterexample: the shortcut would conclude `opportunity` for `tree-known-roots`, but a joining file of another category leaves the grouping's classes unresolved under the experimental policy.
+
+**Consequence under `emergent-boundary-experimental` v1.** v1 leaves documentation in a mixed grouping unresolved (S3.8). So with any unrecognized file in the directory, `single-responsibility` is not invariant for any candidate that reaches it, and the conclusion is decided only where existing structure decides first.
+- E12 and E8.1 stay policy-incomplete for `coverage-share`. The decision that binds them is the mapping's mixed-documentation case, and the variant rules record it.
+- Invariance settles more once a policy resolves that case. No value is assumed here.
 
 #### S3.7 Output
 
@@ -1365,7 +1440,7 @@ The catalogue is evaluated under `emergent-boundary-experimental`, version `1`:
 | `one-word-prefix` | no allowance: a one-word prefix is `low-specificity` | S3.9 testing value |
 | `responsibility-class-mapping` | the S3.5 provisional mapping; `documentation` is primary in a grouping whose supported members are all `documentation`, and a mixed grouping's documentation members leave the decision unresolved | S3.5 |
 | `separation-value-limit` | `whole-directory-only` | see below |
-| `coverage-share` | unresolved | no catalogue case fixes it (E12) |
+| `coverage-share` | unresolved: whether, and how far, a candidate whose conclusion is not invariant under admissible completions (S3.6) may still be decided | no catalogue case fixes it (E12, E8.1) |
 | `partial-evidence-aggregation` | unresolved beyond the E14/E15 point | S3.5 |
 | `opportunity-selection` | unresolved | no catalogue case needs it |
 
@@ -1459,11 +1534,29 @@ Outcomes decided by `existing-structure` rest on the Stage 2 preconditions the c
 Further observations:
 - **Decisions no case depends on.**
   - `opportunity-selection`: no case has two related opportunities. The first will be E8's deferred nested `retirement` group.
-  - Documentation in a mixed grouping (`responsibility-class-mapping`): no case has one.
+  - Documentation in a mixed grouping (`responsibility-class-mapping`): no case has one among its recognized members. Under coverage invariance (S3.6) it is the decision that binds E12 and E8.1, since a joining file could make either grouping mixed.
 - **Every expected `opportunity` depends on `separation-value-limit`.** Outcomes are reachable only because the experimental policy supplies it explicitly. Under a policy that leaves it unresolved, every one of them, E10's known gap included, would be incomplete.
 - **Catalogue fidelity corrections (calculogic-validator#134).** These change no expected outcome:
   - E3 and E6 are built with unrelated siblings, so their groups no longer cover the whole directory, which would have made them E9's case;
   - E12's `widget` records the decisive reason this table states.
+
+##### Companion cases: real-repository conditions (calculogic-validator#138)
+
+A companion case reproduces, as a fixed tree, a condition measured on the real repository that its base case simplifies.
+- It adds the measured condition and keeps the base case's intent.
+- A base case and its expected outcome are never rewritten for it.
+- It carries the classifications of S3.9 (known gap, policy-incomplete). It also carries one more:
+  - **Implementation-pending:** the expected outcome follows a contract amendment that the runtime does not implement yet. The case records what the runtime produces today, and its check verifies exactly that, so the check fails once the runtime changes and the case is reclassified with the implementation.
+
+| Case | Companion of | Tree | Expected outcome |
+|---|---|---|---|
+| E10.1 | E10 | E10, plus `doc/specs/naming-owned/` (measured: `doc/ValidatorSpecs/naming-owned/`): four `naming-*` specs, so the folder is undetermined (`claim-unresolved`) with an eligible root reading. Every `naming/src/rules` member consults it through `possible-root-reading` from elsewhere | As E10. `rule` (8): `insufficient-evidence` (`whole-directory-value-undetermined`). `rule-check`: expected `insufficient-evidence` (`low-specificity`). **Known discrepancy (known-gap case):** under S3.5's claim-relative uncertainty, the folder puts forward `naming`, which is broader, so the members are supported and the rules produce `opportunity`; the cause is E10's. **Implementation-pending:** today's runtime treats any undetermined candidate elsewhere as making the member unresolved, so `rule` is `low-specificity` and `rule-check` is `below-minimum-units` |
+| E8.1 | E8 | E8, plus one unrecognized file in `doc/specs` (measured: `filename-case-and-interpretation-contract.md`, `NAMING_MISSING_ROLE`) | `tree`: **`explained-by-existing-structure`** (`tree/`), decided before coverage. `tree-known-roots`, `tree-known`: `insufficient-evidence` (`low-coverage`). **Policy-incomplete case:** not invariant under admissible completions (S3.6). A joining file could make the documentation grouping mixed, which the experimental policy leaves unresolved, and for `tree-known` it could also break redundancy |
+
+| Case | Status | Decisive rule per candidate | Decisions depended on | Limitation |
+|---|---|---|---|---|
+| E10.1 | evaluable, known gap | `rule`: `whole-directory`. `rule-check`: expected `specificity`; the rules reach `opportunity` | `minimum-primary-units`, `responsibility-class-mapping`, `separation-value-limit` | singular/plural relationship (Naming), as E10 |
+| E8.1 | policy-incomplete | `tree`: `existing-structure`. `tree-known-roots`, `tree-known`: `coverage` | `coverage-share` | the unrecognized file's identity (Naming) |
 
 #### S3.10 Limitations: discovery coverage and assessment evidence
 

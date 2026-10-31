@@ -129,10 +129,7 @@ const partialEvidenceCase = ({ id, strengthFolder, fifthPlacement, memberSets })
   },
 });
 
-export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
-  id: 'emergent-boundary-catalogue',
-  version: '1',
-  cases: [
+const CASES = [
     {
       id: 'E1',
       source: 'measured',
@@ -526,5 +523,91 @@ export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
       },
       memberSets: { supported: names(GROUP_OF_FOUR), conflicting: [], unresolved: [FIFTH_MEMBER.semanticName] },
     }),
-  ],
+];
+
+// S3.9 companion cases (calculogic-validator#138): a base case plus one condition measured on the real
+// repository. The base case is never rewritten; the companion keeps its intent and its candidates.
+// - `companionOf`: the base case.
+// - `implementationPending`: only where the expected outcome follows a contract amendment the runtime
+//   does not implement yet. `runtimeProduces` is what today's runtime gives, per candidate; it is
+//   checked exactly, so the case is reclassified when the runtime changes.
+const baseCase = (id) => CASES.find((entry) => entry.id === id);
+const COMPANIONS = [
+  (() => {
+    // E10 plus `doc/ValidatorSpecs/naming-owned/`: four `naming-*` specs, so its label candidate is
+    // undetermined (`claim-unresolved`) with an eligible root reading, and every rule member consults
+    // it through `possible-root-reading` from elsewhere.
+    const base = baseCase('E10');
+    const namingOwned = ['semantic-family', 'semantic-name', 'documentation-map', 'bridge-rules'].map((rest) =>
+      file('doc/specs/naming-owned', ['naming', ...rest.split('-')], spec),
+    );
+    const ruleNames = base.candidates.find((candidate) => candidate.prefix.join('-') === 'rule').members;
+    return {
+      ...base,
+      id: 'E10.1',
+      companionOf: 'E10',
+      tree: { files: [...base.tree.files, ...namingOwned] },
+      // S3.5 claim-relative uncertainty: the folder puts forward `naming`, which is broader, so every member is supported.
+      candidates: base.candidates,
+      knownGap: { ...base.knownGap },
+      implementationPending: {
+        amendment: 'S3.5 claim-relative uncertainty',
+        runtimeProduces: {
+          rule: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] },
+          'rule-check': { outcome: 'insufficient-evidence', reasons: ['below-minimum-units'] },
+        },
+      },
+      preconditions: {
+        ...base.preconditions,
+        candidates: [
+          ...base.preconditions.candidates,
+          { folder: 'doc/specs/naming-owned', outcome: 'undetermined', reason: 'claim-unresolved', governingChannel: 'prefix' },
+        ],
+        placements: [
+          {
+            names: ruleNames,
+            state: 'undetermined',
+            reason: 'home-on-lineage-undetermined',
+            consulted: [
+              { folder: 'naming', relation: 'match' },
+              { folder: 'doc/specs/naming-owned', relation: 'possible-root-reading' },
+            ],
+          },
+        ],
+      },
+    };
+  })(),
+  (() => {
+    // E8 plus one unrecognized file in the focus directory (`filename-case-and-interpretation-contract.md`,
+    // `NAMING_MISSING_ROLE`).
+    const base = baseCase('E8');
+    const outcomeOf = (prefix) => (prefix === 'tree' ? null : { outcome: 'insufficient-evidence', reasons: ['low-coverage'] });
+    return {
+      ...base,
+      id: 'E8.1',
+      companionOf: 'E8',
+      tree: { files: [...base.tree.files, unobserved('doc/specs', 1)] },
+      candidates: base.candidates.map((candidate) => {
+        const expected = outcomeOf(candidate.prefix.join('-'));
+        return expected ? { ...candidate, expected } : candidate;
+      }),
+      policyIncomplete: {
+        candidates: ['tree-known-roots', 'tree-known'],
+        unresolvedDecisions: ['coverage-share'],
+        cause:
+          'One unrecognized file could join either documentation grouping with another category, which the experimental policy leaves unresolved, so neither conclusion is invariant under admissible completions (S3.6); for `tree-known` it could also break redundancy.',
+      },
+      preconditions: {
+        ...base.preconditions,
+        placements: [...base.preconditions.placements, { unobservedIn: 'doc/specs', state: 'undetermined', reason: 'no-semantic-observation' }],
+      },
+    };
+  })(),
+];
+
+export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
+  id: 'emergent-boundary-catalogue',
+  version: '1',
+  cases: CASES,
+  companions: COMPANIONS,
 });

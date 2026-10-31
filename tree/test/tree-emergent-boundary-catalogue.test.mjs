@@ -25,6 +25,9 @@ const S3_6 = section('#### S3.6 Outcomes', '#### S3.7');
 const S3_8 = section('#### S3.8 Parameters', '#### S3.9');
 const S3_9 = section('#### S3.9 Evidence catalogue', '##### Evidence sufficiency and policy dependency');
 const S3_9_RECORD = section('##### Evidence sufficiency and policy dependency', '#### S3.10');
+const S3_9_COMPANIONS = section('##### Companion cases', '#### S3.10');
+// Base cases and their S3.9 companions (calculogic-validator#138): every structural and precondition check covers both.
+const ALL_CASES = [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions];
 
 // S3.6: the closed outcome vocabulary and its reasons. `opportunity` reasons are the S3.5 dimensions.
 const REASONS_BY_OUTCOME = Object.freeze({
@@ -129,7 +132,7 @@ test('integrity: the known-gap marker is on exactly the case S3.9 names, with bo
 });
 
 test('integrity: every expected outcome and reason comes from the S3.6 vocabulary', () => {
-  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
+  for (const entry of ALL_CASES) {
     for (const candidate of entry.candidates) {
       const label = `${entry.id} ${prefixKey(candidate.prefix)}`;
       const { outcome, reasons, home } = candidate.expected;
@@ -142,7 +145,7 @@ test('integrity: every expected outcome and reason comes from the S3.6 vocabular
 });
 
 test('integrity: candidates are the focus directory\'s files carrying the prefix, with at least two files', () => {
-  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
+  for (const entry of ALL_CASES) {
     const inDirectory = expandFiles(entry.tree).filter((item) => item.dir === entry.directory && Array.isArray(item.tokens));
     if (entry.directoryMembers !== undefined) {
       // S3.2: a member is a file occurrence with an evaluated identity, so occurrences are counted, not names.
@@ -173,7 +176,7 @@ test('integrity: candidates are the focus directory\'s files carrying the prefix
 });
 
 test('integrity: a case with lineage tokens shows them expressed by a lineage folder (a root match)', () => {
-  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases.filter((candidateCase) => candidateCase.lineageTokens.length > 0)) {
+  for (const entry of ALL_CASES.filter((candidateCase) => candidateCase.lineageTokens.length > 0)) {
     const allMembers = new Set(entry.candidates.flatMap((candidate) => candidate.members));
     const covering = (entry.preconditions.rootComparisons ?? []).some(
       (comparison) => comparison.result === 'match' && [...allMembers].every((name) => comparison.names.includes(name)),
@@ -219,6 +222,36 @@ test('integrity: S3.6 states the resolution order, and S3.8 the experimental pol
   for (const decision of UNRESOLVED_DECISIONS) assert.match(rows[decision], /^unresolved/u, `${decision} is unresolved`);
 });
 
+// S3.6 coverage: conclusion invariance under admissible completions. Walks the resolution order from
+// single responsibility, applying each rule's invariance condition with `k` unrecognized files, up to the
+// rule that decides under current evidence, and returns the rules whose application could vary.
+// (Existing structure precedes coverage and is invariant, so it is never reached here.)
+const invarianceVariantRules = ({ candidate, primaryUnits: P, supported, candidateFiles, memberFiles, unrecognized: k }) => {
+  const n = candidateFiles.length;
+  const O = n - supported.length;
+  const minimum = EXPERIMENTAL_POLICY.minimumPrimaryUnits;
+  // v1 leaves documentation in a mixed grouping unresolved, so some joining category always can.
+  const joinerCanLeaveClassUnresolved = POLICY_DECISIONS['responsibility-class-mapping'].value.documentation === 'primary-in-documentation-grouping';
+  const variant = [];
+  const steps = [
+    { rule: 'single-responsibility', varies: !(P >= 2 && !joinerCanLeaveClassUnresolved), applies: P === 1 },
+    { rule: 'redundancy', varies: (candidate.relations ?? []).some((relation) => relation.relation === 'redundant'), applies: (candidate.relations ?? []).some((relation) => relation.relation === 'redundant') },
+    { rule: 'whole-directory', varies: supported.length === memberFiles.length, applies: supported.length === memberFiles.length },
+    { rule: 'specificity', varies: false, applies: candidate.prefix.length === 1 },
+    { rule: 'minimum-units', varies: !(P >= minimum || P + k < minimum), applies: P < minimum },
+    {
+      rule: 'partial-evidence',
+      varies: !((P >= 4 && 5 * (O + k) <= n + k) || P + k < 4 || 5 * O > n + k),
+      applies: false,
+    },
+  ];
+  for (const step of steps) {
+    if (step.varies) variant.push(step.rule);
+    if (step.applies) break;
+  }
+  return variant;
+};
+
 // The S3.6 resolution path of one candidate over its declared files and member sets: the decisive rule
 // and the S3.8 decisions on the path (S3.9 record). `existing-structure` rests on Stage 2 evidence the
 // preconditions check, so it is taken from the expectation. `incomplete` means an unresolved decision
@@ -233,11 +266,6 @@ const tracePath = (entry, candidate) => {
   const result = (rule) => ({ rule, incomplete: rule === null, dependsOn: [...dependsOn].sort() });
 
   if (ruleOf(candidate.expected) === 'existing-structure') return result('existing-structure');
-  if (inDirectory.length > memberFiles.length) {
-    dependsOn.add('coverage-share');
-    return result(null);
-  }
-  dependsOn.add('responsibility-class-mapping');
   const allDocumentation = supported.every((item) => item.roleCategory === 'documentation');
   const classOf = (item) => {
     const category = item.roleCategory ?? 'concern-core';
@@ -247,6 +275,15 @@ const tracePath = (entry, candidate) => {
     throw new Error(`${entry.id} ${prefixKey(candidate.prefix)}: unresolved responsibility class for ${item.semanticName}`);
   };
   const primaryUnits = new Set(supported.filter((item) => classOf(item) === 'primary').map((item) => item.semanticName)).size;
+  const unrecognized = inDirectory.length - memberFiles.length;
+  if (unrecognized > 0) {
+    const variantRules = invarianceVariantRules({ candidate, primaryUnits, supported, candidateFiles, memberFiles, unrecognized });
+    if (variantRules.length > 0) {
+      dependsOn.add('coverage-share');
+      return { ...result(null), variantRules };
+    }
+  }
+  dependsOn.add('responsibility-class-mapping');
   if (primaryUnits === 1) return result('single-responsibility');
   if ((candidate.relations ?? []).some((relation) => relation.relation === 'redundant')) return result('redundancy');
   if (supported.length === memberFiles.length) return result('whole-directory');
@@ -267,7 +304,7 @@ const tracePath = (entry, candidate) => {
 };
 
 test('integrity: a redundant relation names the more specific candidate with the same members', () => {
-  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
+  for (const entry of ALL_CASES) {
     for (const candidate of entry.candidates) {
       for (const relation of (candidate.relations ?? []).filter((item) => item.relation === 'redundant')) {
         const other = entry.candidates.find((item) => prefixKey(item.prefix) === relation.to);
@@ -277,6 +314,42 @@ test('integrity: a redundant relation names the more specific candidate with the
       }
     }
   }
+});
+
+test('integrity: companion cases match the S3.9 companion table, each extending its base case', () => {
+  const rows = [...S3_9_COMPANIONS.matchAll(/^\| (E\d+\.\d+) \| (E\d+) \|(.*)$/gmu)].map((match) => ({ id: match[1], base: match[2], text: match[3] }));
+  assert.deepEqual(
+    EMERGENT_BOUNDARY_CATALOGUE.companions.map((entry) => [entry.id, entry.companionOf]),
+    rows.map((row) => [row.id, row.base]),
+  );
+  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.companions) {
+    const row = rows.find((item) => item.id === entry.id);
+    const base = EMERGENT_BOUNDARY_CATALOGUE.cases.find((item) => item.id === entry.companionOf);
+    // The companion adds the measured condition to its base case's tree; the base case is not rewritten.
+    assert.deepEqual(entry.tree.files.slice(0, base.tree.files.length), base.tree.files, `${entry.id}: extends ${base.id}'s tree`);
+    assert.ok(entry.tree.files.length > base.tree.files.length, `${entry.id}: adds a condition`);
+    assert.deepEqual(entry.candidates.map((candidate) => prefixKey(candidate.prefix)), base.candidates.map((candidate) => prefixKey(candidate.prefix)), `${entry.id}: the base case's candidates`);
+    assert.equal(Boolean(entry.knownGap), row.text.includes('Known discrepancy (known-gap case)'), `${entry.id}: known-gap marker`);
+    assert.equal(Boolean(entry.policyIncomplete), row.text.includes('**Policy-incomplete case:**'), `${entry.id}: policy-incomplete marker`);
+    assert.equal(Boolean(entry.implementationPending), row.text.includes('**Implementation-pending:**'), `${entry.id}: implementation-pending marker`);
+    for (const prefix of Object.keys(entry.implementationPending?.runtimeProduces ?? {})) {
+      assert.ok(entry.candidates.some((candidate) => prefixKey(candidate.prefix) === prefix), `${entry.id}: ${prefix} is a candidate`);
+    }
+  }
+});
+
+test('S3.6 invariance bound: E8.1 and E12 vary for the recorded rules, and the rejected three-completion shortcut would not', () => {
+  const byId = Object.fromEntries(ALL_CASES.map((entry) => [entry.id, entry]));
+  const traced = (id, prefix) => tracePath(byId[id], byId[id].candidates.find((candidate) => prefixKey(candidate.prefix) === prefix));
+  // E8.1: a joining file could make either documentation grouping mixed; for `tree-known` it could also break redundancy.
+  assert.deepEqual(traced('E8.1', 'tree-known-roots').variantRules, ['single-responsibility']);
+  assert.deepEqual(traced('E8.1', 'tree-known').variantRules, ['single-responsibility', 'redundancy']);
+  assert.deepEqual(traced('E12', 'widget-panel').variantRules, ['single-responsibility', 'whole-directory']);
+  // The shortcut (absent; joining as unresolved with its partners; joining alone) would call `tree-known-roots`
+  // invariant: with one unresolved joiner it is still 8 units and 1 file in 9, within the S3.5 point.
+  const [P, n, k] = [8, 8, 1];
+  const shortcutCompletionsPass = [0, k].every((joiners) => P >= 4 && 5 * joiners <= n + joiners);
+  assert.equal(shortcutCompletionsPass, true);
 });
 
 test('sufficiency record: every expected outcome follows the S3.6 resolution order, with the recorded rules, decisions and status', () => {
@@ -320,6 +393,36 @@ test('sufficiency record: every expected outcome follows the S3.6 resolution ord
     const rulesText = reference ? recordRows[reference[1]].rules : row.rules;
     for (const rule of rules) assert.ok(rulesText.includes(`\`${rule}\``), `${entry.id}: the record names rule ${rule}`);
     for (const candidate of entry.candidates) assert.ok(rulesText.includes(`\`${prefixKey(candidate.prefix)}\``), `${entry.id}: the record names ${prefixKey(candidate.prefix)}`);
+  }
+});
+
+test('sufficiency record, companion cases: the recorded rules, decisions and status follow the amended S3.5 and S3.6', () => {
+  const recordRows = Object.fromEntries(
+    [...S3_9_COMPANIONS.matchAll(/^\| (E\d+\.\d+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|/gmu)]
+      .filter((match) => !/^E\d+$/u.test(match[2].trim()))
+      .map((match) => [match[1], { status: match[2].trim(), rules: match[3].trim(), decisions: [...match[4].matchAll(/`([a-z-]+)`/gu)].map((item) => item[1]).sort() }]),
+  );
+  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.companions) {
+    const decisions = new Set();
+    const row = recordRows[entry.id];
+    assert.ok(row, `${entry.id}: a record row`);
+    for (const candidate of entry.candidates) {
+      const label = `${entry.id} ${prefixKey(candidate.prefix)}`;
+      const traced = tracePath(entry, candidate);
+      traced.dependsOn.forEach((decision) => decisions.add(decision));
+      if (entry.knownGap?.candidate === prefixKey(candidate.prefix)) {
+        assert.equal(traced.rule, ruleOf(entry.knownGap.rulesWouldProduce), `${label}: the amended rules reach the recorded discrepancy`);
+      } else if (entry.policyIncomplete?.candidates.includes(prefixKey(candidate.prefix))) {
+        assert.ok(traced.incomplete, `${label}: incomplete`);
+        assert.deepEqual(traced.dependsOn, entry.policyIncomplete.unresolvedDecisions, `${label}: for exactly the recorded decisions`);
+      } else {
+        assert.equal(traced.rule, ruleOf(candidate.expected), `${label}: the amended rules reach the expected outcome`);
+      }
+      assert.ok(row.rules.includes(`\`${prefixKey(candidate.prefix)}\``), `${label}: named in the record`);
+    }
+    const status = entry.knownGap ? 'evaluable, known gap' : entry.policyIncomplete ? 'policy-incomplete' : 'evaluable';
+    assert.equal(row.status, status, `${entry.id}: status`);
+    assert.deepEqual(row.decisions, [...decisions].sort(), `${entry.id}: decisions`);
   }
 });
 
@@ -405,7 +508,7 @@ const checkPreconditions = (entry) => {
   return { failures, built };
 };
 
-for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
+for (const entry of ALL_CASES) {
   test(`preconditions (Stage 1 and Stage 2 only, no Stage 3 outcome): ${entry.id}`, () => {
     const { failures } = checkPreconditions(entry);
     assert.deepEqual(failures, []);
