@@ -146,7 +146,7 @@ test('existing Tree findings and prepared evidence are unchanged by the staged N
     const r1Only = { namingSemanticFamilyBridge: staged.namingSemanticFamilyBridge };
     const without = prepare(fixtureRoot, r1Only);
     const withSections = prepare(fixtureRoot, staged);
-    const sectionKeys = new Set(['addressedNamingOccurrenceBridge', 'treeNamingSectionIntake', 'treeFolderFactEvidence', 'treeFolderSemanticEvidence', 'treeFolderSemanticHomeReasoning']);
+    const sectionKeys = new Set(['addressedNamingOccurrenceBridge', 'treeNamingSectionIntake', 'treeFolderFactEvidence', 'treeFolderSemanticEvidence', 'treeFolderSemanticHomeReasoning', 'treeEmergentBoundaryReasoning']);
 
     for (const key of Object.keys(without.preparedDependencies).filter((key) => !sectionKeys.has(key))) {
       assert.deepEqual(comparable(withSections.preparedDependencies[key]), comparable(without.preparedDependencies[key]), key);
