@@ -530,7 +530,8 @@ const CASES = [
 // - `companionOf`: the base case.
 // - `implementationPending`: only where the expected outcome follows a contract amendment the runtime
 //   does not implement yet. `runtimeProduces` is what today's runtime gives, per candidate; it is
-//   checked exactly, so the case is reclassified when the runtime changes.
+//   checked exactly, so the case is reclassified when the runtime changes. (E10.1 was reclassified
+//   when calculogic-validator#140 implemented S3.5; no companion is pending.)
 const baseCase = (id) => CASES.find((entry) => entry.id === id);
 const COMPANIONS = [
   (() => {
@@ -550,13 +551,6 @@ const COMPANIONS = [
       // S3.5 claim-relative uncertainty: the folder puts forward `naming`, which is broader, so every member is supported.
       candidates: base.candidates,
       knownGap: { ...base.knownGap },
-      implementationPending: {
-        amendment: 'S3.5 claim-relative uncertainty',
-        runtimeProduces: {
-          rule: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] },
-          'rule-check': { outcome: 'insufficient-evidence', reasons: ['below-minimum-units'] },
-        },
-      },
       preconditions: {
         ...base.preconditions,
         candidates: [

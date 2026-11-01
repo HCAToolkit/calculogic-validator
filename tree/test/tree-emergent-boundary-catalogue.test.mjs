@@ -241,7 +241,8 @@ const invarianceVariantRules = ({ candidate, primaryUnits: P, supported, candida
     { rule: 'minimum-units', varies: !(P >= minimum || P + k < minimum), applies: P < minimum },
     {
       rule: 'partial-evidence',
-      varies: !((P >= 4 && 5 * (O + k) <= n + k) || P + k < 4 || 5 * O > n + k),
+      // Every completion passes, or (only with a member already outside) every completion fails.
+      varies: !((P >= 4 && 5 * (O + k) <= n + k) || (O > 0 && (P + k < 4 || 5 * O > n + k))),
       applies: false,
     },
   ];

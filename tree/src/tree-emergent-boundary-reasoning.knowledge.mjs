@@ -45,9 +45,21 @@ export const EMERGENT_BOUNDARY_MEMBER_EXPLANATIONS = Object.freeze({
   homeElsewhereDifferentClaim: 'home-elsewhere-different-claim',
   // unresolved: insufficient evidence for a decision.
   placementUndetermined: 'placement-undetermined',
-  undeterminedCandidateElsewhere: 'undetermined-candidate-elsewhere',
+  correspondingCandidateUndetermined: 'corresponding-candidate-undetermined',
+  possibleOtherDestination: 'possible-other-destination',
+  comparisonMissing: 'comparison-missing',
   roleCategoryAbsent: 'role-category-absent',
   semanticNameAbsent: 'semantic-name-absent',
+});
+
+// S3.5 claim-relative uncertainty: how one consulted candidate that does not settle a placement is
+// read, from the claim its Stage 2 relation puts forward.
+export const EMERGENT_BOUNDARY_UNCERTAINTY_READINGS = Object.freeze({
+  establishedCorrespondence: 'established-correspondence',
+  possibleCorrespondence: 'possible-correspondence',
+  broaderContext: 'broader-context',
+  possibleOtherDestination: 'possible-other-destination',
+  missingComparison: 'missing-comparison',
 });
 // S3.5: contextual evidence a supported member keeps (an undetermined ancestor alone).
 export const EMERGENT_BOUNDARY_MEMBER_NOTES = Object.freeze({ relatedFolderUndetermined: 'related-folder-undetermined' });
