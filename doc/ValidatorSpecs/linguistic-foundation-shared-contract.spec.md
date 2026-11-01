@@ -230,6 +230,10 @@ The bridge contract §4.7 also lists the identity cases (invalid identity, dupli
 - **Naming owns production.** A Naming-owned projection builds the section. `createNamingOccurrenceBridgePayload` invokes it, and its only lexical operation is `resolveSurfaceForm` on each token Naming already supplies.
 - **The suite selects and transports.** The suite prepares the foundation from the run's selection (§5.3) and applies the run consequences of a failed selection (§15.4).
 - **The runner and Tree only transport.** As for the other sections (Tree slice spec S1.1), Naming's staging function returns the prepared foundation state as an opaque value, the runner passes it unchanged, and Tree wiring passes it to the Naming-owned producer. Neither the runner nor Tree calls `resolveSurfaceForm` or `compareLexicalResolutions`, builds records or inspects readings.
+- **Tree as consumer (Contract, calculogic-validator#153; implementation-pending).** Consumption narrows the last sentence for Tree only:
+  - Tree reads the readings of section records it accepted, and relates two of them only through `compareLexicalResolutions`, imported by one Tree module (Tree slice spec S1.1);
+  - it still never calls `resolveSurfaceForm`, loads a profile, builds records or transforms a token;
+  - the boundary test of the implementation slice changes from two importers of the foundation to three: the Naming projection, suite-core selection, and that one Tree module, which imports only the comparison relation.
 - **Separation is verified, not only absence.** The implementation slice proves it with:
   - Naming-side tests of the projection that import nothing from Tree;
   - a boundary test that no `tree/src` or `src/core` module references the foundation's resolution or comparison functions or the projection;
@@ -243,11 +247,12 @@ The bridge contract §4.7 also lists the identity cases (invalid identity, dupli
 - `unknown` and `undetermined` are never negative evidence.
 - A consumer records when lexical identity was unavailable to a comparison that needed it, as Tree S3.10 records its limitations.
 
-### 9.2 Tree (Proposed; decided in Tree's consumption slice)
+### 9.2 Tree (Contract, calculogic-validator#153; implementation-pending)
 
-- **Positional expression.** `same-lexeme` between a lineage folder's label token and a member's token at the current position is expected to extend positional lineage expression (Tree S3.2) on a new basis. That basis would sit beside `positional-label`, which remains exact equality.
-- **Ambiguity.** How Tree treats `possibly-same-lexeme` is Tree's decision: no expression, or a recorded possible expression (§12, D5).
-- **Reclassification.** E10, E10.1 and E11 are reclassified only with that slice (Tree S3.9). The executable evidence shows the contract relates their folder-label and member tokens; it changes no catalogue case.
+- **Positional expression only.** `same-lexeme` between a lineage folder's label token and a member's token at the current position extends positional lineage expression (Tree S3.2) on a new basis, `lexical-label`, beside `positional-label`, which remains exact equality and keeps precedence. No other Tree reasoning reads lexical identity: Stage 1, Stage 2, correspondence (S3.5) and findings are unchanged.
+- **Ambiguity (D5 resolved).** `possibly-same-lexeme` yields no expression. Tree records it as a possible unit and a note on the member, never as a step (Tree S3.2).
+- **`unknown` and unavailable evidence.** `undetermined` yields no expression and is never negative evidence. Tree counts it once per (member, lineage folder) unit that needed it (Tree S3.2, S3.7), which is how §9.1's recording rule applies to Tree.
+- **Reclassification.** E10, E10.1 and E11 keep their checks exactly without a profile. Their lexical-evidence companions E10-L, E10.1-L and E11-L state the expectations under English v1 and are implementation-pending (Tree S3.9).
 
 ## 10. Measured evidence (measured at `98e54e2`, `repo` scope)
 
@@ -270,9 +275,9 @@ This is why R1 admits declared entries only. A suffix rule would relate the 21 p
 | The bridge section (bridge contract §4.7), the `linguisticProfile` config key and its run consequences, report provenance, packaging (§8, §15.4) | **Current** (calculogic-validator#150) |
 | Naming producing the section; the runner selecting and transporting the foundation (§8.5) | **Current** (calculogic-validator#150) |
 | Builtin/Custom lifecycle participation of the profile registries | **Deferred** (D11) |
-| Tree consuming lexical identity; E10, E10.1, E11 reclassification | **Proposed** (a Tree slice) |
+| Tree consuming lexical identity (Tree S1.1–S1.3, S3.2, S3.7); lexical-evidence companions E10-L, E10.1-L, E11-L | **Contract** (calculogic-validator#153); runtime implementation-pending |
 | Feature spaces beyond `number`; domain and perspective profiles; realization strategies; Narrative and Lexical Coherence consumers | **Deferred** (living document §4.6 context) |
-| A finding or Tree conclusion that reads lexical identity | Not current: the section is evidence only, and Tree ignores it (§9.2) |
+| A finding or Tree conclusion that reads lexical identity | Not current: Tree ignores the section today. Once #153 is implemented, only Stage 3 evidence reads it, and no finding does (§9.2) |
 
 ## 12. Deferred decisions register
 
@@ -282,10 +287,10 @@ This is why R1 admits declared entries only. A suffix rule would relate the 21 p
 | D2 | **Resolved** (calculogic-validator#148): explicit selection only, no default (§5.3) | — |
 | D3 | **Resolved** (calculogic-validator#150): the independent section of bridge contract §4.7 and §6.4 (§8) | — |
 | D4 | **Resolved** (calculogic-validator#148): location, loader, digest and provenance (§7, §15). Lifecycle participation, report metadata, packaging and compatibility snapshots went to D10 | — |
-| D5 | Tree's treatment of `possibly-same-lexeme` | the Tree consumption slice |
+| D5 | **Resolved** (calculogic-validator#153): no expression; a recorded possible unit and note (Tree S3.2, §9.2) | — |
 | D6 | Relationships other than number (abbreviation, derivation) and further feature spaces | a consumer need with measured evidence |
 | D7 | Domain, validator-domain and slice-perspective profiles | a consumer that needs a non-language profile |
-| D8 | Whether the literal `test`/`tests` handling the known-roots retirement audit leaves unnormalized changes under lexical identity | the Tree consumption slice, with that audit |
+| D8 | Whether the literal `test`/`tests` handling the known-roots retirement audit leaves unnormalized changes under lexical identity | Still deferred after calculogic-validator#153: Tree's consumption reaches only Stage 3 positional expression, never known-roots or Stage 1, and English v1 declares neither form. Trigger: a slice that brings lexical identity to known-roots or registry alignment |
 | D9 | Extracting Naming's connector set (`and`, `or`, `with`) into foundation identities with a Naming perspective | a second consumer of those tokens |
 | D10 | **Resolved** (calculogic-validator#150) for the first consumer: the run-configuration key and its failure behavior, report provenance and packaging (§15.4). Lifecycle participation moved to D11 and compatibility snapshots to D12 | — |
 | D11 | Whether language-profile resources (shared lexical identity) follow the same Builtin/Custom registry lifecycle as suite-wide customizable validation policy, or warrant different treatment. Until it is decided, profiles stay builtin-only (§15.4) | the first need to customize or override a language profile |

@@ -25,7 +25,8 @@ const S3_6 = section('#### S3.6 Outcomes', '#### S3.7');
 const S3_8 = section('#### S3.8 Parameters', '#### S3.9');
 const S3_9 = section('#### S3.9 Evidence catalogue', '##### Evidence sufficiency and policy dependency');
 const S3_9_RECORD = section('##### Evidence sufficiency and policy dependency', '#### S3.10');
-const S3_9_COMPANIONS = section('##### Companion cases', '#### S3.10');
+const S3_9_COMPANIONS = section('##### Companion cases', '##### Lexical-evidence companions');
+const S3_9_LEXICAL = section('##### Lexical-evidence companions', '#### S3.10');
 // Base cases and their S3.9 companions (calculogic-validator#138): every structural and precondition check covers both.
 const ALL_CASES = [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions];
 
@@ -574,3 +575,59 @@ test('preconditions: E13\'s flagged evidence leaves every Stage 2 outcome and pl
   });
   assert.deepEqual(project(checkPreconditions(byId.E13).built), project(checkPreconditions(byId.E1).built));
 });
+
+// S3.9 lexical-evidence companions (calculogic-validator#153): an active language profile is the one added
+// condition. The amended S3.2 walk that reaches each declared lineage expression is checked in
+// tree-lexical-consumption-contract.test.mjs; here the declared data is checked like any other case:
+// discovery over the declared lineage, the S3.6 resolution path to the expected outcome, the sufficiency
+// record, and the Stage 1 and Stage 2 preconditions, which the condition must leave unchanged (S1.1).
+const LEXICAL_COMPANIONS = EMERGENT_BOUNDARY_CATALOGUE.lexicalCompanions;
+
+test('lexical companions: discovery over the declared lineage expression gives exactly the declared candidates', () => {
+  for (const entry of LEXICAL_COMPANIONS) {
+    const members = expandFiles(entry.tree).filter((item) => item.dir === entry.directory && Array.isArray(item.tokens));
+    const counts = new Map();
+    for (const item of members) {
+      const lineage = lineageOf(entry, item);
+      assert.deepEqual(item.tokens.slice(0, lineage.length), lineage, `${entry.id} ${item.semanticName}: declared lineage is a leading part`);
+      const residual = item.tokens.slice(lineage.length);
+      for (let length = 1; length <= residual.length; length += 1) counts.set(prefixKey(residual.slice(0, length)), (counts.get(prefixKey(residual.slice(0, length))) ?? 0) + 1);
+    }
+    const discovered = [...counts].filter(([, count]) => count >= 2).map(([key]) => key).sort();
+    assert.deepEqual(discovered, entry.candidates.map((candidate) => prefixKey(candidate.prefix)).sort(), `${entry.id}: discovery`);
+    for (const candidate of entry.candidates) {
+      const carriers = members.filter((item) => [...lineageOf(entry, item), ...candidate.prefix].every((token, index) => item.tokens[index] === token));
+      assert.deepEqual([...new Set(carriers.map((item) => item.semanticName))].sort(), [...candidate.members].sort(), `${entry.id} ${prefixKey(candidate.prefix)}: members`);
+      const { outcome, reasons } = candidate.expected;
+      assert.ok(Object.hasOwn(REASONS_BY_OUTCOME, outcome) && reasons.every((reason) => REASONS_BY_OUTCOME[outcome].includes(reason)), `${entry.id}: S3.6 vocabulary`);
+    }
+  }
+});
+
+test('lexical companions: sufficiency record, each expected outcome followed through the S3.6 resolution order', () => {
+  const recordRows = Object.fromEntries(
+    [...S3_9_LEXICAL.matchAll(/^\| (E[\d.]+-L) \| (evaluable[^|]*) \| ([^|]+) \| ([^|]+) \|/gmu)].map((match) => [
+      match[1],
+      { status: match[2].trim(), rules: match[3].trim(), decisions: [...match[4].matchAll(/`([a-z-]+)`/gu)].map((item) => item[1]).sort() },
+    ]),
+  );
+  assert.deepEqual(Object.keys(recordRows), LEXICAL_COMPANIONS.map((entry) => entry.id));
+  for (const entry of LEXICAL_COMPANIONS) {
+    const decisions = new Set();
+    for (const candidate of entry.candidates) {
+      const traced = tracePath(entry, candidate);
+      traced.dependsOn.forEach((decision) => decisions.add(decision));
+      assert.ok(!traced.incomplete, `${entry.id} ${prefixKey(candidate.prefix)}: complete`);
+      assert.equal(traced.rule, ruleOf(candidate.expected), `${entry.id} ${prefixKey(candidate.prefix)}: the resolution order reaches the expected outcome`);
+      assert.ok(recordRows[entry.id].rules.includes(`\`${prefixKey(candidate.prefix)}\`: \`${traced.rule}\``), `${entry.id}: the record names the rule`);
+    }
+    assert.equal(recordRows[entry.id].status, 'evaluable', `${entry.id}: status`);
+    assert.deepEqual(recordRows[entry.id].decisions, [...decisions].sort(), `${entry.id}: decisions`);
+  }
+});
+
+for (const entry of LEXICAL_COMPANIONS) {
+  test(`preconditions (Stage 1 and Stage 2: the case keeps its base preconditions; their equality with the section in the payload is checked in tree-lexical-consumption-contract.test.mjs): ${entry.id}`, () => {
+    assert.deepEqual(checkPreconditions(entry).failures, []);
+  });
+}

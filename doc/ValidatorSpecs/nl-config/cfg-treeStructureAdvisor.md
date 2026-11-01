@@ -209,3 +209,4 @@ Deferred to later slices:
 - structural recommendation planning and move proposals
 - tree-specific config semantics beyond shared config validation + digest plumbing
 - any mutating or fix-mode behavior
+- lexical-identity consumption (contract approved, implementation-pending; calculogic-validator#153): a Tree lexical-identity evidence module takes in the Naming `namingTokenLexicalIdentities` section as its own prepared record (`treeLexicalIdentityIntake`), outside the Stage 1A intake and the Stage 1/Stage 2 modules. Stage 3 positional lineage expression is its only reader, on the `lexical-label` basis (Tree slice spec S1.1–S1.3, S3.2, S3.7, S3.9). Without the section, every prepared record is unchanged

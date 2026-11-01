@@ -643,9 +643,100 @@ const COMPANIONS = [
   })(),
 ];
 
+// S3.9 lexical-evidence companions (calculogic-validator#153): a base case, or a companion, under one
+// more evidence condition, an active language profile, with the tree unchanged. The base case keeps its
+// checks exactly; the lexical companion states what the amended S3.2 rule (lexical-label expression)
+// concludes under that condition.
+// - `lexicalCompanionOf`: the case it extends. `lexicalProfile`: the profile selection the case runs under.
+// - `candidates`: the focus directory's candidates under the condition; `lineageTokens` and
+//   `lineageExpression` are the declared lineage-expressed tokens under it.
+// - `lexicalSteps`: the `lexical-label` steps S3.2 records, per member; `notDiscoveredUnderCondition`:
+//   the base candidates the condition no longer discovers, and why; `kindSuffix`: members carrying the
+//   folder label's lexeme only as their final token (S3.10 kind-suffix grouping, not expressed).
+// - `expressionUnits`: the S3.7 counts over the whole case tree.
+// - `implementationPending.runtimeProduces`: today's runtime result in the focus directory, checked
+//   exactly; today's runtime reads the payload as without the section (bridge §4.4 rule 2).
+const companionCase = (id) => COMPANIONS.find((entry) => entry.id === id);
+const E10_RUNTIME_TODAY = Object.freeze({
+  rule: { outcome: 'insufficient-evidence', reasons: ['whole-directory-value-undetermined'] },
+  'rule-check': { outcome: 'opportunity', reasons: ['concentration', 'lexical-specificity', 'responsibility-diversity', 'separation-value'] },
+});
+const E10_LEXICAL_EXPECTATION = (base) => {
+  const ruleMembers = base.candidates.find((candidate) => candidate.prefix.join('-') === 'rule').members;
+  const checkMembers = base.candidates.find((candidate) => candidate.prefix.join('-') === 'rule-check').members;
+  return {
+    directory: 'naming/src/rules',
+    lineageTokens: ['naming', 'rule'],
+    candidates: [
+      {
+        prefix: ['check'],
+        members: checkMembers,
+        memberSets: { supported: checkMembers, conflicting: [], unresolved: [] },
+        leadingTokenSequences: [['naming', 'rule', 'check']],
+        expected: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] },
+      },
+    ],
+    lexicalSteps: [{ folder: 'naming/src/rules', names: ruleMembers, position: 1, labelTokens: ['rules'], tokens: ['rule'], lexemeIds: ['english.rule'] }],
+    notDiscoveredUnderCondition: [
+      { prefix: 'rule', reason: 'the folder\'s own concept: `rules/` expresses `rule` (lexical-label), so it is no residual token' },
+      { prefix: 'rule-check', reason: 'the same grouping is discovered as `check`: equal leading tokens `naming-rule-check` over the same members (D-T1, as E17)' },
+    ],
+  };
+};
+const LEXICAL_COMPANIONS = [
+  (() => {
+    const base = baseCase('E10');
+    return {
+      ...base,
+      ...E10_LEXICAL_EXPECTATION(base),
+      id: 'E10-L',
+      lexicalCompanionOf: 'E10',
+      lexicalProfile: { profileId: 'english' },
+      knownGap: undefined,
+      expressionUnits: { lexical: 8, possible: 0, undetermined: 24 },
+      implementationPending: { runtimeProduces: E10_RUNTIME_TODAY },
+    };
+  })(),
+  (() => {
+    const base = companionCase('E10.1');
+    return {
+      ...base,
+      ...E10_LEXICAL_EXPECTATION(baseCase('E10')),
+      id: 'E10.1-L',
+      lexicalCompanionOf: 'E10.1',
+      lexicalProfile: { profileId: 'english' },
+      knownGap: undefined,
+      // Structural evidence, not lexical identity, keeps `naming-owned/` as broader context (S3.5): its
+      // tokens are `unknown`, and the Stage 2 preconditions are E10.1's, unchanged.
+      expressionUnits: { lexical: 8, possible: 0, undetermined: 36 },
+      implementationPending: { runtimeProduces: E10_RUNTIME_TODAY },
+    };
+  })(),
+  (() => {
+    const base = baseCase('E11');
+    const registryMembers = base.candidates[0].members;
+    return {
+      ...base,
+      id: 'E11-L',
+      lexicalCompanionOf: 'E11',
+      lexicalProfile: { profileId: 'english' },
+      lineageTokens: ['tree'],
+      lineageExpression: Object.fromEntries(registryMembers.map((name) => [name, ['tree', 'registry']])),
+      candidates: [],
+      lexicalSteps: [{ folder: 'tree/src/registries', names: registryMembers, position: 1, labelTokens: ['registries'], tokens: ['registry'], lexemeIds: ['english.registry'] }],
+      notDiscoveredUnderCondition: [{ prefix: 'registry', reason: '`registries/` expresses `registry` (lexical-label); the residuals share no prefix, as in E16' }],
+      kindSuffix: [{ folder: 'tree/src/registries', names: ['tree-structural-homes-registry'], token: 'registry', labelTokens: ['registries'] }],
+      notDiscovered: [{ relationship: 'the member whose final token is `registry` to the folder label `registries`', limitation: 'kind-suffix grouping' }],
+      expressionUnits: { lexical: 5, possible: 0, undetermined: 7 },
+      implementationPending: { runtimeProduces: { registry: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] } } },
+    };
+  })(),
+];
+
 export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
   id: 'emergent-boundary-catalogue',
   version: '1',
   cases: CASES,
   companions: COMPANIONS,
+  lexicalCompanions: LEXICAL_COMPANIONS,
 });

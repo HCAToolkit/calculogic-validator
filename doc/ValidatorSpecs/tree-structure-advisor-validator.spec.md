@@ -189,11 +189,30 @@ Why this route: the addressed snapshot is built once, by Tree; occurrence identi
 
 **Lexical-identity section (calculogic-validator#150; emitted with an active language profile, not consumed).** The bridge contract §4.7 adds a third Naming section, `namingTokenLexicalIdentities`, produced by Naming on this same route. With an active profile, Naming's staging function returns the prepared Linguistic Foundation profile as a fourth opaque value, `lexicalProfile`. The runner passes it unchanged, and Tree wiring passes it to `createNamingOccurrenceBridgePayload`. Items 3–5 apply to it unchanged: Tree never calls the foundation's resolution or comparison functions, builds records or inspects readings (Linguistic Foundation shared contract §8.5). Tree intake does not support `naming-token-lexical-identity.v1`, so a payload carrying it is read exactly as without it (bridge contract §4.4 rule 2). Tree's use of lexical identity is a separate Tree slice.
 
+**Lexical-identity consumption (Contract, calculogic-validator#153; implementation-pending, not current).** When implemented, Tree supports `naming-token-lexical-identity.v1` (S1.2, S1.3) and reads it in exactly one place, Stage 3 positional lineage expression (S3.2). The transport above is unchanged. Items 3–5 are narrowed for consumption only, and nothing else changes:
+- Tree still never calls `resolveSurfaceForm`, never loads or reads a language profile or lexicon, never builds lexical records, and never transforms a token.
+- Tree reads the readings of section records **it has accepted** at intake, and relates two of them only through the foundation's lexeme-comparison relation (foundation contract §6.2), by calling the foundation's `compareLexicalResolutions`.
+- **One Tree module owns the section**, the Tree lexical-identity evidence module (for example `tree/src/tree-lexical-identity-evidence.logic.mjs`):
+  - It performs the section's intake (S1.2) into its own prepared record, `treeLexicalIdentityIntake`.
+  - It imports only `compareLexicalResolutions` from the foundation, and turns accepted records into comparable resolutions, with the section's `lexicalProfile` as their provenance.
+  - It exposes one Tree-facing operation: the relation between a lineage folder's label token and a member's token at one position.
+  - No other Tree module imports from the foundation.
+- **Kept outside Stage 1 and Stage 2.** The module is not part of the Stage 1A intake (`treeNamingSectionIntake`), the Stage 1 fact, candidate or semantic-evidence modules, or Stage 2. The intake record they read is therefore byte-identical with and without the section. Neither the Stage 2 conformance binding's bound modules nor its `sourceDigest` (S2.10) change.
+- Lexical identity is never evidence of ownership, placement or conformance: Stage 1 (S1.4–S1.9) and Stage 2 never read the section.
+
 #### S1.2 Section intake (consumer side)
 
 Tree validates each section exactly as the bridge contract specifies for supporting consumers: §4.4 rules 2–4 and 6 for the envelope (a malformed supported section is invalid as a whole), §4.5 consumer identity rules for N1, and §4.6 consumer identity rules for N2. Field groups are validated separately from identity. There is no path fallback.
 
 Intake produces Tree-owned **intake diagnostics** that name the section, the rejection reason and the identity tuple when one exists. Intake diagnostics are prepared evidence. They are not Tree findings and do not affect report counts or exit behavior.
+
+**Lexical-identity section (Contract, calculogic-validator#153; implementation-pending).** When implemented, Tree validates `namingTokenLexicalIdentities` as a supporting consumer, exactly as bridge contract §4.7 specifies:
+- the envelope by §4.4 rules 2–4 and 6, plus a valid `lexicalProfile`; a malformed envelope makes the whole section invalid;
+- each record after N1 and N2 intake, against the **accepted** N1 and N2 records, by the §4.7 consumer cases in table order (identity cases, invalid record shape, unmatched record, token-count mismatch, surface mismatch, status-readings disagreement, lexeme outside the profile). A rejected record is dropped on its own, and the section's other records are unaffected;
+- the accepted N1 and N2 records are read from the Stage 1A intake record, which is never changed;
+- rejections become intake diagnostics with section `naming-token-lexical-identity`, the rejection reason and the identity tuple when one exists. They live only in the lexical intake record (`treeLexicalIdentityIntake`, S1.1), never in `treeNamingSectionIntake`. They are prepared evidence: never a finding, a report field or a `meta` entry, and never an input to a Stage 1 or Stage 2 comparison.
+
+**Dropped records.** A dropped record makes lexical identity unavailable for its occurrence. Structural reasoning, candidate outcomes and every non-lexical record are then exactly what they would be for that occurrence without the section. Only the intake diagnostics and the lexical availability metadata (S1.3, S3.7) record that it was dropped.
 
 #### S1.3 Evidence availability
 
@@ -208,6 +227,11 @@ Availability is recorded at three levels, so that a comparison that was not perf
 | `section-absent` | A bridge payload reached Tree without this section although nothing was missing on Tree's side: the producer emitted no section (for example, an invalid namespace or no records), or a caller-supplied payload does not carry it |
 | `section-unsupported` | A section with an unsupported contract version was received |
 | `section-invalid` | A supported section with a malformed envelope was received |
+
+**Lexical-identity section (Contract, calculogic-validator#153; implementation-pending).** Its availability is recorded only when the payload carries the section:
+- **Absent: nothing is recorded.** On the ordinary run without a selected profile, Naming omits the section (bridge contract §4.7 producer rules). Tree prepares no `treeLexicalIdentityIntake` record, records no availability state, record list or diagnostic for it, and every prepared Tree record is byte-identical to before this amendment. There is no `not-staged` or `section-absent` state for this section.
+- **Present:** the `treeLexicalIdentityIntake` record carries the state (`available`, `section-unsupported` or `section-invalid`, with the meanings of the table above), the section's `lexicalProfile` when `available`, the accepted and rejected record lists, and the diagnostics. An unsupported or invalid section is recorded with its diagnostic and yields no lexical expression anywhere.
+- `treeNamingSectionIntake` and its `availability` keys never change for this section (S1.1).
 
 **Record level:** each record is `accepted` or `rejected` with its intake reason (S1.2).
 
@@ -1131,7 +1155,7 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
+### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. The S3.2 lexical-label expression of calculogic-validator#153 is Contract only, implementation-pending. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
 
 This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
 
@@ -1150,12 +1174,14 @@ Stage 3 reads only prepared evidence, by reference:
 - the addressed snapshot (Structural Addressing): directories, their direct file members, sibling sets and lineage, joined by addressed occurrence identity, never by path;
 - the Stage 1 Naming intake: each file's accepted semantic identity, including N1 token sequence, `semanticName`, `role`, `roleCategory` and ambiguity flags;
 - the Stage 1 comparison operation (S1.5), to decide whether an ancestor folder expresses a file's leading tokens;
-- the Stage 2A record: candidate outcomes, claims, governing channels and placements.
+- the Stage 2A record: candidate outcomes, claims, governing channels and placements;
+- *(Contract, calculogic-validator#153; implementation-pending)* the accepted records of the Naming lexical-identity section, from `treeLexicalIdentityIntake` through the Tree lexical-identity evidence module (S1.1, S1.2), only when the section is `available`, and only for S3.2 positional lineage expression.
 
 Stage 3 never reinterprets Naming material:
 - It never tokenizes, stems, singularizes or derives families.
 - It reads N1 token sequences as Naming supplies them.
 - A lexical relationship Naming does not supply (for example between `rule` and `rules`) is not assumed and not approximated. Its absence is recorded (S3.10).
+- Once implemented, the lexical-identity section is the one supplied source of such a relationship. Stage 3 reads only the foundation's relation between two accepted resolutions (foundation contract §6.2), never a surface string.
 
 Naming supplies semantic evidence; Tree decides what structural reading it supports. Stage 3 owns:
 - candidate discovery;
@@ -1184,7 +1210,36 @@ The walk keeps expression grounded:
 - **Exact Naming evidence.** The comparison is equality of Naming-supplied tokens: the folder's parsed label tokens (S1.1, N2) against the member's N1 tokens, the same operation as the Stage 1 prefix comparison (S1.5) at another position. A folder whose label is not parsed expresses nothing. No token is transformed, and a partial label never expresses (S3.10).
 - **Each folder expresses at most once.**
 
-**Provenance.** Each member records how its lineage-expressed prefix was reached: for each folder that extended it, the folder, the positions expressed, and the basis (`stage-1-root`, `stage-1-prefix` or `positional-label`). Each member also records its **leading tokens** for the grouping: its lineage-expressed tokens followed by the shared prefix. A candidate's record keeps its shared residual prefix as its identifier and, as the evidence that prefix was derived from, **every distinct leading-token sequence among its members**. Members of one directory can reach different lineage-expressed prefixes (E16: `naming-cli` for the `cli` members, `naming` for `naming-report-builder`), so a common residual prefix does not imply one shared sequence, and none is forced. The sequences are explanatory evidence, not an identity: the prefix remains the identifier.
+**Lexical-label expression** (Contract, calculogic-validator#153; implementation-pending; lexical companions E10-L, E10.1-L and E11-L, S3.9). When the run's lexical-identity section is `available` (S1.3), each lineage folder can reach a third end beside the two above:
+- **A new basis, `lexical-label`.** The folder's parsed label tokens `L` (length `k`) are aligned with the member's tokens at `p` onward, with `p + k` within the member's tokens. The folder reaches `p + k` on `lexical-label` when every aligned position is either exactly equal, or `same-lexeme` under the foundation's relation (foundation contract §6.2), and at least one position is `same-lexeme`.
+- **The grounding rules are unchanged.** Only folders on the relevant lineage, the same order and contiguity, each folder at most once, and a partial label never expresses. `same-lexeme` at a position other than `p` onward expresses nothing.
+- **Exact evidence keeps precedence.**
+  - A position that is exactly equal is never compared lexically.
+  - A folder whose label is exactly equal at `p` reaches its end on `positional-label`, as before, and the foundation is not consulted for it.
+  - When two bases reach the same end, the step keeps the earlier basis in this order: Stage 1 (`stage-1-root`, `stage-1-prefix`), `positional-label`, `lexical-label`.
+- **What lexical expression changes:** only where a member's lineage-expressed prefix ends, and so its residual tokens, the shared residual prefixes discovered (S3.3), and what assessment reads from them. It never changes a Stage 1 comparison, a Stage 2 placement, a claim, the correspondence test (S3.5 compares claim tokens with the shared prefix by exact equality) or any finding.
+
+**Relation outcomes, per folder.** Lexical comparison applies to a folder only when its label is parsed, aligned positions exist (`p + k` within the member's tokens), at least one aligned position is not exactly equal, and `p + k` is beyond the end the folder already reaches on a Stage 1 basis. The non-exact positions decide:
+
+| Non-exact aligned positions | Expression | Recorded (S3.7) |
+|---|---|---|
+| every one `same-lexeme` | `lexical-label` | a `lexical-label` step, with each position's surfaces, relation and lexeme identifiers |
+| any one `different-lexemes` | none | nothing: the folder cannot continue whatever the other positions say |
+| otherwise, any one `undetermined` (an `unknown` token, or a record unavailable for either occurrence) | none, and never negative evidence (foundation contract §6.1, §9.1) | one **undetermined** unit |
+| otherwise (one or more `possibly-same-lexeme`, the rest `same-lexeme`) | none (D5 resolved this way; foundation contract §12) | one **possible** unit, and a `possibleLexicalExpression` note on the member naming the folder, the positions it would have expressed and each position's relation |
+
+- **The unit of accounting is one (member, lineage folder) pair** at which the table above applies. It is evaluated once, because each folder is visited once.
+- **No other comparison is counted:**
+  - not exact positions;
+  - not folders whose label is exactly equal, not parsed, or longer than the remaining tokens;
+  - not folders off the relevant lineage, and not a folder whose label could only reach an end some other basis already reaches;
+  - not tokens away from `p`, and no repeat of a pair.
+- A possible expression is never a step. It never moves `p` and never changes a residual. Like S3.5's claim-relative uncertainty, it is recorded uncertainty, not evidence.
+- **Without an `available` section** (absent, unsupported or invalid), no lexical comparison is made, nothing is counted, and expression is exactly as before this amendment.
+
+Example (E10-L, `naming/src/rules`, English v1). `naming/` expresses `naming` (Stage 1 root). `src/` is aligned with `rule` at position 1: `src` is `unknown`, so it records one undetermined unit and expresses nothing. `rules/` is aligned with `rule` at position 1 and is `same-lexeme` (`english.rule`), so it expresses position 1 on `lexical-label`. The residuals of the three `naming-rule-check-*` members begin with `check`.
+
+**Provenance.** Each member records how its lineage-expressed prefix was reached: for each folder that extended it, the folder, the positions expressed, and the basis (`stage-1-root`, `stage-1-prefix` or `positional-label`; once calculogic-validator#153 is implemented, also `lexical-label`, with its relation evidence). Each member also records its **leading tokens** for the grouping: its lineage-expressed tokens followed by the shared prefix. A candidate's record keeps its shared residual prefix as its identifier and, as the evidence that prefix was derived from, **every distinct leading-token sequence among its members**. Members of one directory can reach different lineage-expressed prefixes (E16: `naming-cli` for the `cli` members, `naming` for `naming-report-builder`), so a common residual prefix does not imply one shared sequence, and none is forced. The sequences are explanatory evidence, not an identity: the prefix remains the identifier.
 - When positional expression changes a candidate's prefix (E17: `health-check` becomes `check`), it is a different evidence-derived identifier.
 - Whether two identifiers name the same candidate across a change of derivation is **not decided**. One possible rule is equal leading tokens over the same members, which `health-check` and `check` share. It is recorded as unresolved, not applied.
 
@@ -1439,6 +1494,12 @@ A prepared evidence record, `treeEmergentBoundaryReasoning`. It holds, per direc
 - coverage;
 - the S3.10 limitations the run met.
 
+**Lexical identity (Contract, calculogic-validator#153; implementation-pending).** Only when the run's lexical-identity section is `available` (S1.3), the record carries one more top-level block, `lexicalIdentity`:
+- `lexicalProfile`: the section's provenance;
+- `expressionUnits`: `{ lexical, possible, undetermined }`, the number of (member, lineage folder) units of each kind (S3.2), over every member in every directory.
+
+Member records add a `lexical-label` step to `lineageExpression` and a `possibleLexicalExpression` note only when they have one. Otherwise every field and key is exactly as before. **Without an `available` section the record is byte-identical to the record before this amendment:** there is no `lexicalIdentity` block, and the `limitations` keys are unchanged. Intake diagnostics stay in `treeLexicalIdentityIntake` (S1.2) and are not repeated here.
+
 **This version emits no finding.** Any advisory finding is decided under S3.11 step 5.
 
 #### S3.8 Parameters (all provisional)
@@ -1494,7 +1555,7 @@ Catalogue `emergent-boundary-catalogue`, version `1`.
   - In the executable catalogue, a known discrepancy is a distinctly marked **known-gap case**: it records both outcomes and its cause, and checks that the discrepancy is still exactly as recorded.
   - It does not fail the test suite, so unrelated Tree work is not blocked. When the cause is removed, the check fails until the case is reclassified as an ordinary case, so a fixed gap cannot go unnoticed.
   - It stays visible in the catalogue and blocks the finding decision (S3.11 step 5).
-- **Any case may be implementation-pending** (defined under companion cases below): its expected outcome follows a contract amendment the runtime does not implement yet. No case is pending; E16 and E17 were reclassified when calculogic-validator#144 implemented S3.2.
+- **Any case may be implementation-pending** (defined under companion cases below): its expected outcome follows a contract amendment the runtime does not implement yet. No base case or companion is pending; E16 and E17 were reclassified when calculogic-validator#144 implemented S3.2. The lexical-evidence companions E10-L, E10.1-L and E11-L (calculogic-validator#153, below) are pending.
 - **A case whose expected outcome needs a decision the experimental policy leaves unresolved is a policy-incomplete case** (see E12). It is not a known discrepancy:
 
   | | Known-gap case (E10) | Policy-incomplete case (E12) |
@@ -1589,13 +1650,50 @@ A companion case reproduces, as a fixed tree, a condition measured on the real r
 | E10.1 | evaluable, known gap | `rule`: `whole-directory`. `rule-check`: expected `specificity`; the rules reach `opportunity` | `minimum-primary-units`, `responsibility-class-mapping`, `separation-value-limit` | singular/plural relationship (Naming), as E10 |
 | E8.1 | policy-incomplete | `tree`: `existing-structure`. `tree-known-roots`, `tree-known`: `coverage` | `coverage-share` | the unrecognized file's identity (Naming) |
 
+##### Lexical-evidence companions (calculogic-validator#153)
+
+A lexical-evidence companion runs a base case, or a companion, under one more **evidence condition**: an active language profile, so Naming's lexical-identity section is present (S1.2). Its tree is the base case's, unchanged.
+- **The base case is never rewritten.** Without a profile it keeps its checks exactly, the E10 and E10.1 known gaps included.
+- **The lexical companion states what correct reasoning concludes under the condition,** through the amended S3.2 (lexical-label expression). Its candidates may differ from the base case's, because the condition moves where members' lineage-expressed prefixes end.
+- Each one is **implementation-pending** (as above): its check verifies exactly what today's runtime produces with the section in the payload. That is the base case's result, since today's Tree reads such a payload as without the section (bridge contract §4.4 rule 2). The check fails once the runtime implements the amendment, and the case is reclassified then.
+- `expressionUnits` are the S3.7 counts over the whole case tree. They come from the test-only reference of the amended walk, checked against today's runtime where the amendment changes nothing.
+
+| Case | Extends | Condition and evidence | Expected outcome |
+|---|---|---|---|
+| E10-L | E10 | English v1. `rules/` and the members' `rule` are `same-lexeme` (`english.rule`), so `rules/` expresses position 1 on `lexical-label` for all eight members; lineage-expressed `naming-rule`. `expressionUnits`: lexical 8, possible 0, undetermined 24 | `check` (3): **`insufficient-evidence`** (`low-specificity`), leading tokens `naming-rule-check`. `rule` and `rule-check` are not discovered: `rule` is the folder's own concept, and `rule-check` is the same grouping as `check`, with equal leading tokens over the same members (D-T1, as E17). Ordinary case, no known gap. **Implementation-pending:** today's runtime gives `rule`: `insufficient-evidence` (`whole-directory-value-undetermined`); `rule-check`: `opportunity` |
+| E10.1-L | E10.1 | As E10-L, plus `naming-owned/`, whose tokens are `unknown`. `expressionUnits`: lexical 8, possible 0, undetermined 36 | As E10-L: `check` (3): **`insufficient-evidence`** (`low-specificity`). `naming-owned/` stays undetermined (`claim-unresolved`) and is consulted through `possible-root-reading`. Its claim `naming` is broader than the leading tokens `naming-rule-check`, so the members stay supported: structural evidence, unchanged by lexical identity. **Implementation-pending:** as E10-L |
+| E11-L | E11 | English v1. `registries/` and `registry` are `same-lexeme` (`english.registry`) for the five `tree-registry-*` members (position 1). `tree-structural-homes-registry` carries `registry` only as its final token, a kind-suffix member (S3.10), and is not expressed. `expressionUnits`: lexical 5, possible 0, undetermined 7 | **No candidate is discovered**: the residuals (`inventory`, `migrations`, `references`, `set`, `bridge-domains`, `structural-homes-registry`) share no prefix, as in E16. The kind-suffix relationship is not discovered (S3.10). **Implementation-pending:** today's runtime gives `registry`: `insufficient-evidence` (`low-specificity`) |
+
+| Case | Status | Decisive rule per candidate | Decisions depended on | Limitation |
+|---|---|---|---|---|
+| E10-L | evaluable | `check`: `specificity` | `one-word-prefix`, `responsibility-class-mapping` | — |
+| E10.1-L | evaluable | `check`: `specificity` | `one-word-prefix`, `responsibility-class-mapping` | — |
+| E11-L | evaluable | no candidate is discovered (S3.2) | — | kind-suffix grouping: a discovery limit that changes no listed outcome |
+
+**Measured on the repository** (`ff004ed`, `repo` scope, experimental policy, English v1, through a throwaway prototype of the amended walk; reproduced by the implementation slice):
+- **Candidates:** 77 without the condition and 74 with it.
+- **Every difference:**
+
+  | Directory | Not discovered under the condition | Discovered only under it |
+  |---|---|---|
+  | `naming/src/rules` | `rule` (8, `whole-directory-value-undetermined`), `rule-check` (3, `opportunity`), `rule-derive` (2, `below-minimum-units`) | `check` (3, `low-specificity`), `derive` (2, `low-specificity`) |
+  | `tree/src/registries` | `registry` (5, `low-specificity`) | — |
+  | `naming/src/registries` | `registry` (5, `low-specificity`) | — |
+
+- **18 members gain a `lexical-label` step**, all on single-token labels:
+  - 8 in `naming/src/rules` (position 1);
+  - 5 in `tree/src/registries` (position 1);
+  - 5 in `naming/src/registries`: 4 at position 1, and `registry-state` at position 0, where its lineage expressed nothing.
+- `rule-derive` becoming `derive` also changes the decisive rule, from `minimum-units` to `specificity`, by the S3.6 resolution order. No policy value is involved.
+
 #### S3.10 Limitations: discovery coverage and assessment evidence
 
 Two kinds of limitation are recorded separately, so a missing candidate is never mistaken for an assessed, inconclusive one:
 
 | Limitation | Kind | Effect | Owner if pursued |
 |---|---|---|---|
-| Singular/plural lexical relationship | discovery coverage; inflates specificity | `rule` and `rules` never relate. A folder's own concept stays in members' residuals (E10 known discrepancy; E11) | Naming, or a shared Linguistic Foundation (lexical identity contract: `linguistic-foundation-shared-contract.spec.md`, calculogic-validator#146; no runtime yet) |
+| Singular/plural lexical relationship | discovery coverage; inflates specificity | Without an active language profile, `rule` and `rules` never relate, and a folder's own concept stays in members' residuals (E10 known discrepancy; E11). With one, the lexical-identity section relates them for S3.2 expression (E10-L, E10.1-L, E11-L; Contract, calculogic-validator#153, implementation-pending) | Naming and the Linguistic Foundation supply it (lexical identity contract: `linguistic-foundation-shared-contract.spec.md`; runtime and Naming production current since calculogic-validator#148 and #150); Tree consumes it (S3.2) |
+| Kind-suffix grouping (calculogic-validator#153) | discovery coverage | Members carry the folder label's lexeme only as their **final** token: the folder groups by artifact kind, not by leading subject. Measured at `ff004ed`: 11 of 17 members of `tree/src/registries` (10 ending `registry`, 1 ending `registries`) and 7 of 12 of `naming/src/registries`. E11-L's `tree-structural-homes-registry`. It is not a lexical limitation (a `registry/` label would leave it unchanged), and S3.2's order and contiguity are not relaxed for it | a later discovery method, by amendment (S3.3); whether one should exist is deferred (D-T3) |
 | Relationships away from leading tokens | discovery coverage | a name related to a group through middle tokens is not a member (E7) | a later discovery method using Naming relationship evidence |
 | Files without an evaluated identity | discovery coverage and assessment | not members; they lower coverage (E12). They also drive upstream Stage 2 coverage outcomes (E2: `*.test.mjs` files) | Naming coverage |
 | Members without a role category | assessment | unresolved responsibility class | Naming role evidence |
@@ -1603,6 +1701,7 @@ Two kinds of limitation are recorded separately, so a missing candidate is never
 **Tree does not work around a limitation.** In particular, Stage 3 never approximates a lexical relationship by comparing residual tokens with folder labels as strings. That would be stemming under another name.
 - Positional lineage expression (S3.2) is not such an approximation. It compares Naming-supplied tokens for exact equality, as the Stage 1 prefix comparison does, and transforms nothing.
 - `rules` and `rule` stay unrelated until Naming, or a shared Linguistic Foundation, supplies evidence relating them (E10, E11 unchanged).
+- Lexical-label expression (S3.2, calculogic-validator#153) is not such an approximation either. It reads the foundation's relation between two resolutions that Naming supplied and Tree accepted, and compares no surface string. Without the section it changes nothing.
 
 #### S3.11 Slicing and authorization
 
@@ -1615,6 +1714,16 @@ Each step needs its own authorization:
    - **It is blocked while the catalogue holds a known discrepancy that the reasoning cannot detect** (today E10).
    - It is unblocked only when upstream evidence removes the cause and the case is reclassified as an ordinary case. Authorizing a finding cannot accept a known discrepancy in its place.
    - Until then, no outcome affected by a known discrepancy is reported as a confirmed opportunity.
+   - **Profile-conditional removal (calculogic-validator#153, D-T2).** Lexical-label expression removes E10's cause only under an active language profile (E10-L). Without one, E10 and E10.1 stay known-gap cases. So implementing #153 does not by itself unblock this step. A separate decision must first settle whether an advisory finding requires an active language profile, or how it treats runs without one.
+
+**Decisions recorded by calculogic-validator#153** (lexical-identity consumption):
+
+| # | Decision | State |
+|---|---|---|
+| D-T1 | Candidate identity across a change of derivation (S3.2): E10-L's `check` and E10's `rule-check` have equal leading tokens over the same members | **Not decided.** As E17, the lexical companion records the new identifier and the equal leading tokens and members, and applies no identity rule |
+| D-T2 | Whether an advisory finding (step 5) requires an active language profile, or how it treats runs without one | **Open.** Step 5 stays blocked (above) |
+| D-T3 | Whether a kind-suffix discovery method should exist (S3.10) | **Deferred.** Recorded only; positional constraints are not relaxed for it |
+| D5 (foundation contract §12) | Tree's treatment of `possibly-same-lexeme` | **Resolved:** no expression; recorded as a possible unit and a `possibleLexicalExpression` note (S3.2) |
 
 #### S3.12 Non-goals
 
