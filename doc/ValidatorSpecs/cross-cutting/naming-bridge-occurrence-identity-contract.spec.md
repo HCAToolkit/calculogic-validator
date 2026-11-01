@@ -3,7 +3,7 @@
 - **Classification:** Normative for the Naming occurrence bridge identity, field-eligibility, existing v1 context/compatibility, enrichment, versioning, and migration contract; descriptive only where explicitly labeled as **current runtime truth**.
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
-- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); contract only, not emitted. Tracking: calculogic-validator#85.
+- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. Tracking: calculogic-validator#85.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
 - **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
@@ -267,7 +267,7 @@ There is no path fallback: a record that cannot be associated through the identi
 - **Section name:** `namingTokenLexicalIdentities`.
 - **Contract version:** `naming-token-lexical-identity.v1`.
 - **Provenance:** `producerId: naming-token-lexical-identity`, `source: calculogic-validator/naming`.
-- **Status:** contract-approved by calculogic-validator#150. **Not emitted**; no producer or consumer exists. It becomes current runtime truth only through its implementation slice.
+- **Status:** contract-approved by calculogic-validator#150. **Current implementation reality since its implementation slice:** the Naming occurrence-bridge path emits it whenever the run has an active language profile, including in the bridge payload Tree wiring builds; no consumer reads it.
 - **Envelope:** §4.4 rule 5, plus one required field, `lexicalProfile` (below).
 - **Lexical model:** the Linguistic Foundation shared contract (`doc/ValidatorSpecs/linguistic-foundation-shared-contract.spec.md`), §4–§8.
 
@@ -373,7 +373,7 @@ Approved Naming semantic-evidence enrichment section set (§4.5, calculogic-vali
 
 Deferred set: `lineageKey`, `contextPartitionKey`, `siblingContextKey`, `subtreeContextKey`, and `role-like fields`.
 
-Approved Naming token lexical-identity section set (§4.7, §6.4, calculogic-validator#150): `lexicalProfile` on the envelope; `tokenSource` and `tokens` on records. Contract only; not emitted.
+Approved Naming token lexical-identity section set (§4.7, §6.4, calculogic-validator#150): `lexicalProfile` on the envelope; `tokenSource` and `tokens` on records. Emitted with an active language profile since the #150 implementation slice.
 
 Rejected set: `evidenceStrength`.
 

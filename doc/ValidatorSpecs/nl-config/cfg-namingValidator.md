@@ -146,6 +146,7 @@ Naming accepts optional runtime config input with a deterministic JSON contract 
 
 - `version` must equal `"0.1"`
 - optional `strictExit` boolean (enables strict exit semantics)
+- optional `linguisticProfile` object `{ profileId, profileVersion? }` (validator config spec §10; calculogic-validator#150): the run's explicit language profile. The config loader validates its shape (stage 1). Suite core then resolves it against the registered Linguistic Foundation profiles (stage 2, `src/core/config/validator-linguistic-profile.logic.mjs`). Either failure stops the run with no report, exactly like any invalid config
 
 Config carries no registry records (#41 slice 2). The retired `naming.reportableExtensions.add`, `naming.roles.add` (with its hard-coded category enum) and `naming.caseRules` surfaces are rejected: a config with a `naming` key fails validation with a notice that points to the Custom registry set. The `overlay-capabilities.registry.json` registry that bounded those surfaces is removed.
 
@@ -189,6 +190,7 @@ Naming report JSON includes deterministic metadata fields for CI/debug sharing w
 - `toolVersion`: loaded from the Validator package's own `package.json` `version`.
 - `configDigest`: `sha256(stableStringify(config))` when `--config` is supplied.
 - `startedAt`, `endedAt`, `durationMs`: execution timing for each naming report invocation.
+- `linguisticProfile`: `{ profileId, profileVersion, lexiconDigest }`, only when the run has an active language profile (calculogic-validator#150). It is absent otherwise, so a run without a selection keeps its exact report bytes.
 
 `stableStringify` sorts object keys recursively and preserves array order to keep digest generation deterministic across runs.
 
@@ -273,6 +275,21 @@ Ownership boundary:
 - registry resolver loads summary-bucket policy as part of naming registry inputs.
 - wiring prepares and injects summary-bucket runtime dependencies into summary generation.
 - runtime summary logic consumes prepared summary policy and preserves deterministic ordering/count semantics.
+
+### 2.12 Token lexical-identity projection (calculogic-validator#150)
+
+Naming produces the bridge section `namingTokenLexicalIdentities` (bridge contract §4.7, §6.4) from the tokens it already supplies.
+
+- **Projection:** `naming/src/naming-token-lexical-identity-projection.logic.mjs`, `projectNamingTokenLexicalIdentities({ semanticEvidenceEnrichmentSection, folderLabelObservationSection, lexicalProfile })`.
+  - It takes the §4.5 and §4.6 sections Naming has just built, plus the active Linguistic Foundation runtime profile.
+  - It returns the section, or `null` when no profile is active or no record would be emitted.
+  - Its only lexical operation is the foundation's `resolveSurfaceForm` on each token, exactly as supplied. Naming applies no lexical rule of its own.
+- **Producer:** `createNamingOccurrenceBridgePayload` takes an optional `lexicalProfile` and adds the section after the §4.5 and §4.6 sections. Without a profile the payload is unchanged.
+- **Staging (Tree slice spec S1.1):**
+  - `prepareNamingTreeStagingInputs(namingRunOutput, { registryResolution, linguisticFoundation })` adds a fourth opaque value, `lexicalProfile`, only when the prepared foundation has an active profile.
+  - The runner passes the value through unchanged, and Tree wiring hands it to `createNamingOccurrenceBridgePayload`.
+  - Neither of them resolves tokens, builds records or reads readings.
+- **Direct path:** `projectNamingOccurrenceBridge(output, { lexicalProfile })` produces the same section for direct callers.
 
 ## 3.0 Classification Contract
 

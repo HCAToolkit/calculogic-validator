@@ -4,6 +4,8 @@ export const buildDirectValidatorReportEnvelope = ({
   fallbackValidatorId,
   toolVersion,
   configDigest,
+  // Report schema §4: only when the run has an active language profile (calculogic-validator#150).
+  linguisticProfile,
   sourceSnapshot,
   startedAtDate,
   endedAtDate,
@@ -18,6 +20,7 @@ export const buildDirectValidatorReportEnvelope = ({
     toolVersion,
     ...(toolVersion ? { validatorVersion: toolVersion } : {}),
     ...(configDigest ? { configDigest } : {}),
+    ...(linguisticProfile ? { linguisticProfile } : {}),
     sourceSnapshot,
     startedAt: startedAtDate.toISOString(),
     endedAt: endedAtDate.toISOString(),

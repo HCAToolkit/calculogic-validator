@@ -17,6 +17,10 @@ import {
 } from '../../../src/core/cli/validator-cli-usage.logic.mjs';
 import { resolveContextualValidatorScopeProfile } from '../../../src/core/validator-scopes.logic.mjs';
 import { resolveCliRegistrySet } from '../../../src/core/cli/validator-cli-registry-resolution.logic.mjs';
+import {
+  prepareRunLinguisticFoundation,
+  toLinguisticProfileProvenance,
+} from '../../../src/core/config/validator-linguistic-profile.logic.mjs';
 import { parseNamingCliArguments } from './naming-cli-args.logic.mjs';
 import { buildNamingValidatorReport } from './naming-report-builder.logic.mjs';
 
@@ -68,10 +72,13 @@ export const runNamingCli = ({
   const selectedScopeProfile = scopeResolution.profile;
 
   let config;
+  let linguisticFoundation;
   try {
     config = parsed.configPath
       ? loadValidatorConfigFromFile(parsed.configPath, { cwd: process.cwd() })
       : undefined;
+    // Validator config spec §10.4 stage 2: an unavailable requested profile stops the run.
+    linguisticFoundation = prepareRunLinguisticFoundation(config);
   } catch (error) {
     printValidatorUsageErrorToStderr(error.message, usageLines);
     return { shouldExit: true, exitCode: 1 };
@@ -96,6 +103,7 @@ export const runNamingCli = ({
     registry: validatorResult.registry,
     toolVersion: getValidatorToolVersion(),
     configDigest: config ? computeConfigDigest(config) : undefined,
+    linguisticProfile: toLinguisticProfileProvenance(linguisticFoundation) ?? undefined,
     sourceSnapshot: getSourceSnapshot({ cwd: repositoryRoot }),
     selectedScopeProfile,
     startedAtDate,

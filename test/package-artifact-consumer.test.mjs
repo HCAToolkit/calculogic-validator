@@ -159,6 +159,21 @@ test('packed validator artifact installs into a clean consumer host and runs pub
     assert.equal(treeReport.validators[0].id, 'tree-structure-advisor');
     assert.equal(treeReport.validators[0].meta.filters.targets[0], 'src');
 
+    // calculogic-validator#150: the packed Linguistic Foundation serves an explicit profile selection,
+    // and its absence leaves the report without provenance.
+    assert.equal(fsSync.existsSync(path.join(installedPackageRoot, 'linguistic-foundation', 'src', 'registries', '_builtin', 'english-language-profile.registry.json')), true);
+    assert.equal(fsSync.existsSync(path.join(installedPackageRoot, 'linguistic-foundation', 'test')), false);
+    assert.equal('linguisticProfile' in treeReport, false);
+    await fs.writeFile(path.join(hostRoot, 'linguistic-profile.config.json'), JSON.stringify({ version: '0.1', linguisticProfile: { profileId: 'english' } }));
+    const profiledTreeReport = assertPublicBinReport({
+      binName: 'calculogic-validate-tree',
+      hostRoot,
+      installedPackageRoot,
+      args: ['--scope=repo', '--config=linguistic-profile.config.json'],
+    }).report;
+    assert.deepEqual(Object.keys(profiledTreeReport.linguisticProfile).sort(), ['lexiconDigest', 'profileId', 'profileVersion']);
+    assert.equal(profiledTreeReport.linguisticProfile.profileId, 'english');
+
     const validatorScopeBinPath = path.join(hostRoot, 'node_modules', '.bin', 'calculogic-validate-naming');
     const validatorScopeResult = runCommand(validatorScopeBinPath, ['--scope=validator'], { cwd: hostRoot });
     assert.equal(validatorScopeResult.error, undefined, formatCommandFailure({ command: validatorScopeBinPath, args: ['--scope=validator'], cwd: hostRoot, result: validatorScopeResult }));

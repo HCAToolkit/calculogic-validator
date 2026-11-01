@@ -117,20 +117,21 @@ test('the generic foundation modules hold no language-specific content', () => {
   }
 });
 
-test('boundaries: no slice, suite module or package entry reads the foundation yet (contract §15.4)', () => {
+test('boundaries: only Naming\'s projection and suite core\'s run selection import the foundation, and it is packaged (contract §8.5, §15.4)', () => {
   const consumers = ['src', 'naming/src', 'tree/src', 'structural-addressing/src', 'bin', 'scripts'];
   const walk = (directory) =>
     fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
       const full = path.join(directory, entry.name);
       return entry.isDirectory() ? walk(full) : /\.(mjs|js|json)$/u.test(entry.name) ? [full] : [];
     });
-  for (const root of consumers) {
-    for (const file of walk(path.join(REPOSITORY_ROOT, root))) {
-      assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /linguistic-foundation/u, path.relative(REPOSITORY_ROOT, file));
-    }
-  }
+  const importers = consumers
+    .flatMap((root) => walk(path.join(REPOSITORY_ROOT, root)))
+    .filter((file) => /linguistic-foundation\/src\//u.test(fs.readFileSync(file, 'utf8')))
+    .map((file) => path.relative(REPOSITORY_ROOT, file))
+    .sort();
+  assert.deepEqual(importers, ['naming/src/naming-token-lexical-identity-projection.logic.mjs', 'src/core/config/validator-linguistic-profile.logic.mjs']);
   const pkg = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, 'package.json'), 'utf8'));
-  assert.equal(pkg.files.some((entry) => entry.startsWith('linguistic-foundation')), false, 'not packaged until its first consumer');
+  assert.ok(pkg.files.includes('linguistic-foundation/src/**'), 'packaged for its first consumer');
 });
 
 test('regression (PR #149 review): the cached builtin registries cannot be changed by a caller', () => {

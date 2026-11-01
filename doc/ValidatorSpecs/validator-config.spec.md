@@ -47,8 +47,7 @@ Allowed root keys:
 - `version` (required, const `"0.1"`)
 - `$schema` (optional string hint)
 - `strictExit` (optional boolean; enables strict exit semantics)
-
-`linguisticProfile` is contract-approved but not yet an allowed key (§10). Until its implementation slice, a config carrying it is rejected like any unknown key (§5).
+- `linguisticProfile` (optional object `{ profileId, profileVersion? }`; selects the run's language profile, §10)
 
 ## 5) Strictness rules
 
@@ -62,6 +61,7 @@ Runtime loading returns normalized config with deterministic shaping:
 
 - Output always sets `version: "0.1"`.
 - `strictExit` is retained only when provided.
+- `linguisticProfile` is retained only when provided, with `profileVersion` only when provided (§10.3).
 
 ## 7) Registry inputs
 
@@ -116,9 +116,9 @@ The examples show a config file at the root of a consuming repository that has i
 }
 ```
 
-## 10) Linguistic profile selection (contract-approved by calculogic-validator#150; not current runtime)
+## 10) Linguistic profile selection (calculogic-validator#150)
 
-This section is a contract for a later implementation slice. The schema file, runtime validation and every CLI are unchanged until that slice lands. Today a config carrying `linguisticProfile` is rejected as an unknown key (§5).
+Contract-approved by the #150 contract slice; current runtime since its implementation slice. The schema file declares the key, the config loader runs stage 1 (§10.4), and every CLI runs stage 2 before any report is built.
 
 ### 10.1 Key
 

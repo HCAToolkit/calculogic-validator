@@ -50,6 +50,8 @@ const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
     namingSemanticFamilyBridge: options.namingSemanticFamilyBridge,
     namingSemanticEvidenceEnrichment: options.namingSemanticEvidenceEnrichment,
     interpretFolderLabel: options.interpretFolderLabel,
+    // Opaque Naming staging value (calculogic-validator#150): transported, never read here.
+    lexicalProfile: options.lexicalProfile,
     registryResolution: options.registryResolution,
     registryRoots: options.registryResolution?.registryRoots,
   });

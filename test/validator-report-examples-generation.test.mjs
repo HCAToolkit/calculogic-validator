@@ -195,7 +195,7 @@ test('generator refuses to refresh default fixtures outside a development checko
   try {
     // Shaped like an installed package: runtime directories only, no test/.
     const installedCopy = path.join(tempRoot, 'installed-validator');
-    for (const entry of ['package.json', 'scripts', 'src', 'naming', 'tree', 'structural-addressing']) {
+    for (const entry of ['package.json', 'scripts', 'src', 'naming', 'tree', 'structural-addressing', 'linguistic-foundation']) {
       fs.cpSync(entry, path.join(installedCopy, entry), { recursive: true });
     }
 
@@ -219,7 +219,7 @@ test('generator writes both report examples from a checkout path containing a sp
 
   try {
     const checkoutWithSpace = path.join(tempRoot, 'checkout with space');
-    for (const entry of ['package.json', 'scripts', 'src', 'naming', 'tree', 'structural-addressing']) {
+    for (const entry of ['package.json', 'scripts', 'src', 'naming', 'tree', 'structural-addressing', 'linguistic-foundation']) {
       fs.cpSync(entry, path.join(checkoutWithSpace, entry), { recursive: true });
     }
     const outDir = path.join(tempRoot, 'out');
