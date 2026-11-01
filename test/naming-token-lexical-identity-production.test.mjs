@@ -125,6 +125,8 @@ test('R2: all three CLIs behave identically for every selection case', () => {
     malformedEmptyId: { version: '0.1', linguisticProfile: { profileId: '' } },
     malformedExtraField: { version: '0.1', linguisticProfile: { profileId: 'english', locale: 'en' } },
     malformedVersionType: { version: '0.1', linguisticProfile: { profileId: 'english', profileVersion: 1 } },
+    malformedExtraFieldPinned: { version: '0.1', linguisticProfile: { profileId: 'english', profileVersion: '1', locale: 'en' } },
+    malformedIdType: { version: '0.1', linguisticProfile: { profileId: 7, profileVersion: '1' } },
     unregistered: { version: '0.1', linguisticProfile: { profileId: 'french' } },
     mismatch: { version: '0.1', linguisticProfile: { profileId: 'english', profileVersion: '2' } },
     valid: { version: '0.1', linguisticProfile: { profileId: 'english' } },
@@ -158,6 +160,16 @@ test('R2: all three CLIs behave identically for every selection case', () => {
         if (name === 'unregistered') assert.match(result.stderr, /profile-not-registered\): requested profileId "french"\./u, bin);
         if (name === 'mismatch') assert.match(result.stderr, /profile-version-mismatch\): requested profileId "english", profileVersion "2"\./u, bin);
         if (name.startsWith('malformed')) assert.match(result.stderr, /Invalid validator config: linguisticProfile/u, `${bin} ${name}`);
+        // §10.4: stage-1 diagnostics name the valid parts of the request, or the malformed field.
+        const expected = {
+          malformedNotObject: /linguisticProfile must be an object when provided\./u,
+          malformedEmptyId: /linguisticProfile\.profileId must be a non-empty string\./u,
+          malformedExtraField: /linguisticProfile contains unknown key "locale" \(requested profileId "english"\)\./u,
+          malformedExtraFieldPinned: /linguisticProfile contains unknown key "locale" \(requested profileId "english", profileVersion "1"\)\./u,
+          malformedVersionType: /linguisticProfile\.profileVersion must be a non-empty string when provided \(requested profileId "english"\)\./u,
+          malformedIdType: /linguisticProfile\.profileId must be a non-empty string \(requested profileVersion "1"\)\./u,
+        }[name];
+        if (expected) assert.match(result.stderr, expected, `${bin} ${name}: diagnostic`);
       }
       outcomes[bin] = summary;
     }

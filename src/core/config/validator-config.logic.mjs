@@ -30,17 +30,31 @@ const normalizeConfig = (config) => ({
   ...(config?.linguisticProfile === undefined ? {} : { linguisticProfile: normalizeLinguisticProfile(config.linguisticProfile) }),
 });
 
+// Validator config spec §10.4: every stopping diagnostic names the requested profile. The parts of the
+// request that are themselves valid strings are named; a missing or malformed part is named as a field.
+const describeLinguisticProfileRequest = (linguisticProfile) => {
+  const parts = [
+    ...(isNonEmptyString(linguisticProfile.profileId) ? [`profileId "${linguisticProfile.profileId}"`] : []),
+    ...(isNonEmptyString(linguisticProfile.profileVersion) ? [`profileVersion "${linguisticProfile.profileVersion}"`] : []),
+  ];
+  return parts.length > 0 ? ` (requested ${parts.join(', ')})` : '';
+};
+
 // Validator config spec §10.4 stage 1: the shape of the selection, before any profile is resolved.
 const validateLinguisticProfile = (linguisticProfile) => {
   if (!linguisticProfile || typeof linguisticProfile !== 'object' || Array.isArray(linguisticProfile)) {
     fail('linguisticProfile must be an object when provided.');
   }
-  assertOnlyKeys(linguisticProfile, ['profileId', 'profileVersion'], 'linguisticProfile');
+  const request = describeLinguisticProfileRequest(linguisticProfile);
+  const unknownKey = Object.keys(linguisticProfile).find((key) => key !== 'profileId' && key !== 'profileVersion');
+  if (unknownKey !== undefined) {
+    fail(`linguisticProfile contains unknown key "${unknownKey}"${request}.`);
+  }
   if (!isNonEmptyString(linguisticProfile.profileId)) {
-    fail('linguisticProfile.profileId must be a non-empty string.');
+    fail(`linguisticProfile.profileId must be a non-empty string${request}.`);
   }
   if (linguisticProfile.profileVersion !== undefined && !isNonEmptyString(linguisticProfile.profileVersion)) {
-    fail('linguisticProfile.profileVersion must be a non-empty string when provided.');
+    fail(`linguisticProfile.profileVersion must be a non-empty string when provided${request}.`);
   }
 };
 
