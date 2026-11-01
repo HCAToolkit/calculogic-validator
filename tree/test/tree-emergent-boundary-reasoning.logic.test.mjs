@@ -58,6 +58,12 @@ for (const entry of [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_
       }
       return;
     }
+    // A case that discovers nothing (E16): the focus directory has no record, since only directories
+    // with candidates are recorded.
+    if (entry.candidates.length === 0) {
+      assert.equal(directory, undefined, `${entry.id}: no candidate is discovered`);
+      return;
+    }
     assert.ok(directory, `${entry.id}: the focus directory has candidates`);
     // S3.3: exactly the catalogue's candidates, with their members.
     assert.deepEqual(directory.candidates.map((candidate) => prefixKey(candidate.prefix)).sort(), entry.candidates.map((candidate) => prefixKey(candidate.prefix)).sort());
@@ -98,6 +104,95 @@ for (const entry of [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_
     }
   });
 }
+
+// S3.2 positional lineage expression (calculogic-validator#144): provenance and grounding.
+const declaredLineageOf = (entry, semanticName) => entry.lineageExpression?.[semanticName] ?? entry.lineageTokens;
+const prepareTree = ({ files: fileSpecs, folders, n2 } = {}) => {
+  const built = buildCatalogueCase({ files: fileSpecs, folders, n2 });
+  return prepareTreeEmergentBoundaryReasoning({
+    factEvidence: built.factEvidence,
+    semanticEvidence: built.semanticEvidence,
+    sectionIntake: built.sectionIntake,
+    semanticHomeReasoning: built.reasoning,
+    policy: EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY,
+  });
+};
+const tokenFile = (dir, tokens) => ({ dir, root: tokens[0], tokens, semanticName: tokens.join('-') });
+const prefixesAt = (record, path) => (record.directories.find((item) => item.path === path)?.candidates ?? []).map((candidate) => prefixKey(candidate.prefix)).sort();
+
+test('S3.2 provenance: every catalogue member records the declared lineage expression, step by step, and its leading tokens', () => {
+  for (const entry of [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions]) {
+    const { directory } = runCase(entry);
+    for (const candidate of directory?.candidates ?? []) {
+      for (const member of candidate.members) {
+        const declared = declaredLineageOf(entry, member.semanticName);
+        const label = `${entry.id} ${prefixKey(candidate.prefix)} ${member.semanticName}`;
+        assert.deepEqual(member.lineageExpression.flatMap((step) => step.tokens), declared, `${label}: expressed tokens`);
+        let position = 0;
+        for (const step of member.lineageExpression) {
+          assert.deepEqual(step.positions, { start: position, end: position + step.tokens.length }, `${label}: contiguous positions`);
+          position = step.positions.end;
+        }
+        assert.deepEqual(member.leadingTokens, [...declared, ...candidate.prefix], `${label}: leading tokens`);
+      }
+      const distinct = [...new Set(candidate.members.map((member) => member.leadingTokens.join('\u0000')))].sort();
+      assert.deepEqual(candidate.leadingTokens.map((tokens) => tokens.join('\u0000')), distinct, `${entry.id} ${prefixKey(candidate.prefix)}: candidate leading tokens`);
+    }
+  }
+});
+
+test('E17 (S3.2): `naming/` expresses position 0 on its Stage 1 root match, `health/` position 1 on its label; the prefix is `check`', () => {
+  const { directory, candidateAt } = runCase(byId.E17);
+  assert.deepEqual(directory.candidates.map((candidate) => prefixKey(candidate.prefix)), ['check']);
+  const candidate = candidateAt('check');
+  assert.deepEqual(candidate.leadingTokens, [['naming', 'health', 'check']]);
+  for (const member of candidate.members) {
+    assert.deepEqual(
+      member.lineageExpression.map(({ folderPath, basis, positions, tokens }) => ({ folderPath, basis, positions, tokens })),
+      [
+        // A tie with the positional label keeps the Stage 1 basis.
+        { folderPath: 'naming', basis: 'stage-1-root', positions: { start: 0, end: 1 }, tokens: ['naming'] },
+        { folderPath: 'naming/src/health', basis: 'positional-label', positions: { start: 1, end: 2 }, tokens: ['health'] },
+      ],
+    );
+    assert.equal(typeof member.lineageExpression[1].folder.occurrenceAddress, 'string');
+  }
+  // `check` is its own evidence-derived identifier: no record carries `health-check` or a migration.
+  assert.equal(candidateAt('health-check'), undefined);
+  assert.equal('previousPrefix' in candidate || 'identity' in candidate, false);
+});
+
+test('S3.2 order and contiguity: a label equal to a later token expresses nothing when no folder expressed the earlier ones', () => {
+  // `src/core/cli` and `validator-cli-*`: nothing expresses `validator`, so `cli/` does not continue.
+  const record = prepareTree({ files: ['alpha', 'bravo'].map((rest) => tokenFile('src/core/cli', ['validator', 'cli', rest])) });
+  assert.deepEqual(prefixesAt(record, 'src/core/cli'), ['validator', 'validator-cli']);
+  const candidate = record.directories.find((item) => item.path === 'src/core/cli').candidates[0];
+  for (const member of candidate.members) assert.deepEqual(member.lineageExpression, []);
+});
+
+test('S3.2: each folder expresses at most once', () => {
+  const record = prepareTree({ files: ['alpha', 'bravo'].map((rest) => tokenFile('cli', ['cli', 'cli', 'x', rest])) });
+  assert.deepEqual(prefixesAt(record, 'cli'), ['cli', 'cli-x']);
+  const member = record.directories.find((item) => item.path === 'cli').candidates[0].members[0];
+  assert.deepEqual(member.lineageExpression.map((step) => step.positions), [{ start: 0, end: 1 }]);
+});
+
+test('S3.2: a folder whose label is not parsed expresses nothing', () => {
+  const entry = byId.E17;
+  const fileSpecs = entry.tree.files.flatMap(({ dir, root, count, ...options }) => files(dir, root, count, options));
+  const parsed = prepareTree({ files: fileSpecs });
+  const rejected = prepareTree({ files: fileSpecs, n2: { rejected: 'naming/src/health' } });
+  assert.deepEqual(prefixesAt(parsed, 'naming/src/health'), ['check']);
+  assert.deepEqual(prefixesAt(rejected, 'naming/src/health'), ['health', 'health-check']);
+});
+
+test('S3.2: only the relevant lineage takes part; folders above the first terminating folder express nothing', () => {
+  const fileSpecs = ['alpha', 'bravo'].map((rest) => tokenFile('outer/pkg/inner', ['outer', 'pkg', 'inner', rest]));
+  const open = prepareTree({ files: fileSpecs });
+  const terminated = prepareTree({ files: fileSpecs, folders: [{ path: 'outer/pkg', packageRoot: 'pkg' }] });
+  assert.deepEqual(prefixesAt(open, 'outer/pkg/inner'), []);
+  assert.deepEqual(prefixesAt(terminated, 'outer/pkg/inner'), ['outer', 'outer-pkg', 'outer-pkg-inner']);
+});
 
 test('E8: the explained candidate names its home; E2: the corresponding undetermined folder blocks the grouping', () => {
   const e8 = runCase(byId.E8);

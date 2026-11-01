@@ -200,7 +200,7 @@ test('integrity: every member\'s declared lineage-expressed tokens are a leading
 test('integrity: S3.2 positional cases discover exactly their declared candidates over the declared lineage expression', () => {
   // Discovery recomputed from the declared per-member lineage (S3.3): every residual prefix carried by at
   // least two member files, and nothing else.
-  for (const entry of ALL_CASES.filter((candidateCase) => candidateCase.lineageExpression || candidateCase.implementationPending?.amendment === 'S3.2 positional lineage expression')) {
+  for (const entry of ALL_CASES.filter((candidateCase) => candidateCase.lineageExpression || candidateCase.preconditions?.positionalLabels)) {
     const members = expandFiles(entry.tree).filter((item) => item.dir === entry.directory && Array.isArray(item.tokens));
     const counts = new Map();
     for (const item of members) {
@@ -215,7 +215,8 @@ test('integrity: S3.2 positional cases discover exactly their declared candidate
 test('integrity: the implementation-pending marker is on exactly the cases S3.9 names, with a recorded runtime result', () => {
   const specCases = [...S3_9.matchAll(/^\| (E\d+) \|.*\*\*Implementation-pending:\*\*/gmu)].map((match) => match[1]);
   assert.deepEqual(EMERGENT_BOUNDARY_CATALOGUE.cases.filter((entry) => entry.implementationPending).map((entry) => entry.id), specCases);
-  assert.deepEqual(specCases, ['E16', 'E17']);
+  // E16 and E17 were reclassified when calculogic-validator#144 implemented S3.2; no case is pending.
+  assert.deepEqual(specCases, []);
   for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases.filter((candidateCase) => candidateCase.implementationPending)) {
     assert.ok(Object.keys(entry.implementationPending.runtimeProduces).length > 0, `${entry.id}: today's runtime result is recorded`);
   }

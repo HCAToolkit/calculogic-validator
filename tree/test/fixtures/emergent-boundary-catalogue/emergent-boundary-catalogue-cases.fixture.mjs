@@ -523,10 +523,10 @@ const CASES = [
       },
       memberSets: { supported: names(GROUP_OF_FOUR), conflicting: [], unresolved: [FIFTH_MEMBER.semanticName] },
     }),
-  // E16, E17 (calculogic-validator#142): S3.2 positional lineage expression, measured at d0fbdce. Both are
-  // implementation-pending: `runtimeProduces` records what today's runtime gives, so each case is
-  // reclassified once the runtime implements the amendment. `lineageExpression` gives each member's
-  // lineage-expressed tokens where they differ between members (checked against the preconditions).
+  // E16, E17 (calculogic-validator#142): S3.2 positional lineage expression, measured at d0fbdce.
+  // Reclassified from implementation-pending when calculogic-validator#144 implemented the amendment.
+  // `lineageExpression` gives each member's lineage-expressed tokens where they differ between members
+  // (checked against the preconditions).
   (() => {
     const cli = ['args', 'runner', 'usage'].map((rest) => file('naming/src/cli', ['naming', 'cli', rest]));
     const builder = file('naming/src/cli', ['naming', 'report', 'builder']);
@@ -539,10 +539,6 @@ const CASES = [
       lineageExpression: { ...Object.fromEntries(names(cli).map((name) => [name, ['naming', 'cli']])), [builder.semanticName]: ['naming'] },
       // `cli` is expressed by `cli/`, so no residual prefix is shared and nothing is discovered.
       candidates: [],
-      implementationPending: {
-        amendment: 'S3.2 positional lineage expression',
-        runtimeProduces: { cli: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] } },
-      },
       preconditions: {
         rootComparisons: [{ names: [...names(cli), builder.semanticName], folder: 'naming', result: 'match' }],
         positionalLabels: [{ folder: 'naming/src/cli', tokens: ['cli'], position: 1, names: names(cli) }],
@@ -564,13 +560,6 @@ const CASES = [
           expected: { outcome: 'not-an-opportunity', reasons: ['single-responsibility-unit'] },
         },
       ],
-      implementationPending: {
-        amendment: 'S3.2 positional lineage expression',
-        runtimeProduces: {
-          health: { outcome: 'not-an-opportunity', reasons: ['single-responsibility-unit'] },
-          'health-check': { outcome: 'not-an-opportunity', reasons: ['single-responsibility-unit'] },
-        },
-      },
       preconditions: {
         rootComparisons: [{ names: ['naming-health-check'], folder: 'naming', result: 'match' }],
         positionalLabels: [{ folder: 'naming/src/health', tokens: ['health'], position: 1, names: ['naming-health-check'] }],
@@ -585,7 +574,8 @@ const CASES = [
 // - `implementationPending`: only where the expected outcome follows a contract amendment the runtime
 //   does not implement yet. `runtimeProduces` is what today's runtime gives, per candidate; it is
 //   checked exactly, so the case is reclassified when the runtime changes. (E10.1 was reclassified
-//   when calculogic-validator#140 implemented S3.5; no companion is pending.)
+//   when calculogic-validator#140 implemented S3.5, and E16 and E17 when #144 implemented S3.2; no case
+//   is pending.)
 const baseCase = (id) => CASES.find((entry) => entry.id === id);
 const COMPANIONS = [
   (() => {

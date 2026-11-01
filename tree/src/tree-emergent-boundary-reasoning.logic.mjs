@@ -3,8 +3,9 @@
 // candidate relations, member sets and dimension evidence for every directory and, only under an
 // explicitly supplied experimental policy (S3.8), each candidate's assessment by the S3.6 resolution
 // order. It reads the Stage 1 and Stage 2 records by reference and never changes them, never
-// tokenizes or compares tokens with folder labels as strings (S3.1, S3.10), and nothing reads its
-// output: it emits no finding and no report field.
+// tokenizes or compares tokens with folder labels as strings (S3.1, S3.10): S3.2 positional lineage
+// expression compares Naming's parsed label tokens with Naming's N1 tokens for exact equality, the S1.5
+// operation at another position. Nothing reads its output: it emits no finding and no report field.
 
 import { toCandidateKey } from './tree-folder-candidates.logic.mjs';
 import { isTerminatingCandidate } from './tree-folder-semantic-evidence.logic.mjs';
@@ -26,6 +27,7 @@ import {
   EMERGENT_BOUNDARY_DIMENSIONS,
   EMERGENT_BOUNDARY_DISCOVERY_LIMITS,
   EMERGENT_BOUNDARY_DISCOVERY_METHODS,
+  EMERGENT_BOUNDARY_LINEAGE_BASES,
   EMERGENT_BOUNDARY_MEMBER_EXPLANATIONS,
   EMERGENT_BOUNDARY_MEMBER_NOTES,
   EMERGENT_BOUNDARY_MEMBER_SETS,
@@ -141,8 +143,9 @@ const sortById = (candidateIds) =>
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([, candidateId]) => copyCandidateId(candidateId));
 
-// S3.2 members of every directory, with their tokens and lineage-expressed prefix. Accepted intake
+// S3.2 members of every directory, with their tokens, lineage-expressed prefix and its provenance. Accepted intake
 // values are read only behind the Stage 1B-i fact gates.
+const LINEAGE_BASES = EMERGENT_BOUNDARY_LINEAGE_BASES;
 const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake }) => {
   const occurrenceFacts = factEvidence?.occurrenceFacts ?? [];
   const observationByKey = new Map((sectionIntake?.bridgeObservations?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record.observation]));
@@ -161,28 +164,71 @@ const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake }) =
 
   // S2.8 P6, P7: the relevant lineage, from the parent upward through the first terminating folder.
   const relevantLineageOf = (file) => {
-    const lineage = new Set();
+    const lineage = [];
+    const seen = new Set();
     let key = parentKeyOf(file);
-    while (key && folderByKey.has(key) && !lineage.has(key)) {
-      lineage.add(key);
+    while (key && folderByKey.has(key) && !seen.has(key)) {
+      seen.add(key);
+      lineage.push(key);
       if (terminatingFolderKeys.has(key)) break;
       key = parentKeyOf(folderByKey.get(key));
     }
     return lineage;
   };
 
-  // S3.2: the leading tokens an ancestor on the relevant lineage expresses, by the Stage 1 comparison:
-  // a prefix match expresses the candidate's label tokens, a root match the first token.
-  const lineageExpressedLengthOf = (file) => {
-    const lineage = relevantLineageOf(file);
-    let length = 0;
+  // S3.2 Stage 1 basis: the end each lineage folder's Stage 1 comparison reaches at the first token (a
+  // prefix match its label tokens, a root match the first token), the furthest per folder.
+  const stageOneEndsOf = (file) => {
+    const ends = new Map();
     for (const record of recordsByMember.get(toTupleKey(file.identityTuple)) ?? []) {
       const candidate = candidateByKey.get(toCandidateKey(record.candidateId));
-      if (!candidate || !lineage.has(toTupleKey(candidate.folderIdentityTuple))) continue;
-      if (record.channels.prefix?.result === 'match') length = Math.max(length, candidate.labelTokens.length);
-      if (record.channels.root?.result === 'match') length = Math.max(length, 1);
+      if (!candidate) continue;
+      const folderKey = toTupleKey(candidate.folderIdentityTuple);
+      const reached = [
+        ...(record.channels.prefix?.result === 'match' ? [{ end: candidate.labelTokens.length, basis: LINEAGE_BASES.stageOnePrefix }] : []),
+        ...(record.channels.root?.result === 'match' ? [{ end: 1, basis: LINEAGE_BASES.stageOneRoot }] : []),
+      ];
+      for (const entry of reached) {
+        const current = ends.get(folderKey);
+        if (!current || entry.end > current.end) ends.set(folderKey, entry);
+      }
     }
-    return length;
+    return ends;
+  };
+
+  // S3.2 positional lineage expression: walk the relevant lineage from its outermost folder, starting
+  // at p = 0. Each folder moves p to the furthest of p, its Stage 1 end, and p plus its label length when
+  // its parsed Naming label tokens equal the member's tokens at p in full (exact equality, nothing
+  // transformed). A folder that does not extend p expresses nothing; each folder is visited once. The
+  // steps are the provenance: which folder expressed which positions, on which basis. A tie keeps the
+  // Stage 1 basis, the comparison that already established the relationship.
+  const lineageExpressionOf = (file, tokens) => {
+    const stageOneEnds = stageOneEndsOf(file);
+    const steps = [];
+    let position = 0;
+    for (const folderKey of relevantLineageOf(file).reverse()) {
+      const folder = folderByKey.get(folderKey);
+      const reached = [];
+      const stageOne = stageOneEnds.get(folderKey);
+      if (stageOne) reached.push({ end: Math.min(stageOne.end, tokens.length), basis: stageOne.basis });
+      const label = folder.facts?.folderLabel;
+      if (label?.state === 'parsed' && Array.isArray(label.labelTokens) && label.labelTokens.length > 0) {
+        const labelTokens = label.labelTokens;
+        const continues = position + labelTokens.length <= tokens.length && labelTokens.every((token, offset) => tokens[position + offset] === token);
+        if (continues) reached.push({ end: position + labelTokens.length, basis: LINEAGE_BASES.positionalLabel });
+      }
+      const furthest = reached.reduce((best, entry) => (!best || entry.end > best.end ? entry : best), null);
+      if (!furthest || furthest.end <= position) continue;
+      steps.push({
+        folder: { ...folder.identityTuple },
+        folderPath: folder.path,
+        basis: furthest.basis,
+        positions: { start: position, end: furthest.end },
+        tokens: tokens.slice(position, furthest.end),
+      });
+      position = furthest.end;
+    }
+    return { length: position, steps };
   };
 
   const directories = new Map();
@@ -199,6 +245,7 @@ const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake }) =
     const observation = observationByKey.get(key);
     const enrichment = enrichmentByKey.get(key);
     const tokens = entry.facts.tokens.state === 'available' && Array.isArray(enrichment?.semanticTokens) ? [...enrichment.semanticTokens] : null;
+    const expression = tokens ? lineageExpressionOf(entry, tokens) : { length: 0, steps: [] };
     directory.members.push({
       key,
       file: { ...entry.identityTuple },
@@ -207,7 +254,8 @@ const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake }) =
       roleCategory: entry.facts.roleFacts.state === 'available' && isNonEmptyString(enrichment?.roleCategory) ? enrichment.roleCategory : null,
       ambiguous: Array.isArray(observation?.ambiguityFlags) && observation.ambiguityFlags.length > 0,
       tokens,
-      lineageExpressedLength: tokens ? Math.min(lineageExpressedLengthOf(entry), tokens.length) : 0,
+      lineageExpressedLength: expression.length,
+      lineageExpression: expression.steps,
     });
   }
   return [...directories.values()].sort((left, right) => left.folder.identityTuple.occurrenceAddress.localeCompare(right.folder.identityTuple.occurrenceAddress));
@@ -509,12 +557,21 @@ const assessCandidate = ({ candidate, policy }) => {
   return decided(RULES.opportunity, OUTCOMES.opportunity, Object.values(EMERGENT_BOUNDARY_DIMENSIONS), {}, DECISIONS.separationValueLimit);
 };
 
-const toMemberRecord = (member, classified) => ({
+const distinctSequences = (sequences) =>
+  [...new Map(sequences.map((sequence) => [sequence.join('\u0000'), sequence])).entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, sequence]) => [...sequence]);
+
+const toMemberRecord = (member, prefix, classified) => ({
   file: member.file,
   path: member.path,
   semanticName: member.semanticName,
   roleCategory: member.roleCategory,
   ambiguous: member.ambiguous,
+  // S3.2 provenance: the lineage folders that expressed this member's leading positions, and the tokens
+  // the member leads with for the grouping (lineage-expressed tokens, then the shared prefix).
+  lineageExpression: member.lineageExpression,
+  leadingTokens: [...member.tokens.slice(0, member.lineageExpressedLength), ...prefix],
   set: classified.set,
   ...(classified.explanation ? { explanation: classified.explanation } : {}),
   ...(classified.notes.length > 0 ? { notes: classified.notes } : {}),
@@ -609,7 +666,7 @@ export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvi
             member,
             classifyMember({ member, prefix: group.prefix, placement: placementByKey.get(member.key), claimOf, rootClaimOf, outcomeOf, existing }),
           );
-          return toMemberRecord(member, classified);
+          return toMemberRecord(member, group.prefix, classified);
         })
         .sort((left, right) => left.file.occurrenceAddress.localeCompare(right.file.occurrenceAddress));
       const supported = memberRecords.filter((member) => member.set === SETS.supported);
@@ -618,6 +675,10 @@ export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvi
         directory: { ...folder.identityTuple },
         directoryPath: folder.path,
         prefix: [...group.prefix],
+        // S3.2: the prefix is the evidence-derived identifier; the leading tokens it was derived from are
+        // kept beside it, one entry per distinct sequence among the members (members of one directory
+        // may have different lineage-expressed tokens). No identity-migration rule is applied.
+        leadingTokens: distinctSequences(memberRecords.map((member) => member.leadingTokens)),
         discoveryMethod: EMERGENT_BOUNDARY_DISCOVERY_METHODS.prefixV0,
         members: memberRecords,
         memberSets: Object.fromEntries(
