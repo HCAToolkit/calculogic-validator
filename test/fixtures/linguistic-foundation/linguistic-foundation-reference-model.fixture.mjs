@@ -21,7 +21,7 @@ export const validateProfile = (profile) => {
     if (values.some((value) => !FOUNDATION.supportStatuses.includes(declared[value]))) problems.add('feature-support-incomplete');
     if (Object.keys(declared).some((value) => !values.includes(value))) problems.add('profile-adds-feature-value');
   }
-  if (Object.keys(profile.featureSupport ?? {}).some((space) => !(space in FOUNDATION.featureSpaces))) problems.add('profile-adds-feature-value');
+  if (Object.keys(profile.featureSupport ?? {}).some((space) => !Object.hasOwn(FOUNDATION.featureSpaces, space))) problems.add('profile-adds-feature-value');
   const lexemeIds = new Set();
   const forms = new Set();
   for (const entry of profile.entries ?? []) {
@@ -31,7 +31,9 @@ export const validateProfile = (profile) => {
     for (const form of entry.forms ?? []) {
       if (typeof form.surface !== 'string' || form.surface === '') problems.add('surface-empty');
       for (const [space, value] of Object.entries(form.features ?? {})) {
-        if (!(space in FOUNDATION.featureSpaces)) problems.add('feature-space-unknown');
+        if (!Object.hasOwn(FOUNDATION.featureSpaces, space)) problems.add('feature-space-unknown');
+        // §4.2: a value is one of the space's strings; a non-string would coerce to a property key.
+        else if (typeof value !== 'string' || !FOUNDATION.featureSpaces[space].includes(value)) problems.add('feature-value-unknown');
         else if (profile.featureSupport?.[space]?.[value] !== 'supported') problems.add('feature-value-unsupported');
       }
       const key = `${form.surface}\u0000${readingKey({ lexemeId: entry.lexemeId, features: form.features ?? {} })}`;

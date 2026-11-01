@@ -39,7 +39,7 @@
     "calculogic-validator-registry": "./bin/calculogic-validator-registry.host.mjs"
   },
   "scripts": {
-    "test": "node --test --experimental-strip-types test/**/*.test.mjs naming/test/**/*.test.mjs tree/test/**/*.test.mjs structural-addressing/test/**/*.test.mjs",
+    "test": "node --test --experimental-strip-types test/**/*.test.mjs naming/test/**/*.test.mjs tree/test/**/*.test.mjs structural-addressing/test/**/*.test.mjs linguistic-foundation/test/**/*.test.mjs",
     "validate:naming": "node --experimental-strip-types scripts/validate-naming.host.mjs",
     "validate:all": "node --experimental-strip-types scripts/validate-all.host.mjs",
     "validate:tree": "node --experimental-strip-types scripts/validate-tree.host.mjs",
