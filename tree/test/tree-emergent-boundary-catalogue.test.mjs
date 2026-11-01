@@ -91,6 +91,9 @@ const UNRESOLVED_DECISIONS = Object.keys(POLICY_DECISIONS).filter((id) => POLICY
 const PRIMARY_CATEGORIES = new Set(POLICY_DECISIONS['responsibility-class-mapping'].value.primary);
 const SUPPORTING_CATEGORIES = new Set(POLICY_DECISIONS['responsibility-class-mapping'].value.supporting);
 
+// S3.2: a member's declared lineage-expressed tokens, per member where a case gives them.
+const lineageOf = (entry, item) => entry.lineageExpression?.[item.semanticName] ?? entry.lineageTokens;
+
 // The tree's files in the order `buildCatalogueCase` builds them, each with its path and N1 tokens.
 const expandFiles = (tree) => {
   const expanded = tree.files.flatMap(({ dir, root, count, ...options }) => files(dir, root, count, options));
@@ -108,7 +111,7 @@ test('integrity: the table names the S3.9 catalogue, version and cases, in order
   assert.equal(EMERGENT_BOUNDARY_CATALOGUE.version, '1');
   const specIds = [...S3_9.matchAll(/^\| (E\d+) \|/gmu)].map((match) => match[1]);
   assert.deepEqual([...S3_9_RECORD.matchAll(/^\| (E\d+) \|/gmu)].map((match) => match[1]), specIds, 'the sufficiency record has one row per case');
-  assert.deepEqual(specIds, Array.from({ length: 15 }, (_, index) => `E${index + 1}`));
+  assert.deepEqual(specIds, Array.from({ length: EMERGENT_BOUNDARY_CATALOGUE.cases.length }, (_, index) => `E${index + 1}`));
   assert.deepEqual(
     EMERGENT_BOUNDARY_CATALOGUE.cases.map((entry) => entry.id),
     specIds,
@@ -155,8 +158,8 @@ test('integrity: candidates are the focus directory\'s files carrying the prefix
     assert.equal(new Set(prefixes).size, prefixes.length, `${entry.id}: one candidate per prefix`);
     for (const candidate of entry.candidates) {
       const label = `${entry.id} ${prefixKey(candidate.prefix)}`;
-      const leading = [...entry.lineageTokens, ...candidate.prefix];
-      const carriers = inDirectory.filter((item) => leading.every((token, index) => item.tokens[index] === token));
+      // A member's leading tokens: its own lineage-expressed tokens (S3.2), then the prefix.
+      const carriers = inDirectory.filter((item) => [...lineageOf(entry, item), ...candidate.prefix].every((token, index) => item.tokens[index] === token));
       assert.deepEqual(
         [...new Set(carriers.map((item) => item.semanticName))].sort(),
         [...candidate.members].sort(),
@@ -182,6 +185,39 @@ test('integrity: a case with lineage tokens shows them expressed by a lineage fo
       (comparison) => comparison.result === 'match' && [...allMembers].every((name) => comparison.names.includes(name)),
     );
     assert.ok(covering, `${entry.id}: a root-match precondition covers every member`);
+  }
+});
+
+test('integrity: every member\'s declared lineage-expressed tokens are a leading part of its own tokens (S3.2)', () => {
+  for (const entry of ALL_CASES) {
+    for (const item of expandFiles(entry.tree).filter((member) => member.dir === entry.directory && Array.isArray(member.tokens))) {
+      const lineage = lineageOf(entry, item);
+      assert.deepEqual(item.tokens.slice(0, lineage.length), lineage, `${entry.id} ${item.semanticName}: declared lineage ${lineage.join('-')}`);
+    }
+  }
+});
+
+test('integrity: S3.2 positional cases discover exactly their declared candidates over the declared lineage expression', () => {
+  // Discovery recomputed from the declared per-member lineage (S3.3): every residual prefix carried by at
+  // least two member files, and nothing else.
+  for (const entry of ALL_CASES.filter((candidateCase) => candidateCase.lineageExpression || candidateCase.implementationPending?.amendment === 'S3.2 positional lineage expression')) {
+    const members = expandFiles(entry.tree).filter((item) => item.dir === entry.directory && Array.isArray(item.tokens));
+    const counts = new Map();
+    for (const item of members) {
+      const residual = item.tokens.slice(lineageOf(entry, item).length);
+      for (let length = 1; length <= residual.length; length += 1) counts.set(prefixKey(residual.slice(0, length)), (counts.get(prefixKey(residual.slice(0, length))) ?? 0) + 1);
+    }
+    const discovered = [...counts].filter(([, count]) => count >= 2).map(([key]) => key).sort();
+    assert.deepEqual(discovered, entry.candidates.map((candidate) => prefixKey(candidate.prefix)).sort(), `${entry.id}: discovery over the declared lineage expression`);
+  }
+});
+
+test('integrity: the implementation-pending marker is on exactly the cases S3.9 names, with a recorded runtime result', () => {
+  const specCases = [...S3_9.matchAll(/^\| (E\d+) \|.*\*\*Implementation-pending:\*\*/gmu)].map((match) => match[1]);
+  assert.deepEqual(EMERGENT_BOUNDARY_CATALOGUE.cases.filter((entry) => entry.implementationPending).map((entry) => entry.id), specCases);
+  assert.deepEqual(specCases, ['E16', 'E17']);
+  for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases.filter((candidateCase) => candidateCase.implementationPending)) {
+    assert.ok(Object.keys(entry.implementationPending.runtimeProduces).length > 0, `${entry.id}: today's runtime result is recorded`);
   }
 });
 
@@ -489,6 +525,19 @@ const checkPreconditions = (entry) => {
       else if (relationship.channels.root.result !== expected.result) {
         fail(`${filePath}: root comparison with ${expected.folder} is ${relationship.channels.root.result}, expected ${expected.result}`);
       }
+    }
+  }
+
+  // S3.2 positional expression: the folder's Naming label tokens equal the members' tokens at a position,
+  // and the declared lineage expression of those members ends right after them.
+  for (const expected of preconditions.positionalLabels ?? []) {
+    const candidate = built.semanticEvidence.candidates.find((record) => record.path === expected.folder && record.candidateId.candidateSource === 'naming-folder-label');
+    if (JSON.stringify(candidate?.labelTokens) !== JSON.stringify(expected.tokens)) fail(`${expected.folder}: label tokens ${JSON.stringify(candidate?.labelTokens)}`);
+    const members = expanded.filter((item) => item.dir === entry.directory && expected.names.includes(item.semanticName));
+    if (members.length === 0) fail(`${expected.folder}: no member selected`);
+    for (const item of members) {
+      if (!expected.tokens.every((token, index) => item.tokens[expected.position + index] === token)) fail(`${item.path}: tokens at ${expected.position} are not the label`);
+      if (lineageOf(entry, item).length !== expected.position + expected.tokens.length) fail(`${item.path}: declared lineage expression does not end after the label`);
     }
   }
 

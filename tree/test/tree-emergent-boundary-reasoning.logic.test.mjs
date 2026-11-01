@@ -47,6 +47,17 @@ const byId = Object.fromEntries(EMERGENT_BOUNDARY_CATALOGUE.cases.map((entry) =>
 for (const entry of [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions]) {
   test(`catalogue ${entry.id}: discovery, relations, member sets and outcomes under the experimental policy`, () => {
     const { directory, candidateAt } = runCase(entry);
+    // Implementation-pending: the expected candidates follow an amendment the runtime does not implement
+    // yet, so today's discovered set and results are checked exactly, as recorded.
+    if (entry.implementationPending) {
+      const recorded = entry.implementationPending.runtimeProduces;
+      assert.deepEqual((directory?.candidates ?? []).map((candidate) => prefixKey(candidate.prefix)).sort(), Object.keys(recorded).sort(), `${entry.id}: today's discovered candidates`);
+      for (const [key, result] of Object.entries(recorded)) {
+        const { assessment } = candidateAt(key);
+        assert.deepEqual({ outcome: assessment.outcome, reasons: assessment.reasons }, result, `${entry.id} ${key}: today's runtime result, exactly as recorded (implementation-pending)`);
+      }
+      return;
+    }
     assert.ok(directory, `${entry.id}: the focus directory has candidates`);
     // S3.3: exactly the catalogue's candidates, with their members.
     assert.deepEqual(directory.candidates.map((candidate) => prefixKey(candidate.prefix)).sort(), entry.candidates.map((candidate) => prefixKey(candidate.prefix)).sort());
@@ -60,14 +71,6 @@ for (const entry of [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_
         assert.equal(recorded?.relation, relation.relation, `${label}: relation to ${relation.to}`);
       }
       const { assessment } = candidate;
-      // Implementation-pending: the expected outcome and member sets follow an amendment the runtime
-      // does not implement yet, so only today's recorded result is checked.
-      const pending = entry.implementationPending?.runtimeProduces[key];
-      if (pending) {
-        assert.equal(assessment.completion, 'complete', `${label}: complete`);
-        assert.deepEqual({ outcome: assessment.outcome, reasons: assessment.reasons }, pending, `${label}: today's runtime result, exactly as recorded (implementation-pending)`);
-        continue;
-      }
       if (expected.memberSets) {
         for (const [set, names] of Object.entries(expected.memberSets)) {
           assert.deepEqual(candidate.members.filter((member) => member.set === set).map((member) => member.semanticName).sort(), [...names].sort(), `${label}: ${set} members`);

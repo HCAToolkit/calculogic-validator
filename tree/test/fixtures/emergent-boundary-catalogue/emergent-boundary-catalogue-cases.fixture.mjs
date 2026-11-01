@@ -523,6 +523,60 @@ const CASES = [
       },
       memberSets: { supported: names(GROUP_OF_FOUR), conflicting: [], unresolved: [FIFTH_MEMBER.semanticName] },
     }),
+  // E16, E17 (calculogic-validator#142): S3.2 positional lineage expression, measured at d0fbdce. Both are
+  // implementation-pending: `runtimeProduces` records what today's runtime gives, so each case is
+  // reclassified once the runtime implements the amendment. `lineageExpression` gives each member's
+  // lineage-expressed tokens where they differ between members (checked against the preconditions).
+  (() => {
+    const cli = ['args', 'runner', 'usage'].map((rest) => file('naming/src/cli', ['naming', 'cli', rest]));
+    const builder = file('naming/src/cli', ['naming', 'report', 'builder']);
+    return {
+      id: 'E16',
+      source: 'measured',
+      tree: { files: [...cli, builder, ...['alpha', 'bravo', 'charlie'].map((root) => others('naming/src', root, 1))] },
+      directory: 'naming/src/cli',
+      lineageTokens: ['naming'],
+      lineageExpression: { ...Object.fromEntries(names(cli).map((name) => [name, ['naming', 'cli']])), [builder.semanticName]: ['naming'] },
+      // `cli` is expressed by `cli/`, so no residual prefix is shared and nothing is discovered.
+      candidates: [],
+      implementationPending: {
+        amendment: 'S3.2 positional lineage expression',
+        runtimeProduces: { cli: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] } },
+      },
+      preconditions: {
+        rootComparisons: [{ names: [...names(cli), builder.semanticName], folder: 'naming', result: 'match' }],
+        positionalLabels: [{ folder: 'naming/src/cli', tokens: ['cli'], position: 1, names: names(cli) }],
+      },
+    };
+  })(),
+  (() => {
+    const health = [file('naming/src/health', ['naming', 'health', 'check'], { role: 'host', roleCategory: 'surface-system' }), file('naming/src/health', ['naming', 'health', 'check'])];
+    return {
+      id: 'E17',
+      source: 'measured',
+      tree: { files: [...health, ...['alpha', 'bravo', 'charlie'].map((root) => others('naming/src', root, 1))] },
+      directory: 'naming/src/health',
+      lineageTokens: ['naming', 'health'],
+      candidates: [
+        {
+          prefix: ['check'],
+          members: ['naming-health-check'],
+          expected: { outcome: 'not-an-opportunity', reasons: ['single-responsibility-unit'] },
+        },
+      ],
+      implementationPending: {
+        amendment: 'S3.2 positional lineage expression',
+        runtimeProduces: {
+          health: { outcome: 'not-an-opportunity', reasons: ['single-responsibility-unit'] },
+          'health-check': { outcome: 'not-an-opportunity', reasons: ['single-responsibility-unit'] },
+        },
+      },
+      preconditions: {
+        rootComparisons: [{ names: ['naming-health-check'], folder: 'naming', result: 'match' }],
+        positionalLabels: [{ folder: 'naming/src/health', tokens: ['health'], position: 1, names: ['naming-health-check'] }],
+      },
+    };
+  })(),
 ];
 
 // S3.9 companion cases (calculogic-validator#138): a base case plus one condition measured on the real
