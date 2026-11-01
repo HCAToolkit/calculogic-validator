@@ -12,7 +12,6 @@ import { governingChannelOf } from './tree-semantic-home-attribution.logic.mjs';
 import {
   SEMANTIC_HOME_CHANNELS,
   SEMANTIC_HOME_OUTCOMES,
-  SEMANTIC_HOME_PLACEMENT_LOCATIONS,
   SEMANTIC_HOME_PLACEMENT_REASONS,
   SEMANTIC_HOME_PLACEMENT_RELATIONS,
   SEMANTIC_HOME_PLACEMENT_STATES,
@@ -41,6 +40,7 @@ import {
   EMERGENT_BOUNDARY_RESPONSIBILITY_CLASSES,
   EMERGENT_BOUNDARY_RULES,
   EMERGENT_BOUNDARY_SELECTION,
+  EMERGENT_BOUNDARY_UNCERTAINTY_READINGS,
 } from './tree-emergent-boundary-reasoning.knowledge.mjs';
 
 const SOURCE_ID = 'tree-emergent-boundary-reasoning';
@@ -246,16 +246,34 @@ const relationOf = (left, right) => {
   return { relation: EMERGENT_BOUNDARY_RELATIONS.competing };
 };
 
+// S3.5 claim-relative uncertainty: one consulted candidate read by the claim its Stage 2 relation puts
+// forward. `match` puts forward the candidate's governing claim and `possible-root-reading` its root
+// reading's claim; a relation that compared nothing puts forward none. A corresponding claim is
+// established correspondence for a `match` and possible correspondence otherwise.
+const READINGS = EMERGENT_BOUNDARY_UNCERTAINTY_READINGS;
+export const readConsultedCandidate = ({ relation, governingClaim, rootClaim, leading }) => {
+  const claim =
+    relation === SEMANTIC_HOME_PLACEMENT_RELATIONS.match ? governingClaim
+      : relation === SEMANTIC_HOME_PLACEMENT_RELATIONS.possibleRootReading ? rootClaim
+        : null;
+  if (!claim) return { claim: null, reading: READINGS.missingComparison };
+  const claimRelation = claimRelationOf(claim, leading);
+  if (claimRelation === EMERGENT_BOUNDARY_CLAIM_RELATIONS.corresponds) {
+    return { claim, reading: relation === SEMANTIC_HOME_PLACEMENT_RELATIONS.match ? READINGS.establishedCorrespondence : READINGS.possibleCorrespondence };
+  }
+  return { claim, reading: claimRelation === EMERGENT_BOUNDARY_CLAIM_RELATIONS.broader ? READINGS.broaderContext : READINGS.possibleOtherDestination };
+};
+
 // S3.5: one member's set and explanation relative to a grouping, from its Stage 2 placement.
-const classifyMember = ({ member, prefix, placement, claimOf, outcomeOf, existing }) => {
+const classifyMember = ({ member, prefix, placement, claimOf, rootClaimOf, outcomeOf, existing }) => {
   const leading = [...member.tokens.slice(0, member.lineageExpressedLength), ...prefix];
-  const note = (set, explanation = null, notes = []) => ({ set, explanation, notes });
+  const note = (set, explanation = null, notes = [], uncertainty = []) => ({ set, explanation, notes, uncertainty });
 
   if (!placement) return note(SETS.unresolved, { reason: EXPLANATIONS.placementUndetermined, placementReason: null });
 
   // Existing-structure evidence is collected from every placement, whatever its state, before the
-  // member's set is decided. Eligible homes elsewhere: a corresponding one explains the grouping, a broader one is recorded,
-  // a different one is another destination.
+  // member's set is decided. Eligible homes elsewhere: a corresponding one explains the grouping, a
+  // broader one is recorded, a different one is another destination.
   const differentHomes = [];
   for (const candidateId of placement.elsewhereHomes ?? []) {
     const relation = claimRelationOf(claimOf(candidateId), leading);
@@ -263,38 +281,46 @@ const classifyMember = ({ member, prefix, placement, claimOf, outcomeOf, existin
     else if (relation === EMERGENT_BOUNDARY_CLAIM_RELATIONS.broader) existing.broaderSupportedHomes.push(candidateId);
     else differentHomes.push(candidateId);
   }
-  // Undetermined candidates consulted: a corresponding `match` blocks the grouping wherever it is.
-  const undeterminedElsewhere = [];
-  const undeterminedOnLineage = [];
-  for (const consulted of placement.consultedCandidates ?? []) {
-    if (outcomeOf(consulted.candidateId) !== SEMANTIC_HOME_OUTCOMES.undetermined) continue;
-    const relation = claimRelationOf(claimOf(consulted.candidateId), leading);
-    if (consulted.relation === SEMANTIC_HOME_PLACEMENT_RELATIONS.match && relation === EMERGENT_BOUNDARY_CLAIM_RELATIONS.corresponds) {
-      existing.correspondingUndeterminedCandidates.push(consulted.candidateId);
-    } else {
-      existing.relatedUndeterminedCandidates.push(consulted.candidateId);
-    }
-    (consulted.location === SEMANTIC_HOME_PLACEMENT_LOCATIONS.lineage ? undeterminedOnLineage : undeterminedElsewhere).push(consulted.candidateId);
-  }
+  // Every consulted candidate (undetermined, or reached through a `possible-*` relation), with its reading.
+  const uncertainty = (placement.consultedCandidates ?? [])
+    .map((consulted) => ({
+      candidateId: copyCandidateId(consulted.candidateId),
+      outcome: outcomeOf(consulted.candidateId),
+      relation: consulted.relation,
+      location: consulted.location,
+      ...readConsultedCandidate({ relation: consulted.relation, governingClaim: claimOf(consulted.candidateId), rootClaim: rootClaimOf(consulted.candidateId), leading }),
+    }))
+    .sort((left, right) => toCandidateKey(left.candidateId).localeCompare(toCandidateKey(right.candidateId)));
+  const withReading = (reading) => uncertainty.filter((entry) => entry.reading === reading).map((entry) => entry.candidateId);
+  existing.correspondingUndeterminedCandidates.push(...withReading(READINGS.establishedCorrespondence));
+  existing.possiblyCorrespondingCandidates.push(...withReading(READINGS.possibleCorrespondence));
+  existing.relatedUndeterminedCandidates.push(
+    ...uncertainty.filter((entry) => entry.outcome === SEMANTIC_HOME_OUTCOMES.undetermined && entry.reading !== READINGS.establishedCorrespondence && entry.reading !== READINGS.possibleCorrespondence).map((entry) => entry.candidateId),
+  );
 
-  // S3.5: inside a home on the lineage, or with no home, the member is supported.
-  if (placement.state === SEMANTIC_HOME_PLACEMENT_STATES.insideHome || placement.state === SEMANTIC_HOME_PLACEMENT_STATES.noHome) return note(SETS.supported);
+  // S3.5: inside a home on the lineage, with no home, or at a broader home elsewhere, the member is supported.
+  if (placement.state === SEMANTIC_HOME_PLACEMENT_STATES.insideHome || placement.state === SEMANTIC_HOME_PLACEMENT_STATES.noHome) return note(SETS.supported, null, [], uncertainty);
   if (differentHomes.length > 0) {
-    return note(SETS.conflicting, {
-      reason: EXPLANATIONS.homeElsewhereDifferentClaim,
-      homes: sortById(differentHomes).map((candidateId) => ({ candidateId, claim: claimOf(candidateId) })),
-    });
+    return note(
+      SETS.conflicting,
+      { reason: EXPLANATIONS.homeElsewhereDifferentClaim, homes: sortById(differentHomes).map((candidateId) => ({ candidateId, claim: claimOf(candidateId) })) },
+      [],
+      uncertainty,
+    );
   }
-  if (placement.state === SEMANTIC_HOME_PLACEMENT_STATES.homeElsewhere) return note(SETS.supported);
-  // S3.5 undetermined ancestors: an undetermined lineage candidate alone leaves the member supported,
-  // with the uncertainty kept; an undetermined candidate elsewhere still leaves it unresolved.
-  if (placement.reason === SEMANTIC_HOME_PLACEMENT_REASONS.homeOnLineageUndetermined) {
-    if (undeterminedElsewhere.length > 0) {
-      return note(SETS.unresolved, { reason: EXPLANATIONS.undeterminedCandidateElsewhere, candidateIds: sortById(undeterminedElsewhere) });
-    }
-    return note(SETS.supported, null, [{ note: EMERGENT_BOUNDARY_MEMBER_NOTES.relatedFolderUndetermined, candidateIds: sortById(undeterminedOnLineage) }]);
+  if (placement.state === SEMANTIC_HOME_PLACEMENT_STATES.homeElsewhere) return note(SETS.supported, null, [], uncertainty);
+  // An undetermined placement: decided by the readings, except for a run-wide reason.
+  if (placement.reason === SEMANTIC_HOME_PLACEMENT_REASONS.candidateDiscoveryIncomplete || uncertainty.length === 0) {
+    return note(SETS.unresolved, { reason: EXPLANATIONS.placementUndetermined, placementReason: placement.reason ?? null }, [], uncertainty);
   }
-  return note(SETS.unresolved, { reason: EXPLANATIONS.placementUndetermined, placementReason: placement.reason ?? null });
+  const corresponding = [...withReading(READINGS.establishedCorrespondence), ...withReading(READINGS.possibleCorrespondence)];
+  if (corresponding.length > 0) return note(SETS.unresolved, { reason: EXPLANATIONS.correspondingCandidateUndetermined, candidateIds: sortById(corresponding) }, [], uncertainty);
+  const destinations = withReading(READINGS.possibleOtherDestination);
+  if (destinations.length > 0) return note(SETS.unresolved, { reason: EXPLANATIONS.possibleOtherDestination, candidateIds: destinations }, [], uncertainty);
+  const missing = withReading(READINGS.missingComparison);
+  if (missing.length > 0) return note(SETS.unresolved, { reason: EXPLANATIONS.comparisonMissing, candidateIds: missing }, [], uncertainty);
+  // Every consulted candidate puts forward a broader claim: context only.
+  return note(SETS.supported, null, [{ note: EMERGENT_BOUNDARY_MEMBER_NOTES.relatedFolderUndetermined, candidateIds: withReading(READINGS.broaderContext) }], uncertainty);
 };
 
 // Missing role or identity evidence leaves an otherwise supported member unresolved (S3.5, S3.10).
@@ -311,6 +337,60 @@ const classOf = (mapping, roleCategory, allDocumentation) => {
   if (mapping.supporting.includes(roleCategory)) return EMERGENT_BOUNDARY_RESPONSIBILITY_CLASSES.supporting;
   if (roleCategory === DOCUMENTATION && allDocumentation) return EMERGENT_BOUNDARY_RESPONSIBILITY_CLASSES.primary;
   return null;
+};
+
+// S3.6 coverage: is the conclusion invariant under every admissible completion of `k` unrecognized
+// files? Walks the resolution order from single responsibility up to the rule that decides on current
+// evidence, applying each rule's invariance condition over the S3.6 bounds (primary units P..P+k,
+// outside members O..O+k, member files n..n+k; any category; redundancy and whole-directory coverage
+// can break but never be created). A rule whose policy decision is unresolved is incomplete in every
+// completion alike, so it ends the walk. The bound is conservative: it can deny invariance where it
+// holds, never assert it where it fails. It decides nothing itself: the rules decide the outcome.
+export const evaluateCoverageInvariance = ({
+  unrecognizedFileCount: k,
+  primaryUnitCount: P,
+  memberFileCount: n,
+  outsideMemberFileCount: O,
+  redundant,
+  coversWholeDirectory,
+  prefixLength,
+  minimumPrimaryUnits,
+  joiningFileCanLeaveClassUnresolved,
+}) => {
+  const variantRules = [];
+  const decisionsInvolved = new Set();
+  const point = EMERGENT_BOUNDARY_PARTIAL_EVIDENCE_POINT;
+  const steps = [
+    () => {
+      if (P === null) return { stops: true };
+      const varies = P < 2 || joiningFileCanLeaveClassUnresolved;
+      if (varies && joiningFileCanLeaveClassUnresolved) decisionsInvolved.add(DECISIONS.responsibilityClassMapping);
+      return { rule: RULES.singleResponsibility, varies, stops: P === 1 };
+    },
+    () => ({ rule: RULES.redundancy, varies: redundant, stops: redundant }),
+    () => ({ rule: RULES.wholeDirectory, varies: coversWholeDirectory, stops: coversWholeDirectory }),
+    () => ({ rule: RULES.specificity, varies: false, stops: prefixLength === 1 }),
+    () => {
+      if (minimumPrimaryUnits === null) return { stops: true };
+      return { rule: RULES.minimumUnits, varies: !(P >= minimumPrimaryUnits || P + k < minimumPrimaryUnits), stops: P < minimumPrimaryUnits };
+    },
+    () => {
+      // Every completion passes: the worst one, with every file joining unresolved, is within the point.
+      const allPass = P >= point.supportedPrimaryUnits && (O + k) * 5 <= (n + k) * point.outsideFilesPerFive;
+      // Every completion fails: only when some member is already outside, so the step applies to every
+      // completion, and even the best one (every file a new supported unit) misses the point.
+      const allFail = O > 0 && (P + k < point.supportedPrimaryUnits || O * 5 > (n + k) * point.outsideFilesPerFive);
+      const varies = !(allPass || allFail);
+      if (varies) decisionsInvolved.add(DECISIONS.partialEvidenceAggregation);
+      return { rule: RULES.partialEvidence, varies, stops: true };
+    },
+  ];
+  for (const step of steps) {
+    const { rule, varies, stops } = step();
+    if (varies) variantRules.push(rule);
+    if (stops) break;
+  }
+  return { invariant: variantRules.length === 0, variantRules, decisionsInvolved: [...decisionsInvolved].sort() };
 };
 
 // S3.6 outcome resolution over the prepared evidence, under one policy.
@@ -368,11 +448,31 @@ const assessCandidate = ({ candidate, policy }) => {
   if (existing.correspondingSupportedHomes.length > 0) {
     return decided(RULES.existingStructure, OUTCOMES.explainedByExistingStructure, [], { home: copyCandidateId(existing.correspondingSupportedHomes[0]) });
   }
-  if (existing.correspondingUndeterminedCandidates.length > 0) return decided(RULES.existingStructure, OUTCOMES.insufficientEvidence, [REASONS.correspondingHomeUnresolved]);
+  // Established and possible correspondence to an undetermined candidate both block (S3.5).
+  if (existing.correspondingUndeterminedCandidates.length > 0 || existing.possiblyCorrespondingCandidates.length > 0) {
+    return decided(RULES.existingStructure, OUTCOMES.insufficientEvidence, [REASONS.correspondingHomeUnresolved]);
+  }
 
-  // 2. Coverage: complete coverage passes any share.
+  // 2. Coverage: with unrecognized files, only a conclusion invariant under every admissible completion
+  // proceeds without the `coverage-share` decision (S3.6). Complete coverage needs neither.
   const quality = evidence.evidenceQuality;
   if (quality.nonMemberFileCount > 0) {
+    const coverage = evaluateCoverageInvariance({
+      unrecognizedFileCount: quality.nonMemberFileCount,
+      primaryUnitCount,
+      memberFileCount: candidate.members.length,
+      outsideMemberFileCount: outside,
+      redundant: Boolean(candidate.redundantWith),
+      coversWholeDirectory: evidence.separation.coversWholeDirectory,
+      prefixLength: candidate.prefix.length,
+      minimumPrimaryUnits: unresolved(DECISIONS.minimumPrimaryUnits) ? null : valueOf(DECISIONS.minimumPrimaryUnits),
+      // The mapping leaves documentation in a mixed grouping unresolved, and a joining file may carry any
+      // category, including one outside the mapping, so a joining file can always leave a class unresolved.
+      joiningFileCanLeaveClassUnresolved: true,
+    });
+    assessmentEvidence.coverage = { unrecognizedFileCount: quality.nonMemberFileCount, ...coverage };
+  }
+  if (quality.nonMemberFileCount > 0 && !assessmentEvidence.coverage.invariant) {
     if (unresolved(DECISIONS.coverageShare)) return incomplete(RULES.coverage, [DECISIONS.coverageShare]);
     if (quality.directoryMemberCount / quality.directoryFileCount < valueOf(DECISIONS.coverageShare)) {
       return decided(RULES.coverage, OUTCOMES.insufficientEvidence, [REASONS.lowCoverage], {}, DECISIONS.coverageShare);
@@ -418,6 +518,7 @@ const toMemberRecord = (member, classified) => ({
   set: classified.set,
   ...(classified.explanation ? { explanation: classified.explanation } : {}),
   ...(classified.notes.length > 0 ? { notes: classified.notes } : {}),
+  ...(classified.uncertainty.length > 0 ? { uncertainty: classified.uncertainty } : {}),
 });
 
 export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvidence, sectionIntake, semanticHomeReasoning, policy } = {}) => {
@@ -451,6 +552,7 @@ export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvi
 
   const candidateByKey = new Map((semanticEvidence?.candidates ?? []).map((candidate) => [toCandidateKey(candidate.candidateId), candidate]));
   const claimOf = (candidateId) => claimTokensOf(candidateByKey.get(toCandidateKey(candidateId)));
+  const rootClaimOf = (candidateId) => [candidateByKey.get(toCandidateKey(candidateId)).lexicalRoot];
   const outcomeByKey = new Map(semanticHomeReasoning.candidateOutcomes.map((outcome) => [toCandidateKey(outcome.candidateId), outcome.outcome]));
   const outcomeOf = (candidateId) => outcomeByKey.get(toCandidateKey(candidateId));
   const placementByKey = new Map(semanticHomeReasoning.placements.map((placement) => [toTupleKey(placement.file), placement]));
@@ -497,6 +599,7 @@ export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvi
         directoryHomes: eligibleIdsByFolderKey.get(folderKey) ?? [],
         correspondingSupportedHomes: [],
         correspondingUndeterminedCandidates: [],
+        possiblyCorrespondingCandidates: [],
         broaderSupportedHomes: [],
         relatedUndeterminedCandidates: [],
       };
@@ -504,7 +607,7 @@ export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvi
         .map((member) => {
           const classified = applyMemberEvidence(
             member,
-            classifyMember({ member, prefix: group.prefix, placement: placementByKey.get(member.key), claimOf, outcomeOf, existing }),
+            classifyMember({ member, prefix: group.prefix, placement: placementByKey.get(member.key), claimOf, rootClaimOf, outcomeOf, existing }),
           );
           return toMemberRecord(member, classified);
         })

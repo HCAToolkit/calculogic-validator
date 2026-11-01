@@ -141,6 +141,9 @@ V0.1.7 introduces a suite-core scoped snapshot/input helper boundary and migrate
     - its completion (`complete`, or `incomplete` with the unresolved decisions; S3.6);
     - the deciding rule and value with the policy id and version;
     - `recommendation: { status: 'not-authorized', reason: 'stage-3-evidence-only' }`.
+  - **Uncertainty and coverage (S3.5, S3.6; calculogic-validator#140):**
+    - Each candidate an undetermined placement consulted is read by the claim its Stage 2 relation puts forward: established correspondence, possible correspondence, broader context, a possible other destination, or a missing comparison. The reading is kept on the member, and the member set follows from it.
+    - In a directory with unrecognized files, the coverage step decides only whether the conclusion is invariant under every admissible completion, using the S3.6 bounds. A non-invariant conclusion stays incomplete for `coverage-share`, recording its variant rules and the decisions involved. Invariance never decides an outcome by itself: the experimental rules decide it.
   - **No consumer:** no finding, no report field and no `meta` entry reads the record, so every report is unchanged (S3.7: this version emits no finding).
 - Since #45, Tree wiring builds `structuralAddressSnapshot` through Structural Addressing. The chain is the Addressing-owned validation input adapter (`structural-addressing-tree-codebase-validation-input.spec.md`), then `prepareTreeCodebaseAddressedSnapshot`, then the Tree-owned projection (`tree-owned/tree-structural-address-probe-contract.spec.md`, "Addressing-backed projection"). The adapter keeps two root sets: `declaredScopeRoots` (uncollapsed, for the Tree envelope and scope binding) and `effectiveAddressingRoots` (collapsed, for addressing). The transitional `occurrenceSnapshot` alias and Tree's former private producers were retired in #49. Tree core inputs and findings are unchanged.
 

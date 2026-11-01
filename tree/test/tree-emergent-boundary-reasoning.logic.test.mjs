@@ -10,7 +10,12 @@ import assert from 'node:assert/strict';
 import { EMERGENT_BOUNDARY_CATALOGUE } from './fixtures/emergent-boundary-catalogue/emergent-boundary-catalogue-cases.fixture.mjs';
 import { EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY } from './fixtures/emergent-boundary-catalogue/emergent-boundary-experimental-policy.fixture.mjs';
 import { buildCatalogueCase, files } from './fixtures/semantic-home-catalogue/semantic-home-catalogue.fixture.mjs';
-import { prepareTreeEmergentBoundaryReasoning, validateTreeEmergentBoundaryPolicy } from '../src/tree-emergent-boundary-reasoning.logic.mjs';
+import {
+  evaluateCoverageInvariance,
+  prepareTreeEmergentBoundaryReasoning,
+  readConsultedCandidate,
+  validateTreeEmergentBoundaryPolicy,
+} from '../src/tree-emergent-boundary-reasoning.logic.mjs';
 import { NOT_PREPARED_TREE_SEMANTIC_HOME_PARAMETER_SET } from '../src/tree-semantic-home-parameter-set.logic.mjs';
 
 const prefixKey = (prefix) => prefix.join('-');
@@ -145,7 +150,81 @@ test('E14, E15: the one conflicting or unresolved member carries its explanation
   assert.deepEqual(e14.assessment.evidence.partialEvidence, { outsideMemberFileCount: 1, withinCataloguePoint: true });
   const e15 = runCase(byId.E15).candidateAt('semantic-home');
   const unresolved = e15.members.find((member) => member.set === 'unresolved');
-  assert.deepEqual(unresolved.explanation, { reason: 'placement-undetermined', placementReason: 'home-elsewhere-undetermined' });
+  // S3.5 claim-relative uncertainty: the undetermined folder's claim is different, so it is a possible other destination.
+  assert.equal(unresolved.explanation.reason, 'possible-other-destination');
+  assert.deepEqual(unresolved.explanation.candidateIds.map((candidateId) => runCase(byId.E15).built.pathOfAddress.get(candidateId.folderAddressPath)), ['semantic-home-strength']);
+  assert.deepEqual(unresolved.uncertainty.map((entry) => [entry.relation, entry.reading, entry.claim]), [['match', 'possible-other-destination', ['semantic', 'home', 'strength']]]);
+});
+
+test('S3.5 provenance: established and possible correspondence, broader context, other destinations and missing comparisons stay distinct', () => {
+  const leading = ['naming', 'rule', 'check'];
+  const read = (relation, governingClaim, rootClaim) => readConsultedCandidate({ relation, governingClaim, rootClaim, leading }).reading;
+  assert.equal(read('match', ['naming', 'rule', 'check'], ['naming']), 'established-correspondence');
+  assert.equal(read('possible-root-reading', ['naming', 'owned'], ['naming']), 'broader-context');
+  assert.equal(readConsultedCandidate({ relation: 'possible-root-reading', governingClaim: ['tree', 'owned'], rootClaim: ['tree'], leading: ['tree'] }).reading, 'possible-correspondence');
+  assert.equal(read('match', ['naming', 'other'], ['naming']), 'possible-other-destination');
+  assert.equal(read('possible-unevaluated', ['naming', 'rule', 'check'], ['naming']), 'missing-comparison');
+
+  // In the catalogue: E2's corresponding undetermined folder is established; E8 `tree`'s `tree-owned/` is possible;
+  // E10.1's `naming-owned/` is broader context, kept on each member.
+  const e2 = runCase(byId.E2).candidateAt('structural-addressing');
+  assert.equal(e2.existingStructure.correspondingUndeterminedCandidates.length, 1);
+  assert.equal(e2.members[0].explanation.reason, 'corresponding-candidate-undetermined');
+  const e8 = runCase(byId.E8);
+  assert.deepEqual(e8.candidateAt('tree').existingStructure.possiblyCorrespondingCandidates.map((candidateId) => e8.built.pathOfAddress.get(candidateId.folderAddressPath)), ['doc/specs/tree-owned']);
+  assert.equal(e8.candidateAt('tree').assessment.outcome, 'explained-by-existing-structure', 'an established home elsewhere is decided first');
+  const companion = EMERGENT_BOUNDARY_CATALOGUE.companions.find((entry) => entry.id === 'E10.1');
+  const e101 = runCase(companion);
+  for (const member of e101.candidateAt('rule-check').members) {
+    assert.equal(member.set, 'supported');
+    assert.deepEqual(
+      member.uncertainty.map((entry) => [e101.built.pathOfAddress.get(entry.candidateId.folderAddressPath), entry.relation, entry.reading]).sort(),
+      [['doc/specs/naming-owned', 'possible-root-reading', 'broader-context'], ['naming', 'match', 'broader-context']],
+    );
+  }
+});
+
+test('S3.6 coverage: E8.1 records its variant rules and decisions, and invariance is bounded over several unrecognized files', () => {
+  const companion = EMERGENT_BOUNDARY_CATALOGUE.companions.find((entry) => entry.id === 'E8.1');
+  const { candidateAt } = runCase(companion);
+  assert.deepEqual(candidateAt('tree-known-roots').assessment.evidence.coverage, {
+    unrecognizedFileCount: 1, invariant: false, variantRules: ['single-responsibility'], decisionsInvolved: ['responsibility-class-mapping'],
+  });
+  assert.deepEqual(candidateAt('tree-known').assessment.evidence.coverage.variantRules, ['single-responsibility', 'redundancy']);
+  assert.equal(candidateAt('tree').assessment.evidence.coverage, undefined, 'existing structure decides before coverage');
+
+  // The bound itself, with a mapping that could classify every joining file (not the experimental policy's).
+  const closed = (overrides) =>
+    evaluateCoverageInvariance({
+      unrecognizedFileCount: 1, primaryUnitCount: 5, memberFileCount: 5, outsideMemberFileCount: 0, redundant: false,
+      coversWholeDirectory: false, prefixLength: 2, minimumPrimaryUnits: 3, joiningFileCanLeaveClassUnresolved: false, ...overrides,
+    });
+  assert.deepEqual(closed({}), { invariant: true, variantRules: [], decisionsInvolved: [] }, 'one file: within the S3.5 point either way');
+  assert.deepEqual(closed({ unrecognizedFileCount: 2 }), { invariant: false, variantRules: ['partial-evidence'], decisionsInvolved: ['partial-evidence-aggregation'] }, 'two files could both join unresolved');
+  assert.deepEqual(closed({ primaryUnitCount: 1 }).variantRules, ['single-responsibility'], 'a joining file could be a second unit');
+  assert.deepEqual(closed({ primaryUnitCount: 2, memberFileCount: 2 }).variantRules, ['minimum-units'], 'a joining file could reach the minimum');
+  assert.deepEqual(closed({ primaryUnitCount: 2, memberFileCount: 2, unrecognizedFileCount: 0 }).invariant, true);
+  assert.deepEqual(closed({ prefixLength: 1 }).invariant, true, 'decided by specificity in every completion');
+  assert.deepEqual(closed({ redundant: true }).variantRules, ['redundancy']);
+  assert.deepEqual(closed({ coversWholeDirectory: true }).variantRules, ['whole-directory']);
+  // O > 0 and even the best completion misses the point: fails alike, so invariant (and still incomplete).
+  assert.deepEqual(closed({ primaryUnitCount: 3, memberFileCount: 9, outsideMemberFileCount: 6, minimumPrimaryUnits: 3 }).invariant, true);
+  // O = 0 and too few units for the point: the all-absent completion passes, a joining unresolved file fails.
+  assert.deepEqual(closed({ primaryUnitCount: 3, memberFileCount: 3 }).variantRules, ['partial-evidence']);
+  assert.deepEqual(closed({ joiningFileCanLeaveClassUnresolved: true }).decisionsInvolved, ['responsibility-class-mapping']);
+});
+
+test('the safeguard: missing evidence only withholds a conclusion the rules reach, never grants one', () => {
+  // E8's `tree-known-roots` is an opportunity on full coverage; with one unrecognized file (E8.1) the same
+  // rules are withheld, because invariance cannot be shown. Invariance never decides an outcome itself.
+  const companion = EMERGENT_BOUNDARY_CATALOGUE.companions.find((entry) => entry.id === 'E8.1');
+  assert.equal(runCase(byId.E8).candidateAt('tree-known-roots').assessment.outcome, 'opportunity');
+  for (const prefix of ['tree-known-roots', 'tree-known']) {
+    const { assessment } = runCase(companion).candidateAt(prefix);
+    assert.equal(assessment.completion, 'incomplete');
+    assert.equal(assessment.outcome, null);
+    assert.deepEqual(assessment.unresolvedDecisions, ['coverage-share']);
+  }
 });
 
 test('a policy-incomplete case is re-evaluated once a policy supplies its decision (S3.9)', () => {
@@ -163,7 +242,11 @@ test('S3.6: evidence is evaluated before resolution, so an early decisive rule h
   // Coverage decides (resolved) or blocks (unresolved) E12 before the responsibility rules are reached.
   for (const policy of [EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY, withDecision('coverage-share', { status: 'resolved', value: 0.5 })]) {
     const { evidence } = runCase(byId.E12, { policy }).candidateAt('widget-panel').assessment;
-    assert.deepEqual(evidence, { primaryUnitCount: 3, supportingMemberFileCount: 0 });
+    assert.deepEqual(evidence, {
+      primaryUnitCount: 3,
+      supportingMemberFileCount: 0,
+      coverage: { unrecognizedFileCount: 9, invariant: false, variantRules: ['single-responsibility', 'whole-directory'], decisionsInvolved: ['responsibility-class-mapping'] },
+    });
   }
   // E2 `structural-addressing` is decided by existing structure; its unresolved members are still counted.
   const { evidence } = runCase(byId.E2).candidateAt('structural-addressing').assessment;

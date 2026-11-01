@@ -1129,7 +1129,7 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are not yet in the runtime: S3.9 companion cases. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
+### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
 
 This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
 
@@ -1238,7 +1238,7 @@ Each candidate keeps its full discovered membership and partitions it into three
 
 Conflicting and unresolved members are both excluded from any suggested boundary. Their explanations stay distinct: a conflicting member belongs somewhere else, while an unresolved member is undecided.
 
-**Claim-relative uncertainty** (calculogic-validator#138; runtime pending, S3.9 companion cases). A member's placement may consult candidates that do not settle it:
+**Claim-relative uncertainty** (calculogic-validator#138; implemented by #140). A member's placement may consult candidates that do not settle it:
 - an `undetermined` candidate, through any relation;
 - any candidate through a `possible-*` relation (S2.8).
 
@@ -1350,7 +1350,7 @@ Resolution order, with each step's provenance (*established*: a catalogue case w
 
 ##### Coverage: conclusion invariance under admissible completions
 
-(calculogic-validator#138; runtime pending, S3.9 companion cases.)
+(calculogic-validator#138; implemented by #140.)
 
 A global coverage share answers *how much information is missing*. The coverage step answers instead *whether the missing information could change this candidate's conclusion*.
 
@@ -1387,7 +1387,7 @@ A global coverage share answers *how much information is missing*. The coverage 
 | `whole-directory` | C does not cover the whole directory |
 | `specificity` | always |
 | `minimum-units` | `P ≥` the minimum, or `P + k <` the minimum |
-| `partial-evidence` | Either every completion passes (`P ≥ 4` and `5(O + k) ≤ n + k`), or every completion fails (`P + k < 4`, or `5·O > n + k`), against the S3.5 point |
+| `partial-evidence` | Either every completion passes (`P ≥ 4` and `5(O + k) ≤ n + k`), or every completion fails (`O > 0`, and `P + k < 4` or `5·O > n + k`), against the S3.5 point. With `O = 0`, the completion in which every file is absent leaves the step passing, so it cannot fail for every completion |
 | `opportunity` | no further condition |
 
 When the conclusion is not invariant, the record lists the rules whose application varies.
@@ -1555,7 +1555,7 @@ A companion case reproduces, as a fixed tree, a condition measured on the real r
 
 | Case | Companion of | Tree | Expected outcome |
 |---|---|---|---|
-| E10.1 | E10 | E10, plus `doc/specs/naming-owned/` (measured: `doc/ValidatorSpecs/naming-owned/`): four `naming-*` specs, so the folder is undetermined (`claim-unresolved`) with an eligible root reading. Every `naming/src/rules` member consults it through `possible-root-reading` from elsewhere | As E10. `rule` (8): `insufficient-evidence` (`whole-directory-value-undetermined`). `rule-check`: expected `insufficient-evidence` (`low-specificity`). **Known discrepancy (known-gap case):** under S3.5's claim-relative uncertainty, the folder puts forward `naming`, which is broader, so the members are supported and the rules produce `opportunity`; the cause is E10's. **Implementation-pending:** today's runtime treats any undetermined candidate elsewhere as making the member unresolved, so `rule` is `low-specificity` and `rule-check` is `below-minimum-units` |
+| E10.1 | E10 | E10, plus `doc/specs/naming-owned/` (measured: `doc/ValidatorSpecs/naming-owned/`): four `naming-*` specs, so the folder is undetermined (`claim-unresolved`) with an eligible root reading. Every `naming/src/rules` member consults it through `possible-root-reading` from elsewhere | As E10. `rule` (8): `insufficient-evidence` (`whole-directory-value-undetermined`). `rule-check`: expected `insufficient-evidence` (`low-specificity`). **Known discrepancy (known-gap case):** under S3.5's claim-relative uncertainty, the folder puts forward `naming`, which is broader, so the members are supported and the rules produce `opportunity`; the cause is E10's. Reclassified from implementation-pending when #140 implemented S3.5 |
 | E8.1 | E8 | E8, plus one unrecognized file in `doc/specs` (measured: `filename-case-and-interpretation-contract.md`, `NAMING_MISSING_ROLE`) | `tree`: **`explained-by-existing-structure`** (`tree/`), decided before coverage. `tree-known-roots`, `tree-known`: `insufficient-evidence` (`low-coverage`). **Policy-incomplete case:** not invariant under admissible completions (S3.6). A joining file could make the documentation grouping mixed, which the experimental policy leaves unresolved, and for `tree-known` it could also break redundancy |
 
 | Case | Status | Decisive rule per candidate | Decisions depended on | Limitation |
