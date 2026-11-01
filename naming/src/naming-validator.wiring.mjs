@@ -160,6 +160,7 @@ export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, 
       toFolderLabelInterpreter(
         options.caseRulesRuntime ? () => options.caseRulesRuntime : toCaseRulesRuntimeResolver(undefined),
       ),
+    lexicalProfile: options.lexicalProfile,
     sourceReportRef: options.sourceReportRef,
     sourceSnapshotRef: options.sourceSnapshotRef,
   });
@@ -168,10 +169,13 @@ export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, 
 // Naming run: R1 and the N1 source records now, and a folder-label interpreter bound to the case rules
 // of the same registryResolution as the run, resolved on first use. The runner transports these values
 // unchanged; Tree passes the last two to the Naming-owned bridge payload producer.
-export const prepareNamingTreeStagingInputs = (namingRunOutput = {}, { registryResolution } = {}) => ({
+// With an active Linguistic Foundation profile (calculogic-validator#150), a fourth opaque value,
+// `lexicalProfile`, is added for the same producer (bridge contract §4.7); without one it is absent.
+export const prepareNamingTreeStagingInputs = (namingRunOutput = {}, { registryResolution, linguisticFoundation } = {}) => ({
   namingSemanticFamilyBridge: projectNamingSemanticFamilyBridge(namingRunOutput),
   namingSemanticEvidenceEnrichment: projectNamingSemanticEvidenceEnrichment(namingRunOutput),
   interpretFolderLabel: toFolderLabelInterpreter(toCaseRulesRuntimeResolver(registryResolution)),
+  ...(linguisticFoundation?.profile ? { lexicalProfile: linguisticFoundation.profile } : {}),
 });
 
 export const runNamingValidator = (

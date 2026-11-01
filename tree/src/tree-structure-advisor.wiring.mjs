@@ -95,6 +95,7 @@ export const prepareTreeStructureAdvisorInputs = (
     namingSemanticFamilyBridge,
     namingSemanticEvidenceEnrichment,
     interpretFolderLabel,
+    lexicalProfile,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
     registryResolution,
@@ -183,6 +184,9 @@ export const prepareTreeStructureAdvisorInputs = (
     addressedOccurrenceNamespace,
     namingSemanticEvidenceEnrichment,
     interpretFolderLabel,
+    // Opaque Naming staging value (bridge contract §4.7, Tree spec S1.1): passed to the Naming-owned
+    // producer unchanged; Tree never resolves tokens or reads the section.
+    lexicalProfile,
   });
   const treeNamingSectionIntake = prepareTreeNamingSectionIntake({
     namingOccurrenceBridge: addressedNamingOccurrenceBridge,
@@ -323,6 +327,7 @@ export const runTreeStructureAdvisor = (
     namingSemanticFamilyBridge,
     namingSemanticEvidenceEnrichment,
     interpretFolderLabel,
+    lexicalProfile,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
     registryResolution,
@@ -337,6 +342,7 @@ export const runTreeStructureAdvisor = (
     namingSemanticFamilyBridge,
     namingSemanticEvidenceEnrichment,
     interpretFolderLabel,
+    lexicalProfile,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
     registryResolution,

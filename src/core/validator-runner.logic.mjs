@@ -4,6 +4,7 @@ import { getSourceSnapshot } from './source-snapshot.logic.mjs';
 import { getValidatorReportIdentity } from './validator-report-identity.logic.mjs';
 import { prepareNamingTreeStagingInputs } from '../../naming/src/naming-validator.host.mjs';
 import { resolveActiveRegistrySet } from './registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
+import { toLinguisticProfileProvenance } from './config/validator-linguistic-profile.logic.mjs';
 
 const toValidatorReportEntry = (registryEntry, validatorResult) => {
   const summary = validatorResult.summary ?? null;
@@ -49,6 +50,10 @@ export const runValidatorRunner = (repositoryRoot, options = {}) => {
   const targets = options.targets;
   // One lifecycle resolution per run, shared by every slice (#41 registry lifecycle).
   const registryResolution = options.registryResolution ?? resolveActiveRegistrySet({ targetRoot: repositoryRoot });
+  // The run's prepared Linguistic Foundation (calculogic-validator#150): transported to Naming's Tree
+  // staging unchanged and reported as provenance; never read for lexical content here.
+  const linguisticFoundation = options.linguisticFoundation ?? null;
+  const linguisticProfile = toLinguisticProfileProvenance(linguisticFoundation);
 
   const shouldRunTreeStructureAdvisor = validatorsToRun.some(
     (registryEntry) => registryEntry.id === 'tree-structure-advisor',
@@ -63,7 +68,7 @@ export const runValidatorRunner = (repositoryRoot, options = {}) => {
   let stagedNamingTreeInputs = undefined;
   if (shouldRunTreeStructureAdvisor && namingRegistryEntry) {
     stagedNamingResult = namingRegistryEntry.run(repositoryRoot, { scope, targets, registryResolution });
-    stagedNamingTreeInputs = prepareNamingTreeStagingInputs(stagedNamingResult, { registryResolution });
+    stagedNamingTreeInputs = prepareNamingTreeStagingInputs(stagedNamingResult, { registryResolution, linguisticFoundation });
   }
 
   const validators = validatorsToRun.map((registryEntry) => {
@@ -91,6 +96,7 @@ export const runValidatorRunner = (repositoryRoot, options = {}) => {
     ...(options.toolVersion ? { toolVersion: options.toolVersion } : {}),
     ...(options.toolVersion ? { validatorVersion: options.toolVersion } : {}),
     ...(options.configDigest ? { configDigest: options.configDigest } : {}),
+    ...(linguisticProfile ? { linguisticProfile } : {}),
     registrySet: registryResolution.registrySet,
     registryProvenance: registryResolution.registryProvenance.suite,
     sourceSnapshot,

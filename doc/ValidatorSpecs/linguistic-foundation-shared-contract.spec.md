@@ -2,7 +2,7 @@
 
 ## 1. Status and classification
 
-- **Status:** Contract, with the foundation runtime and the `english` profile **Current** since calculogic-validator#148 (§15). calculogic-validator#150 adds the bridge section (§8) and the first-consumer integration (§15.4) as Contract, not yet current. No validation run reads it yet: there is no bridge section, command, report field or finding (§8, §9.2). The contract's executable evidence is test-only (`test/linguistic-foundation-contract.test.mjs` and its fixtures) and is not shipped.
+- **Status:** Contract, with the foundation runtime and the `english` profile **Current** since calculogic-validator#148 (§15). calculogic-validator#150 adds the bridge section (§8) and the first-consumer integration (§15.4), **Current** since its implementation slice: a run that selects a profile carries the Naming bridge section and report provenance. Tree does not consume the section, and no finding reads it (§9.2). The contract's executable evidence is test-only (`test/linguistic-foundation-contract.test.mjs` and its fixtures) and is not shipped.
 - **Scope:** the shared model of lexical identity: language profiles, lexemes, surface forms, readings, grammatical features, resolution, ambiguity, provenance, the lexeme-comparison relation, and the boundary through which Naming will carry this evidence to Tree.
 - **Origin:** calculogic-validator#146, following the singular/plural investigation behind calculogic-validator#142 and the Tree S3.10 limitation it measured (E10, E11).
 - **Last reviewed:** 2026-11-01.
@@ -25,8 +25,8 @@ The Linguistic Foundation answers one question: **which reusable lexical identit
 The first concrete need is the Tree S3.10 singular/plural limitation: `rules` and `rule`, `registries` and `registry` are never related, so a folder's own concept stays in its members' residual tokens (Tree slice spec S3.9 E10, E11). The investigation measured that a string transformation cannot safely relate them (§10), and that Tree must not own one (Tree S3.1).
 
 This contract and its runtime (§15) do not:
-- read lexical identity in any validation run, report or finding;
-- change Naming tokenization, folder-label interpretation or any bridge section;
+- base any finding or Tree conclusion on lexical identity: a run with a selected profile carries it as bridge evidence and report provenance only (§8, §15.4);
+- change Naming tokenization, folder-label interpretation, or the other bridge sections;
 - change Tree reasoning, the S3.9 catalogue, or E10, E10.1 and E11;
 - define parsing, translation, generation, Narrative wording or Lexical Coherence policy;
 - choose a morphology engine (§12, D1).
@@ -109,7 +109,7 @@ Consequences:
 A resolution is always relative to one active language profile. When none is active, every resolution is `profile-unavailable`.
 
 - **Explicit only.** A profile is active only when a selection names it: `{ profileId }`, optionally pinned as `{ profileId, profileVersion }`. Nothing is inferred from the environment, the locale, the repository's content or language, or the profiles available. There is no default profile, English included.
-- **One source per run.** The selection is supplied by the run's composition to the foundation. Its run-level source is the validator configuration key `linguisticProfile` (validator config spec §10; contract-approved by calculogic-validator#150, not yet current, §15.4). Until its implementation slice no validation run supplies a selection, so no profile is active in any run and every consumer keeps its current literal behavior.
+- **One source per run.** The selection is supplied by the run's composition to the foundation. Its run-level source is the validator configuration key `linguisticProfile` (validator config spec §10; Current since calculogic-validator#150, §15.4). A run without the key activates no profile, and every consumer keeps its literal behavior.
 - **Deterministic outcome.** Selection yields exactly one status:
 
 | Status | Condition | Active profile |
@@ -190,9 +190,9 @@ Comparisons under the same profile:
 - Every reading carries its **basis**. The only basis is `lexicon-entry`: the reading comes from a declared entry. A future basis (for example a profile rule) is added only by amendment, together with the rule it names (§12, D1).
 - A `profile-unavailable` resolution carries no profile provenance.
 
-## 8. Naming bridge extension (Contract, calculogic-validator#150; not emitted)
+## 8. Naming bridge extension (Contract and Current, calculogic-validator#150)
 
-The section is defined by the bridge contract, `doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` §4.7 and §6.4, which is its authority (D3 resolved). This section records the foundation's side of it. Nothing emits the section until its implementation slice.
+The section is defined by the bridge contract, `doc/ValidatorSpecs/cross-cutting/naming-bridge-occurrence-identity-contract.spec.md` §4.7 and §6.4, which is its authority (D3 resolved). This section records the foundation's side of it. Naming emits it whenever the run has an active profile.
 
 ### 8.1 Producer and route (Contract)
 
@@ -267,12 +267,12 @@ This is why R1 admits declared entries only. A suffix rule would relate the 21 p
 |---|---|
 | This contract and its test-only executable evidence | **Contract** |
 | Foundation runtime, profile registry and loader, digest, explicit selection, `english` profile version `1` (§15) | **Current** (calculogic-validator#148) |
-| The bridge section (bridge contract §4.7), the `linguisticProfile` config key and its run consequences, report provenance, packaging (§8, §15.4) | **Contract** (calculogic-validator#150); not current until its implementation slice |
-| Naming producing the section; the runner selecting and transporting the foundation | **Proposed** (the implementation slice of calculogic-validator#150) |
+| The bridge section (bridge contract §4.7), the `linguisticProfile` config key and its run consequences, report provenance, packaging (§8, §15.4) | **Current** (calculogic-validator#150) |
+| Naming producing the section; the runner selecting and transporting the foundation (§8.5) | **Current** (calculogic-validator#150) |
 | Builtin/Custom lifecycle participation of the profile registries | **Deferred** (D11) |
 | Tree consuming lexical identity; E10, E10.1, E11 reclassification | **Proposed** (a Tree slice) |
 | Feature spaces beyond `number`; domain and perspective profiles; realization strategies; Narrative and Lexical Coherence consumers | **Deferred** (living document §4.6 context) |
-| Any validation run reading the Linguistic Foundation | Not current: no bridge section, report field or finding exists |
+| A finding or Tree conclusion that reads lexical identity | Not current: the section is evidence only, and Tree ignores it (§9.2) |
 
 ## 12. Deferred decisions register
 
@@ -344,9 +344,9 @@ The generic modules hold no language-specific content. A language profile is one
 - **Resolution:** `{ surface, status, readings, provenance }`. `provenance` is present only when a profile is active (§7). A surface form that is not a non-empty string is a caller error, not a resolution.
 - Every record is deeply frozen.
 
-### 15.4 First-consumer integration (Contract, calculogic-validator#150; D10 resolved, not current)
+### 15.4 First-consumer integration (Current, calculogic-validator#150; D10 resolved)
 
-These decisions bind the implementation slice of calculogic-validator#150. None is current runtime until that slice lands, and until then every run, report, CLI and package is unchanged.
+These decisions were made by the #150 contract slice and are implemented by its implementation slice. A run without a selection is unchanged in every respect.
 
 | Item | Decision | Compatibility |
 |---|---|---|

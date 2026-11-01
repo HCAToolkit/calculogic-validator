@@ -1,3 +1,4 @@
+import { projectNamingTokenLexicalIdentities } from './naming-token-lexical-identity-projection.logic.mjs';
 const BRIDGE_CONTRACT_VERSION = 'naming-occurrence-bridge.v1';
 const ENRICHMENT_SIDECAR_VERSION = 'naming-occurrence-bridge-enrichment.v1';
 const BRIDGE_SOURCE = 'calculogic-validator/naming';
@@ -495,6 +496,8 @@ export const createNamingOccurrenceBridgePayload = ({
   addressedOccurrenceNamespace = {},
   namingSemanticEvidenceEnrichment,
   interpretFolderLabel,
+  // The run's active Linguistic Foundation runtime profile, or absent (bridge contract §4.7).
+  lexicalProfile,
   sourceReportRef,
   sourceSnapshotRef,
 } = {}) => {
@@ -570,6 +573,15 @@ export const createNamingOccurrenceBridgePayload = ({
         })
       : null;
 
+  // §4.7: built from the two sections above, only with an active profile; nothing else changes.
+  const tokenLexicalIdentitySection = hasValidAddressedNamespace
+    ? projectNamingTokenLexicalIdentities({
+        semanticEvidenceEnrichmentSection,
+        folderLabelObservationSection,
+        lexicalProfile,
+      })
+    : null;
+
   return {
     bridgeContractVersion: BRIDGE_CONTRACT_VERSION,
     bridgeSource: BRIDGE_SOURCE,
@@ -618,6 +630,7 @@ export const createNamingOccurrenceBridgePayload = ({
       : {}),
     ...(semanticEvidenceEnrichmentSection ? { namingSemanticEvidenceEnrichment: semanticEvidenceEnrichmentSection } : {}),
     ...(folderLabelObservationSection ? { namingFolderLabelObservations: folderLabelObservationSection } : {}),
+    ...(tokenLexicalIdentitySection ? { namingTokenLexicalIdentities: tokenLexicalIdentitySection } : {}),
     ...(diagnostics.length > 0 ? { diagnostics } : {}),
   };
 };

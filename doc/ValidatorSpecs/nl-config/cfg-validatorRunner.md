@@ -30,6 +30,7 @@ The runner reads validator definitions from a deterministic registry in `src/cor
 - `config` (optional loaded validator config object from JSON contract V0.1)
 - `targets` (optional repeatable path filters forwarded to validators that implement target-aware filtering)
 - `registryResolution` (optional result of `resolveActiveRegistrySet`; when absent the runner resolves it once from the repository root, `doc/ValidatorSpecs/nl-config/cfg-registryLifecycle.md`)
+- `linguisticFoundation` (optional prepared Linguistic Foundation from `prepareRunLinguisticFoundation`, calculogic-validator#150). The CLI hosts prepare it from the config's `linguisticProfile`. When it has an active profile, the runner passes it to Naming's Tree staging, and its provenance reaches the report. It is never read or interpreted by the runner
 
 ### 2.3 Validator set
 
@@ -43,6 +44,7 @@ Runner accepts optional host-provided report metadata:
 
 - `toolVersion` (validator package version)
 - `configDigest` (stable digest of normalized loaded config)
+- `linguisticProfile` provenance, derived from `linguisticFoundation` when a profile is active (calculogic-validator#150)
 
 ## 3.0 Combined Report Contract
 
@@ -55,6 +57,7 @@ Runner accepts optional host-provided report metadata:
 - optional `validatorId` (canonical alias, stable runner identity)
 - optional `validatorVersion` (canonical alias of tool version when provided)
 - optional `configDigest`
+- optional `linguisticProfile` (`{ profileId, profileVersion, lexiconDigest }`; only with an active language profile, calculogic-validator#150)
 - `registrySet` (set-level registry lifecycle facts for the run, #41)
 - `registryProvenance` (suite-core registries: `suite/exit-policy`, `suite/scope-profiles`); each slice entry carries its own registries in `validators[n].meta.registryProvenance` (Naming, and Tree from #41 slice 3)
 - optional `sourceSnapshot` (`source = "fs"` plus optional git metadata/diagnostics)
@@ -109,6 +112,10 @@ Each validator entry includes:
   - Fallback suspicious env detection uses stable ordering and low-false-positive rules: known scopes (`repo|app|docs|validator|system`), non-empty target/config, truthy strict (`true|1|yes`), and validator list indicators (`naming` or comma-list).
 - Resolves the active registry set once per run (`resolveActiveRegistrySet`, `src/core/registry-lifecycle/`) before scope resolution. A lifecycle error (malformed state file, or a state selecting `custom` while Custom activation is unavailable) writes the notice to stderr, emits no report and exits `1`.
 - Resolves scope profiles and exit policy from the resolved suite registry root, and passes the resolution to every slice.
+- Loads `--config` (stage 1: shape, including `linguisticProfile`), then resolves `linguisticProfile` against the registered language profiles (stage 2, `prepareRunLinguisticFoundation`, validator config spec §10.4).
+  - A failure in either stage writes a diagnostic to stderr, emits no report and exits `1`.
+  - A stage-2 diagnostic names the problem (`profile-not-registered`, `profile-version-mismatch`), the requested `profileId` and any pinned `profileVersion`.
+  - Without the key, no profile is active and the run is unchanged.
 - Executes runner with selected options.
 - Writes JSON report to stdout.
 - Resolves ordered exit-policy mappings from the resolved suite registry root (`exit-policy.registry.json`; Builtin `src/registries/_builtin/` until Custom activation ships) via runtime loader while keeping predicate evaluation deterministic in code.

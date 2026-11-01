@@ -12,6 +12,7 @@
     "naming/src/**",
     "tree/src/**",
     "structural-addressing/src/**",
+    "linguistic-foundation/src/**",
     "bin/**",
     "scripts/**",
     "README.md",

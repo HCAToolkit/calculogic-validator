@@ -1,6 +1,7 @@
 import { resolveContextualValidatorScopeProfile } from '../validator-scopes.logic.mjs';
 import { runValidatorRunner } from '../validator-runner.logic.mjs';
 import { loadValidatorConfigFromFile } from '../config/validator-config.logic.mjs';
+import { prepareRunLinguisticFoundation } from '../config/validator-linguistic-profile.logic.mjs';
 import {
   computeConfigDigest,
   getValidatorToolVersion,
@@ -84,6 +85,9 @@ export const runValidatorRunnerCli = ({
     const config = parsed.configPath
       ? loadValidatorConfigFromFile(parsed.configPath, { cwd: process.cwd() })
       : undefined;
+    // Validator config spec §10.4 stage 2: an unavailable requested profile stops the run here,
+    // before any report is built.
+    const linguisticFoundation = prepareRunLinguisticFoundation(config);
 
     const toolVersion = getValidatorToolVersion();
 
@@ -95,6 +99,7 @@ export const runValidatorRunnerCli = ({
         configDigest: config ? computeConfigDigest(config) : undefined,
       }),
       registryResolution,
+      ...(linguisticFoundation ? { linguisticFoundation } : {}),
     });
 
     writeValidatorReportToStdout(report);

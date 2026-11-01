@@ -23,7 +23,9 @@ test('validator config schema declares no registry-record surfaces (#41)', () =>
   const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
 
   assert.equal(schema.additionalProperties, false);
-  assert.deepEqual(Object.keys(schema.properties).sort(), ['$schema', 'strictExit', 'version']);
+  // `linguisticProfile` (validator config spec §10, calculogic-validator#150) selects a language
+  // profile; it carries no registry record.
+  assert.deepEqual(Object.keys(schema.properties).sort(), ['$schema', 'linguisticProfile', 'strictExit', 'version']);
 });
 
 test('legacy core schema path is not independently maintained', () => {

@@ -15,10 +15,48 @@ const assertOnlyKeys = (obj, allowedKeys, pathLabel) => {
   });
 };
 
+const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
+
+// Validator config spec §10.1: `linguisticProfile` keeps only its declared fields, `profileVersion`
+// only when provided, so an equivalent config without the key normalizes and digests as before.
+const normalizeLinguisticProfile = (linguisticProfile) => ({
+  profileId: linguisticProfile.profileId,
+  ...(linguisticProfile.profileVersion === undefined ? {} : { profileVersion: linguisticProfile.profileVersion }),
+});
+
 const normalizeConfig = (config) => ({
   version: VALIDATOR_CONFIG_VERSION,
   ...(config?.strictExit === undefined ? {} : { strictExit: config.strictExit }),
+  ...(config?.linguisticProfile === undefined ? {} : { linguisticProfile: normalizeLinguisticProfile(config.linguisticProfile) }),
 });
+
+// Validator config spec §10.4: every stopping diagnostic names the requested profile. The parts of the
+// request that are themselves valid strings are named; a missing or malformed part is named as a field.
+const describeLinguisticProfileRequest = (linguisticProfile) => {
+  const parts = [
+    ...(isNonEmptyString(linguisticProfile.profileId) ? [`profileId "${linguisticProfile.profileId}"`] : []),
+    ...(isNonEmptyString(linguisticProfile.profileVersion) ? [`profileVersion "${linguisticProfile.profileVersion}"`] : []),
+  ];
+  return parts.length > 0 ? ` (requested ${parts.join(', ')})` : '';
+};
+
+// Validator config spec §10.4 stage 1: the shape of the selection, before any profile is resolved.
+const validateLinguisticProfile = (linguisticProfile) => {
+  if (!linguisticProfile || typeof linguisticProfile !== 'object' || Array.isArray(linguisticProfile)) {
+    fail('linguisticProfile must be an object when provided.');
+  }
+  const request = describeLinguisticProfileRequest(linguisticProfile);
+  const unknownKey = Object.keys(linguisticProfile).find((key) => key !== 'profileId' && key !== 'profileVersion');
+  if (unknownKey !== undefined) {
+    fail(`linguisticProfile contains unknown key "${unknownKey}"${request}.`);
+  }
+  if (!isNonEmptyString(linguisticProfile.profileId)) {
+    fail(`linguisticProfile.profileId must be a non-empty string${request}.`);
+  }
+  if (linguisticProfile.profileVersion !== undefined && !isNonEmptyString(linguisticProfile.profileVersion)) {
+    fail(`linguisticProfile.profileVersion must be a non-empty string when provided${request}.`);
+  }
+};
 
 const validateConfig = (config) => {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
@@ -31,7 +69,7 @@ const validateConfig = (config) => {
     );
   }
 
-  assertOnlyKeys(config, ['version', 'strictExit', '$schema'], 'root');
+  assertOnlyKeys(config, ['version', 'strictExit', 'linguisticProfile', '$schema'], 'root');
 
   if (config.version !== VALIDATOR_CONFIG_VERSION) {
     fail(`version must be "${VALIDATOR_CONFIG_VERSION}".`);
@@ -39,6 +77,10 @@ const validateConfig = (config) => {
 
   if (config.strictExit !== undefined && typeof config.strictExit !== 'boolean') {
     fail('strictExit must be a boolean when provided.');
+  }
+
+  if (config.linguisticProfile !== undefined) {
+    validateLinguisticProfile(config.linguisticProfile);
   }
 };
 

@@ -1,13 +1,12 @@
 // Naming token lexical-identity section and first-consumer integration: executable contract evidence
 // (bridge contract §4.7, §6.4; validator config spec §10; Linguistic Foundation shared contract §8.5,
-// §15.4; calculogic-validator#150). Contract only: no producer, consumer or config key is active, and
-// these tests prove the contract is expressible and that today's runtime is unchanged.
+// §15.4; calculogic-validator#150). These tests prove the contract is expressible through a test-only
+// reference; the runtime it now governs is tested in naming-token-lexical-identity-production.test.mjs.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   CONSUMER_PROBLEMS,
@@ -27,6 +26,7 @@ import { prepareLinguisticFoundation } from '../linguistic-foundation/src/lingui
 import { selectActiveLanguageProfile } from '../linguistic-foundation/src/linguistic-foundation-profile-selection.logic.mjs';
 import { compareLexicalResolutions, resolveSurfaceForm } from '../linguistic-foundation/src/linguistic-foundation-resolution.logic.mjs';
 import { LEXICAL_RESOLUTION_STATUSES } from '../linguistic-foundation/src/linguistic-foundation.knowledge.mjs';
+import { loadValidatorConfigFromFile } from '../src/core/config/validator-config.logic.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
@@ -73,7 +73,7 @@ test('§4.7, §6.4: the fixture restates the contract tables: fields, entry stat
   const consumer = sectionOf(BRIDGE, '### 4.7 Naming token lexical-identity section');
   const meanings = rows(consumer.slice(consumer.indexOf('**Consumer identity rules.**'))).slice(1, 1 + CONSUMER_PROBLEMS.length).map((row) => row[1]);
   assert.deepEqual(meanings, CONSUMER_PROBLEMS.map(([, meaning]) => meaning));
-  assert.match(consumer, /\*\*Not emitted\*\*; no producer or consumer exists/u);
+  assert.match(consumer, /\*\*Current implementation reality since its implementation slice:\*\* the Naming occurrence-bridge path emits it whenever the run has an active language profile/u);
 });
 
 test('§4.7 expressibility: under english v1 the section carries every E10 token aligned, and relates the `rules` label to the member `rule` token', () => {
@@ -210,26 +210,20 @@ test('config §10.4: the selection table is the fixture, and the foundation clas
   assert.match(sectionOf(CONFIG, '### 10.4 Validation and selection failures'), /`validate:naming`, `validate:tree` and `validate:all`/u);
 });
 
-test('not yet current: the schema has no `linguisticProfile`, and all three CLIs reject it today exactly as an unknown key', () => {
+test('current since the #150 implementation slice: the schema declares `linguisticProfile`, and stage 1 rejects every malformed shape', () => {
   const schema = JSON.parse(read('src/validator-config.schema.json'));
-  assert.equal(JSON.stringify(schema).includes('linguisticProfile'), false);
+  assert.deepEqual(schema.properties.linguisticProfile.required, ['profileId']);
+  assert.equal(schema.properties.linguisticProfile.additionalProperties, false);
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'linguistic-profile-config-'));
   try {
-    const configs = {
-      linguistic: { version: '0.1', linguisticProfile: { profileId: 'english' } },
-      unknown: { version: '0.1', notAKey: true },
-      plain: { version: '0.1' },
+    const load = (value) => {
+      const file = path.join(directory, 'config.json');
+      fs.writeFileSync(file, JSON.stringify({ version: '0.1', linguisticProfile: value }));
+      return loadValidatorConfigFromFile(file);
     };
-    for (const [name, value] of Object.entries(configs)) fs.writeFileSync(path.join(directory, `${name}.json`), JSON.stringify(value));
-    const run = (bin, name) => spawnSync(process.execPath, [path.join(ROOT, 'bin', bin), '--scope=system', `--config=${path.join(directory, `${name}.json`)}`], { cwd: ROOT, encoding: 'utf8' });
-    for (const bin of ['calculogic-validate-naming.host.mjs', 'calculogic-validate-tree.host.mjs', 'calculogic-validate.host.mjs']) {
-      const [linguistic, unknown, plain] = ['linguistic', 'unknown', 'plain'].map((name) => run(bin, name));
-      assert.equal(linguistic.status, 1, `${bin}: stops`);
-      assert.equal(linguistic.stdout, '', `${bin}: no report`);
-      assert.equal(linguistic.status, unknown.status, `${bin}: same as any unknown key`);
-      assert.notEqual(plain.status, 1, `${bin}: a config without the key runs`);
-      assert.notEqual(plain.stdout, '', `${bin}: and reports`);
-    }
+    for (const value of MALFORMED_SELECTIONS) assert.throws(() => load(value), /Invalid validator config: linguisticProfile/u, JSON.stringify(value));
+    assert.deepEqual(load({ profileId: 'english' }), { version: '0.1', linguisticProfile: { profileId: 'english' } });
+    assert.deepEqual(load({ profileVersion: '1', profileId: 'english' }), { version: '0.1', linguisticProfile: { profileId: 'english', profileVersion: '1' } });
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }

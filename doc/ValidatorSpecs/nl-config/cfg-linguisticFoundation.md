@@ -7,7 +7,7 @@
 
 ## 0.0 Version
 
-Status: **implemented by calculogic-validator#148**: the foundation runtime (5.2.1–5.2.7), its vocabularies and inventory (6.1, 6.2) and the `english` profile, version `1` (6.3). Nothing in a validation run reads it yet: no Naming bridge production and no Tree consumption (contract §8, §9.2).
+Status: **implemented by calculogic-validator#148**: the foundation runtime (5.2.1–5.2.7), its vocabularies and inventory (6.1, 6.2) and the `english` profile, version `1` (6.3). **First consumer, calculogic-validator#150:** a run selects a profile through the config's `linguisticProfile`. Suite core prepares the foundation, and Naming presents resolutions through the `namingTokenLexicalIdentities` bridge section. Tree does not consume it (contract §9.2), and the profiles stay builtin-only (D11).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.5] cfg-linguisticFoundation · Primitive · "…"`).
 
@@ -29,7 +29,7 @@ Resolve a supplied token to the lexical identities a declared language profile g
 - Naming producing resolutions; the bridge section (contract §8).
 - Tree consuming lexical identity; the E10, E10.1 and E11 reclassification.
 - Morphology rules (D1); relationships other than number (D6).
-- Joining the suite's Builtin/Custom registry lifecycle, report metadata, the run-configuration source and packaging. These come with the first consumer (contract §15.4).
+- Joining the suite's Builtin/Custom registry lifecycle (contract D11). The run-configuration source, report provenance and packaging came with the first consumer, calculogic-validator#150 (9.3).
 
 ### 1.4 Concerns present
 
@@ -52,7 +52,7 @@ Logic and Knowledge, plus a Results concern for the prepared records. There is n
 
 - `src/core/registry-entry-shape.logic.mjs` for the shared shape assertions.
 - `src/core/registry-lifecycle/registry-lifecycle-canonical-digest.logic.mjs` for the canonical digest.
-- No dependency on Naming, Tree or Structural Addressing, and none of them depends on this configuration yet.
+- No dependency on Naming, Tree or Structural Addressing. Its only importers are Naming's token lexical-identity projection (5.2.5) and suite core's run selection (5.2.7), calculogic-validator#150.
 
 ### 2.4 Invariants
 
@@ -149,7 +149,7 @@ Each registered profile: its `profileId` and registry filename. Adding a languag
 - **Prepared foundation:** `{ selection, profile }`.
 - **Resolution:** `{ surface, status, readings: [{ lexemeId, features, basis }], provenance?: { profileId, profileVersion, lexiconDigest } }`.
 
-No report, finding or CLI output reads them.
+No finding reads them. Reports carry the active profile's provenance (`profileId`, `profileVersion`, `lexiconDigest`) only when a run selects one (calculogic-validator#150).
 
 ## 8.0 ResultsStyle Concern (Output Styling)
 
@@ -180,11 +180,11 @@ Loader (5.2.1, 5.2.2), then converter (5.2.3), then selection (5.2.4), composed 
 
 ### 9.3 Integration
 
-None yet. The first consumer slice:
-- wires the run-configuration source (contract §15.4);
-- joins the profile registries to the Builtin/Custom lifecycle;
-- reports provenance;
-- adds `linguistic-foundation/src/**` to the package files.
+calculogic-validator#150 (contract §8.5, §15.4):
+- **Selection:** the CLI hosts load `linguisticProfile` from config (stage 1). `prepareRunLinguisticFoundation` (`src/core/config/validator-linguistic-profile.logic.mjs`) calls 5.2.7 and stops the run on an `invalid` selection (stage 2).
+- **Transport:** the runner passes the prepared foundation to Naming's Tree staging, which presents its active profile as an opaque `lexicalProfile`. Tree wiring passes that to Naming's bridge payload producer. Naming's projection calls 5.2.5 on each token. No other module calls 5.2.5 or 5.2.6.
+- **Provenance and packaging:** reports carry `linguisticProfile` provenance (7.1) only when a profile is active, and `linguistic-foundation/src/**` is in the package files.
+- **Not done:** the profile registries do not join the Builtin/Custom lifecycle (D11).
 
 ## 10.0 Implementation Passes
 
