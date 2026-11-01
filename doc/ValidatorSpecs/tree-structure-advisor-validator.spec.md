@@ -1182,7 +1182,7 @@ The walk keeps expression grounded:
 - **Exact Naming evidence.** The comparison is equality of Naming-supplied tokens: the folder's parsed label tokens (S1.1, N2) against the member's N1 tokens, the same operation as the Stage 1 prefix comparison (S1.5) at another position. A folder whose label is not parsed expresses nothing. No token is transformed, and a partial label never expresses (S3.10).
 - **Each folder expresses at most once.**
 
-**Provenance.** Each member records how its lineage-expressed prefix was reached: for each folder that extended it, the folder, the positions expressed, and the basis (`stage-1-root`, `stage-1-prefix` or `positional-label`). A candidate's record keeps its shared residual prefix as its identifier and its **leading tokens** (the lineage-expressed tokens followed by the prefix) as the evidence its prefix was derived from.
+**Provenance.** Each member records how its lineage-expressed prefix was reached: for each folder that extended it, the folder, the positions expressed, and the basis (`stage-1-root`, `stage-1-prefix` or `positional-label`). Each member also records its **leading tokens** for the grouping: its lineage-expressed tokens followed by the shared prefix. A candidate's record keeps its shared residual prefix as its identifier and, as the evidence that prefix was derived from, **every distinct leading-token sequence among its members**. Members of one directory can reach different lineage-expressed prefixes (E16: `naming-cli` for the `cli` members, `naming` for `naming-report-builder`), so a common residual prefix does not imply one shared sequence, and none is forced. The sequences are explanatory evidence, not an identity: the prefix remains the identifier.
 - When positional expression changes a candidate's prefix (E17: `health-check` becomes `check`), it is a different evidence-derived identifier.
 - Whether two identifiers name the same candidate across a change of derivation is **not decided**. One possible rule is equal leading tokens over the same members, which `health-check` and `check` share. It is recorded as unresolved, not applied.
 
@@ -1429,7 +1429,7 @@ E8.1 is the counterexample: the shortcut would conclude `opportunity` for `tree-
 #### S3.7 Output
 
 A prepared evidence record, `treeEmergentBoundaryReasoning`. It holds, per directory:
-- its candidates and their discovery method, with each candidate's leading tokens and each member's lineage-expression provenance (S3.2);
+- its candidates and their discovery method, with each candidate's distinct leading-token sequences and each member's own leading tokens and lineage-expression provenance (S3.2);
 - the candidate relations;
 - the three member sets with their explanations;
 - dimension evidence and outcomes, each with its assessment completion and the policy that produced it (S3.6, S3.8);
