@@ -5,7 +5,9 @@
  * Responsibility: Converter from a validated language profile payload to its frozen runtime profile
  *   (contract §4.3 R4, §15.3).
  * Invariants: no validation (the loader owns it) and no resolution decision (the resolution module
- *   owns it); readings are sorted by lexeme identifier, then features, by code unit; output is frozen.
+ *   owns it); readings are sorted by lexeme identifier, then features, by code unit; output is frozen,
+ *   and the lookup is private: it is reachable only through read-only accessors, so no caller can
+ *   change a resolution without changing the profile version and digest.
  */
 import { LEXICAL_READING_BASES } from './linguistic-foundation.knowledge.mjs';
 
@@ -40,10 +42,14 @@ export const toLanguageProfileRuntime = ({ payload, lexiconDigest }) => {
     readings.sort((left, right) => byCodeUnit(readingKey(left), readingKey(right)));
     deepFreeze(readings);
   }
+  const surfaces = Object.freeze([...readingsBySurface.keys()].sort(byCodeUnit));
+  const NO_READINGS = Object.freeze([]);
+  // The map stays in this closure; callers see only frozen readings and a frozen surface list.
   return Object.freeze({
     profileId: payload.profileId,
     profileVersion: payload.profileVersion,
     lexiconDigest,
-    readingsBySurface,
+    readingsOf: (surface) => readingsBySurface.get(surface) ?? NO_READINGS,
+    surfaces: () => surfaces,
   });
 };

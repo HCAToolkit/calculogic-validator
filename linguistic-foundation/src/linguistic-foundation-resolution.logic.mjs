@@ -23,7 +23,7 @@ export const resolveSurfaceForm = (profile, surface) => {
   if (profile === null || profile === undefined) {
     return Object.freeze({ surface, status: STATUSES.profileUnavailable, readings: EMPTY });
   }
-  const readings = profile.readingsBySurface.get(surface) ?? EMPTY;
+  const readings = profile.readingsOf(surface);
   const lexemeCount = new Set(readings.map((reading) => reading.lexemeId)).size;
   const status = readings.length === 0 ? STATUSES.unknown : lexemeCount === 1 ? STATUSES.resolved : STATUSES.ambiguous;
   return Object.freeze({

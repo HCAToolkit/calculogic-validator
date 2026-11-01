@@ -81,7 +81,7 @@ Loader. It reads one profile registry from a registry root and validates it unde
 - a kebab-case `profileId` equal to the inventory's;
 - complete feature support over the foundation's spaces and values;
 - non-empty entries with prefixed, unique lexeme identifiers;
-- non-empty forms with known, supported feature values;
+- non-empty forms whose feature values are strings of their own foundation space, checked before support (a non-string would otherwise coerce to a property key), and supported by the profile;
 - no duplicate form;
 - no padded string.
 
@@ -93,7 +93,9 @@ The canonical digest: `digestRegistryPayload` with a descriptor that makes `entr
 
 #### 5.2.3 Derived value: `toLanguageProfileRuntime`
 
-Converter. It turns a validated payload and its digest into a frozen runtime profile: `profileId`, `profileVersion`, `lexiconDigest`, and a map from each surface form to its sorted readings (contract R4).
+Converter. It turns a validated payload and its digest into a frozen runtime profile: `profileId`, `profileVersion`, `lexiconDigest`, `readingsOf(surface)` and `surfaces()`.
+- The surface-to-readings lookup stays private to the converter. Callers reach it only through these accessors, which return frozen readings (contract R4) and a frozen, sorted surface list.
+- So no caller can change a resolution without changing the profile version and digest.
 
 #### 5.2.4 Workflow: `selectActiveLanguageProfile`
 

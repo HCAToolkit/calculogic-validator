@@ -310,7 +310,7 @@ The runtime is a shared area beside Structural Addressing: `linguistic-foundatio
 | `linguistic-foundation/src/linguistic-foundation.knowledge.mjs` | the foundation vocabularies (§4.1, §5.1, §5.3, §6.1, §6.2, §7) |
 | `linguistic-foundation/src/registries/linguistic-foundation-language-profile-inventory.knowledge.mjs` | the registered profiles: identifier and registry file |
 | `linguistic-foundation/src/registries/linguistic-foundation-language-profile-registry.logic.mjs` | loading and validating a profile registry (§4.2, §5.1), and its digest (§7) |
-| `linguistic-foundation/src/linguistic-foundation-runtime-converters.logic.mjs` | the runtime profile: surface form to sorted readings |
+| `linguistic-foundation/src/linguistic-foundation-runtime-converters.logic.mjs` | the runtime profile: a private surface-to-readings lookup behind read-only accessors |
 | `linguistic-foundation/src/linguistic-foundation-profile-selection.logic.mjs` | active profile selection (§5.3) |
 | `linguistic-foundation/src/linguistic-foundation-resolution.logic.mjs` | resolution (§4.3, §6.1) and the comparison relation (§6.2) |
 | `linguistic-foundation/src/linguistic-foundation.wiring.mjs` | composing the prepared foundation |

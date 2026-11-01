@@ -55,12 +55,30 @@ test('records are frozen and do not expose the runtime lookup to mutation', () =
   assert.throws(() => resolution.readings.push({}), TypeError);
 });
 
+test('regression (PR #149 review): no caller can change a resolution through the public runtime profile', () => {
+  const before = JSON.stringify(['rules', 'rule', 'status'].map((surface) => r(surface)));
+  // No lookup is exposed: the runtime has no Map-valued property, and its accessors cannot be replaced.
+  assert.equal(Object.values(english).some((value) => value instanceof Map || value instanceof Set), false);
+  assert.deepEqual(Object.keys(english).sort(), ['lexiconDigest', 'profileId', 'profileVersion', 'readingsOf', 'surfaces']);
+  assert.throws(() => { english.readingsOf = () => []; }, TypeError);
+  assert.throws(() => { english.lexiconDigest = 'x'; }, TypeError);
+  // What the accessors return is frozen, the shared empty result included.
+  for (const surface of ['rules', 'status']) {
+    const readings = english.readingsOf(surface);
+    assert.throws(() => readings.push({ lexemeId: 'english.status', features: {}, basis: 'lexicon-entry' }), TypeError, surface);
+    assert.throws(() => { readings.length = 0; }, TypeError, surface);
+  }
+  assert.throws(() => english.readingsOf('rules')[0].features.number = 'singular', TypeError);
+  assert.throws(() => english.surfaces().push('status'), TypeError);
+  assert.equal(JSON.stringify(['rules', 'rule', 'status'].map((surface) => r(surface))), before, 'every resolution is unchanged');
+});
+
 test('resolution and digest are independent of entry and form order', () => {
   const sample = { version: '1', ...SAMPLE_PROFILE };
   const reversed = { ...sample, entries: [...sample.entries].reverse().map((entry) => ({ ...entry, forms: [...entry.forms].reverse() })) };
   const [forward, backward] = [runtimeOf(sample), runtimeOf(reversed)];
   assert.equal(forward.lexiconDigest, backward.lexiconDigest);
-  for (const surface of forward.readingsBySurface.keys()) assert.deepEqual(resolveSurfaceForm(backward, surface), resolveSurfaceForm(forward, surface), surface);
+  for (const surface of forward.surfaces()) assert.deepEqual(resolveSurfaceForm(backward, surface), resolveSurfaceForm(forward, surface), surface);
 });
 
 test('conformance: the runtime gives the reference model\'s statuses, readings and relations over the contract sample profile', () => {

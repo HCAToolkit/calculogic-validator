@@ -67,6 +67,12 @@ const INVALID = [
   ['surface empty', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [{ surface: '', features: {} }] }, ...p.entries.slice(1)] }), /surface must be a non-empty string/u],
   ['features missing', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [{ surface: 'x' }] }, ...p.entries.slice(1)] }), /features must be an object/u],
   ['unknown feature space on a form', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [{ surface: 'x', features: { tense: 'past' } }] }, ...p.entries.slice(1)] }), /not a foundation feature space/u],
+  // Regression (PR #149 review): a non-string value coerces to a property key, so it is checked first.
+  ['array feature value', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [{ surface: 'x', features: { number: ['singular'] } }] }, ...p.entries.slice(1)] }), /features\.number must be one of singular, plural/u],
+  ['object feature value', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [{ surface: 'x', features: { number: { toString: 'plural' } } }] }, ...p.entries.slice(1)] }), /features\.number must be one of singular, plural/u],
+  ['numeric feature value', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [{ surface: 'x', features: { number: 1 } }] }, ...p.entries.slice(1)] }), /features\.number must be one of singular, plural/u],
+  ['feature value outside the space', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [{ surface: 'x', features: { number: 'dual' } }] }, ...p.entries.slice(1)] }), /features\.number must be one of singular, plural/u],
+  ['inherited property as a feature space', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [{ surface: 'x', features: { toString: 'plural' } }] }, ...p.entries.slice(1)] }), /features\.toString is not a foundation feature space/u],
   ['unsupported feature value on a form', (p) => ({ ...p, featureSupport: { number: { singular: 'supported', plural: 'unsupported' } } }), /value "plural" is not supported/u],
   ['form repeated', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [...p.entries[0].forms, p.entries[0].forms[0]] }, ...p.entries.slice(1)] }), /repeats a form/u],
   ['padded string', (p) => ({ ...p, entries: [{ ...p.entries[0], forms: [{ surface: 'rule ', features: {} }] }, ...p.entries.slice(1)] }), /leading or trailing whitespace/u],

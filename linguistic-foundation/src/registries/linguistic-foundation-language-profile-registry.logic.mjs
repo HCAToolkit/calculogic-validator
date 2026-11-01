@@ -80,7 +80,12 @@ export const normalizeLanguageProfileRegistryPayload = (payload, { expectedProfi
       if (!isNonEmptyString(form.surface)) fail(`${formLabel}.surface must be a non-empty string.`);
       if (!isPlainObject(form.features)) fail(`${formLabel}.features must be an object.`);
       for (const [space, value] of Object.entries(form.features)) {
-        if (!(space in LINGUISTIC_FEATURE_SPACES)) fail(`${formLabel}.features.${space} is not a foundation feature space.`);
+        if (!Object.hasOwn(LINGUISTIC_FEATURE_SPACES, space)) fail(`${formLabel}.features.${space} is not a foundation feature space.`);
+        // A value is one of the space's strings, checked before support: an array or other non-string
+        // would otherwise coerce to a property key (["plural"] reads as "plural") and pass.
+        if (typeof value !== 'string' || !LINGUISTIC_FEATURE_SPACES[space].includes(value)) {
+          fail(`${formLabel}.features.${space} must be one of ${LINGUISTIC_FEATURE_SPACES[space].join(', ')}.`);
+        }
         if (payload.featureSupport[space][value] !== LINGUISTIC_SUPPORT_STATUSES.supported) {
           fail(`${formLabel}.features.${space} value ${JSON.stringify(value)} is not supported by the profile.`);
         }

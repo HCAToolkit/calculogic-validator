@@ -73,6 +73,7 @@ export const INVALID_PROFILES = Object.freeze([
   { problem: 'surface-empty', change: (profile) => ({ ...profile, entries: [...profile.entries, { lexemeId: 'english-sample.empty', forms: [{ surface: '', features: {} }] }] }) },
   { problem: 'form-duplicate', change: (profile) => ({ ...profile, entries: profile.entries.map((entry) => (entry.lexemeId === 'english-sample.rule' ? { ...entry, forms: [...entry.forms, entry.forms[0]] } : entry)) }) },
   { problem: 'feature-space-unknown', change: (profile) => ({ ...profile, entries: [...profile.entries, { lexemeId: 'english-sample.go', forms: [{ surface: 'went', features: { tense: 'past' } }] }] }) },
+  { problem: 'feature-value-unknown', change: (profile) => ({ ...profile, entries: [...profile.entries, { lexemeId: 'english-sample.array', forms: [{ surface: 'arrays', features: { number: ['plural'] } }] }] }) },
   { problem: 'feature-value-unsupported', change: (profile) => ({ ...profile, featureSupport: { number: { singular: 'supported', plural: 'unsupported' } } }) },
   {
     problem: 'feature-support-incomplete',
