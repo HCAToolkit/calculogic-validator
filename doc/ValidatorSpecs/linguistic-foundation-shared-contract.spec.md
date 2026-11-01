@@ -1,0 +1,284 @@
+# Linguistic Foundation Shared Contract (Stage 1: lexical identity)
+
+## 1. Status and classification
+
+- **Status:** Contract (documentation plus executable contract evidence). It changes no runtime behavior, registry, bridge section, command, report or finding. The evidence is test-only (`test/linguistic-foundation-contract.test.mjs` and its fixtures) and is not shipped.
+- **Scope:** the shared model of lexical identity: language profiles, lexemes, surface forms, readings, grammatical features, resolution, ambiguity, provenance, the lexeme-comparison relation, and the boundary through which Naming will carry this evidence to Tree.
+- **Origin:** calculogic-validator#146, following the singular/plural investigation behind calculogic-validator#142 and the Tree S3.10 limitation it measured (E10, E11).
+- **Last reviewed:** 2026-11-01.
+
+Every rule carries one of the labels of the Structural Addressing shared contract (`structural-addressing-shared-contract.spec.md` §1):
+
+| Label | Meaning | Classification |
+|---|---|---|
+| **Current** | True of `main` today; verified in code and tests. | `Normative` |
+| **Contract** | Binding on every future profile, producer and consumer, whether or not one exists yet. | `Normative` |
+| **Proposed** | The expected direction. Not binding until a later slice adopts it. | `Draft-Assumption` |
+| **Deferred** | Must be decided explicitly in its own task; never settled as a side effect of unrelated work. | `Draft-Assumption` (open) |
+
+Examples are `Illustrative` unless marked **measured**. Lexeme identifiers, forms and entries in this contract illustrate the model; they are not English lexicon content, which a later slice owns (§11).
+
+## 2. Purpose and non-goals
+
+The Linguistic Foundation answers one question: **which reusable lexical identity does a word form carry, under a declared language profile, with which grammatical features, how certainly, and on what evidence?** Structural Addressing provides stable occurrence identity; the Linguistic Foundation provides stable lexical identity. Both are pre-reasoning layers that consumer slices use through explicit contracts, and neither owns a consumer's interpretation.
+
+The first concrete need is the Tree S3.10 singular/plural limitation: `rules` and `rule`, `registries` and `registry` are never related, so a folder's own concept stays in its members' residual tokens (Tree slice spec S3.9 E10, E11). The investigation measured that a string transformation cannot safely relate them (§10), and that Tree must not own one (Tree S3.1).
+
+This contract does not:
+- add a lexicon, registry, loader, profile instance or runtime module;
+- change Naming tokenization, folder-label interpretation or any bridge section;
+- change Tree reasoning, the S3.9 catalogue, or E10, E10.1 and E11;
+- define parsing, translation, generation, Narrative wording or Lexical Coherence policy;
+- choose a morphology engine (§12, D1).
+
+## 3. Authority
+
+### 3.1 Governing rule (Contract)
+
+The Linguistic Foundation owns the shared lexical identity model: identity mechanics, foundation feature spaces, the resolution and ambiguity vocabularies, the comparison relation, provenance, and the profile contract. **Language profiles** own their lexicon content within that model. **Consumer slices** own every interpretation of the identities they receive.
+
+Consequences:
+- The foundation holds no language-specific entry, form or rule. English is a profile, not the foundation (§5).
+- Reusing an identity never implies reusing an interpretation. Naming, Tree and future consumers may read the same lexeme differently, each under its own contract.
+- A consumer never redefines a foundation identity under a slice-local name, and never maintains a manual copy of lexicon content as a second authority (§8.4).
+
+### 3.2 Authority map
+
+| Source | Authority |
+|---|---|
+| This contract | The shared lexical identity model (§4–§9). |
+| Naming semantic interpretation spec §4.2, §13 | Tokenization of filenames and folder labels. Unchanged. The foundation receives tokens; it never produces them. |
+| Naming bridge occurrence identity contract §4.4–§4.6, §6.2 | The bridge envelope and its sections. The proposed extension (§8) becomes binding only through an amendment there. |
+| Tree slice spec S3.1, S3.2, S3.10 | Tree's consumption rules. Tree's use of lexical identity is decided in Tree's own slice (§9.2). |
+| Validator living document §4.6, "Linguistic Foundation Slice / Layer" (calculogic-validator#85) | Intended direction. Context, not repository authority. Items adopted here are restated with labels; the rest stays planning context (§11). |
+
+## 4. Core model
+
+### 4.1 Terms (Contract)
+
+- **Surface form:** one token exactly as a producer supplies it (today a Naming N1 `semanticTokens` entry or an N2 `labelTokens` entry). The foundation never tokenizes, case-maps or trims a surface form.
+- **Language profile:** a declared, versioned set of lexicon entries and feature support for one language (§5).
+- **Lexeme:** a reusable lexical identity within one profile. Its identifier is a string beginning with the profile identifier and a dot (illustrative: `english.rule`). The rest is opaque: consumers compare lexeme identifiers for equality and never parse them.
+- **Feature space:** a foundation-owned, language-agnostic set of feature values. The first and only promoted space is `number`, with values `singular` and `plural`.
+- **Lexicon entry:** one lexeme with its declared forms. Each form is a surface form with the features it carries.
+- **Reading:** one way a surface form can be read under a profile: a lexeme identifier, the features the form carries for it, and its basis (§7).
+- **Resolution:** all readings of one surface form under one profile, with its status (§6).
+
+### 4.2 Lexicon entry shape (Contract)
+
+| Field | Shape | Rule |
+|---|---|---|
+| `lexemeId` | non-empty string | Begins with `<profileId>.`; unique within the profile |
+| `forms` | non-empty array of `{ surface, features }` | `surface` is a non-empty string; `features` maps a feature space to one of its values and may be empty |
+
+- A form declares only feature values the profile supports (§5.1).
+- A `(surface, lexemeId, features)` combination appears at most once in a profile.
+- A form whose entry does not specify a feature simply omits it. Omission means "not specified by the entry", never a default value.
+- The same surface may be declared by several entries (lexical ambiguity) and by one entry with several feature values (feature ambiguity, for example a form that is both singular and plural).
+
+### 4.3 Resolution rules (Contract)
+
+- **R1 Declared entries only.** A reading exists only when the profile's lexicon declares the exact surface form. No suffix rule, stemming, singularization, case folding or derivation produces a reading.
+- **R2 Exact surface equality.** A form is matched as supplied. The foundation normalizes nothing; Naming's case rules already govern the tokens it supplies.
+- **R3 Context-free.** Resolution uses only the surface form and the profile: never neighbouring tokens, position, file, folder, path or any other occurrence. This matches Naming's context-free label rule (Naming interpretation spec §13.2). Disambiguation by context belongs to a consumer or to a later contract.
+- **R4 Deterministic.** Readings are sorted by lexeme identifier, then by feature values, with no duplicates. The same surface form, profile version and lexicon digest always give the same resolution.
+- **R5 Features never create identity.** Feature values distinguish forms of one lexeme. They never make two lexemes, and two readings of one lexeme that differ only in features are one lexeme.
+
+## 5. Profile contract
+
+### 5.1 What every language profile declares (Contract)
+
+| Declaration | Rule |
+|---|---|
+| `profileId` | kebab-case; unique among profiles |
+| `profileVersion` | non-empty string; any change to entries or support changes it |
+| `featureSupport` | for each foundation feature space, each value's status: `supported`, `unsupported` or `not-applicable` |
+| `entries` | lexicon entries (§4.2) |
+
+- A profile for a language without grammatical number declares the `number` space `not-applicable`; its forms carry no `number` feature.
+- A profile may not add a feature space or value of its own. A new space or value is promoted into the foundation by amendment, when a profile or consumer needs it.
+- The foundation's vocabularies (feature spaces, statuses, relations, bases) are language-agnostic and contain no lexeme, form or entry.
+
+### 5.2 Profiles (Proposed)
+
+- `english`: the first language profile, created by the lexicon slice (§11). It is a profile like any other; nothing in the foundation depends on it.
+- Domain, validator-domain and slice-perspective profiles from the living document are not defined here (§12, D7).
+
+### 5.3 Active profile (Contract, with the selection Deferred)
+
+A resolution is always relative to one active language profile. When none is active, every resolution is `profile-unavailable`. How a run selects its active profile, including for non-English consumer repositories, is deferred (§12, D2). Until it is decided, no profile is active anywhere, and every consumer keeps its current literal behavior.
+
+## 6. Resolution statuses and ambiguity
+
+### 6.1 Statuses (Contract)
+
+| Status | Condition | Readings |
+|---|---|---|
+| `resolved` | every reading has the same lexeme identifier | one or more, one lexeme |
+| `ambiguous` | the readings name more than one lexeme identifier | two or more, several lexemes |
+| `unknown` | a profile is active and declares no entry for the form | none |
+| `profile-unavailable` | no profile is active | none |
+
+- **Ambiguity is recorded, never resolved.** The foundation never picks a preferred, frequent or default reading.
+- **Feature ambiguity is not lexical ambiguity.** A `resolved` form may carry several readings that differ only in features (the illustrative `series` below); its lexeme is still determinate.
+- **`unknown` is not negative evidence.** It means the profile has no evidence about the form, never that the form differs from any other.
+
+### 6.2 Lexeme-comparison relation (Contract)
+
+Comparing two resolutions under the same profile version yields exactly one relation. `L` and `R` are the sets of lexeme identifiers of the two resolutions' readings.
+
+| Relation | Condition |
+|---|---|
+| `same-lexeme` | both `resolved`, and `L` equals `R` |
+| `possibly-same-lexeme` | at least one is `ambiguous`, and `L` and `R` share an identifier |
+| `different-lexemes` | both are `resolved` or `ambiguous`, and `L` and `R` share no identifier |
+| `undetermined` | either is `unknown` or `profile-unavailable`, or the resolutions come from different profiles or profile versions |
+
+- The relation is about lexeme identity only. Literal equality of two surface forms is separate evidence that consumers already have, and the relation neither replaces nor overrides it. Two occurrences of one ambiguous form are `possibly-same-lexeme`, because resolution is context-free (R3).
+- `different-lexemes` is positive evidence only to the extent that the profile's entries are correct. It never follows from `unknown`.
+- How a consumer treats `possibly-same-lexeme` is the consumer's decision (§9.2).
+
+### 6.3 Worked examples (Illustrative; checked against the test fixture)
+
+Resolutions under the illustrative sample profile in `test/fixtures/linguistic-foundation/` (`english-sample`, version `0`). Forms marked *measured* occur as Naming tokens in this repository at `repo` scope (§10).
+
+| Surface | Status | Readings | Note |
+|---|---|---|---|
+| `rule` | `resolved` | `english-sample.rule` (singular) | measured (E10) |
+| `rules` | `resolved` | `english-sample.rule` (plural) | measured (E10 folder label) |
+| `registry` | `resolved` | `english-sample.registry` (singular) | measured (E11) |
+| `registries` | `resolved` | `english-sample.registry` (plural) | measured (E11 folder label) |
+| `status` | `resolved` | `english-sample.status` (singular) | measured; never a plural of a lexeme `statu` |
+| `address` | `resolved` | `english-sample.address` (singular) | measured |
+| `series` | `resolved` | `english-sample.series` (plural), `english-sample.series` (singular) | feature ambiguity only |
+| `diagnostics` | `ambiguous` | `english-sample.diagnostic` (plural), `english-sample.diagnostics` (—) | measured; plural of `diagnostic`, or the field of study |
+| `docs` | `ambiguous` | `english-sample.doc` (plural), `english-sample.docs` (—) | measured; plural of `doc`, or "documentation" |
+| `cross` | `unknown` | — | measured; not declared in the sample, and no reading is derived from `cros` + `s` |
+| `readiness` | `unknown` | — | measured; not declared in the sample |
+
+Comparisons under the same profile:
+
+| Left | Right | Relation |
+|---|---|---|
+| `rules` | `rule` | `same-lexeme` |
+| `registries` | `registry` | `same-lexeme` |
+| `rule` | `rule` | `same-lexeme` |
+| `docs` | `doc` | `possibly-same-lexeme` |
+| `diagnostics` | `diagnostics` | `possibly-same-lexeme` |
+| `rule` | `registry` | `different-lexemes` |
+| `status` | `rules` | `different-lexemes` |
+| `cross` | `cross` | `undetermined` |
+| `cross` | `rule` | `undetermined` |
+
+## 7. Provenance (Contract)
+
+- Every resolution carries the active profile's `profileId`, `profileVersion` and **lexicon digest**. The digest is a deterministic digest of the profile's entries and support declarations. Its algorithm and where it is reported follow the suite's registry digest conventions and are fixed by the lexicon slice (§12, D4).
+- Every reading carries its **basis**. The only basis is `lexicon-entry`: the reading comes from a declared entry. A future basis (for example a profile rule) is added only by amendment, together with the rule it names (§12, D1).
+- A `profile-unavailable` resolution carries no profile provenance.
+
+## 8. Naming bridge extension
+
+### 8.1 Producer and route (Proposed)
+
+- **Naming is the producing perspective.** It attaches resolutions to the tokens it already supplies, and remains the owner of tokenization and of every filename-specific interpretation. Lexeme identity is not a Naming interpretation, and Naming never derives readings itself.
+- **Route: an additive envelope section** under the bridge contract's §4.4, independent of the N1 section (`namingSemanticEvidenceEnrichment`) and the N2 section (`namingFolderLabelObservations`). This follows the calculogic-validator#84 route decision. Adding fields to those sections would need new section versions, and current Tree intake treats an unsupported version as unavailable, so it would lose the tokens it reads today. The route and field names become binding only through a bridge-contract amendment (§12, D3).
+
+### 8.2 Proposed section shape (Proposed)
+
+- **Section:** `namingTokenLexicalIdentities`, contract version `naming-token-lexical-identity.v1`, with the §4.4 rule 5 envelope.
+- **Envelope addition:** `lexicalProfile: { profileId, profileVersion, lexiconDigest }`. The section has one profile for all its records.
+- **Association:** a record attaches through the identity tuple to the N1 record of a file occurrence or to the N2 parsed record of a folder occurrence.
+- **Record fields:**
+  - the identity tuple;
+  - `tokenSource`: `semantic-tokens` or `label-tokens`;
+  - `tokens`: one entry per position of that token list, in order. Each entry is `{ surface, status, readings }`, where each reading is `{ lexemeId, features, basis }`, sorted (R4).
+- **Section-level states:** a record never carries `profile-unavailable`. When no profile is active, the section is omitted.
+
+### 8.3 Consumer checks (Proposed)
+
+A supporting consumer drops a record, with a distinguishable diagnostic, when:
+- its `tokens` length differs from the accepted source token list;
+- an entry's `surface` differs from the source token at that position;
+- an entry's `status` disagrees with its readings (§6.1);
+- a `lexemeId` lacks the section profile's prefix.
+
+Otherwise the §4.4 and §4.5 consumer identity rules apply unchanged.
+
+### 8.4 Absence and fallback (Contract)
+
+- When the section is absent, unsupported or invalid, or a record is dropped, lexical identity is **unavailable** evidence. Consumers keep exactly their behavior without it, and must not resolve forms themselves, re-tokenize, or transform surface strings to approximate it.
+- No producer or consumer may fall back to a manually maintained copy of lexicon content. A compatibility snapshot, if ever needed, is a generated projection that records its source version and digest, and its use is reported (living document §4.6, adopted as the rule; the mechanism is deferred, §12, D4).
+
+## 9. Consumers
+
+### 9.1 Consumer rules (Contract)
+
+- Consumers relate forms only through the comparison relation (§6.2) on resolutions they received, never by comparing or transforming surface strings.
+- `unknown` and `undetermined` are never negative evidence.
+- A consumer records when lexical identity was unavailable to a comparison that needed it, as Tree S3.10 records its limitations.
+
+### 9.2 Tree (Proposed; decided in Tree's consumption slice)
+
+- **Positional expression.** `same-lexeme` between a lineage folder's label token and a member's token at the current position is expected to extend positional lineage expression (Tree S3.2) on a new basis. That basis would sit beside `positional-label`, which remains exact equality.
+- **Ambiguity.** How Tree treats `possibly-same-lexeme` is Tree's decision: no expression, or a recorded possible expression (§12, D5).
+- **Reclassification.** E10, E10.1 and E11 are reclassified only with that slice (Tree S3.9). The executable evidence shows the contract relates their folder-label and member tokens; it changes no catalogue case.
+
+## 10. Measured evidence (measured at `98e54e2`, `repo` scope)
+
+The distinct Naming tokens (N1 `semanticTokens` and N2 `labelTokens`): 261 in total, 45 of them ending in `s`.
+
+- **Forms where a singular token also occurs** (21): `args`/`arg`, `candidates`/`candidate`, `cases`/`case`, `contributors`/`contributor`, `decisions`/`decision`, `docs`/`doc`, `homes`/`home`, `kinds`/`kind`, `migrations`/`migration`, `paths`/`path`, `policies`/`policy`, `profiles`/`profile`, `references`/`reference`, `registries`/`registry`, `relationships`/`relationship`, `roots`/`root`, `rules`/`rule`, `scopes`/`scope`, `signals`/`signal`, `surfaces`/`surface`, `targets`/`target`.
+- **Forms where stripping a final `s` would invent a word or a false singular** (examples): `address`, `cross`, `readiness`, `status`.
+- **Forms that are not plain number pairs**:
+  - `docs` and `diagnostics` each have a second reading;
+  - `args` and `docs` are abbreviations. Whether `arg` relates to `argument` is an abbreviation relationship, not number (§12, D6).
+
+This is why R1 admits declared entries only. A suffix rule would relate the 21 pairs, but it would also mint `statu`, `addres`, `cros` and `readines`, and it cannot express the second readings at all.
+
+## 11. Current versus planned
+
+| Capability | State |
+|---|---|
+| This contract and its test-only executable evidence | **Contract** |
+| Lexicon registry, profile loader, digest, `english` profile content | **Proposed** (the lexicon slice) |
+| Naming producing resolutions; the bridge section of §8 | **Proposed** (a Naming slice with a bridge-contract amendment) |
+| Tree consuming lexical identity; E10, E10.1, E11 reclassification | **Proposed** (a Tree slice) |
+| Feature spaces beyond `number`; domain and perspective profiles; realization strategies; Narrative and Lexical Coherence consumers | **Deferred** (living document §4.6 context) |
+| Any Linguistic Foundation runtime | Not current: no module, registry or section exists |
+
+## 12. Deferred decisions register
+
+| # | Decision | Trigger to open it |
+|---|---|---|
+| D1 | Identity sources beyond declared entries: profile morphology rules or a hybrid, with their exception lists and a new basis | a profile whose entry maintenance is measured to be impractical |
+| D2 | How a run selects its active profile, including non-English consumer repositories | the lexicon slice, before any profile becomes active |
+| D3 | Bridge route and field names (§8), by amendment of the bridge contract | the Naming producer slice |
+| D4 | Lexicon registry location and lifecycle, digest algorithm, report metadata, compatibility snapshots | the lexicon slice |
+| D5 | Tree's treatment of `possibly-same-lexeme` | the Tree consumption slice |
+| D6 | Relationships other than number (abbreviation, derivation) and further feature spaces | a consumer need with measured evidence |
+| D7 | Domain, validator-domain and slice-perspective profiles | a consumer that needs a non-language profile |
+| D8 | Whether the literal `test`/`tests` handling the known-roots retirement audit leaves unnormalized changes under lexical identity | the Tree consumption slice, with that audit |
+| D9 | Extracting Naming's connector set (`and`, `or`, `with`) into foundation identities with a Naming perspective | a second consumer of those tokens |
+
+Not decided here and owned elsewhere:
+- Naming's case rule rejecting camelCase labels (`ValidatorSpecs`) is a Naming question.
+- How a Tree candidate keeps its identity when its prefix changes is a Tree question (Tree S3.2).
+
+## 13. Ownership boundaries (Contract)
+
+| Owner | Owns | Does not own |
+|---|---|---|
+| Linguistic Foundation | lexeme identity mechanics, feature spaces, resolution and ambiguity vocabularies, the comparison relation, provenance, the profile contract | lexicon content of any language; tokenization; any slice's interpretation |
+| Language profile | its lexicon entries and feature support | foundation vocabularies; other profiles |
+| Naming | tokenization; filename and folder-label interpretation; attaching resolutions to its tokens and presenting them through the bridge | lexeme identity; Tree conclusions |
+| Tree | structural reasoning using the lexical evidence Naming supplies, under Tree-owned rules | resolving forms; transforming tokens |
+| Suite core | loading and transporting foundation state, ordering, report metadata | identities, profiles, interpretation |
+| Narrative, Lexical Coherence (future) | their own uses of foundation identities | foundation identities |
+
+## 14. Change control
+
+- Runtime work under this contract follows NL-first: the owning spec and an NL configuration note come first, then code.
+- A slice that implements a **Proposed** row updates this contract in the same change and moves the row to **Current**.
+- A slice that resolves a **Deferred** decision records it here.
+- Changing a foundation vocabulary (feature spaces, statuses, relations, bases) is a contract amendment. The test-only evidence checks that the fixture vocabularies match this contract's tables.
+- This contract adds no enforcement and no finding.
