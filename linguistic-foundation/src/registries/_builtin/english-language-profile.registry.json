@@ -1,0 +1,27 @@
+{
+  "version": "1",
+  "profileId": "english",
+  "profileVersion": "1",
+  "featureSupport": {
+    "number": {
+      "singular": "supported",
+      "plural": "supported"
+    }
+  },
+  "entries": [
+    {
+      "lexemeId": "english.registry",
+      "forms": [
+        { "surface": "registry", "features": { "number": "singular" } },
+        { "surface": "registries", "features": { "number": "plural" } }
+      ]
+    },
+    {
+      "lexemeId": "english.rule",
+      "forms": [
+        { "surface": "rule", "features": { "number": "singular" } },
+        { "surface": "rules", "features": { "number": "plural" } }
+      ]
+    }
+  ]
+}
