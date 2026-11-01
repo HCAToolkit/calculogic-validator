@@ -1209,7 +1209,12 @@ A nested subgroup does not cancel its parent; both are assessed. Selecting an ac
 - the members' Stage 2 placements record that candidate as consulted with relation `match`;
 - the candidate's claim tokens equal the grouping's shared prefix.
 
-A claim that is a proper leading part of the shared prefix is **broader**. Any other claim is **different**. `possible-root-reading` and `possible-unevaluated` relations never establish correspondence.
+A claim that is a proper leading part of the shared prefix is **broader**. Any other claim is **different**. `possible-root-reading` and `possible-unevaluated` relations never *establish* correspondence.
+
+**Possible correspondence** (calculogic-validator#138). A relation that is not a `match` but puts forward a claim equal to the grouping's leading tokens makes the candidate **possibly corresponding** (claim-relative uncertainty, below). For example, a `possible-root-reading` to a `claim-unresolved` candidate whose root reading is that claim.
+- Possible correspondence never establishes correspondence: it never makes the folder the grouping's home, and never yields `explained-by-existing-structure`.
+- It is uncertainty about existing structure, so the table below treats it as a corresponding folder whose candidate is undetermined.
+- Only an undetermined candidate can be possibly corresponding. Stage 2 records `possible-root-reading` only for a `claim-unresolved` candidate (S2.8), and `possible-unevaluated` puts forward no claim.
 
 | Semantic Home evidence | Effect |
 |---|---|
@@ -1217,7 +1222,7 @@ A claim that is a proper leading part of the shared prefix is **broader**. Any o
 | The candidate's directory is itself a supported home | Internal subdivision. The home relationship is recorded as supported and the candidate as discovered. **Recommendation is deferred** in this version (`insufficient-evidence`, `internal-boundary-deferred`). |
 | A supported home elsewhere corresponds to the grouping | The existing home is the destination: **`explained-by-existing-structure`**. Every member matching that claim matches the home, so this is decided for the group. |
 | A supported home elsewhere with a broader claim | Recorded. Not decisive. |
-| A corresponding folder whose candidate is undetermined | **`insufficient-evidence`** (`corresponding-home-unresolved`). It is neither treated as the home nor ignored. |
+| A corresponding, or possibly corresponding, folder whose candidate is undetermined | **`insufficient-evidence`** (`corresponding-home-unresolved`). It is neither treated as the home nor ignored. |
 | An unrelated or broader undetermined folder | Does not block assessment. Noted (`related-folder-undetermined`). |
 | No supported home | Neither establishes nor rules out an opportunity. |
 
@@ -1246,7 +1251,7 @@ Each such candidate is judged by **the claim its relation puts forward**, compar
 
 | Claim put forward, compared with the grouping | Effect |
 |---|---|
-| **corresponds** | The grouping is `insufficient-evidence` (`corresponding-home-unresolved`), as in the existing-structure table above. The member is unresolved |
+| **corresponds** | For a `match`, the candidate corresponds; for any other relation it *possibly* corresponds (above). Either way the grouping is `insufficient-evidence` (`corresponding-home-unresolved`), as in the existing-structure table above, and the member is unresolved |
 | **broader** | Contextual evidence, retained on the record (`related-folder-undetermined`). It does not by itself make the member unresolved: the candidate would own a larger area, which says nothing about the relationships inside the directory |
 | **different** | The member is unresolved: the candidate is a possible other destination (as E15) |
 | **none** | The member is unresolved: the comparison that would decide it is missing |
