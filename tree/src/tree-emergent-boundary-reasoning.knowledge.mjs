@@ -26,6 +26,13 @@ export const EMERGENT_BOUNDARY_DISCOVERY_LIMITS = Object.freeze({
   relationshipsAwayFromLeadingTokens: 'relationships-away-from-leading-tokens',
 });
 
+// S3.2 positional lineage expression: the basis on which a lineage folder expressed member positions.
+export const EMERGENT_BOUNDARY_LINEAGE_BASES = Object.freeze({
+  stageOneRoot: 'stage-1-root',
+  stageOnePrefix: 'stage-1-prefix',
+  positionalLabel: 'positional-label',
+});
+
 // S3.4.
 export const EMERGENT_BOUNDARY_RELATIONS = Object.freeze({
   nestedSubgroup: 'nested-subgroup',

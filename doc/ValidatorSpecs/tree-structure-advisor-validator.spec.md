@@ -1129,7 +1129,7 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is not yet in the runtime: S3.9 cases E16 and E17. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
+### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
 
 This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
 
@@ -1169,7 +1169,7 @@ Naming supplies semantic evidence; Tree decides what structural reading it suppo
 - **Lineage-expressed prefix:** the leading N1 tokens of a member that folders on its relevant lineage (S2.8) already express, by **positional lineage expression** (below).
 - **Residual tokens:** a member's N1 tokens after its lineage-expressed prefix. This is a positional reading of Naming's sequence, not re-tokenization.
 
-**Positional lineage expression** (calculogic-validator#142; runtime pending, S3.9 cases E16 and E17). A folder's concept is already represented in a member's name only through an established structural relationship, never because a matching token appears somewhere in the name. The lineage-expressed prefix is the end position `p` reached by walking the member's relevant lineage from its outermost folder to the member's own directory, starting at `p = 0`:
+**Positional lineage expression** (calculogic-validator#142; implemented by calculogic-validator#144; S3.9 cases E16 and E17). A folder's concept is already represented in a member's name only through an established structural relationship, never because a matching token appears somewhere in the name. The lineage-expressed prefix is the end position `p` reached by walking the member's relevant lineage from its outermost folder to the member's own directory, starting at `p = 0`:
 - At each folder, the end position becomes the furthest of:
   - the current `p`;
   - the end of a Stage 1 match at the first token, as before this amendment: a prefix match expresses the folder's label tokens, and a root match the first token;
@@ -1492,7 +1492,7 @@ Catalogue `emergent-boundary-catalogue`, version `1`.
   - In the executable catalogue, a known discrepancy is a distinctly marked **known-gap case**: it records both outcomes and its cause, and checks that the discrepancy is still exactly as recorded.
   - It does not fail the test suite, so unrelated Tree work is not blocked. When the cause is removed, the check fails until the case is reclassified as an ordinary case, so a fixed gap cannot go unnoticed.
   - It stays visible in the catalogue and blocks the finding decision (S3.11 step 5).
-- **Any case may be implementation-pending** (defined under companion cases below): its expected outcome follows a contract amendment the runtime does not implement yet (E16, E17).
+- **Any case may be implementation-pending** (defined under companion cases below): its expected outcome follows a contract amendment the runtime does not implement yet. No case is pending; E16 and E17 were reclassified when calculogic-validator#144 implemented S3.2.
 - **A case whose expected outcome needs a decision the experimental policy leaves unresolved is a policy-incomplete case** (see E12). It is not a known discrepancy:
 
   | | Known-gap case (E10) | Policy-incomplete case (E12) |
@@ -1522,8 +1522,8 @@ Catalogue `emergent-boundary-catalogue`, version `1`.
 | E13 | E1 with every member flagged `family-boundary-heuristic` | as E1 (Stage 2 D2) |
 | E14 | synthetic: an E1-like group of five, where one member is `home-elsewhere` at a supported home whose claim is **different** | **`opportunity`** on the supported set of four. One conflicting member is recorded with its home and excluded |
 | E15 | synthetic: an E1-like group of five, where one member's placement is `undetermined` against a non-corresponding candidate | **`opportunity`** on the supported set of four. One unresolved member is recorded as undecided and excluded |
-| E16 | `naming/src/cli` (measured at `d0fbdce`): `naming-cli-args`, `naming-cli-runner`, `naming-cli-usage`, `naming-report-builder`; `naming/` expresses `naming`, and the `cli` label equals the next token of three members (S3.2) | **No candidate is discovered**: `cli` is expressed by `cli/`, so no residual prefix is shared. **Implementation-pending:** today's runtime expresses only `naming` and discovers `cli`: `insufficient-evidence` (`low-specificity`) |
-| E17 | `naming/src/health` (measured at `d0fbdce`): `naming-health-check` as a host and a logic file; `naming/` expresses `naming`, and the `health` label equals the next token of both (S3.2) | `check`: **`not-an-opportunity`** (`single-responsibility-unit`). `health` and `health-check` are not discovered; `check` is a different evidence-derived identifier from `health-check`, with the same leading tokens (S3.2). **Implementation-pending:** today's runtime discovers `health` and `health-check`, both `not-an-opportunity` (`single-responsibility-unit`) |
+| E16 | `naming/src/cli` (measured at `d0fbdce`): `naming-cli-args`, `naming-cli-runner`, `naming-cli-usage`, `naming-report-builder`; `naming/` expresses `naming`, and the `cli` label equals the next token of three members (S3.2) | **No candidate is discovered**: `cli` is expressed by `cli/`, so no residual prefix is shared. Reclassified from implementation-pending when calculogic-validator#144 implemented S3.2 (before it, the runtime expressed only `naming` and discovered `cli`: `insufficient-evidence`, `low-specificity`) |
+| E17 | `naming/src/health` (measured at `d0fbdce`): `naming-health-check` as a host and a logic file; `naming/` expresses `naming`, and the `health` label equals the next token of both (S3.2) | `check`: **`not-an-opportunity`** (`single-responsibility-unit`). `health` and `health-check` are not discovered; `check` is a different evidence-derived identifier from `health-check`, with the same leading tokens (S3.2). Reclassified from implementation-pending when calculogic-validator#144 implemented S3.2 (before it, the runtime discovered `health` and `health-check`, both `not-an-opportunity`, `single-responsibility-unit`) |
 
 ##### Evidence sufficiency and policy dependency (S3.11 step 3)
 
