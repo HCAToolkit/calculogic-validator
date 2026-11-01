@@ -5,6 +5,7 @@
 // implementation slice. Lexical resolution here is the real foundation runtime, called the way the
 // contract says the producer will call it: `resolveSurfaceForm` on each supplied token, nothing else.
 import { resolveSurfaceForm } from '../../../linguistic-foundation/src/linguistic-foundation-resolution.logic.mjs';
+import { LINGUISTIC_FEATURE_SPACES } from '../../../linguistic-foundation/src/linguistic-foundation.knowledge.mjs';
 
 export const SECTION_NAME = 'namingTokenLexicalIdentities';
 export const SECTION_VERSION = 'naming-token-lexical-identity.v1';
@@ -26,6 +27,7 @@ export const CONSUMER_PROBLEMS = Object.freeze([
   ['invalid-identity', 'invalid identity'],
   ['duplicate-identity', 'duplicate identity; every record carrying that tuple is dropped'],
   ['namespace-mismatch', 'namespace mismatch'],
+  ['invalid-record-shape', 'invalid record shape'],
   ['unmatched-record', 'unmatched record'],
   ['token-count-mismatch', 'token-count mismatch'],
   ['surface-mismatch', 'surface mismatch'],
@@ -61,6 +63,31 @@ export const buildReferenceSection = ({ n1Records, n2Records, profile }) => {
 };
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const TOKEN_SOURCES = ['semantic-tokens', 'label-tokens'];
+
+// §4.7 "invalid record shape": the §6.4 shape of one record, checked before its alignment.
+const hasRecordShape = (record) =>
+  TOKEN_SOURCES.includes(record.tokenSource) &&
+  Array.isArray(record.tokens) &&
+  record.tokens.length > 0 &&
+  record.tokens.every(
+    (entry) =>
+      isPlainObject(entry) &&
+      isNonEmptyString(entry.surface) &&
+      ENTRY_STATUSES.includes(entry.status) &&
+      Array.isArray(entry.readings) &&
+      entry.readings.every(
+        (reading) =>
+          isPlainObject(reading) &&
+          isNonEmptyString(reading.lexemeId) &&
+          reading.basis === 'lexicon-entry' &&
+          isPlainObject(reading.features) &&
+          Object.entries(reading.features).every(
+            ([space, value]) => Object.hasOwn(LINGUISTIC_FEATURE_SPACES, space) && typeof value === 'string' && LINGUISTIC_FEATURE_SPACES[space].includes(value),
+          ),
+      ),
+  );
 
 // §4.7 consumer identity rules over accepted source records. Returns `{ section, records }`: a section
 // problem, or each record's problems (sorted; empty when the record is accepted).
@@ -78,12 +105,13 @@ export const checkReferenceSection = (section, { namespace, acceptedN1, accepted
     'label-tokens': new Map(acceptedN2.filter((record) => record.parseOutcome === 'parsed').map((record) => [keyOf(record), record.labelTokens])),
   };
   const counts = new Map();
-  for (const record of section.records) counts.set(keyOf(record), (counts.get(keyOf(record)) ?? 0) + 1);
+  for (const record of section.records) if (isPlainObject(record)) counts.set(keyOf(record), (counts.get(keyOf(record)) ?? 0) + 1);
   const records = section.records.map((record) => {
     const problems = new Set();
-    if (!TUPLE.every((field) => isNonEmptyString(record[field]))) problems.add('invalid-identity');
+    if (!isPlainObject(record) || !TUPLE.every((field) => isNonEmptyString(record[field]))) problems.add('invalid-identity');
     else if (counts.get(keyOf(record)) > 1) problems.add('duplicate-identity');
     else if (record.addressProfileId !== namespace.addressProfileId || record.addressedSnapshotId !== namespace.addressedSnapshotId) problems.add('namespace-mismatch');
+    else if (!hasRecordShape(record)) problems.add('invalid-record-shape');
     else {
       const sourceTokens = sources[record.tokenSource]?.get(keyOf(record));
       if (!sourceTokens) problems.add('unmatched-record');
@@ -98,7 +126,7 @@ export const checkReferenceSection = (section, { namespace, acceptedN1, accepted
         });
       }
     }
-    return { key: keyOf(record), problems: [...problems].sort() };
+    return { key: isPlainObject(record) ? keyOf(record) : null, problems: [...problems].sort() };
   });
   return { section: null, records };
 };

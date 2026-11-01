@@ -218,7 +218,7 @@ A supporting consumer drops a record, with a distinguishable diagnostic, when:
 - an entry's `status` disagrees with its readings (§6.1);
 - a `lexemeId` lacks the section profile's prefix.
 
-The bridge contract §4.7 also lists the identity cases: invalid identity, duplicate identity, namespace mismatch and unmatched record.
+The bridge contract §4.7 also lists the identity cases (invalid identity, duplicate identity, namespace mismatch, unmatched record) and **invalid record shape**: a malformed record structure drops only that record and never fails the consumer; only a malformed envelope invalidates the section.
 
 ### 8.4 Absence and fallback (Contract)
 

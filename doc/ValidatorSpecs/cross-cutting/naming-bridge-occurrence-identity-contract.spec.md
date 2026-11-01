@@ -306,13 +306,14 @@ A `not-parsed` §4.6 record and a §4.5 record without `semanticTokens` get no r
 | The identity tuple is missing, non-string, or empty | invalid identity |
 | The same identity tuple appears in more than one record | duplicate identity; every record carrying that tuple is dropped |
 | The record's `addressProfileId` or `addressedSnapshotId` differs from the payload namespace | namespace mismatch |
+| The record does not have the §6.4 shape: `tokenSource` is not `semantic-tokens` or `label-tokens`; `tokens` is not a non-empty array; an entry is not an object with a non-empty string `surface`, a `status` from §6.4 and a `readings` array; or a reading is not an object with a non-empty string `lexemeId`, a `features` object mapping foundation feature spaces to their values, and `basis` `lexicon-entry` | invalid record shape |
 | No accepted source record of the record's `tokenSource` carries the same tuple | unmatched record |
 | `tokens` has a different length from the accepted source token list | token-count mismatch |
 | An entry's `surface` differs from the source token at that position | surface mismatch |
 | An entry's `status` disagrees with its readings (foundation contract §6.1) | status-readings disagreement |
 | A reading's `lexemeId` does not begin with the envelope's `profileId` and a dot | lexeme outside the profile |
 
-There is no path fallback.
+The cases are checked in table order, and a record's shape is checked before its alignment, so a malformed structure is reported as **invalid record shape** and never as an alignment case. A malformed record is dropped on its own; the section's other records are unaffected. Only a malformed envelope, including an invalid `lexicalProfile`, invalidates the whole section (§4.4 rule 3). A consumer never fails or stops on a malformed record. There is no path fallback.
 
 **Absence behavior.** When the section is absent, unsupported or invalid, or a record is dropped, lexical identity is **unavailable** evidence (foundation contract §8.4):
 - consumers must not resolve tokens themselves, transform surface strings or keep a lexicon copy;
