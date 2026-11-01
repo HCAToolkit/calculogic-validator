@@ -1593,7 +1593,7 @@ Two kinds of limitation are recorded separately, so a missing candidate is never
 
 | Limitation | Kind | Effect | Owner if pursued |
 |---|---|---|---|
-| Singular/plural lexical relationship | discovery coverage; inflates specificity | `rule` and `rules` never relate. A folder's own concept stays in members' residuals (E10 known discrepancy; E11) | Naming, or a shared Linguistic Foundation |
+| Singular/plural lexical relationship | discovery coverage; inflates specificity | `rule` and `rules` never relate. A folder's own concept stays in members' residuals (E10 known discrepancy; E11) | Naming, or a shared Linguistic Foundation (lexical identity contract: `linguistic-foundation-shared-contract.spec.md`, calculogic-validator#146; no runtime yet) |
 | Relationships away from leading tokens | discovery coverage | a name related to a group through middle tokens is not a member (E7) | a later discovery method using Naming relationship evidence |
 | Files without an evaluated identity | discovery coverage and assessment | not members; they lower coverage (E12). They also drive upstream Stage 2 coverage outcomes (E2: `*.test.mjs` files) | Naming coverage |
 | Members without a role category | assessment | unresolved responsibility class | Naming role evidence |

@@ -237,7 +237,7 @@ No NL or code addressing, no comparison capability and no `validate:addressing*`
 | Naming | filename and folder-name interpretation; semantic evidence offered through explicit bridges | in-file interpretation; Tree placement |
 | Lexical Coherence (future) | in-file linguistic interpretation: identifiers, comments, stated responsibilities | filename reasoning (it consumes Naming's through a bridge) |
 | Comparison capability (future) | correspondence and ordering coherence across profiles | producing addresses; lexical judgement |
-| Linguistic Foundation (exploratory, §4.6 of the living document) | possibly shared linguistic identities | any slice's interpretation |
+| Linguistic Foundation (contract only: `linguistic-foundation-shared-contract.spec.md`; no runtime) | shared lexical identity: profile-scoped lexemes, resolution, ambiguity, provenance | lexicon content of any language; tokenization; any slice's interpretation |
 
 ## 11. Current versus planned
 
