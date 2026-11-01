@@ -37,7 +37,9 @@ const runCase = (entry, { policy = EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY, parame
 
 const byId = Object.fromEntries(EMERGENT_BOUNDARY_CATALOGUE.cases.map((entry) => [entry.id, entry]));
 
-for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
+// S3.9 companion cases: an implementation-pending companion checks exactly what today's runtime gives,
+// so it fails once the runtime implements the amendment and must then be reclassified (#138).
+for (const entry of [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions]) {
   test(`catalogue ${entry.id}: discovery, relations, member sets and outcomes under the experimental policy`, () => {
     const { directory, candidateAt } = runCase(entry);
     assert.ok(directory, `${entry.id}: the focus directory has candidates`);
@@ -52,13 +54,20 @@ for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases) {
         const recorded = directory.relations.find((item) => item.candidates.some((ref) => prefixKey(ref.prefix) === key) && item.candidates.some((ref) => prefixKey(ref.prefix) === relation.to));
         assert.equal(recorded?.relation, relation.relation, `${label}: relation to ${relation.to}`);
       }
+      const { assessment } = candidate;
+      // Implementation-pending: the expected outcome and member sets follow an amendment the runtime
+      // does not implement yet, so only today's recorded result is checked.
+      const pending = entry.implementationPending?.runtimeProduces[key];
+      if (pending) {
+        assert.equal(assessment.completion, 'complete', `${label}: complete`);
+        assert.deepEqual({ outcome: assessment.outcome, reasons: assessment.reasons }, pending, `${label}: today's runtime result, exactly as recorded (implementation-pending)`);
+        continue;
+      }
       if (expected.memberSets) {
         for (const [set, names] of Object.entries(expected.memberSets)) {
           assert.deepEqual(candidate.members.filter((member) => member.set === set).map((member) => member.semanticName).sort(), [...names].sort(), `${label}: ${set} members`);
         }
       }
-
-      const { assessment } = candidate;
       assert.deepEqual(assessment.recommendation, { status: 'not-authorized', reason: 'stage-3-evidence-only' }, `${label}: never an authorized recommendation`);
       if (entry.knownGap?.candidate === key) {
         // A known gap: the rules reach exactly the recorded discrepancy, never the expected outcome.
