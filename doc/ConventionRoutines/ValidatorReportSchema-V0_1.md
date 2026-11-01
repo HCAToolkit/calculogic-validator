@@ -74,6 +74,8 @@ Current naming CLI output includes:
 - `registryDigests` (object `{ builtin, custom, resolved }`; derived, deprecated; `custom` equals `builtin` when no valid Custom set exists)
 
 `registrySet` and `registryProvenance` are emitted from #41 slice 2. `registryState`, `registrySource` and `registryDigests` stay for one transition as fields derived from them.
+
+Contract-approved, not emitted (calculogic-validator#150): `linguisticProfile` (object `{ profileId, profileVersion, lexiconDigest }`). It will be present only in a report whose run has an active language profile (validator config spec §10), and absent otherwise, so a run without a selection keeps its exact report bytes.
 Contract: `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` §11.
 
 Slice-specific note (current naming emitted behavior):
@@ -109,6 +111,8 @@ Current runner output includes:
 - `registryProvenance` (object; `{ [registryId]: { source, digest } }` for the suite-core registries, `suite/exit-policy` and `suite/scope-profiles`)
 
 `registrySet` and `registryProvenance` are emitted from #41 slice 2. Contract: `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` §11.
+
+Contract-approved, not emitted (calculogic-validator#150): `linguisticProfile`, with the same shape and presence rule as the slice envelope field (§4).
 
 ## 6) Canonical current contract: Runner `validators[]` Entry
 

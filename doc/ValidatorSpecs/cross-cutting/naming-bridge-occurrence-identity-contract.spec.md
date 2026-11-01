@@ -3,7 +3,7 @@
 - **Classification:** Normative for the Naming occurrence bridge identity, field-eligibility, existing v1 context/compatibility, enrichment, versioning, and migration contract; descriptive only where explicitly labeled as **current runtime truth**.
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
-- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. Tracking: calculogic-validator#85.
+- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); contract only, not emitted. Tracking: calculogic-validator#85.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
 - **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
@@ -262,6 +262,69 @@ There is no path fallback: a record that cannot be associated through the identi
 
 **Current consumers.** Since calculogic-validator#95, Tree receives this section on its default path (Tree slice spec, "Folder-level semantic-home evidence, Stage 1", S1.1) and validates it at intake under the consumer rules above (S1.2, S1.3 run and record levels). Tree joins, existing evidence and findings are unchanged by it; Tree's use of accepted records for candidates and folder-level evidence (Stage 1B) is not current runtime truth.
 
+### 4.7 Naming token lexical-identity section
+
+- **Section name:** `namingTokenLexicalIdentities`.
+- **Contract version:** `naming-token-lexical-identity.v1`.
+- **Provenance:** `producerId: naming-token-lexical-identity`, `source: calculogic-validator/naming`.
+- **Status:** contract-approved by calculogic-validator#150. **Not emitted**; no producer or consumer exists. It becomes current runtime truth only through its implementation slice.
+- **Envelope:** §4.4 rule 5, plus one required field, `lexicalProfile` (below).
+- **Lexical model:** the Linguistic Foundation shared contract (`doc/ValidatorSpecs/linguistic-foundation-shared-contract.spec.md`), §4–§8.
+
+**Purpose.** The section presents, for the tokens Naming already supplies in the §4.5 and §4.6 sections, the Linguistic Foundation's lexical resolution of each token under the run's active language profile. Naming presents foundation evidence. It does not own lexeme identity, does not resolve tokens itself, and adds no interpretation of its own.
+
+**Independence.** The section is a separate section (§4.4 rule 4). It does not change the §4.5 or §4.6 sections, their versions or their records, so a consumer that does not support it keeps every token it reads today. Its records never merge into another section.
+
+**Envelope field `lexicalProfile`.** `{ profileId, profileVersion, lexiconDigest }`, each a non-empty string: the provenance of the one active profile every record in the section was resolved under (foundation contract §7). A section without a valid `lexicalProfile` is a malformed supported section (§4.4 rule 3).
+
+**Association.** A record attaches through the identity tuple to exactly one source record in the same payload:
+
+| `tokenSource` | Source record | Token list |
+| --- | --- | --- |
+| `semantic-tokens` | the §4.5 record of a file occurrence that carries `semanticTokens` | its `semanticTokens` |
+| `label-tokens` | the §4.6 `parsed` record of a folder occurrence | its `labelTokens` |
+
+A `not-parsed` §4.6 record and a §4.5 record without `semanticTokens` get no record. An identity tuple appears in at most one record: a file and a folder never share a tuple.
+
+**Record shape.** Each record carries the identity tuple, optionally `repoRelativePath` as source-trace only, `tokenSource`, and `tokens`: one entry per position of the source token list, in source order (§6.4).
+
+**Production source and ownership.**
+- The records are produced by a Naming-owned projection, which `createNamingOccurrenceBridgePayload` invokes when it builds the §4.5 and §4.6 sections. Its only lexical operation is the foundation's `resolveSurfaceForm` on each token, exactly as supplied. Naming applies no lexical rule of its own.
+- On the runner path, the prepared foundation state reaches the producer through the same opaque transport as the §4.5 source and the folder-label interpreter (Tree slice spec S1.1): Naming's staging function returns it as an opaque value, the runner passes it unchanged, and Tree wiring passes it to `createNamingOccurrenceBridgePayload`. Neither the runner nor Tree calls the foundation's resolution or comparison functions, builds records or inspects readings.
+
+**Producer rules.**
+- The section is emitted only when a language profile is active for the run. With none active it is omitted, and nothing else in the payload changes.
+- A record is emitted for every source record in the association table, and only for those.
+- An `unknown` token is a valid entry, not an omission: a profile that knows no reading for a token says so.
+- When the addressed namespace is invalid, or the section would contain no records, it is omitted.
+- Naming never synthesizes an `occurrenceAddress` or infers snapshot identity (Naming address-attached rules spec §8).
+
+**Consumer identity rules.** A supporting consumer validates records separately from v1 identity (§7, rule 13), after it has accepted the §4.5 and §4.6 records, and drops a record, with a distinguishable diagnostic, when:
+
+| Case | Diagnostic meaning |
+| --- | --- |
+| The identity tuple is missing, non-string, or empty | invalid identity |
+| The same identity tuple appears in more than one record | duplicate identity; every record carrying that tuple is dropped |
+| The record's `addressProfileId` or `addressedSnapshotId` differs from the payload namespace | namespace mismatch |
+| No accepted source record of the record's `tokenSource` carries the same tuple | unmatched record |
+| `tokens` has a different length from the accepted source token list | token-count mismatch |
+| An entry's `surface` differs from the source token at that position | surface mismatch |
+| An entry's `status` disagrees with its readings (foundation contract §6.1) | status-readings disagreement |
+| A reading's `lexemeId` does not begin with the envelope's `profileId` and a dot | lexeme outside the profile |
+
+There is no path fallback.
+
+**Absence behavior.** When the section is absent, unsupported or invalid, or a record is dropped, lexical identity is **unavailable** evidence (foundation contract §8.4):
+- consumers must not resolve tokens themselves, transform surface strings or keep a lexicon copy;
+- an unavailable comparison is never a failed one, and unavailable evidence is never contradictory.
+
+**Ownership boundaries.**
+- Lexeme identity, readings, statuses and the comparison relation are the Linguistic Foundation's (foundation contract §13). Token production stays Naming's (§5).
+- The section must not carry folder-kind, structural-home, semantic-home, ownership, placement, confidence, severity, Tree diagnostic or finding fields (§7, rule 5).
+- Tree may consume records only as evidence under Tree-owned rules, decided in a Tree slice.
+
+**Current consumers.** None. Current Tree intake does not support `naming-token-lexical-identity.v1`, so a payload carrying the section is read by Tree exactly as without it (§4.4 rule 2).
+
 ## 5. Ownership boundaries
 
 | Surface | Addressing | Naming | Tree | Suite-core |
@@ -309,6 +372,8 @@ Approved Naming semantic-evidence enrichment section set (§4.5, calculogic-vali
 
 Deferred set: `lineageKey`, `contextPartitionKey`, `siblingContextKey`, `subtreeContextKey`, and `role-like fields`.
 
+Approved Naming token lexical-identity section set (§4.7, §6.4, calculogic-validator#150): `lexicalProfile` on the envelope; `tokenSource` and `tokens` on records. Contract only; not emitted.
+
 Rejected set: `evidenceStrength`.
 
 ### 6.3 Naming folder-label observation fields (§4.6)
@@ -324,6 +389,24 @@ These fields are approved for the §4.6 section only. They are never v1 observat
 | `notParsedReasons` | Naming | Not-parsed reason vocabulary (interpretation spec §13.4) | Non-empty array of codes: `label-empty`, `label-has-uppercase`, `label-has-unsupported-character`, `label-has-malformed-separator` | Required when `parseOutcome` is `not-parsed`; forbidden otherwise | Never `null` or empty | Sorted; no duplicates | Lexical facts about the label; not naming-validity findings |
 
 Not approved for the §4.6 section in v1: `semanticFamily`, `familySubgroup`, `ambiguityFlags` and `splitFamilyFlags` for folder labels (no folder family policy exists), role-like or qualifier classifications (deferred), and the raw label as a separate field (`repoRelativePath` already carries it as source-trace; consumers must not parse either).
+
+### 6.4 Naming token lexical-identity fields (§4.7)
+
+These fields are approved for the §4.7 section only (calculogic-validator#150). They are never v1 observation fields and never fields of the §4.5 or §4.6 sections.
+
+| Field | Owner | Source of truth | Value shape | Required / optional | Absence behavior | Normalization and deterministic order | Consumer limitation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `lexicalProfile` | Linguistic Foundation (presented by Naming) | The run's active language profile (foundation contract §5.3, §7) | `{ profileId, profileVersion, lexiconDigest }`, non-empty strings | Required on the envelope | A section without it is malformed (§4.4 rule 3) | Exact strings | Identifies the profile; never a quality or confidence measure |
+| `tokenSource` | Naming | The source section of the record (§4.7 association table) | `semantic-tokens` or `label-tokens` | Required on every record | A record without it is invalid | Exact string | Names the token list the record aligns to; not a folder or file classification |
+| `tokens` | Naming | The source record's token list, position by position | Non-empty array of entries | Required on every record | Never `null` or empty | Source order and length; no sorting or deduplication | Aligned to the source list; consumers check the alignment (§4.7) |
+| `tokens[].surface` | Naming | The source token at that position | Non-empty string | Required | Never `null` | Exact string, as the source record carries it | Equals the source token; consumers never transform it |
+| `tokens[].status` | Linguistic Foundation | `resolveSurfaceForm` (foundation contract §6.1) | `resolved`, `ambiguous` or `unknown` | Required | `profile-unavailable` never appears: with no profile the section is omitted | Exact string | `unknown` is never negative evidence |
+| `tokens[].readings` | Linguistic Foundation | `resolveSurfaceForm` | Array of `{ lexemeId, features, basis }`; empty exactly when `status` is `unknown` | Required | Empty array, never `null` | Sorted by `lexemeId`, then features (foundation R4); no duplicates | Compared only through the foundation's relation (foundation contract §6.2, §9.1) |
+| `tokens[].readings[].lexemeId` | Linguistic Foundation | The profile's lexicon entry | Non-empty string beginning with `lexicalProfile.profileId` and a dot | Required | — | Exact string; opaque to consumers | Compared for equality only, never parsed |
+| `tokens[].readings[].features` | Linguistic Foundation | The lexicon entry's form | Object mapping a foundation feature space to one of its values; may be empty | Required | Empty object when the entry specifies none | Keys sorted | Distinguishes forms of one lexeme; never an identity |
+| `tokens[].readings[].basis` | Linguistic Foundation | Foundation contract §7 | `lexicon-entry` | Required | — | Exact string | Names where the reading came from |
+
+Not approved for the §4.7 section in v1: comparison relations between tokens (a consumer computes them), a reading chosen as preferred or default (foundation contract §6.1), and any lexical form Naming derives itself.
 
 ## 7. Guardrails for approved future enrichment fields
 

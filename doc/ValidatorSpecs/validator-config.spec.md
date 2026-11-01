@@ -48,6 +48,8 @@ Allowed root keys:
 - `$schema` (optional string hint)
 - `strictExit` (optional boolean; enables strict exit semantics)
 
+`linguisticProfile` is contract-approved but not yet an allowed key (§10). Until its implementation slice, a config carrying it is rejected like any unknown key (§5).
+
 ## 5) Strictness rules
 
 - Unknown root keys are rejected.
@@ -113,3 +115,47 @@ The examples show a config file at the root of a consuming repository that has i
   "strictExit": true
 }
 ```
+
+## 10) Linguistic profile selection (contract-approved by calculogic-validator#150; not current runtime)
+
+This section is a contract for a later implementation slice. The schema file, runtime validation and every CLI are unchanged until that slice lands. Today a config carrying `linguisticProfile` is rejected as an unknown key (§5).
+
+### 10.1 Key
+
+- `linguisticProfile` (optional object): `{ profileId, profileVersion? }`.
+  - `profileId`: non-empty string, the language profile to activate for the run.
+  - `profileVersion`: optional non-empty string. It pins the profile version; when it is absent, the registered version is used.
+  - No other field is allowed.
+- It is the run-level source of the Linguistic Foundation's explicit profile selection (Linguistic Foundation shared contract §5.3, calculogic-validator#146). It is the only way a run activates a profile. Nothing is inferred from the environment, the locale or the repository. With the key absent, no profile is active.
+
+### 10.2 Purpose amendment
+
+This is the first config key that shapes evidence: it decides which lexical identities the Naming bridge carries to Tree. The run stays report-first. The key adds no fix execution, mode selection, registry record or finding policy, and it changes no finding by itself.
+
+### 10.3 `configDigest`
+
+- `configDigest` covers the normalized config, so a config carrying `linguisticProfile` has a different `configDigest` from the same config without it. That change is expected and permitted.
+- An equivalent run without a selection (no config, or a config without the key) is byte-identical to the same run before this key existed, `configDigest` included.
+- Normalization keeps `linguisticProfile` only when provided, with `profileVersion` only when provided.
+
+### 10.4 Validation and selection failures
+
+Validation has two stages, in this order.
+
+1. **Schema validation** checks the key's shape: an object with a non-empty string `profileId`, an optional non-empty string `profileVersion`, and no other field. It runs before any profile is resolved.
+2. **Profile resolution** applies the well-formed selection to the registered profiles. The Linguistic Foundation decides whether the selection is valid and supplies the problem classification. The suite decides what that classification does to the run.
+
+An explicitly requested evidence source never silently becomes optional, so every failure in either stage stops the run:
+
+| Situation | Behavior |
+|---|---|
+| No `linguisticProfile` | Normal run; existing behavior preserved, including report bytes and `configDigest` |
+| Malformed `linguisticProfile` (stage 1) | Stop: stderr diagnostic, exit code 1, no report |
+| Well-formed, unregistered profile (stage 2) | Stop with `profile-not-registered`: stderr diagnostic, exit code 1, no report |
+| Well-formed, version mismatch (stage 2) | Stop with `profile-version-mismatch`: stderr diagnostic, exit code 1, no report |
+| Valid, registered profile | Continue with that profile active |
+| Profile active, a token resolves `unknown` | Continue; `unknown` is a valid lexical evidence status, not a failure |
+
+- **Diagnostics are actionable.** Every stopping diagnostic names the requested `profileId` and, when one was pinned, the requested `profileVersion`, together with the problem.
+- **Same behavior in every CLI.** `validate:naming`, `validate:tree` and `validate:all` load the key through this contract and behave identically in every case above, including the order of the two stages. This holds even where a CLI's own output does not carry lexical evidence.
+- A stage-1 failure is the same failure mode as any other invalid config content (§8).
