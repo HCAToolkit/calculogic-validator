@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { prepareLinguisticFoundation } from '../src/linguistic-foundation.wiring.mjs';
 import { selectActiveLanguageProfile } from '../src/linguistic-foundation-profile-selection.logic.mjs';
 import { resolveSurfaceForm } from '../src/linguistic-foundation-resolution.logic.mjs';
-import { BUILTIN_LANGUAGE_PROFILE_REGISTRY_ROOT } from '../src/registries/linguistic-foundation-language-profile-registry.logic.mjs';
+import { BUILTIN_LANGUAGE_PROFILE_REGISTRY_ROOT, getBuiltinLanguageProfileRegistries, loadLanguageProfileRegistriesFromRegistryRoot } from '../src/registries/linguistic-foundation-language-profile-registry.logic.mjs';
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -131,4 +131,28 @@ test('boundaries: no slice, suite module or package entry reads the foundation y
   }
   const pkg = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.files.some((entry) => entry.startsWith('linguistic-foundation')), false, 'not packaged until its first consumer');
+});
+
+test('regression (PR #149 review): the cached builtin registries cannot be changed by a caller', () => {
+  const resolveRule = () => resolveSurfaceForm(prepareLinguisticFoundation({ profileSelection: { profileId: 'english' } }).profile, 'rule');
+  const before = resolveRule();
+  assert.equal(before.status, 'resolved');
+  const cached = getBuiltinLanguageProfileRegistries();
+  const [record] = cached;
+  const attempts = [
+    () => { record.payload.entries.length = 0; },
+    () => { record.payload.entries[0].forms.pop(); },
+    () => { record.payload.entries.push({ lexemeId: 'english.status', forms: [{ surface: 'status', features: {} }] }); },
+    () => { record.payload.entries[1].forms[0].surface = 'rulez'; },
+    () => { record.payload.featureSupport.number.plural = 'unsupported'; },
+    () => { record.payload.profileVersion = '2'; },
+    () => { record.lexiconDigest = 'x'; },
+    () => { cached.length = 0; },
+    () => { cached.push(record); },
+  ];
+  for (const attempt of attempts) assert.throws(attempt, TypeError);
+  assert.deepEqual(resolveRule(), before, 'a later preparation resolves exactly as before');
+  // A registry loaded from any root is frozen the same way.
+  const [fromRoot] = loadLanguageProfileRegistriesFromRegistryRoot(BUILTIN_LANGUAGE_PROFILE_REGISTRY_ROOT);
+  assert.ok(Object.isFrozen(fromRoot) && Object.isFrozen(fromRoot.payload.entries[0].forms[0].features));
 });

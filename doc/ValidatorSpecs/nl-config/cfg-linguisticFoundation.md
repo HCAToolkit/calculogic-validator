@@ -59,7 +59,7 @@ Logic and Knowledge, plus a Results concern for the prepared records. There is n
 - Generic logic and vocabularies contain no language-specific entry, form or rule. Language content lives only in profile registries and the profile inventory.
 - Readings come from declared entries only. Nothing strips, stems, case-maps or trims a surface form.
 - No profile is active without an explicit selection. Nothing is detected from the environment, locale or repository content.
-- Every prepared record is deeply frozen, and the same inputs give the same record.
+- Every loaded registry record (including the process-wide builtin cache) and every prepared record is deeply frozen, so validated content can never drift from its digest. The same inputs give the same record.
 
 ## 3.0 Build Concern (Structure)
 

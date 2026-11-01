@@ -5,7 +5,8 @@
  * Responsibility: Loader for language profile registries: read from a registry root, validate under
  *   contract §4.2 and §5.1, and digest canonically (contract §7, §15.2).
  * Invariants: policy-data checks only; no resolution, no runtime form (the converter owns it); an
- *   invalid payload throws, naming its problem; no language-specific content.
+ *   invalid payload throws, naming its problem; no language-specific content; every loaded record,
+ *   cached or not, is deeply frozen, so its validated content can never drift from its digest.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,6 +21,16 @@ export const BUILTIN_LANGUAGE_PROFILE_REGISTRY_ROOT = fileURLToPath(new URL('./_
 const ROOT_FIELDS = Object.freeze(['profileId', 'profileVersion', 'featureSupport', 'entries']);
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const SUPPORT_STATUSES = Object.values(LINGUISTIC_SUPPORT_STATUSES);
+
+// A loaded record is frozen as soon as it is validated and digested: the payload is shared through
+// the process-wide builtin cache, so a caller's change would otherwise reach every later preparation.
+const deepFreeze = (value) => {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value)) deepFreeze(child);
+  }
+  return value;
+};
 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
@@ -114,12 +125,12 @@ export const loadLanguageProfileRegistryFromRegistryRoot = (registryRoot, { prof
   const payload = normalizeLanguageProfileRegistryPayload(JSON.parse(fs.readFileSync(path.join(registryRoot, registryFilename), 'utf8')), {
     expectedProfileId: profileId,
   });
-  return { payload, lexiconDigest: digestLanguageProfileRegistry(payload) };
+  return deepFreeze({ payload, lexiconDigest: digestLanguageProfileRegistry(payload) });
 };
 
 // Every inventoried profile from one registry root, in inventory order.
 export const loadLanguageProfileRegistriesFromRegistryRoot = (registryRoot, inventory = LANGUAGE_PROFILE_INVENTORY) =>
-  inventory.map((entry) => loadLanguageProfileRegistryFromRegistryRoot(registryRoot, entry));
+  Object.freeze(inventory.map((entry) => loadLanguageProfileRegistryFromRegistryRoot(registryRoot, entry)));
 
 let cachedBuiltinLanguageProfileRegistries = null;
 
