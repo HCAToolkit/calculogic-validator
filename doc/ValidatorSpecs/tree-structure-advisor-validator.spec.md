@@ -1129,7 +1129,7 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
+### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is not yet in the runtime: S3.9 cases E16 and E17. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
 
 This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
 
@@ -1166,8 +1166,27 @@ Naming supplies semantic evidence; Tree decides what structural reading it suppo
 
 - **Directory:** a folder occurrence in the addressed snapshot.
 - **Member:** a file occurrence directly inside a directory with an evaluated semantic identity. Files without one are not members; they are counted as coverage (S3.5).
-- **Lineage-expressed prefix:** the leading N1 tokens of a member that an ancestor folder on its relevant lineage (S2.8) already expresses, by the Stage 1 root or prefix comparison.
+- **Lineage-expressed prefix:** the leading N1 tokens of a member that folders on its relevant lineage (S2.8) already express, by **positional lineage expression** (below).
 - **Residual tokens:** a member's N1 tokens after its lineage-expressed prefix. This is a positional reading of Naming's sequence, not re-tokenization.
+
+**Positional lineage expression** (calculogic-validator#142; runtime pending, S3.9 cases E16 and E17). A folder's concept is already represented in a member's name only through an established structural relationship, never because a matching token appears somewhere in the name. The lineage-expressed prefix is the end position `p` reached by walking the member's relevant lineage from its outermost folder to the member's own directory, starting at `p = 0`:
+- At each folder, the end position becomes the furthest of:
+  - the current `p`;
+  - the end of a Stage 1 match at the first token, as before this amendment: a prefix match expresses the folder's label tokens, and a root match the first token;
+  - `p` plus the folder's label length, when the folder's parsed Naming label tokens equal, **in full and in order**, the member's N1 tokens at positions `p` onward.
+- A folder whose label does not continue at `p` expresses nothing and leaves `p` unchanged. A structural folder such as `src` is passed over; it does not break the walk.
+
+The walk keeps expression grounded:
+- **Structural relationship.** Only folders on the member's relevant lineage take part: its containing folders, up to the first terminating folder (S2.8).
+- **Order and contiguity.** A folder continues expression only at the position its outer lineage reached. A label that equals tokens later in the name, after a position no lineage folder expressed, expresses nothing. For example, `src/core/cli` does not express the `cli` of `validator-cli-*`, because nothing expresses `validator`. That is the S3.10 limitation on relationships away from leading tokens, unchanged.
+- **Exact Naming evidence.** The comparison is equality of Naming-supplied tokens: the folder's parsed label tokens (S1.1, N2) against the member's N1 tokens, the same operation as the Stage 1 prefix comparison (S1.5) at another position. A folder whose label is not parsed expresses nothing. No token is transformed, and a partial label never expresses (S3.10).
+- **Each folder expresses at most once.**
+
+**Provenance.** Each member records how its lineage-expressed prefix was reached: for each folder that extended it, the folder, the positions expressed, and the basis (`stage-1-root`, `stage-1-prefix` or `positional-label`). A candidate's record keeps its shared residual prefix as its identifier and its **leading tokens** (the lineage-expressed tokens followed by the prefix) as the evidence its prefix was derived from.
+- When positional expression changes a candidate's prefix (E17: `health-check` becomes `check`), it is a different evidence-derived identifier.
+- Whether two identifiers name the same candidate across a change of derivation is **not decided**. One possible rule is equal leading tokens over the same members, which `health-check` and `check` share. It is recorded as unresolved, not applied.
+
+Example (E16, `naming/src/cli`): `naming/` expresses `naming` (Stage 1 root match). `src/` expresses nothing. `cli/` continues at position 1 for `naming-cli-args`, `naming-cli-runner` and `naming-cli-usage`, whose residuals become `args`, `runner` and `usage`. `naming-report-builder` keeps the residual `report-builder`. No residual prefix is shared, so no candidate is discovered.
 - **Shared residual prefix:** a leading sequence of residual tokens common to several members of one directory. Its length is its **lexical specificity**.
 - **Primary unit:** a distinct `semanticName` among members in a primary responsibility class (S3.5).
 - **Grouping candidate:** a directory, a shared residual prefix, the discovery method, and the members that carry the prefix.
@@ -1410,7 +1429,7 @@ E8.1 is the counterexample: the shortcut would conclude `opportunity` for `tree-
 #### S3.7 Output
 
 A prepared evidence record, `treeEmergentBoundaryReasoning`. It holds, per directory:
-- its candidates and their discovery method;
+- its candidates and their discovery method, with each candidate's leading tokens and each member's lineage-expression provenance (S3.2);
 - the candidate relations;
 - the three member sets with their explanations;
 - dimension evidence and outcomes, each with its assessment completion and the policy that produced it (S3.6, S3.8);
@@ -1473,6 +1492,7 @@ Catalogue `emergent-boundary-catalogue`, version `1`.
   - In the executable catalogue, a known discrepancy is a distinctly marked **known-gap case**: it records both outcomes and its cause, and checks that the discrepancy is still exactly as recorded.
   - It does not fail the test suite, so unrelated Tree work is not blocked. When the cause is removed, the check fails until the case is reclassified as an ordinary case, so a fixed gap cannot go unnoticed.
   - It stays visible in the catalogue and blocks the finding decision (S3.11 step 5).
+- **Any case may be implementation-pending** (defined under companion cases below): its expected outcome follows a contract amendment the runtime does not implement yet (E16, E17).
 - **A case whose expected outcome needs a decision the experimental policy leaves unresolved is a policy-incomplete case** (see E12). It is not a known discrepancy:
 
   | | Known-gap case (E10) | Policy-incomplete case (E12) |
@@ -1502,6 +1522,8 @@ Catalogue `emergent-boundary-catalogue`, version `1`.
 | E13 | E1 with every member flagged `family-boundary-heuristic` | as E1 (Stage 2 D2) |
 | E14 | synthetic: an E1-like group of five, where one member is `home-elsewhere` at a supported home whose claim is **different** | **`opportunity`** on the supported set of four. One conflicting member is recorded with its home and excluded |
 | E15 | synthetic: an E1-like group of five, where one member's placement is `undetermined` against a non-corresponding candidate | **`opportunity`** on the supported set of four. One unresolved member is recorded as undecided and excluded |
+| E16 | `naming/src/cli` (measured at `d0fbdce`): `naming-cli-args`, `naming-cli-runner`, `naming-cli-usage`, `naming-report-builder`; `naming/` expresses `naming`, and the `cli` label equals the next token of three members (S3.2) | **No candidate is discovered**: `cli` is expressed by `cli/`, so no residual prefix is shared. **Implementation-pending:** today's runtime expresses only `naming` and discovers `cli`: `insufficient-evidence` (`low-specificity`) |
+| E17 | `naming/src/health` (measured at `d0fbdce`): `naming-health-check` as a host and a logic file; `naming/` expresses `naming`, and the `health` label equals the next token of both (S3.2) | `check`: **`not-an-opportunity`** (`single-responsibility-unit`). `health` and `health-check` are not discovered; `check` is a different evidence-derived identifier from `health-check`, with the same leading tokens (S3.2). **Implementation-pending:** today's runtime discovers `health` and `health-check`, both `not-an-opportunity` (`single-responsibility-unit`) |
 
 ##### Evidence sufficiency and policy dependency (S3.11 step 3)
 
@@ -1535,6 +1557,8 @@ Outcomes decided by `existing-structure` rest on the Stage 2 preconditions the c
 | E13 | evaluable | as E1 | `minimum-primary-units`, `one-word-prefix`, `responsibility-class-mapping`, `separation-value-limit` | — |
 | E14 | evaluable | `semantic-home`: `opportunity`. `semantic`: `redundancy` | `minimum-primary-units`, `partial-evidence-aggregation`, `responsibility-class-mapping`, `separation-value-limit` | — |
 | E15 | evaluable | `semantic-home`: `opportunity`. `semantic`: `redundancy` | `minimum-primary-units`, `partial-evidence-aggregation`, `responsibility-class-mapping`, `separation-value-limit` | — |
+| E16 | evaluable | no candidate is discovered (S3.2) | — | — |
+| E17 | evaluable | `check`: `single-responsibility` | `responsibility-class-mapping` | — |
 
 Further observations:
 - **Decisions no case depends on.**
@@ -1575,6 +1599,8 @@ Two kinds of limitation are recorded separately, so a missing candidate is never
 | Members without a role category | assessment | unresolved responsibility class | Naming role evidence |
 
 **Tree does not work around a limitation.** In particular, Stage 3 never approximates a lexical relationship by comparing residual tokens with folder labels as strings. That would be stemming under another name.
+- Positional lineage expression (S3.2) is not such an approximation. It compares Naming-supplied tokens for exact equality, as the Stage 1 prefix comparison does, and transforms nothing.
+- `rules` and `rule` stay unrelated until Naming, or a shared Linguistic Foundation, supplies evidence relating them (E10, E11 unchanged).
 
 #### S3.11 Slicing and authorization
 
