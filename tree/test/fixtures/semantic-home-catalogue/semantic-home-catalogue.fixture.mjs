@@ -30,7 +30,10 @@ export const files = (dir, root, n, options = {}) => Array.from({ length: n }, (
 
 // `folders`: `{ path, context?: root, packageRoot?: root }` (labels are the basename's hyphen
 // tokens, always parsed unless `n2` says otherwise). `n2`: `'not-staged'`, or `{ rejected: path }`.
-export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs = [], n2 = 'available', parameterSet } = {}) => {
+// `bridgeSections`: extra top-level bridge sections, `(context) => ({ [name]: section })`, given the
+// addressed namespace and the N1 and N2 records the builder produced; for evidence that Tree reads a
+// payload carrying an unsupported section exactly as without it (calculogic-validator#150).
+export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs = [], n2 = 'available', parameterSet, bridgeSections } = {}) => {
   const folderPaths = new Set();
   for (const spec of [...folderSpecs.map((folder) => folder.path), ...fileSpecs.map((file) => file.dir)].filter(Boolean)) {
     const parts = spec.split('/');
@@ -100,6 +103,7 @@ export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs
     observations,
     namingSemanticEvidenceEnrichment: section('naming-semantic-evidence-enrichment.v1', n1),
     ...(n2 === 'not-staged' ? {} : { namingFolderLabelObservations: section('naming-folder-label-observation.v1', n2Records) }),
+    ...(bridgeSections ? bridgeSections({ namespace: NAMESPACE, n1, n2Records, occurrences }) : {}),
   };
   const staged = {
     namingSemanticFamilyBridge: { observations: [] },

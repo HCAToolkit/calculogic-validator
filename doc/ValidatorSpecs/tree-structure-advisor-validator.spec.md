@@ -187,6 +187,8 @@ Stage 1 adopts this route (implemented in Stage 1A by `prepareNamingTreeStagingI
 
 Why this route: the addressed snapshot is built once, by Tree; occurrence identity stays with Structural Addressing through that snapshot; Naming stays the sole producer of both sections; and the runner gains only opaque transport.
 
+**Lexical-identity section (contract-approved by calculogic-validator#150; not emitted, not consumed).** The bridge contract §4.7 adds a third Naming section, `namingTokenLexicalIdentities`, produced by Naming on this same route. Naming's staging function would return the prepared Linguistic Foundation state as a fourth opaque value, the runner would pass it unchanged, and Tree wiring would pass it to `createNamingOccurrenceBridgePayload`. Items 3–5 apply to it unchanged: Tree never calls the foundation's resolution or comparison functions, builds records or inspects readings (Linguistic Foundation shared contract §8.5). Tree intake does not support `naming-token-lexical-identity.v1`, so a payload carrying it is read exactly as without it (bridge contract §4.4 rule 2). Tree's use of lexical identity is a separate Tree slice.
+
 #### S1.2 Section intake (consumer side)
 
 Tree validates each section exactly as the bridge contract specifies for supporting consumers: §4.4 rules 2–4 and 6 for the envelope (a malformed supported section is invalid as a whole), §4.5 consumer identity rules for N1, and §4.6 consumer identity rules for N2. Field groups are validated separately from identity. There is no path fallback.
