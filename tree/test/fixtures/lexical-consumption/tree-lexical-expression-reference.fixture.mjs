@@ -1,9 +1,9 @@
 // Tree lexical-identity consumption, executable contract evidence (Tree slice spec S1.1-S1.3, S3.2,
 // S3.7, S3.9; bridge contract §4.7; Linguistic Foundation shared contract §6.2, §9; calculogic-validator#153).
-// Test-only and not shipped. `referenceStageThreeExpression` restates the amended S3.2 walk so its
-// expectations can be checked before any runtime implements it; it is not the Tree consumer, which belongs
-// to the implementation slice. It mirrors today's runtime walk exactly where the amendment changes
-// nothing, and the contract tests check that against the runtime for every catalogue case.
+// Test-only and not shipped. `referenceStageThreeExpression` restates the amended S3.2 walk independently
+// of the runtime (tree-lexical-identity-evidence and the Stage 3 walk). It mirrors the pre-amendment
+// runtime exactly where the amendment changes nothing, and the tests check the implemented runtime
+// against it everywhere.
 import { compareLexicalResolutions } from '../../../../linguistic-foundation/src/linguistic-foundation-resolution.logic.mjs';
 import { toCandidateKey } from '../../../src/tree-folder-candidates.logic.mjs';
 import { checkReferenceSection } from '../../../../test/fixtures/naming-token-lexical-identity/naming-token-lexical-identity-section.fixture.mjs';

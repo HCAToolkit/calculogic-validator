@@ -26,6 +26,7 @@ import { prepareTreeStructuralContextAssessment } from './tree-structural-contex
 import { prepareNamingSemanticEvidenceBridge } from '../../naming/src/naming-semantic-evidence-bridge.logic.mjs';
 import { projectNamingFolderCompositionBridge } from '../../naming/src/naming-folder-composition-projection.logic.mjs';
 import { prepareTreeNamingSectionIntake } from './tree-naming-section-intake.logic.mjs';
+import { createTreeLexicalRelation, prepareTreeLexicalIdentityIntake } from './tree-lexical-identity-evidence.logic.mjs';
 import { prepareTreeFolderFactEvidence } from './tree-folder-fact-evidence.logic.mjs';
 import { prepareTreeFolderCandidates } from './tree-folder-candidates.logic.mjs';
 import { prepareTreeFolderSemanticEvidence } from './tree-folder-semantic-evidence.logic.mjs';
@@ -185,7 +186,8 @@ export const prepareTreeStructureAdvisorInputs = (
     namingSemanticEvidenceEnrichment,
     interpretFolderLabel,
     // Opaque Naming staging value (bridge contract §4.7, Tree spec S1.1): passed to the Naming-owned
-    // producer unchanged; Tree never resolves tokens or reads the section.
+    // producer unchanged; Tree never resolves tokens. Only the lexical-identity intake below reads the
+    // section it produces.
     lexicalProfile,
   });
   const treeNamingSectionIntake = prepareTreeNamingSectionIntake({
@@ -194,6 +196,13 @@ export const prepareTreeStructureAdvisorInputs = (
     addressedNamespace: { addressProfileId: TREE_ADDRESS_PROFILE_ID, addressedSnapshotId: TREE_ADDRESSED_SNAPSHOT_ID },
     addressedOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
     staged: { namingSemanticFamilyBridge, namingSemanticEvidenceEnrichment, interpretFolderLabel },
+  });
+  // Lexical-identity intake (Tree spec S1.1-S1.3, calculogic-validator#153): Tree's own record of the
+  // payload's `namingTokenLexicalIdentities`, outside Stage 1A and every Stage 1/Stage 2 module; `null`
+  // (and no prepared dependency) when the payload carries no section. Only Stage 3 reads it.
+  const treeLexicalIdentityIntake = prepareTreeLexicalIdentityIntake({
+    namingOccurrenceBridge: addressedNamingOccurrenceBridge,
+    sectionIntake: treeNamingSectionIntake,
   });
   // Stage 1B-i (S1.3 fact level, S1.8): built only from the intake above and Tree's snapshot.
   const treeFolderFactEvidence = prepareTreeFolderFactEvidence({
@@ -261,6 +270,9 @@ export const prepareTreeStructureAdvisorInputs = (
     sectionIntake: treeNamingSectionIntake,
     semanticHomeReasoning: treeFolderSemanticHomeReasoning,
     policy: emergentBoundaryPolicy,
+    // S3.2 lexical-label expression and S3.7 `lexicalIdentity`, only with an available section.
+    lexicalRelation: createTreeLexicalRelation(treeLexicalIdentityIntake),
+    lexicalProfile: treeLexicalIdentityIntake?.lexicalProfile ?? null,
   });
   const treeOccurrenceClassificationReplacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence,
@@ -301,6 +313,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeOccurrenceClassificationReplacementRuntime,
       treeNamingOccurrenceBridgeIntake,
       treeNamingSectionIntake,
+      ...(treeLexicalIdentityIntake ? { treeLexicalIdentityIntake } : {}),
       treeFolderFactEvidence,
       treeFolderSemanticEvidence,
       treeSemanticHomeParameterSet,

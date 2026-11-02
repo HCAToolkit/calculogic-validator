@@ -2,13 +2,14 @@
  * Configuration: cfg-linguisticFoundation
  * Concern File: Logic
  * Source NL: doc/ValidatorSpecs/nl-config/cfg-linguisticFoundation.md
- * Responsibility: Resolution of one surface form under the active profile (contract §4.3, §6.1, §7) and
- *   the lexeme-comparison relation (contract §6.2).
+ * Responsibility: Resolution of one surface form under the active profile (contract §4.3, §6.1, §7),
+ *   the lexeme-comparison relation (contract §6.2), and the feature-map predicate consumers use to check
+ *   presented readings (contract §8.3).
  * Invariants: declared entries only (R1); exact surface equality (R2); the form alone (R3); sorted
  *   readings from the runtime profile (R4); ambiguity recorded, never resolved; no language-specific
  *   content; output is frozen.
  */
-import { LEXEME_COMPARISON_RELATIONS, LEXICAL_RESOLUTION_STATUSES } from './linguistic-foundation.knowledge.mjs';
+import { LEXEME_COMPARISON_RELATIONS, LEXICAL_RESOLUTION_STATUSES, LINGUISTIC_FEATURE_SPACES } from './linguistic-foundation.knowledge.mjs';
 
 const STATUSES = LEXICAL_RESOLUTION_STATUSES;
 const RELATIONS = LEXEME_COMPARISON_RELATIONS;
@@ -46,3 +47,13 @@ export const compareLexicalResolutions = (left, right) => {
   if (left.status === STATUSES.resolved && right.status === STATUSES.resolved) return shared ? RELATIONS.sameLexeme : RELATIONS.differentLexemes;
   return shared ? RELATIONS.possiblySameLexeme : RELATIONS.differentLexemes;
 };
+
+// [5.2.8] cfg-linguisticFoundation · Primitive · "isFoundationFeatureMap"
+// Concern: Logic · Parent: "Linguistic Foundation runtime"
+// Notes: a plain object whose every own key is a foundation feature space and whose value is one of that
+// space's values. Consumers validating presented readings ask this instead of copying the vocabulary.
+export const isFoundationFeatureMap = (features) =>
+  features !== null &&
+  typeof features === 'object' &&
+  !Array.isArray(features) &&
+  Object.entries(features).every(([space, value]) => Object.hasOwn(LINGUISTIC_FEATURE_SPACES, space) && typeof value === 'string' && LINGUISTIC_FEATURE_SPACES[space].includes(value));

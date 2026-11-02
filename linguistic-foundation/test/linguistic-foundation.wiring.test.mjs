@@ -117,7 +117,7 @@ test('the generic foundation modules hold no language-specific content', () => {
   }
 });
 
-test('boundaries: only Naming\'s projection and suite core\'s run selection import the foundation, and it is packaged (contract §8.5, §15.4)', () => {
+test('boundaries: only Naming\'s projection, suite core\'s run selection and Tree\'s one lexical-identity evidence module import the foundation, and it is packaged (contract §8.5, §15.4)', () => {
   const consumers = ['src', 'naming/src', 'tree/src', 'structural-addressing/src', 'bin', 'scripts'];
   const walk = (directory) =>
     fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -129,7 +129,15 @@ test('boundaries: only Naming\'s projection and suite core\'s run selection impo
     .filter((file) => /linguistic-foundation\/src\//u.test(fs.readFileSync(file, 'utf8')))
     .map((file) => path.relative(REPOSITORY_ROOT, file))
     .sort();
-  assert.deepEqual(importers, ['naming/src/naming-token-lexical-identity-projection.logic.mjs', 'src/core/config/validator-linguistic-profile.logic.mjs']);
+  assert.deepEqual(importers, [
+    'naming/src/naming-token-lexical-identity-projection.logic.mjs',
+    'src/core/config/validator-linguistic-profile.logic.mjs',
+    'tree/src/tree-lexical-identity-evidence.logic.mjs',
+  ]);
+  // Tree's module imports exactly the comparison relation and the feature-map predicate (calculogic-validator#153).
+  const treeImports = [...fs.readFileSync(path.join(REPOSITORY_ROOT, 'tree/src/tree-lexical-identity-evidence.logic.mjs'), 'utf8').matchAll(/import \{([^}]*)\} from '[^']*linguistic-foundation\/src\/([^']+)'/gu)]
+    .map((match) => [match[2], match[1].split(',').map((name) => name.trim()).filter(Boolean).sort()]);
+  assert.deepEqual(treeImports, [['linguistic-foundation-resolution.logic.mjs', ['compareLexicalResolutions', 'isFoundationFeatureMap']]]);
   const pkg = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, 'package.json'), 'utf8'));
   assert.ok(pkg.files.includes('linguistic-foundation/src/**'), 'packaged for its first consumer');
 });

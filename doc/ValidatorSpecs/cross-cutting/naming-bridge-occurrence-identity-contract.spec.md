@@ -267,7 +267,7 @@ There is no path fallback: a record that cannot be associated through the identi
 - **Section name:** `namingTokenLexicalIdentities`.
 - **Contract version:** `naming-token-lexical-identity.v1`.
 - **Provenance:** `producerId: naming-token-lexical-identity`, `source: calculogic-validator/naming`.
-- **Status:** contract-approved by calculogic-validator#150. **Current implementation reality since its implementation slice:** the Naming occurrence-bridge path emits it whenever the run has an active language profile, including in the bridge payload Tree wiring builds; no consumer reads it. **Tree consumption (Contract, calculogic-validator#153; implementation-pending):** Tree becomes a supporting consumer, reading the section only for Stage 3 positional lineage expression (Tree slice spec S1.1–S1.3, S3.2).
+- **Status:** contract-approved by calculogic-validator#150. **Current implementation reality since its implementation slice:** the Naming occurrence-bridge path emits it whenever the run has an active language profile, including in the bridge payload Tree wiring builds. **Tree consumption (Current, calculogic-validator#153):** Tree is a supporting consumer, reading the section only for Stage 3 positional lineage expression (Tree slice spec S1.1–S1.3, S3.2).
 - **Envelope:** §4.4 rule 5, plus one required field, `lexicalProfile` (below).
 - **Lexical model:** the Linguistic Foundation shared contract (`doc/ValidatorSpecs/linguistic-foundation-shared-contract.spec.md`), §4–§8.
 
@@ -290,7 +290,7 @@ A `not-parsed` §4.6 record and a §4.5 record without `semanticTokens` get no r
 
 **Production source and ownership.**
 - The records are produced by a Naming-owned projection, which `createNamingOccurrenceBridgePayload` invokes when it builds the §4.5 and §4.6 sections. Its only lexical operation is the foundation's `resolveSurfaceForm` on each token, exactly as supplied. Naming applies no lexical rule of its own.
-- On the runner path, the prepared foundation state reaches the producer through the same opaque transport as the §4.5 source and the folder-label interpreter (Tree slice spec S1.1): Naming's staging function returns it as an opaque value, the runner passes it unchanged, and Tree wiring passes it to `createNamingOccurrenceBridgePayload`. The runner never calls the foundation's resolution or comparison functions, builds records or inspects readings. Neither does Tree for transport. As a consumer (calculogic-validator#153, Contract), Tree reads the readings of records it accepted and relates two of them only through the foundation's comparison relation, from one Tree module (Tree slice spec S1.1). It never calls `resolveSurfaceForm` or builds records.
+- On the runner path, the prepared foundation state reaches the producer through the same opaque transport as the §4.5 source and the folder-label interpreter (Tree slice spec S1.1): Naming's staging function returns it as an opaque value, the runner passes it unchanged, and Tree wiring passes it to `createNamingOccurrenceBridgePayload`. The runner never calls the foundation's resolution or comparison functions, builds records or inspects readings. Neither does Tree for transport. As a consumer (calculogic-validator#153), Tree reads the readings of records it accepted and relates two of them only through the foundation's comparison relation, from one Tree module (Tree slice spec S1.1). It never calls `resolveSurfaceForm` or builds records.
 
 **Producer rules.**
 - The section is emitted only when a language profile is active for the run. With none active it is omitted, and nothing else in the payload changes.
@@ -324,7 +324,7 @@ The cases are checked in table order, and a record's shape is checked before its
 - The section must not carry folder-kind, structural-home, semantic-home, ownership, placement, confidence, severity, Tree diagnostic or finding fields (§7, rule 5).
 - Tree may consume records only as evidence under Tree-owned rules, decided in a Tree slice.
 
-**Current consumers.** None. Current Tree intake does not support `naming-token-lexical-identity.v1`, so a payload carrying the section is read by Tree exactly as without it (§4.4 rule 2). The Tree consumer is contracted by calculogic-validator#153 and not yet implemented: a separate Tree lexical-identity intake, read only by Stage 3 positional lineage expression (Tree slice spec S1.1–S1.3, S3.2). It performs the consumer identity checks above in their stated order.
+**Current consumers.** Tree, since calculogic-validator#153: a separate Tree lexical-identity intake (`treeLexicalIdentityIntake`), read only by Stage 3 positional lineage expression (Tree slice spec S1.1–S1.3, S3.2). It performs the consumer identity checks above in their stated order. Tree's Stage 1A intake still reads a payload carrying the section exactly as without it (§4.4 rule 2).
 
 ## 5. Ownership boundaries
 

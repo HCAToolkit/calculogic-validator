@@ -230,10 +230,10 @@ The bridge contract §4.7 also lists the identity cases (invalid identity, dupli
 - **Naming owns production.** A Naming-owned projection builds the section. `createNamingOccurrenceBridgePayload` invokes it, and its only lexical operation is `resolveSurfaceForm` on each token Naming already supplies.
 - **The suite selects and transports.** The suite prepares the foundation from the run's selection (§5.3) and applies the run consequences of a failed selection (§15.4).
 - **The runner and Tree only transport.** As for the other sections (Tree slice spec S1.1), Naming's staging function returns the prepared foundation state as an opaque value, the runner passes it unchanged, and Tree wiring passes it to the Naming-owned producer. Neither the runner nor Tree calls `resolveSurfaceForm` or `compareLexicalResolutions`, builds records or inspects readings.
-- **Tree as consumer (Contract, calculogic-validator#153; implementation-pending).** Consumption narrows the last sentence for Tree only:
-  - Tree reads the readings of section records it accepted, and relates two of them only through `compareLexicalResolutions`, imported by one Tree module (Tree slice spec S1.1);
+- **Tree as consumer (Current, calculogic-validator#153).** Consumption narrows the last sentence for Tree only:
+  - Tree reads the readings of section records it accepted, and relates two of them only through `compareLexicalResolutions`, imported by one Tree module (Tree slice spec S1.1). That module's only other foundation import is the read-only feature-map predicate `isFoundationFeatureMap`, which its bridge §4.7 shape check needs;
   - it still never calls `resolveSurfaceForm`, loads a profile, builds records or transforms a token;
-  - the boundary test of the implementation slice changes from two importers of the foundation to three: the Naming projection, suite-core selection, and that one Tree module, which imports only the comparison relation.
+  - the boundary test of the implementation slice changes from two importers of the foundation to three: the Naming projection, suite-core selection, and that one Tree module, which imports only the comparison relation and the feature-map predicate.
 - **Separation is verified, not only absence.** The implementation slice proves it with:
   - Naming-side tests of the projection that import nothing from Tree;
   - a boundary test that no `tree/src` or `src/core` module references the foundation's resolution or comparison functions or the projection;
@@ -247,12 +247,12 @@ The bridge contract §4.7 also lists the identity cases (invalid identity, dupli
 - `unknown` and `undetermined` are never negative evidence.
 - A consumer records when lexical identity was unavailable to a comparison that needed it, as Tree S3.10 records its limitations.
 
-### 9.2 Tree (Contract, calculogic-validator#153; implementation-pending)
+### 9.2 Tree (Current, calculogic-validator#153)
 
 - **Positional expression only.** `same-lexeme` between a lineage folder's label token and a member's token at the current position extends positional lineage expression (Tree S3.2) on a new basis, `lexical-label`, beside `positional-label`, which remains exact equality and keeps precedence. No other Tree reasoning reads lexical identity: Stage 1, Stage 2, correspondence (S3.5) and findings are unchanged.
 - **Ambiguity (D5 resolved).** `possibly-same-lexeme` yields no expression. Tree records it as a possible unit and a note on the member, never as a step (Tree S3.2).
 - **`unknown` and unavailable evidence.** `undetermined` yields no expression and is never negative evidence. Tree counts it once per (member, lineage folder) unit that needed it (Tree S3.2, S3.7), which is how §9.1's recording rule applies to Tree.
-- **Reclassification.** E10, E10.1 and E11 keep their checks exactly without a profile. Their lexical-evidence companions E10-L, E10.1-L and E11-L state the expectations under English v1 and are implementation-pending (Tree S3.9).
+- **Reclassification.** E10, E10.1 and E11 keep their checks exactly without a profile. Their lexical-evidence companions E10-L, E10.1-L and E11-L state the expectations under English v1; the implementation reaches them, and they are ordinary cases (Tree S3.9).
 
 ## 10. Measured evidence (measured at `98e54e2`, `repo` scope)
 
@@ -275,9 +275,9 @@ This is why R1 admits declared entries only. A suffix rule would relate the 21 p
 | The bridge section (bridge contract §4.7), the `linguisticProfile` config key and its run consequences, report provenance, packaging (§8, §15.4) | **Current** (calculogic-validator#150) |
 | Naming producing the section; the runner selecting and transporting the foundation (§8.5) | **Current** (calculogic-validator#150) |
 | Builtin/Custom lifecycle participation of the profile registries | **Deferred** (D11) |
-| Tree consuming lexical identity (Tree S1.1–S1.3, S3.2, S3.7); lexical-evidence companions E10-L, E10.1-L, E11-L | **Contract** (calculogic-validator#153); runtime implementation-pending |
+| Tree consuming lexical identity (Tree S1.1–S1.3, S3.2, S3.7); lexical-evidence companions E10-L, E10.1-L, E11-L | **Current** (calculogic-validator#153) |
 | Feature spaces beyond `number`; domain and perspective profiles; realization strategies; Narrative and Lexical Coherence consumers | **Deferred** (living document §4.6 context) |
-| A finding or Tree conclusion that reads lexical identity | Not current: Tree ignores the section today. Once #153 is implemented, only Stage 3 evidence reads it, and no finding does (§9.2) |
+| A finding that reads lexical identity | Not current: only Tree's Stage 3 evidence reads the section (#153), and no finding does (§9.2) |
 
 ## 12. Deferred decisions register
 
@@ -332,7 +332,7 @@ The runtime is a shared area beside Structural Addressing: `linguistic-foundatio
 | `linguistic-foundation/src/registries/linguistic-foundation-language-profile-registry.logic.mjs` | loading and validating a profile registry (§4.2, §5.1), and its digest (§7) |
 | `linguistic-foundation/src/linguistic-foundation-runtime-converters.logic.mjs` | the runtime profile: a private surface-to-readings lookup behind read-only accessors |
 | `linguistic-foundation/src/linguistic-foundation-profile-selection.logic.mjs` | active profile selection (§5.3) |
-| `linguistic-foundation/src/linguistic-foundation-resolution.logic.mjs` | resolution (§4.3, §6.1) and the comparison relation (§6.2) |
+| `linguistic-foundation/src/linguistic-foundation-resolution.logic.mjs` | resolution (§4.3, §6.1), the comparison relation (§6.2), and the feature-map predicate `isFoundationFeatureMap` a consumer uses to check presented readings (§8.3; calculogic-validator#153) |
 | `linguistic-foundation/src/linguistic-foundation.wiring.mjs` | composing the prepared foundation |
 
 The generic modules hold no language-specific content. A language profile is one inventory entry and one registry file.

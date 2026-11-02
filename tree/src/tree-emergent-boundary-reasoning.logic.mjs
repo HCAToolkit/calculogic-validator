@@ -5,7 +5,10 @@
 // order. It reads the Stage 1 and Stage 2 records by reference and never changes them, never
 // tokenizes or compares tokens with folder labels as strings (S3.1, S3.10): S3.2 positional lineage
 // expression compares Naming's parsed label tokens with Naming's N1 tokens for exact equality, the S1.5
-// operation at another position. Nothing reads its output: it emits no finding and no report field.
+// operation at another position. Lexical-label expression (calculogic-validator#153) reads only the
+// foundation relation between two accepted resolutions, through Tree's lexical-identity evidence module,
+// and only when the run's lexical-identity section is available. Nothing reads its output: it emits no
+// finding and no report field.
 
 import { toCandidateKey } from './tree-folder-candidates.logic.mjs';
 import { isTerminatingCandidate } from './tree-folder-semantic-evidence.logic.mjs';
@@ -27,6 +30,7 @@ import {
   EMERGENT_BOUNDARY_DIMENSIONS,
   EMERGENT_BOUNDARY_DISCOVERY_LIMITS,
   EMERGENT_BOUNDARY_DISCOVERY_METHODS,
+  EMERGENT_BOUNDARY_LEXICAL_UNITS,
   EMERGENT_BOUNDARY_LINEAGE_BASES,
   EMERGENT_BOUNDARY_MEMBER_EXPLANATIONS,
   EMERGENT_BOUNDARY_MEMBER_NOTES,
@@ -146,7 +150,13 @@ const sortById = (candidateIds) =>
 // S3.2 members of every directory, with their tokens, lineage-expressed prefix and its provenance. Accepted intake
 // values are read only behind the Stage 1B-i fact gates.
 const LINEAGE_BASES = EMERGENT_BOUNDARY_LINEAGE_BASES;
-const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake }) => {
+const LEXICAL_UNITS = EMERGENT_BOUNDARY_LEXICAL_UNITS;
+const SAME_LEXEME = 'same-lexeme';
+const DIFFERENT_LEXEMES = 'different-lexemes';
+const UNDETERMINED = 'undetermined';
+// `relate`: Tree's lexical relation (tree-lexical-identity-evidence), or `null` without an available
+// section; `units` counts the S3.2 (member, lineage folder) units when it is given.
+const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake, relate = null, units = null }) => {
   const occurrenceFacts = factEvidence?.occurrenceFacts ?? [];
   const observationByKey = new Map((sectionIntake?.bridgeObservations?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record.observation]));
   const enrichmentByKey = new Map((sectionIntake?.semanticEvidenceEnrichment?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record]));
@@ -202,21 +212,52 @@ const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake }) =
   // transformed). A folder that does not extend p expresses nothing; each folder is visited once. The
   // steps are the provenance: which folder expressed which positions, on which basis. A tie keeps the
   // Stage 1 basis, the comparison that already established the relationship.
+  //
+  // Lexical-label expression (calculogic-validator#153): only with `relate`, and only for a folder whose
+  // label is aligned at p, not exactly equal there, and would reach beyond its Stage 1 end. The non-exact
+  // positions alone are compared; one unit per (member, lineage folder): all `same-lexeme` expresses on
+  // `lexical-label`; any `different-lexemes` records nothing; otherwise any `undetermined` is an
+  // undetermined unit; otherwise (`possibly-same-lexeme`) a possible unit and a note, never a step.
   const lineageExpressionOf = (file, tokens) => {
     const stageOneEnds = stageOneEndsOf(file);
     const steps = [];
+    const possible = [];
     let position = 0;
     for (const folderKey of relevantLineageOf(file).reverse()) {
       const folder = folderByKey.get(folderKey);
       const reached = [];
       const stageOne = stageOneEnds.get(folderKey);
-      if (stageOne) reached.push({ end: Math.min(stageOne.end, tokens.length), basis: stageOne.basis });
+      const stageOneEnd = stageOne ? Math.min(stageOne.end, tokens.length) : 0;
+      if (stageOne) reached.push({ end: stageOneEnd, basis: stageOne.basis });
       const label = folder.facts?.folderLabel;
       if (label?.state === 'parsed' && Array.isArray(label.labelTokens) && label.labelTokens.length > 0) {
         const labelTokens = label.labelTokens;
-        const continues = position + labelTokens.length <= tokens.length && labelTokens.every((token, offset) => tokens[position + offset] === token);
-        if (continues) reached.push({ end: position + labelTokens.length, basis: LINEAGE_BASES.positionalLabel });
+        const end = position + labelTokens.length;
+        if (end <= tokens.length) {
+          const nonExact = labelTokens.map((token, offset) => offset).filter((offset) => tokens[position + offset] !== labelTokens[offset]);
+          if (nonExact.length === 0) reached.push({ end, basis: LINEAGE_BASES.positionalLabel });
+          else if (relate && end > Math.max(position, stageOneEnd)) {
+            const relations = nonExact.map((offset) => ({
+              position: position + offset,
+              labelToken: labelTokens[offset],
+              memberToken: tokens[position + offset],
+              ...relate({ folder: folder.identityTuple, labelIndex: offset, member: file.identityTuple, memberIndex: position + offset }),
+            }));
+            const has = (relation) => relations.some((entry) => entry.relation === relation);
+            const unit = relations.every((entry) => entry.relation === SAME_LEXEME)
+              ? LEXICAL_UNITS.lexical
+              : has(DIFFERENT_LEXEMES)
+                ? null
+                : has(UNDETERMINED)
+                  ? LEXICAL_UNITS.undetermined
+                  : LEXICAL_UNITS.possible;
+            if (unit) units[unit] += 1;
+            if (unit === LEXICAL_UNITS.lexical) reached.push({ end, basis: LINEAGE_BASES.lexicalLabel, relations });
+            if (unit === LEXICAL_UNITS.possible) possible.push({ folder: { ...folder.identityTuple }, folderPath: folder.path, positions: { start: position, end }, relations });
+          }
+        }
       }
+      // Ties keep the earlier basis: Stage 1, then `positional-label`, then `lexical-label`.
       const furthest = reached.reduce((best, entry) => (!best || entry.end > best.end ? entry : best), null);
       if (!furthest || furthest.end <= position) continue;
       steps.push({
@@ -225,10 +266,11 @@ const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake }) =
         basis: furthest.basis,
         positions: { start: position, end: furthest.end },
         tokens: tokens.slice(position, furthest.end),
+        ...(furthest.relations ? { relations: furthest.relations } : {}),
       });
       position = furthest.end;
     }
-    return { length: position, steps };
+    return { length: position, steps, possible };
   };
 
   const directories = new Map();
@@ -245,7 +287,7 @@ const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake }) =
     const observation = observationByKey.get(key);
     const enrichment = enrichmentByKey.get(key);
     const tokens = entry.facts.tokens.state === 'available' && Array.isArray(enrichment?.semanticTokens) ? [...enrichment.semanticTokens] : null;
-    const expression = tokens ? lineageExpressionOf(entry, tokens) : { length: 0, steps: [] };
+    const expression = tokens ? lineageExpressionOf(entry, tokens) : { length: 0, steps: [], possible: [] };
     directory.members.push({
       key,
       file: { ...entry.identityTuple },
@@ -256,6 +298,7 @@ const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake }) =
       tokens,
       lineageExpressedLength: expression.length,
       lineageExpression: expression.steps,
+      possibleLexicalExpression: expression.possible,
     });
   }
   return [...directories.values()].sort((left, right) => left.folder.identityTuple.occurrenceAddress.localeCompare(right.folder.identityTuple.occurrenceAddress));
@@ -576,9 +619,13 @@ const toMemberRecord = (member, prefix, classified) => ({
   ...(classified.explanation ? { explanation: classified.explanation } : {}),
   ...(classified.notes.length > 0 ? { notes: classified.notes } : {}),
   ...(classified.uncertainty.length > 0 ? { uncertainty: classified.uncertainty } : {}),
+  // S3.2 (calculogic-validator#153): recorded uncertainty, never a step; present only when there is one.
+  ...(member.possibleLexicalExpression.length > 0 ? { possibleLexicalExpression: member.possibleLexicalExpression } : {}),
 });
 
-export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvidence, sectionIntake, semanticHomeReasoning, policy } = {}) => {
+// `lexicalRelation`: Tree's lexical relation (`createTreeLexicalRelation`), only for an available
+// lexical-identity section, with `lexicalProfile` its provenance; omitted otherwise (S3.2, S3.7).
+export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvidence, sectionIntake, semanticHomeReasoning, policy, lexicalRelation = null, lexicalProfile = null } = {}) => {
   const policyCheck = policy === undefined || policy === null ? null : validateTreeEmergentBoundaryPolicy(policy);
   const assessment =
     policyCheck === null
@@ -622,7 +669,8 @@ export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvi
 
   const limitations = { filesWithoutEvaluatedIdentity: 0, membersWithoutTokenSequence: 0, membersWithoutRoleCategory: 0 };
   const directories = [];
-  for (const { folder, fileCount, members } of collectDirectories({ factEvidence, semanticEvidence, sectionIntake })) {
+  const expressionUnits = lexicalRelation ? Object.fromEntries(Object.values(LEXICAL_UNITS).map((unit) => [unit, 0])) : null;
+  for (const { folder, fileCount, members } of collectDirectories({ factEvidence, semanticEvidence, sectionIntake, relate: lexicalRelation, units: expressionUnits })) {
     limitations.filesWithoutEvaluatedIdentity += fileCount - members.length;
     limitations.membersWithoutTokenSequence += members.filter((member) => !member.tokens).length;
     limitations.membersWithoutRoleCategory += members.filter((member) => !member.roleCategory).length;
@@ -738,5 +786,7 @@ export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvi
     preparation: { status: EMERGENT_BOUNDARY_PREPARATION_STATUSES.prepared },
     directories,
     limitations,
+    // S3.7 (calculogic-validator#153): only with an available lexical-identity section.
+    ...(expressionUnits ? { lexicalIdentity: { lexicalProfile: { ...lexicalProfile }, expressionUnits } } : {}),
   });
 };
