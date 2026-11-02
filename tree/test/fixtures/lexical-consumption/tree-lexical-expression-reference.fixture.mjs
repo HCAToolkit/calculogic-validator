@@ -23,13 +23,19 @@ export const EXPRESSION_UNIT_KINDS = Object.freeze(['lexical', 'possible', 'unde
 const keyOf = ({ addressProfileId, addressedSnapshotId, occurrenceAddress }) => `${addressProfileId}\u0000${addressedSnapshotId}\u0000${occurrenceAddress}`;
 
 // S1.2, S1.3 (reference intake): the section's availability and its accepted records, by the bridge §4.7
-// consumer checks over the accepted N1 and N2 records. An absent section is `null`: nothing is recorded.
-export const referenceLexicalIntake = (section, sectionIntake) => {
-  if (section === undefined || section === null) return null;
-  if (section?.contractVersion !== 'naming-token-lexical-identity.v1') return { availability: 'section-unsupported', accepted: new Map(), rejected: [] };
+// consumer checks over the accepted N1 and N2 records. The envelope is checked as Stage 1A checks the other
+// sections (§4.4 rules 2-3): only an absent section (`undefined`: the payload has no such key) records
+// nothing (`null`); a present value that is not a plain object, `null` included, is `section-invalid`;
+// an object with another contract version is `section-unsupported`. `namespace` is the authoritative
+// addressed namespace, never derived from accepted records, so records with no accepted source are
+// rejected by their §4.7 case (unmatched record) rather than crashing the intake.
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+export const referenceLexicalIntake = (section, { sectionIntake, namespace }) => {
+  if (section === undefined) return null;
+  if (!isPlainObject(section)) return { availability: 'section-invalid', accepted: new Map(), rejected: [] };
+  if (section.contractVersion !== 'naming-token-lexical-identity.v1') return { availability: 'section-unsupported', accepted: new Map(), rejected: [] };
   const acceptedN1 = sectionIntake.semanticEvidenceEnrichment.acceptedRecords;
   const acceptedN2 = sectionIntake.folderLabelObservations.acceptedRecords;
-  const namespace = { addressProfileId: (acceptedN1[0] ?? acceptedN2[0]).addressProfileId, addressedSnapshotId: (acceptedN1[0] ?? acceptedN2[0]).addressedSnapshotId };
   const checked = checkReferenceSection(section, { namespace, acceptedN1, acceptedN2 });
   if (checked.section) return { availability: 'section-invalid', accepted: new Map(), rejected: [] };
   const accepted = new Map();
@@ -55,10 +61,11 @@ const relationAt = (intake, folderTuple, labelIndex, memberTuple, memberIndex) =
 };
 
 // The amended S3.2 walk for every member of every directory. `lexicalSection` is the payload's section
-// value (undefined when absent). Returns the members per directory with their steps and notes, the
-// units counted, and the units themselves (for the no-repeat check).
+// value (undefined when absent); `built.namespace` is the addressed namespace the case was built in.
+// Returns the members per directory with their steps and notes, the units counted, and the units
+// themselves (for the no-repeat check).
 export const referenceStageThreeExpression = ({ built, lexicalSection }) => {
-  const intake = referenceLexicalIntake(lexicalSection, built.sectionIntake);
+  const intake = referenceLexicalIntake(lexicalSection, { sectionIntake: built.sectionIntake, namespace: built.namespace });
   const lexical = intake?.availability === 'available' ? intake : null;
   const occurrenceFacts = built.factEvidence.occurrenceFacts;
   const folderByKey = new Map(occurrenceFacts.filter((entry) => entry.occurrenceType === 'folder').map((entry) => [keyOf(entry.identityTuple), entry]));

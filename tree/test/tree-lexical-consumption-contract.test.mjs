@@ -14,6 +14,7 @@ import {
   LEXICAL_UNIT_OUTCOMES,
   LINEAGE_BASES,
   referenceDiscovery,
+  referenceLexicalIntake,
   referenceStageThreeExpression,
 } from './fixtures/lexical-consumption/tree-lexical-expression-reference.fixture.mjs';
 import { prepareTreeEmergentBoundaryReasoning } from '../src/tree-emergent-boundary-reasoning.logic.mjs';
@@ -296,6 +297,52 @@ test('dropped records and unavailable sections: structural reasoning is exactly 
     assert.equal(reference.expressionUnits, null, `${state}: no units`);
     for (const member of dirOf(reference)) assert.deepEqual(stepsOf(member), stepsOf(dirOf(plain).find((item) => item.path === member.path)), `${state}: ${member.semanticName} as without the section`);
   }
+});
+
+test('reference intake boundaries: absent records nothing, a present non-object is `section-invalid`, and the namespace never comes from accepted records', () => {
+  const entry = LEXICAL.find((item) => item.id === 'E10-L');
+  const specs = fileSpecsOf(entry);
+  const plainBuilt = build(specs, { profile: null }).built;
+  const plain = referenceStageThreeExpression({ built: plainBuilt, lexicalSection: undefined });
+  const dirOf = (reference) => reference.directories.get(entry.directory).members;
+  assert.equal(referenceLexicalIntake(undefined, { sectionIntake: plainBuilt.sectionIntake, namespace: plainBuilt.namespace }), null, 'absent: no intake record');
+
+  // §4.4 rule 3, Tree S1.3: a present value that is not a plain object is a malformed envelope.
+  for (const value of [null, [], 'namingTokenLexicalIdentities', 42, true]) {
+    const { built, section } = build(specs, { edit: () => value });
+    assert.equal(section, value);
+    const reference = referenceStageThreeExpression({ built, lexicalSection: section });
+    const label = `present ${JSON.stringify(value)}`;
+    assert.equal(reference.intake.availability, 'section-invalid', label);
+    assert.equal(reference.intake.accepted.size, 0, `${label}: nothing accepted`);
+    assert.equal(reference.expressionUnits, null, `${label}: no units`);
+    assert.deepEqual(reference.units, [], `${label}: no lexical comparison`);
+    for (const member of dirOf(reference)) assert.deepEqual(stepsOf(member), stepsOf(dirOf(plain).find((item) => item.path === member.path)), `${label}: ${member.semanticName} as without the section`);
+    // Today's runtime reads such a payload as without the section (implementation-pending).
+    assert.deepEqual(runtimeOf(built), runtimeOf(plainBuilt), `${label}: today's Stage 3 record`);
+  }
+
+  // A supported section with no accepted N1 or N2 source record: every record is an unmatched record
+  // (bridge §4.7), and nothing throws.
+  const { built, section } = build(specs);
+  const emptySources = {
+    ...built.sectionIntake,
+    semanticEvidenceEnrichment: { ...built.sectionIntake.semanticEvidenceEnrichment, acceptedRecords: [] },
+    folderLabelObservations: { ...built.sectionIntake.folderLabelObservations, acceptedRecords: [] },
+  };
+  let intake;
+  assert.doesNotThrow(() => { intake = referenceLexicalIntake(section, { sectionIntake: emptySources, namespace: built.namespace }); });
+  assert.equal(intake.availability, 'available', 'the envelope is valid');
+  assert.equal(intake.accepted.size, 0);
+  assert.equal(intake.rejected.length, section.records.length);
+  assert.deepEqual([...new Set(intake.rejected.flatMap((item) => item.problems))], ['unmatched-record']);
+  let reference;
+  assert.doesNotThrow(() => { reference = referenceStageThreeExpression({ built: { ...built, sectionIntake: emptySources }, lexicalSection: section }); });
+  assert.deepEqual(reference.expressionUnits, { lexical: 0, possible: 0, undetermined: 0 }, 'no member token to compare');
+  // The namespace is the one passed in: another snapshot makes every record a namespace mismatch.
+  const other = referenceLexicalIntake(section, { sectionIntake: built.sectionIntake, namespace: { ...built.namespace, addressedSnapshotId: 'other-snapshot' } });
+  assert.deepEqual([...new Set(other.rejected.flatMap((item) => item.problems))], ['namespace-mismatch']);
+  assert.equal(other.accepted.size, 0);
 });
 
 test('contract text: the S3.2 relation table and bases, S1.3 and S3.7 omission, the D-T decisions, and the foundation and bridge amendments', () => {
