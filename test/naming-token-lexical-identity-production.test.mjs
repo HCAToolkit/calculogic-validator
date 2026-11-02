@@ -38,22 +38,29 @@ const walk = (directory) =>
     return entry.isDirectory() ? walk(full) : /\.mjs$/u.test(entry.name) ? [full] : [];
   });
 
-test('R3: Naming owns production; no Tree or suite-core module resolves, compares or builds the section', () => {
-  const forbidden = ['resolveSurfaceForm', 'compareLexicalResolutions', 'projectNamingTokenLexicalIdentities', 'naming-token-lexical-identity-projection', 'linguistic-foundation-resolution'];
+test('R3: Naming owns production; no Tree or suite-core module resolves or builds the section, and only Tree\'s one evidence module compares', () => {
+  const forbidden = ['resolveSurfaceForm', 'projectNamingTokenLexicalIdentities', 'naming-token-lexical-identity-projection'];
+  // Tree's lexical-identity evidence module (calculogic-validator#153) is the one Tree module that may
+  // reference the foundation's comparison relation (Tree spec S1.1).
+  const TREE_EVIDENCE_MODULE = 'tree/src/tree-lexical-identity-evidence.logic.mjs';
   for (const root of ['tree/src', 'src', 'structural-addressing/src', 'bin', 'scripts']) {
     for (const file of walk(path.join(ROOT, root))) {
       const source = fs.readFileSync(file, 'utf8');
-      for (const name of forbidden) assert.equal(source.includes(name), false, `${path.relative(ROOT, file)} references ${name}`);
+      const relative = path.relative(ROOT, file);
+      for (const name of forbidden) assert.equal(source.includes(name), false, `${relative} references ${name}`);
+      if (relative !== TREE_EVIDENCE_MODULE) {
+        for (const name of ['compareLexicalResolutions', 'linguistic-foundation-resolution']) assert.equal(source.includes(name), false, `${relative} references ${name}`);
+      }
     }
   }
-  // Exactly two modules outside the foundation import it: Naming's projection (resolution) and suite
-  // core's run selection (the prepared foundation).
+  // Exactly three modules outside the foundation import it: Naming's projection (resolution), suite
+  // core's run selection (the prepared foundation) and Tree's evidence module (the comparison relation).
   const importers = ['src', 'naming/src', 'tree/src', 'structural-addressing/src', 'bin', 'scripts']
     .flatMap((root) => walk(path.join(ROOT, root)))
     .filter((file) => fs.readFileSync(file, 'utf8').includes('linguistic-foundation/src/'))
     .map((file) => path.relative(ROOT, file))
     .sort();
-  assert.deepEqual(importers, ['naming/src/naming-token-lexical-identity-projection.logic.mjs', 'src/core/config/validator-linguistic-profile.logic.mjs']);
+  assert.deepEqual(importers, ['naming/src/naming-token-lexical-identity-projection.logic.mjs', 'src/core/config/validator-linguistic-profile.logic.mjs', TREE_EVIDENCE_MODULE]);
 });
 
 test('R3: staging adds the opaque profile only when one is active; Tree transports it unchanged', () => {
@@ -81,16 +88,28 @@ test('R3: the payload Tree builds equals what the Naming producer builds from th
   assert.equal(section.recordCount, eligible);
 });
 
-test('Tree conclusions are unchanged with the section present: every prepared evidence record and every finding', () => {
+test('Tree conclusions are unchanged with the section present: every Stage 1 and Stage 2 record and every finding; only Stage 3 and the lexical intake read it', () => {
   const dependenciesWithout = inputsWithout.preparedDependencies;
   const dependenciesWith = inputsWith.preparedDependencies;
   // Data only: prepared runtimes hold functions created per call, which are not evidence.
   const asData = (value) =>
     JSON.stringify(value, (_, item) => (typeof item === 'function' ? '<function>' : item instanceof Map ? [...item.entries()] : item instanceof Set ? [...item] : item));
+  // calculogic-validator#153: the section's own intake exists only when the payload carries it.
+  assert.equal('treeLexicalIdentityIntake' in dependenciesWithout, false, 'no section, no lexical intake record');
+  assert.deepEqual(Object.keys(dependenciesWith).sort(), [...Object.keys(dependenciesWithout), 'treeLexicalIdentityIntake'].sort());
+  const intake = dependenciesWith.treeLexicalIdentityIntake;
+  assert.equal(intake.availability, 'available');
+  assert.deepEqual(intake.rejectedRecords, [], 'every record Naming produced is accepted');
+  assert.equal(intake.acceptedRecords.length, section.recordCount);
   for (const key of Object.keys(dependenciesWithout)) {
-    if (key === 'addressedNamingOccurrenceBridge') continue;
+    if (key === 'addressedNamingOccurrenceBridge' || key === 'treeEmergentBoundaryReasoning') continue;
     assert.equal(asData(dependenciesWith[key]), asData(dependenciesWithout[key]), key);
   }
+  // Stage 3 differs only where lexical identity applies: without a policy no outcome exists, and the
+  // record carries the lexicalIdentity block.
+  const stageThree = dependenciesWith.treeEmergentBoundaryReasoning;
+  assert.deepEqual(stageThree.lexicalIdentity.lexicalProfile, section.lexicalProfile);
+  assert.equal('lexicalIdentity' in dependenciesWithout.treeEmergentBoundaryReasoning, false);
   const findings = (staged) => runTreeStructureAdvisor(ROOT, { scope: SCOPE, registryResolution, registryRoots: registryResolution.registryRoots, ...staged }).findings;
   assert.deepEqual(findings(stagedWith), findings(stagedWithout));
 });

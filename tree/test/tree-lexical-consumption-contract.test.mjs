@@ -1,9 +1,10 @@
-// Tree lexical-identity consumption: executable contract evidence (Tree slice spec S1.1-S1.3, S3.2, S3.7,
-// S3.9, S3.11; bridge contract §4.7; Linguistic Foundation shared contract §8.5, §9.2, §12;
-// calculogic-validator#153). Contract slice: no Tree runtime reads the section yet. These tests prove the
-// amended rules are expressible and deterministic through a test-only reference walk, that the reference
-// equals today's runtime wherever the amendment changes nothing, and that today's runtime still reads a
-// payload carrying the section exactly as without it, so the lexical companions are implementation-pending.
+// Tree lexical-identity consumption: executable contract evidence and its runtime (Tree slice spec
+// S1.1-S1.3, S3.2, S3.7, S3.9, S3.11; bridge contract §4.7; Linguistic Foundation shared contract §8.5,
+// §9.2, §12; calculogic-validator#153). The contract slice proved the amended rules expressible and
+// deterministic through a test-only reference walk, equal to the runtime wherever the amendment changes
+// nothing. The implementation slice runs the real Tree lexical intake and Stage 3 through the same cases:
+// the runtime must equal the reference everywhere, reach every lexical companion's declared outcome, and
+// leave a run without the section exactly as before.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -18,6 +19,7 @@ import {
   referenceStageThreeExpression,
 } from './fixtures/lexical-consumption/tree-lexical-expression-reference.fixture.mjs';
 import { prepareTreeEmergentBoundaryReasoning } from '../src/tree-emergent-boundary-reasoning.logic.mjs';
+import { createTreeLexicalRelation, prepareTreeLexicalIdentityIntake } from '../src/tree-lexical-identity-evidence.logic.mjs';
 import { projectNamingTokenLexicalIdentities } from '../../naming/src/naming-token-lexical-identity-projection.logic.mjs';
 import { prepareLinguisticFoundation } from '../../linguistic-foundation/src/linguistic-foundation.wiring.mjs';
 
@@ -60,14 +62,41 @@ const build = (fileSpecs, { profile = english, edit } = {}) => {
   });
   return { built, section };
 };
-const runtimeOf = (built) =>
-  prepareTreeEmergentBoundaryReasoning({
+// As Tree wiring composes it: the lexical intake from the same payload as Stage 1A, then Stage 3.
+const lexicalIntakeOf = (built) => prepareTreeLexicalIdentityIntake({ namingOccurrenceBridge: built.bridge, sectionIntake: built.sectionIntake });
+const runtimeOf = (built) => {
+  const intake = lexicalIntakeOf(built);
+  return prepareTreeEmergentBoundaryReasoning({
     factEvidence: built.factEvidence,
     semanticEvidence: built.semanticEvidence,
     sectionIntake: built.sectionIntake,
     semanticHomeReasoning: built.reasoning,
     policy: EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY,
+    lexicalRelation: createTreeLexicalRelation(intake),
+    lexicalProfile: intake?.lexicalProfile ?? null,
   });
+};
+const withoutFolder = ({ folder, ...rest }) => rest;
+// The runtime equals the reference: units, and every recorded member's steps (with their relation
+// evidence) and possible-expression notes. Only directories with candidates are recorded (S3.7).
+const assertRuntimeMatchesReference = (built, section, label) => {
+  const runtime = runtimeOf(built);
+  const reference = referenceStageThreeExpression({ built, lexicalSection: section });
+  assert.deepEqual(runtime.lexicalIdentity?.expressionUnits ?? null, reference.expressionUnits, `${label}: units`);
+  assert.equal('lexicalIdentity' in runtime, reference.expressionUnits !== null, `${label}: the lexicalIdentity block only with an available section`);
+  if (runtime.lexicalIdentity) assert.deepEqual(runtime.lexicalIdentity.lexicalProfile, reference.intake.lexicalProfile, `${label}: provenance`);
+  for (const directory of runtime.directories) {
+    const members = reference.directories.get(directory.path).members;
+    assert.deepEqual(directory.candidates.map((candidate) => prefixKey(candidate.prefix)), referenceDiscovery(members).map((candidate) => prefixKey(candidate.prefix)), `${label} ${directory.path}: candidates`);
+    for (const member of directory.candidates.flatMap((candidate) => candidate.members)) {
+      const own = members.find((item) => item.path === member.path);
+      assert.deepEqual(member.lineageExpression.map(withoutFolder), own.steps, `${label} ${member.path}: steps`);
+      assert.deepEqual((member.possibleLexicalExpression ?? []).map(withoutFolder), own.possible, `${label} ${member.path}: possible notes`);
+      assert.equal('possibleLexicalExpression' in member, own.possible.length > 0, `${label} ${member.path}: the note only when there is one`);
+    }
+  }
+  return { runtime, reference };
+};
 const stepsOf = (member) => member.steps.map(({ folderPath, basis, positions, tokens }) => ({ folderPath, basis, positions, tokens }));
 const lineageOf = (entry, semanticName) => entry.lineageExpression?.[semanticName] ?? entry.lineageTokens;
 
@@ -95,7 +124,7 @@ test('reference fidelity: without the section, the reference walk and discovery 
   }
 });
 
-test('S3.9 lexical companions: the table names exactly the fixture\'s cases, each extending its case\'s tree unchanged, with its units and the pending marker', () => {
+test('S3.9 lexical companions: the table names exactly the fixture\'s cases, each extending its case\'s tree unchanged, with its units, reclassified as ordinary cases', () => {
   const rows = [...S3_9_LEXICAL.matchAll(/^\| (E[\d.]+-L) \| (E[\d.]+) \| ([^|]+) \| ([^|]+) \|$/gmu)].map((match) => ({ id: match[1], base: match[2], condition: match[3], expected: match[4] }));
   assert.deepEqual(rows.map((row) => [row.id, row.base]), LEXICAL.map((entry) => [entry.id, entry.lexicalCompanionOf]));
   assert.deepEqual(LEXICAL.map((entry) => entry.id), ['E10-L', 'E10.1-L', 'E11-L']);
@@ -106,11 +135,13 @@ test('S3.9 lexical companions: the table names exactly the fixture\'s cases, eac
     assert.deepEqual(entry.lexicalProfile, { profileId: 'english' }, `${entry.id}: English v1 is the condition`);
     const { lexical, possible, undetermined } = entry.expressionUnits;
     assert.ok(row.condition.includes(`lexical ${lexical}, possible ${possible}, undetermined ${undetermined}`), `${entry.id}: units in the table`);
-    assert.ok(row.expected.includes('**Implementation-pending:**'), `${entry.id}: pending marker`);
+    assert.ok(!row.expected.includes('**Implementation-pending:**'), `${entry.id}: no longer pending`);
+    assert.ok(row.expected.includes('Before the implementation the runtime gave'), `${entry.id}: the pre-implementation result stays recorded`);
     assert.equal(entry.knownGap, undefined, `${entry.id}: no known gap under the condition`);
     for (const candidate of entry.candidates) assert.ok(row.expected.includes(`\`${prefixKey(candidate.prefix)}\``), `${entry.id}: names ${prefixKey(candidate.prefix)}`);
-    for (const prefix of Object.keys(entry.implementationPending.runtimeProduces)) {
-      assert.ok(base.candidates.some((candidate) => prefixKey(candidate.prefix) === prefix), `${entry.id}: today's result is a candidate of ${base.id}`);
+    assert.equal(entry.implementationPending, undefined, `${entry.id}: reclassified`);
+    for (const prefix of Object.keys(entry.beforeImplementation.runtimeProduced)) {
+      assert.ok(base.candidates.some((candidate) => prefixKey(candidate.prefix) === prefix), `${entry.id}: the earlier result is a candidate of ${base.id}`);
     }
   }
   // The base cases keep their checks: E10 and E10.1 are still known-gap cases without the condition.
@@ -162,20 +193,51 @@ test('S3.2 lexical-label expression: each lexical companion reaches its declared
   }
 });
 
-test('implementation-pending: today\'s runtime reads each lexical companion exactly as its base case, through Stage 1A and Stage 3', () => {
+test('runtime: each lexical companion reaches its expected candidates, members, outcomes, steps and units; Stage 1A, Stage 1 and Stage 2 are unchanged', () => {
   for (const entry of LEXICAL) {
-    const withSection = build(fileSpecsOf(entry)).built;
+    const { built: withSection, section } = build(fileSpecsOf(entry));
     const without = build(fileSpecsOf(entry), { profile: null }).built;
     for (const field of ['sectionIntake', 'factEvidence', 'semanticEvidence', 'reasoning']) assert.deepEqual(withSection[field], without[field], `${entry.id}: ${field}`);
-    const runtime = runtimeOf(withSection);
-    assert.deepEqual(runtime, runtimeOf(without), `${entry.id}: the Stage 3 record`);
+    const intake = lexicalIntakeOf(withSection);
+    assert.equal(intake.availability, 'available', `${entry.id}: section available`);
+    assert.deepEqual(intake.rejectedRecords, [], `${entry.id}: every record accepted`);
+    const { runtime } = assertRuntimeMatchesReference(withSection, section, entry.id);
+    assert.deepEqual(runtime.lexicalIdentity.expressionUnits, entry.expressionUnits, `${entry.id}: S3.7 units`);
     const directory = runtime.directories.find((item) => item.path === entry.directory);
-    const recorded = entry.implementationPending.runtimeProduces;
-    assert.deepEqual(directory.candidates.map((candidate) => prefixKey(candidate.prefix)).sort(), Object.keys(recorded).sort(), `${entry.id}: today's candidates`);
-    for (const candidate of directory.candidates) {
-      assert.deepEqual({ outcome: candidate.assessment.outcome, reasons: candidate.assessment.reasons }, recorded[prefixKey(candidate.prefix)], `${entry.id} ${prefixKey(candidate.prefix)}: today's result, exactly as recorded`);
+    if (entry.candidates.length === 0) {
+      assert.equal(directory, undefined, `${entry.id}: no candidate is discovered`);
+    } else {
+      assert.deepEqual(directory.candidates.map((candidate) => prefixKey(candidate.prefix)), entry.candidates.map((candidate) => prefixKey(candidate.prefix)), `${entry.id}: candidates`);
+      for (const expected of entry.candidates) {
+        const candidate = directory.candidates.find((item) => prefixKey(item.prefix) === prefixKey(expected.prefix));
+        const label = `${entry.id} ${prefixKey(expected.prefix)}`;
+        assert.deepEqual([...new Set(candidate.members.map((member) => member.semanticName))].sort(), [...expected.members].sort(), `${label}: members`);
+        assert.deepEqual(candidate.leadingTokens, expected.leadingTokenSequences, `${label}: leading tokens`);
+        for (const [set, names] of Object.entries(expected.memberSets)) {
+          assert.deepEqual(candidate.members.filter((member) => member.set === set).map((member) => member.semanticName).sort(), [...names].sort(), `${label}: ${set} members`);
+        }
+        assert.equal(candidate.assessment.completion, 'complete', `${label}: complete`);
+        assert.deepEqual({ outcome: candidate.assessment.outcome, reasons: candidate.assessment.reasons }, expected.expected, `${label}: the expected outcome`);
+      }
     }
-    assert.equal('lexicalIdentity' in runtime, false, `${entry.id}: no lexical block before the implementation`);
+    for (const expected of entry.lexicalSteps) {
+      for (const name of expected.names) {
+        const member = (directory?.candidates ?? []).flatMap((candidate) => candidate.members).find((item) => item.semanticName === name);
+        if (!member) continue; // a member of no candidate is not recorded (S3.7); the reference check above covers it
+        const step = member.lineageExpression.find((item) => item.basis === 'lexical-label');
+        assert.deepEqual(step.relations.map(({ relation, lexemeIds }) => ({ relation, lexemeIds })), [{ relation: 'same-lexeme', lexemeIds: expected.lexemeIds }], `${entry.id} ${name}`);
+      }
+    }
+    // Without the section the run is the pre-implementation run: the base result, and no lexical block.
+    const before = runtimeOf(without);
+    assert.equal('lexicalIdentity' in before, false, `${entry.id}: no lexical block without the section`);
+    assert.equal(lexicalIntakeOf(without), null, `${entry.id}: no lexical intake record without the section`);
+    const beforeDirectory = before.directories.find((item) => item.path === entry.directory);
+    const recorded = entry.beforeImplementation.runtimeProduced;
+    assert.deepEqual(beforeDirectory.candidates.map((candidate) => prefixKey(candidate.prefix)).sort(), Object.keys(recorded).sort(), `${entry.id}: candidates without the section`);
+    for (const candidate of beforeDirectory.candidates) {
+      assert.deepEqual({ outcome: candidate.assessment.outcome, reasons: candidate.assessment.reasons }, recorded[prefixKey(candidate.prefix)], `${entry.id} ${prefixKey(candidate.prefix)}: the result without the section`);
+    }
   }
 });
 
@@ -213,9 +275,13 @@ test('S3.2 relation outcomes: exact precedence, a multi-token label, the order r
     tokenFile('naming/cli', ['naming', 'cli', 'usage']),
     tokenFile('pad/omega-sigma', ['tau', 'upsilon', 'x']),
     tokenFile('pad/omega-sigma', ['tau', 'upsilon', 'y']),
+    // Stage 1 already reaches the label's end (a root match on family root `rules`), though the token
+    // at p is `rule`: the folder is not compared lexically (S3.2, beyond its Stage 1 end).
+    { ...tokenFile('stage/rules', ['rule', 'x']), root: 'rules' },
+    { ...tokenFile('stage/rules', ['rule', 'y']), root: 'rules' },
   ];
   const { built, section } = build(tree);
-  const reference = referenceStageThreeExpression({ built, lexicalSection: section });
+  const { reference } = assertRuntimeMatchesReference(built, section, 'synthetic');
 
   // A multi-token label: position 0 is exact and never compared; position 1 is `same-lexeme`.
   const multi = memberAt(reference, 'kit/naming-rules', 'naming-rule-parse');
@@ -244,17 +310,23 @@ test('S3.2 relation outcomes: exact precedence, a multi-token label, the order r
   assert.equal(new Set(pairs).size, pairs.length, 'no repeated probe');
   assert.deepEqual(unitsOf(away), [['pkg', 'undetermined'], ['pkg/rules', 'undetermined']], 'aligned at p only; the token at position 2 is never probed');
   assert.deepEqual(unitsOf(continued), [], 'an exact or Stage 1 continuation is never compared lexically');
+  const reached = memberAt(reference, 'stage/rules', 'rule-x');
+  assert.deepEqual(reached.steps.map((step) => [step.folderPath, step.basis, step.tokens]), [['stage/rules', 'stage-1-root', ['rule']]], 'Stage 1 expresses position 0');
+  assert.deepEqual(unitsOf(reached), [['stage', 'undetermined']], 'no unit for a folder Stage 1 already carries to the end');
   // Two non-exact `undetermined` positions in one label are still one unit.
   assert.deepEqual(unitsOf(memberAt(reference, 'pad/omega-sigma', 'tau-upsilon-x')), [['pad', 'undetermined'], ['pad/omega-sigma', 'undetermined']]);
 
   // `possibly-same-lexeme`: no expression, a possible unit and a note; never a step or a residual change.
   const ambiguous = build(tree, { edit: withAmbiguousLabel('rules') });
-  const possibleReference = referenceStageThreeExpression({ built: ambiguous.built, lexicalSection: ambiguous.section });
+  const { reference: possibleReference, runtime: possibleRuntime } = assertRuntimeMatchesReference(ambiguous.built, ambiguous.section, 'synthetic, ambiguous label');
   const possible = memberAt(possibleReference, 'kit/naming-rules', 'naming-rule-parse');
   assert.ok(possible.steps.every((step) => step.basis !== 'lexical-label'), 'no lexical step');
   assert.equal(possible.length, 1, 'only the Stage 1 root is expressed');
   assert.deepEqual(possible.possible.map((note) => [note.folderPath, note.positions, note.relations.map((relation) => relation.relation)]), [['kit/naming-rules', { start: 0, end: 2 }, ['possibly-same-lexeme']]]);
   assert.equal(possibleReference.expressionUnits.possible, 2, 'one possible unit per member of `kit/naming-rules`');
+  // The runtime records the note on the member record of the candidate the residual forms (`rule`).
+  const ruleCandidate = possibleRuntime.directories.find((item) => item.path === 'kit/naming-rules').candidates.find((candidate) => prefixKey(candidate.prefix) === 'rule');
+  assert.ok(ruleCandidate.members.every((member) => member.possibleLexicalExpression?.length === 1), 'a note on each member');
 });
 
 test('dropped records and unavailable sections: structural reasoning is exactly as without lexical evidence; only lexical metadata records why', () => {
@@ -263,7 +335,7 @@ test('dropped records and unavailable sections: structural reasoning is exactly 
   const plain = referenceStageThreeExpression({ built: build(specs, { profile: null }).built, lexicalSection: undefined });
   const full = (() => {
     const { built, section } = build(specs);
-    return referenceStageThreeExpression({ built, lexicalSection: section });
+    return assertRuntimeMatchesReference(built, section, 'E10-L, full').reference;
   })();
   const dropName = 'naming-rule-parse';
   const dropped = (() => {
@@ -277,7 +349,11 @@ test('dropped records and unavailable sections: structural reasoning is exactly 
         ),
       }),
     });
-    return referenceStageThreeExpression({ built, lexicalSection: section });
+    const runtimeIntake = lexicalIntakeOf(built);
+    assert.deepEqual(runtimeIntake.rejectedRecords.map((item) => item.reason), ['surface-mismatch'], 'the runtime drops the record');
+    assert.deepEqual(runtimeIntake.diagnostics.map(({ section: name, reason }) => [name, reason]), [['naming-token-lexical-identity', 'surface-mismatch']], 'with a lexical-only diagnostic');
+    assert.equal(built.sectionIntake.diagnostics.some((item) => item.section === 'naming-token-lexical-identity'), false, 'never in the Stage 1A intake');
+    return assertRuntimeMatchesReference(built, section, 'E10-L, one record dropped').reference;
   })();
   assert.deepEqual(dropped.intake.rejected.map((item) => item.problems), [['surface-mismatch']], 'the record is dropped with its diagnostic');
   const dirOf = (reference) => reference.directories.get(entry.directory).members;
@@ -292,8 +368,10 @@ test('dropped records and unavailable sections: structural reasoning is exactly 
     ['section-invalid', (projected) => ({ ...projected, lexicalProfile: { ...projected.lexicalProfile, lexiconDigest: '' } })],
   ]) {
     const { built, section } = build(specs, { edit });
-    const reference = referenceStageThreeExpression({ built, lexicalSection: section });
+    const { reference, runtime } = assertRuntimeMatchesReference(built, section, state);
     assert.equal(reference.intake.availability, state, state);
+    assert.equal(lexicalIntakeOf(built).availability, state, `${state}: the runtime intake`);
+    assert.equal('lexicalIdentity' in runtime, false, `${state}: no lexical block`);
     assert.equal(reference.expressionUnits, null, `${state}: no units`);
     for (const member of dirOf(reference)) assert.deepEqual(stepsOf(member), stepsOf(dirOf(plain).find((item) => item.path === member.path)), `${state}: ${member.semanticName} as without the section`);
   }
@@ -318,8 +396,14 @@ test('reference intake boundaries: absent records nothing, a present non-object 
     assert.equal(reference.expressionUnits, null, `${label}: no units`);
     assert.deepEqual(reference.units, [], `${label}: no lexical comparison`);
     for (const member of dirOf(reference)) assert.deepEqual(stepsOf(member), stepsOf(dirOf(plain).find((item) => item.path === member.path)), `${label}: ${member.semanticName} as without the section`);
-    // Today's runtime reads such a payload as without the section (implementation-pending).
-    assert.deepEqual(runtimeOf(built), runtimeOf(plainBuilt), `${label}: today's Stage 3 record`);
+    // The runtime intake records the malformed envelope; Stage 3 is exactly the run without the section.
+    const runtimeIntake = lexicalIntakeOf(built);
+    assert.deepEqual({ availability: runtimeIntake.availability, accepted: runtimeIntake.acceptedRecords.length, diagnostics: runtimeIntake.diagnostics }, {
+      availability: 'section-invalid',
+      accepted: 0,
+      diagnostics: [{ section: 'naming-token-lexical-identity', reason: 'section-invalid', identityTuple: null }],
+    }, `${label}: runtime intake`);
+    assert.deepEqual(runtimeOf(built), runtimeOf(plainBuilt), `${label}: the Stage 3 record`);
   }
 
   // A supported section with no accepted N1 or N2 source record: every record is an unmatched record
@@ -339,10 +423,59 @@ test('reference intake boundaries: absent records nothing, a present non-object 
   let reference;
   assert.doesNotThrow(() => { reference = referenceStageThreeExpression({ built: { ...built, sectionIntake: emptySources }, lexicalSection: section }); });
   assert.deepEqual(reference.expressionUnits, { lexical: 0, possible: 0, undetermined: 0 }, 'no member token to compare');
+  // The runtime intake, over the same empty sources, rejects every record the same way and never throws.
+  let runtimeIntake;
+  assert.doesNotThrow(() => { runtimeIntake = prepareTreeLexicalIdentityIntake({ namingOccurrenceBridge: built.bridge, sectionIntake: emptySources }); });
+  assert.equal(runtimeIntake.availability, 'available');
+  assert.deepEqual([...new Set(runtimeIntake.rejectedRecords.map((item) => item.reason))], ['unmatched-record']);
+  assert.equal(runtimeIntake.acceptedRecords.length, 0);
   // The namespace is the one passed in: another snapshot makes every record a namespace mismatch.
   const other = referenceLexicalIntake(section, { sectionIntake: built.sectionIntake, namespace: { ...built.namespace, addressedSnapshotId: 'other-snapshot' } });
   assert.deepEqual([...new Set(other.rejected.flatMap((item) => item.problems))], ['namespace-mismatch']);
   assert.equal(other.accepted.size, 0);
+});
+
+test('runtime intake: each bridge §4.7 consumer case drops only its record, in table order; envelopes and absence as S1.3 states', () => {
+  const entry = LEXICAL.find((item) => item.id === 'E10-L');
+  const { built, section } = build(fileSpecsOf(entry));
+  const intakeFor = (value) => prepareTreeLexicalIdentityIntake({ namingOccurrenceBridge: { ...built.bridge, [SECTION]: value }, sectionIntake: built.sectionIntake });
+  const index = section.records.findIndex((record) => record.tokenSource === 'semantic-tokens' && record.tokens[1]?.surface === 'rule');
+  const target = section.records[index];
+  const withRecord = (record, extra = []) => ({ ...section, records: [...section.records.slice(0, index), record, ...section.records.slice(index + 1), ...extra], recordCount: section.records.length + extra.length });
+  const atEntry = (position, change) => ({ ...target, tokens: target.tokens.map((item, at) => (at === position ? change(item) : item)) });
+  const cases = {
+    'invalid-identity': withRecord({ ...target, occurrenceAddress: '' }),
+    'duplicate-identity': withRecord(target, [target]),
+    'namespace-mismatch': withRecord({ ...target, addressedSnapshotId: 'other' }),
+    'invalid-record-shape': withRecord(atEntry(1, (item) => ({ ...item, readings: item.readings.map((reading) => ({ ...reading, features: { number: 'dual' } })) }))),
+    'unmatched-record': withRecord({ ...target, tokenSource: 'label-tokens' }),
+    'token-count-mismatch': withRecord({ ...target, tokens: target.tokens.slice(0, -1) }),
+    'surface-mismatch': withRecord(atEntry(1, (item) => ({ ...item, surface: 'rules' }))),
+    'status-readings-disagree': withRecord(atEntry(0, (item) => ({ ...item, status: 'resolved' }))),
+    'lexeme-outside-profile': withRecord(atEntry(1, (item) => ({ ...item, readings: item.readings.map((reading) => ({ ...reading, lexemeId: 'other.rule' })) }))),
+  };
+  for (const [reason, variant] of Object.entries(cases)) {
+    let intake;
+    assert.doesNotThrow(() => { intake = intakeFor(variant); }, reason);
+    assert.equal(intake.availability, 'available', `${reason}: the section stays available`);
+    assert.deepEqual([...new Set(intake.rejectedRecords.map((item) => item.reason))], [reason], reason);
+    assert.equal(intake.acceptedRecords.length, section.records.length - 1, `${reason}: only the record is dropped`);
+    assert.ok(intake.diagnostics.every((item) => item.section === 'naming-token-lexical-identity' && item.reason === reason), `${reason}: diagnostics`);
+  }
+  // Table order: a record that is both a surface mismatch and outside the profile is reported as the first.
+  const both = intakeFor(withRecord(atEntry(1, (item) => ({ ...item, surface: 'rules', readings: item.readings.map((reading) => ({ ...reading, lexemeId: 'other.rule' })) }))));
+  assert.deepEqual(both.rejectedRecords.map((item) => item.reason), ['surface-mismatch']);
+  // Envelopes (S1.3): unsupported version, malformed envelopes, and absence.
+  assert.equal(intakeFor({ ...section, contractVersion: 'naming-token-lexical-identity.v2' }).availability, 'section-unsupported');
+  for (const envelope of [{ ...section, lexicalProfile: undefined }, { ...section, lexicalProfile: { ...section.lexicalProfile, lexiconDigest: '' } }, { ...section, recordCount: 0 }, { ...section, identityTupleFields: ['occurrenceAddress'] }, { ...section, records: 'x' }]) {
+    assert.equal(intakeFor(envelope).availability, 'section-invalid');
+  }
+  const { [SECTION]: _omitted, ...withoutSection } = built.bridge;
+  assert.equal(prepareTreeLexicalIdentityIntake({ namingOccurrenceBridge: withoutSection, sectionIntake: built.sectionIntake }), null, 'absent: no record');
+  assert.equal(prepareTreeLexicalIdentityIntake({ namingOccurrenceBridge: null, sectionIntake: built.sectionIntake }), null, 'no payload: no record');
+  // The relation is available only for an available intake.
+  assert.equal(createTreeLexicalRelation(intakeFor(null)), null);
+  assert.equal(createTreeLexicalRelation(null), null);
 });
 
 test('contract text: the S3.2 relation table and bases, S1.3 and S3.7 omission, the D-T decisions, and the foundation and bridge amendments', () => {
@@ -362,8 +495,9 @@ test('contract text: the S3.2 relation table and bases, S1.3 and S3.7 omission, 
   assert.match(TREE, /\| D-T1 \|[^\n]*\*\*Not decided\.\*\*/u);
   assert.match(TREE, /\| D-T2 \|[^\n]*\*\*Open\.\*\*/u);
   assert.match(TREE, /\| D-T3 \|[^\n]*\*\*Deferred\.\*\*/u);
-  assert.match(LF, /### 9\.2 Tree \(Contract, calculogic-validator#153; implementation-pending\)/u);
+  assert.match(LF, /### 9\.2 Tree \(Current, calculogic-validator#153\)/u);
+  assert.match(between(TREE, '#### S1.1', '#### S1.2'), /imports only two foundation functions: `compareLexicalResolutions`, and the read-only feature-map predicate `isFoundationFeatureMap`/u);
   assert.match(LF, /\| D5 \| \*\*Resolved\*\* \(calculogic-validator#153\)/u);
   assert.match(LF, /from two importers of the foundation to three/u);
-  assert.match(BRIDGE, /\*\*Tree consumption \(Contract, calculogic-validator#153; implementation-pending\):\*\*/u);
+  assert.match(BRIDGE, /\*\*Tree consumption \(Current, calculogic-validator#153\):\*\*/u);
 });

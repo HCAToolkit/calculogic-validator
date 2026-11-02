@@ -7,7 +7,7 @@
 
 ## 0.0 Version
 
-Status: **implemented by calculogic-validator#148**: the foundation runtime (5.2.1–5.2.7), its vocabularies and inventory (6.1, 6.2) and the `english` profile, version `1` (6.3). **First consumer, calculogic-validator#150:** a run selects a profile through the config's `linguisticProfile`. Suite core prepares the foundation, and Naming presents resolutions through the `namingTokenLexicalIdentities` bridge section. Tree does not consume it (contract §9.2), and the profiles stay builtin-only (D11).
+Status: **implemented by calculogic-validator#148**: the foundation runtime (5.2.1–5.2.7), its vocabularies and inventory (6.1, 6.2) and the `english` profile, version `1` (6.3). **First consumer, calculogic-validator#150:** a run selects a profile through the config's `linguisticProfile`. Suite core prepares the foundation, and Naming presents resolutions through the `namingTokenLexicalIdentities` bridge section. **Tree consumer, calculogic-validator#153:** Tree's lexical-identity evidence module takes in that section and relates accepted resolutions through 5.2.6, for Stage 3 positional expression only (contract §9.2). The profiles stay builtin-only (D11).
 
 Sections are numbered so that implementation comments can reference them (`[5.2.5] cfg-linguisticFoundation · Primitive · "…"`).
 
@@ -52,7 +52,7 @@ Logic and Knowledge, plus a Results concern for the prepared records. There is n
 
 - `src/core/registry-entry-shape.logic.mjs` for the shared shape assertions.
 - `src/core/registry-lifecycle/registry-lifecycle-canonical-digest.logic.mjs` for the canonical digest.
-- No dependency on Naming, Tree or Structural Addressing. Its only importers are Naming's token lexical-identity projection (5.2.5) and suite core's run selection (5.2.7), calculogic-validator#150.
+- No dependency on Naming, Tree or Structural Addressing. Its only importers are Naming's token lexical-identity projection (5.2.5) and suite core's run selection (5.2.7), calculogic-validator#150, and Tree's lexical-identity evidence module (5.2.6, 5.2.8), calculogic-validator#153.
 
 ### 2.4 Invariants
 
@@ -119,6 +119,10 @@ Resolution (contract §4.3, §6.1, §7). The result is `{ surface, status, readi
 
 The lexeme-comparison relation (contract §6.2).
 
+#### 5.2.8 Derived value: `isFoundationFeatureMap` (calculogic-validator#153)
+
+Whether a value is a feature map the foundation could have produced: a plain object whose every own key is a foundation feature space (6.1) and whose value is one of that space's values. A consumer that validates presented readings (bridge contract §4.7, invalid record shape) asks the foundation instead of copying its vocabulary. It never resolves or compares anything.
+
 #### 5.2.7 Workflow: `prepareLinguisticFoundation`
 
 Composition. It loads the registered profiles from the registry root, selects the active one, and returns the frozen record `{ selection, profile }`. Consumers pass `profile` to 5.2.5; `null` gives `profile-unavailable`.
@@ -165,7 +169,7 @@ linguistic-foundation/
     linguistic-foundation.knowledge.mjs                       6.1
     linguistic-foundation-runtime-converters.logic.mjs        5.2.3
     linguistic-foundation-profile-selection.logic.mjs         5.2.4
-    linguistic-foundation-resolution.logic.mjs                5.2.5, 5.2.6
+    linguistic-foundation-resolution.logic.mjs                5.2.5, 5.2.6, 5.2.8
     linguistic-foundation.wiring.mjs                          5.2.7
     registries/
       linguistic-foundation-language-profile-inventory.knowledge.mjs   6.2

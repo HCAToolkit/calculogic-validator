@@ -654,10 +654,11 @@ const COMPANIONS = [
 //   the base candidates the condition no longer discovers, and why; `kindSuffix`: members carrying the
 //   folder label's lexeme only as their final token (S3.10 kind-suffix grouping, not expressed).
 // - `expressionUnits`: the S3.7 counts over the whole case tree.
-// - `implementationPending.runtimeProduces`: today's runtime result in the focus directory, checked
-//   exactly; today's runtime reads the payload as without the section (bridge §4.4 rule 2).
+// - `beforeImplementation.runtimeProduced`: what the runtime produced in the focus directory before the
+//   #153 implementation slice. The companions were implementation-pending until then; they are now
+//   ordinary cases, and this record is still checked, as the result of a run without the section.
 const companionCase = (id) => COMPANIONS.find((entry) => entry.id === id);
-const E10_RUNTIME_TODAY = Object.freeze({
+const E10_RUNTIME_BEFORE_IMPLEMENTATION = Object.freeze({
   rule: { outcome: 'insufficient-evidence', reasons: ['whole-directory-value-undetermined'] },
   'rule-check': { outcome: 'opportunity', reasons: ['concentration', 'lexical-specificity', 'responsibility-diversity', 'separation-value'] },
 });
@@ -694,7 +695,7 @@ const LEXICAL_COMPANIONS = [
       lexicalProfile: { profileId: 'english' },
       knownGap: undefined,
       expressionUnits: { lexical: 8, possible: 0, undetermined: 24 },
-      implementationPending: { runtimeProduces: E10_RUNTIME_TODAY },
+      beforeImplementation: { runtimeProduced: E10_RUNTIME_BEFORE_IMPLEMENTATION },
     };
   })(),
   (() => {
@@ -709,7 +710,7 @@ const LEXICAL_COMPANIONS = [
       // Structural evidence, not lexical identity, keeps `naming-owned/` as broader context (S3.5): its
       // tokens are `unknown`, and the Stage 2 preconditions are E10.1's, unchanged.
       expressionUnits: { lexical: 8, possible: 0, undetermined: 36 },
-      implementationPending: { runtimeProduces: E10_RUNTIME_TODAY },
+      beforeImplementation: { runtimeProduced: E10_RUNTIME_BEFORE_IMPLEMENTATION },
     };
   })(),
   (() => {
@@ -728,7 +729,7 @@ const LEXICAL_COMPANIONS = [
       kindSuffix: [{ folder: 'tree/src/registries', names: ['tree-structural-homes-registry'], token: 'registry', labelTokens: ['registries'] }],
       notDiscovered: [{ relationship: 'the member whose final token is `registry` to the folder label `registries`', limitation: 'kind-suffix grouping' }],
       expressionUnits: { lexical: 5, possible: 0, undetermined: 7 },
-      implementationPending: { runtimeProduces: { registry: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] } } },
+      beforeImplementation: { runtimeProduced: { registry: { outcome: 'insufficient-evidence', reasons: ['low-specificity'] } } },
     };
   })(),
 ];

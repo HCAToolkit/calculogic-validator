@@ -3,7 +3,7 @@
 // against the contract's test-only reference model over the contract's sample profile.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compareLexicalResolutions, resolveSurfaceForm } from '../src/linguistic-foundation-resolution.logic.mjs';
+import { compareLexicalResolutions, isFoundationFeatureMap, resolveSurfaceForm } from '../src/linguistic-foundation-resolution.logic.mjs';
 import { toLanguageProfileRuntime } from '../src/linguistic-foundation-runtime-converters.logic.mjs';
 import {
   digestLanguageProfileRegistry,
@@ -106,4 +106,13 @@ test('different profiles or profile versions are never compared', () => {
   const nextVersion = runtimeOf({ version: '1', ...SAMPLE_PROFILE, profileVersion: '1' });
   assert.equal(compareLexicalResolutions(resolveSurfaceForm(sample, 'rule'), resolveSurfaceForm(nextVersion, 'rule')), 'undetermined');
   assert.equal(compareLexicalResolutions(resolveSurfaceForm(sample, 'rule'), r('rule')), 'undetermined');
+});
+
+test('isFoundationFeatureMap (5.2.8, calculogic-validator#153): only foundation feature spaces with their own values', () => {
+  for (const features of [{}, { number: 'singular' }, { number: 'plural' }]) assert.equal(isFoundationFeatureMap(features), true, JSON.stringify(features));
+  for (const features of [null, undefined, [], 'plural', { number: 'dual' }, { number: ['plural'] }, { tense: 'past' }, { number: 'plural', tense: 'past' }, Object.create({ number: 'dual' }, { tense: { value: 'past', enumerable: true } })]) {
+    assert.equal(isFoundationFeatureMap(features), false, String(JSON.stringify(features)));
+  }
+  // An inherited name is not a feature space (`Object.hasOwn`, as the registry loader checks).
+  assert.equal(isFoundationFeatureMap({ toString: 'plural' }), false);
 });

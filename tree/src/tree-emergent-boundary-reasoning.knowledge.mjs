@@ -31,6 +31,14 @@ export const EMERGENT_BOUNDARY_LINEAGE_BASES = Object.freeze({
   stageOneRoot: 'stage-1-root',
   stageOnePrefix: 'stage-1-prefix',
   positionalLabel: 'positional-label',
+  // S3.2 lexical-label expression (calculogic-validator#153): after Stage 1 and `positional-label` on ties.
+  lexicalLabel: 'lexical-label',
+});
+// S3.2, S3.7 (calculogic-validator#153): one (member, lineage folder) unit per lexical comparison outcome.
+export const EMERGENT_BOUNDARY_LEXICAL_UNITS = Object.freeze({
+  lexical: 'lexical',
+  possible: 'possible',
+  undetermined: 'undetermined',
 });
 
 // S3.4.
