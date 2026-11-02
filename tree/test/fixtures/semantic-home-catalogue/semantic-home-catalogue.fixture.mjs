@@ -143,5 +143,7 @@ export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs
   const placementsIn = (folderPath) =>
     reasoning.placements.filter((placement) => (placement.path.includes('/') ? placement.path.slice(0, placement.path.lastIndexOf('/')) : '') === folderPath);
   const pathsOf = (candidateIds) => candidateIds.map((id) => pathOfAddress.get(id.folderAddressPath));
-  return { sectionIntake, factEvidence, semanticEvidence, reasoning, outcomeAt, attributionsAt, placementsIn, pathsOf, pathOfAddress };
+  // `namespace`: the addressed namespace the payload and snapshot share, for consumers that check records
+  // against it independently of any accepted record (calculogic-validator#153 reference intake).
+  return { sectionIntake, factEvidence, semanticEvidence, reasoning, outcomeAt, attributionsAt, placementsIn, pathsOf, pathOfAddress, namespace: { ...NAMESPACE } };
 };
