@@ -566,6 +566,145 @@ const CASES = [
       },
     };
   })(),
+  // Repository package expression (S3.2; calculogic-validator#157). E18-E20 reproduce, as fixed trees, the
+  // directories measured at 9fe8bb1 whose members lead with the repository's concept. `repositoryPackage`
+  // is the target root manifest's declared package identity (raw segments), the case's added evidence;
+  // `lineageExpression` is what the amended S3.2 expresses with it. Implementation-pending: today's
+  // runtime has no repository package input, so `runtimeProduces` records its result exactly.
+  ...(() => {
+    const repositoryPackage = { scope: 'calculogic', name: 'validator' };
+    const contracts = { role: 'contracts', roleCategory: 'architecture-support' };
+    const knowledge = { role: 'knowledge', roleCategory: 'concern-core' };
+    const host = { role: 'host', roleCategory: 'surface-system' };
+    const opportunity = { outcome: 'opportunity', reasons: ['concentration', 'lexical-specificity', 'responsibility-diversity', 'separation-value'] };
+    const lowSpecificity = { outcome: 'insufficient-evidence', reasons: ['low-specificity'] };
+    const split = (dir, name, options) => file(dir, name.split('-'), options);
+
+    // E18: src/core/cli (9 members).
+    const cliFiles = ['validator-cli-direct', 'validator-cli-output', 'validator-cli-registry-resolution', 'validator-cli-runner', 'validator-cli-scopes', 'validator-cli-targets', 'validator-cli-usage'].map((name) => split('src/core/cli', name));
+    const cliReport = ['validator-report-examples', 'validator-report-summary'].map((name) => split('src/core/cli', name));
+    const e18 = {
+      id: 'E18',
+      source: 'measured',
+      repositoryPackage,
+      tree: { files: [...cliFiles, ...cliReport] },
+      directory: 'src/core/cli',
+      directoryMembers: 9,
+      lineageTokens: [],
+      lineageExpression: { ...Object.fromEntries(names(cliFiles).map((name) => [name, ['validator', 'cli']])), ...Object.fromEntries(names(cliReport).map((name) => [name, ['validator']])) },
+      // `validator` is expressed by the declared package name, and `cli/` then continues at position 1.
+      candidates: [{ prefix: ['report'], members: names(cliReport), expected: lowSpecificity }],
+      implementationPending: {
+        runtimeProduces: {
+          validator: { outcome: 'insufficient-evidence', reasons: ['whole-directory-value-undetermined'] },
+          'validator-cli': opportunity,
+          'validator-report': { outcome: 'insufficient-evidence', reasons: ['below-minimum-units'] },
+        },
+      },
+      preconditions: {},
+    };
+
+    // E19: src/core (22 members).
+    const core = [
+      split('src/core', 'npm-arg-forwarding-guard'),
+      split('src/core', 'validator-candidate-policy', contracts),
+      split('src/core', 'validator-candidate-policy'),
+      split('src/core', 'validator-development-context'),
+      split('src/core', 'validator-direct-report'),
+      split('src/core', 'validator-exit-code'),
+      split('src/core', 'validator-registry', knowledge),
+      split('src/core', 'validator-report-capture-metadata'),
+      split('src/core', 'validator-report-identity'),
+      split('src/core', 'validator-report-meta'),
+      split('src/core', 'validator-report', contracts),
+      split('src/core', 'registry-entry-shape'),
+      split('src/core', 'validator-root-files', knowledge),
+      split('src/core', 'validator-runner'),
+      split('src/core', 'validator-scopes'),
+      split('src/core', 'repository-local-package-evidence'),
+      split('src/core', 'repository-root'),
+      split('src/core', 'scoped-target-paths'),
+      split('src/core', 'source-snapshot'),
+      split('src/core', 'suite-scoped-snapshot-input'),
+      split('src/core', 'target-path-containment'),
+      split('src/core', 'validator-candidate-collection'),
+    ];
+    const validatorNames = [...new Set(core.filter((entry) => entry.tokens[0] === 'validator').map((entry) => entry.semanticName))];
+    const e19 = {
+      id: 'E19',
+      source: 'measured',
+      repositoryPackage,
+      tree: { files: core },
+      directory: 'src/core',
+      directoryMembers: 22,
+      lineageTokens: [],
+      lineageExpression: Object.fromEntries(validatorNames.map((name) => [name, ['validator']])),
+      candidates: [
+        { prefix: ['candidate'], members: ['validator-candidate-collection', 'validator-candidate-policy'], expected: lowSpecificity },
+        {
+          prefix: ['candidate', 'policy'],
+          members: ['validator-candidate-policy'],
+          expected: { outcome: 'not-an-opportunity', reasons: ['single-responsibility-unit'] },
+          relations: [{ to: 'candidate', relation: 'nested-subgroup' }],
+        },
+        { prefix: ['registry'], members: ['registry-entry-shape', 'validator-registry'], expected: lowSpecificity },
+        { prefix: ['report'], members: ['validator-report', 'validator-report-capture-metadata', 'validator-report-identity', 'validator-report-meta'], expected: lowSpecificity },
+        { prefix: ['repository'], members: ['repository-local-package-evidence', 'repository-root'], expected: lowSpecificity },
+      ],
+      implementationPending: {
+        runtimeProduces: {
+          validator: lowSpecificity,
+          'validator-candidate': { outcome: 'insufficient-evidence', reasons: ['below-minimum-units'] },
+          'validator-candidate-policy': { outcome: 'not-an-opportunity', reasons: ['single-responsibility-unit'] },
+          'validator-report': opportunity,
+          repository: lowSpecificity,
+        },
+      },
+      preconditions: {},
+    };
+
+    // E20: bin (6 entry-point hosts); the scope expresses `calculogic`, the name `validator` where it follows.
+    const validate = ['calculogic-validate', 'calculogic-validate-naming', 'calculogic-validate-tree'].map((name) => split('bin', name, host));
+    const validatorHosts = ['calculogic-validator-health', 'calculogic-validator-registry', 'calculogic-validator-report-summarize'].map((name) => split('bin', name, host));
+    const e20 = {
+      id: 'E20',
+      source: 'measured',
+      repositoryPackage,
+      tree: { files: [...validate, ...validatorHosts] },
+      directory: 'bin',
+      directoryMembers: 6,
+      lineageTokens: [],
+      lineageExpression: { ...Object.fromEntries(names(validate).map((name) => [name, ['calculogic']])), ...Object.fromEntries(names(validatorHosts).map((name) => [name, ['calculogic', 'validator']])) },
+      candidates: [{ prefix: ['validate'], members: names(validate), expected: lowSpecificity }],
+      implementationPending: {
+        runtimeProduces: {
+          calculogic: { outcome: 'insufficient-evidence', reasons: ['whole-directory-value-undetermined'] },
+          'calculogic-validate': opportunity,
+          'calculogic-validator': opportunity,
+        },
+      },
+      preconditions: {},
+    };
+
+    // E21 (negative): `validator` after a token a folder expresses is never expressed by the package. The
+    // package elements are outermost and apply only at position 0, so `tree-validator-*` keeps `validator`.
+    const negative = ['alpha', 'beta', 'gamma'].map((rest) => file('tree/src', ['tree', 'validator', rest]));
+    const negativeOthers = ['shim', 'host'].map((rest) => file('tree/src', ['tree', rest, 'detection']));
+    const e21 = {
+      id: 'E21',
+      source: 'synthetic',
+      repositoryPackage,
+      tree: { files: [...negative, ...negativeOthers, ...['advisor', 'wiring', 'host'].map((rest) => file('tree', ['tree', rest]))] },
+      directory: 'tree/src',
+      directoryMembers: 5,
+      lineageTokens: ['tree'],
+      candidates: [{ prefix: ['validator'], members: names(negative), expected: lowSpecificity }],
+      preconditions: {
+        rootComparisons: [{ names: [...names(negative), ...names(negativeOthers)], folder: 'tree', result: 'match' }],
+      },
+    };
+    return [e18, e19, e20, e21];
+  })(),
 ];
 
 // S3.9 companion cases (calculogic-validator#138): a base case plus one condition measured on the real

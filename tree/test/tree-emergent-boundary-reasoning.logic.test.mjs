@@ -121,7 +121,10 @@ const tokenFile = (dir, tokens) => ({ dir, root: tokens[0], tokens, semanticName
 const prefixesAt = (record, path) => (record.directories.find((item) => item.path === path)?.candidates ?? []).map((candidate) => prefixKey(candidate.prefix)).sort();
 
 test('S3.2 provenance: every catalogue member records the declared lineage expression, step by step, and its leading tokens', () => {
-  for (const entry of [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions]) {
+  // An implementation-pending case declares the lineage the amended rule expresses; today's runtime is
+  // checked against its recorded result instead (above), and its declared lineage by the reference walk
+  // (tree-repository-package-expression-contract.test.mjs).
+  for (const entry of [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions].filter((candidateCase) => !candidateCase.implementationPending)) {
     const { directory } = runCase(entry);
     for (const candidate of directory?.candidates ?? []) {
       for (const member of candidate.members) {

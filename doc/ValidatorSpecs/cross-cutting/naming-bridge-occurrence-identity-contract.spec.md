@@ -3,7 +3,7 @@
 - **Classification:** Normative for the Naming occurrence bridge identity, field-eligibility, existing v1 context/compatibility, enrichment, versioning, and migration contract; descriptive only where explicitly labeled as **current runtime truth**.
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
-- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. Tracking: calculogic-validator#85.
+- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. calculogic-validator#157 adds the payload-level section rule (§4.4 rule 9) and the Naming repository-package label section (§4.8, §6.5); contract only, implementation-pending. Tracking: calculogic-validator#85.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
 - **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
@@ -127,6 +127,13 @@ Envelope-section rules:
 6. **Identity.** Every section record carries the canonical identity tuple (§3.2). Its `addressProfileId` and `addressedSnapshotId` must equal the payload's namespace. Section records associate only through the identity tuple. `repoRelativePath` may be echoed as source-trace only and is never a join key; the §8 path fallback does not extend to section records.
 7. **Declared association.** Each section's contract states what a record attaches to (for example, an existing v1 observation, or an addressed occurrence) and which occurrence types it applies to.
 8. **Change control.** Adding a section, or a new section version, requires a contract amendment that passes the §6.2 decision standard for every field it carries.
+9. **Payload-level sections** (calculogic-validator#157). A section whose records describe the validation target as a whole, not an addressed occurrence, is a **payload-level section**. It must say so in its contract, and it is the only kind of section that departs from rules 5 and 6:
+   - Its envelope carries no `identityTupleFields`, and its records carry no identity tuple and no `repoRelativePath`.
+   - Its contract declares the record key that orders and distinguishes its records, in place of the tuple.
+   - It never attaches to an occurrence, and an occurrence-keyed consumer never joins it to one.
+   - Rules 1–4, 7 and 8 apply unchanged. A supported payload-level section whose envelope is malformed (not a plain object, carrying `identityTupleFields`, `records` not an array, or `recordCount` not equal to the number of records) is invalid as a whole (rule 3).
+
+   Repository facts never become occurrences through this rule: Naming must not manufacture an occurrence for the repository root (§4.6, "Namespace root").
 
 The existing `occurrenceContextEnrichment` sidecar predates this rule and keeps its established shape (`enrichmentContractVersion`, `identityTupleFields`, `enrichedObservations`). This rule does not change it.
 
@@ -326,6 +333,57 @@ The cases are checked in table order, and a record's shape is checked before its
 
 **Current consumers.** Tree, since calculogic-validator#153: a separate Tree lexical-identity intake (`treeLexicalIdentityIntake`), read only by Stage 3 positional lineage expression (Tree slice spec S1.1–S1.3, S3.2). It performs the consumer identity checks above in their stated order. Tree's Stage 1A intake still reads a payload carrying the section exactly as without it (§4.4 rule 2).
 
+### 4.8 Naming repository-package label section
+
+- **Section name:** `namingRepositoryPackageLabels`.
+- **Contract version:** `naming-repository-package-label.v1`.
+- **Provenance:** `producerId: naming-repository-package-label`, `source: calculogic-validator/naming`.
+- **Status:** Contract, calculogic-validator#157; **implementation-pending**. No producer emits it and no consumer reads it yet.
+- **Kind:** a payload-level section (§4.4 rule 9). Its record key is `element`.
+- **Envelope:** `contractVersion`, `producerId`, `source`, `recordCount`, `records` (ordered `scope`, then `name`), optional `diagnostics`.
+- **Interpretation rules:** Naming semantic interpretation spec §13, the folder-label interpretation, unchanged.
+
+**Purpose.** The validation target's root manifest may declare the package the repository root *is* (for example `@calculogic/validator`). The section presents Naming's interpretation of each segment of that declared identity as label material, exactly as Naming interprets a folder label. Tree uses it only for S3.2 repository package expression (Tree slice spec S3.2).
+
+**Source fact.** The declared identity is a neutral suite-core fact, `{ scope, name }` (capability inventory §3.11). Naming does not read the manifest, does not derive an identity from a directory name, and adds no rule of its own.
+
+**Records.** One record per declared segment: a `scope` record when the identity has a scope, then a `name` record. Each record carries:
+- `element`: `scope` or `name`;
+- `segment`: the declared segment exactly as the fact carries it, without `@` or `/`;
+- the §4.6 parse field groups, with the same meaning and the same exclusivity rule (§6.3): `parseOutcome` `parsed` with `labelTokens`, `labelRoot` and optional `labelFacts`, or `not-parsed` with `notParsedReasons`.
+
+**Production and transport.**
+- `createNamingOccurrenceBridgePayload` builds the section from an optional `repositoryPackageIdentity` input, using the same folder-label interpreter it receives for §4.6.
+- On the default path, Tree wiring obtains the fact from suite core and passes it unchanged to `createNamingOccurrenceBridgePayload`, with the folder-label interpreter it already passes. Tree never tokenizes or interprets the identity.
+- The section is independent of the addressed namespace: it does not need one, and an invalid namespace does not omit it.
+
+**Producer rules.**
+- With no fact, the section is omitted and nothing else in the payload changes.
+- Every declared segment gets exactly one record. A segment that does not parse gets a `not-parsed` record, never a partial interpretation.
+- Naming never adds lexical-identity records (§4.7) for package segments.
+
+**Consumer rules.** A supporting consumer validates the envelope (§4.4 rules 3 and 9) and then each record, and drops a record, with a distinguishable diagnostic, when:
+
+| Case | Diagnostic meaning |
+| --- | --- |
+| `element` is not `scope` or `name` | invalid record shape |
+| The same `element` appears in more than one record | duplicate element; every record carrying it is dropped |
+| `segment` is not a non-empty string | invalid record shape |
+| `parseOutcome` is missing or not one of `parsed` and `not-parsed`, or the record carries fields from the other outcome's group | invalid record shape |
+| A `scope` record follows the `name` record | element order; both records are dropped |
+
+There is no fallback: a consumer never reads the manifest, a package name from elsewhere or the checkout directory name instead.
+
+**Parsed, not-parsed and absent.** As for §4.6: a `not-parsed` record and an absent one both contribute no lineage element. Absence is unavailable evidence, never contradictory.
+
+**Ownership boundaries.**
+- The identity is suite core's fact (capability inventory §3.11); its label interpretation is Naming's (§5).
+- The section must not carry folder-kind, structural-home, semantic-home, ownership, responsibility, placement, confidence, severity, Tree diagnostic or finding fields (§7, rule 5).
+- Whether and where a package element expresses anything is Tree's decision (Tree slice spec S3.2). This section asserts no family, concept or lineage.
+- Structural Addressing is unchanged: the repository root stays a non-occurrence.
+
+**Current consumers.** None (implementation-pending). The intended consumer is Tree's S3.2 walk, through a separate Tree intake that Stage 1A does not read (§4.4 rule 2).
+
 ## 5. Ownership boundaries
 
 | Surface | Addressing | Naming | Tree | Suite-core |
@@ -408,6 +466,17 @@ These fields are approved for the §4.7 section only (calculogic-validator#150).
 | `tokens[].readings[].basis` | Linguistic Foundation | Foundation contract §7 | `lexicon-entry` | Required | — | Exact string | Names where the reading came from |
 
 Not approved for the §4.7 section in v1: comparison relations between tokens (a consumer computes them), a reading chosen as preferred or default (foundation contract §6.1), and any lexical form Naming derives itself.
+
+### 6.5 Naming repository-package label fields (§4.8)
+
+These fields are approved for the §4.8 section only (calculogic-validator#157; implementation-pending). The parse fields (`parseOutcome`, `labelTokens`, `labelRoot`, `labelFacts`, `notParsedReasons`) have exactly the §6.3 definitions and are not repeated.
+
+| Field | Owner | Source of truth | Value shape | Required / optional | Absence behavior | Normalization and deterministic order | Consumer limitation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `element` | Naming | Which part of the declared identity the record interprets | `scope` or `name` | Required on every record | A record without it is invalid | Exact string; records ordered `scope`, then `name` | Names the part of the identity; never a classification of the repository |
+| `segment` | Suite core (presented by Naming) | The declared identity fact (capability inventory §3.11) | Non-empty string, without `@` or `/` | Required on every record | A record without it is invalid | Exact string, as the fact carries it | Source-trace for the interpretation; consumers never tokenize or parse it |
+
+Not approved for the §4.8 section in v1: the raw manifest `name` string, a version, any other manifest field, a lexical-identity reading for a segment, and an occurrence identity.
 
 ## 7. Guardrails for approved future enrichment fields
 
