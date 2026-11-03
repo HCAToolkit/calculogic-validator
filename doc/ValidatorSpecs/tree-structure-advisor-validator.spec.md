@@ -1584,9 +1584,11 @@ joiningFileCanLeaveClassUnresolved(C) =
   unmapped(V) or mixedReachable(C, V)       otherwise
 
 unmapped(V)          = some c in V with c not in P, S or {D}
-mixedReachable(C, V) = the documentation rule leaves mixed groupings unresolved, and
-                       ( σ(C) all documentation and some c in V with c ≠ D )
-                    or ( σ(C) has no documentation and D in V )
+mixedReachable(C, V) = mixedDocumentationUnresolved and (
+                           ( σ(C) all documentation and some c in V with c ≠ D )
+                        or ( σ(C) has no documentation and D in V )
+                       )
+mixedDocumentationUnresolved = the documentation rule leaves mixed groupings unresolved
 ```
 
 - It changes only the `single-responsibility` row; every other row keeps its own invariance test, and `P < 2` still varies by itself.
