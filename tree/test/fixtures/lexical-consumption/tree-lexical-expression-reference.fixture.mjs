@@ -20,6 +20,81 @@ export const LEXICAL_UNIT_OUTCOMES = Object.freeze([
 // S3.7: the `expressionUnits` keys.
 export const EXPRESSION_UNIT_KINDS = Object.freeze(['lexical', 'possible', 'undetermined']);
 
+// Repository package expression (Tree slice spec S3.2; bridge contract §4.4 rule 9, §4.8; capability
+// inventory §3.11; calculogic-validator#157). Contract only, implementation-pending: no runtime module
+// exists, so the reference below is the only executable statement of the amendment.
+export const PACKAGE_BASIS = 'repository-package';
+export const PACKAGE_SECTION = 'namingRepositoryPackageLabels';
+export const PACKAGE_SECTION_VERSION = 'naming-repository-package-label.v1';
+export const PACKAGE_ELEMENTS = Object.freeze(['scope', 'name']);
+
+// §3.11 (reference): the neutral fact from a manifest `name` value, `{ scope, name }` or `null`.
+export const referencePackageIdentity = (manifestName) => {
+  if (typeof manifestName !== 'string') return null;
+  const scoped = /^@([^/\s]+)\/([^/\s]+)$/u.exec(manifestName);
+  if (scoped) return { scope: scoped[1], name: scoped[2] };
+  return /^[^@/\s][^/\s]*$/u.test(manifestName) ? { scope: null, name: manifestName } : null;
+};
+
+// §4.8 producer (reference): one record per declared segment, scope first, each interpreted by the
+// folder-label interpreter Naming is given. No fact, no section.
+export const referencePackageLabelSection = (identity, interpretFolderLabel) => {
+  if (!identity) return undefined;
+  const records = PACKAGE_ELEMENTS.filter((element) => identity[element] !== null && identity[element] !== undefined).map((element) => ({
+    element,
+    segment: identity[element],
+    ...interpretFolderLabel(identity[element]),
+  }));
+  return { contractVersion: PACKAGE_SECTION_VERSION, producerId: 'naming-repository-package-label', source: 'calculogic-validator/naming', recordCount: records.length, records };
+};
+
+// §4.8 consumer (reference): the envelope (§4.4 rules 3 and 9), then the record cases in table order.
+// Returns the elements, in walk order, that carry parsed label tokens; a not-parsed or dropped record
+// contributes none. An absent section records nothing (`null`).
+const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
+const PARSED_ONLY = ['labelTokens', 'labelRoot', 'labelFacts'];
+const packageRecordShapeProblem = (record) => {
+  if (!isPlainObject(record) || !PACKAGE_ELEMENTS.includes(record.element)) return 'invalid-record-shape';
+  if (!isNonEmptyString(record.segment)) return 'invalid-record-shape';
+  if (record.parseOutcome === 'parsed') {
+    const tokensOk = Array.isArray(record.labelTokens) && record.labelTokens.length > 0 && record.labelTokens.every(isNonEmptyString);
+    const factsOk = record.labelFacts === undefined || (Array.isArray(record.labelFacts) && record.labelFacts.length > 0);
+    return tokensOk && record.labelRoot === record.labelTokens[0] && factsOk && !('notParsedReasons' in record) ? null : 'invalid-record-shape';
+  }
+  if (record.parseOutcome === 'not-parsed') {
+    const reasonsOk = Array.isArray(record.notParsedReasons) && record.notParsedReasons.length > 0;
+    return reasonsOk && PARSED_ONLY.every((field) => !(field in record)) ? null : 'invalid-record-shape';
+  }
+  return 'invalid-record-shape';
+};
+export const referencePackageIntake = (section) => {
+  if (section === undefined) return null;
+  if (!isPlainObject(section)) return { availability: 'section-invalid', elements: [], rejected: [] };
+  if (section.contractVersion !== PACKAGE_SECTION_VERSION) return { availability: 'section-unsupported', elements: [], rejected: [] };
+  if ('identityTupleFields' in section || !Array.isArray(section.records) || section.recordCount !== section.records.length) {
+    return { availability: 'section-invalid', elements: [], rejected: [] };
+  }
+  const rejected = [];
+  const shaped = section.records.filter((record, index) => {
+    const problem = packageRecordShapeProblem(record);
+    if (problem) rejected.push({ index, problem });
+    return !problem;
+  });
+  const counts = new Map(shaped.map((record) => [record.element, shaped.filter((other) => other.element === record.element).length]));
+  let kept = shaped.filter((record) => {
+    if (counts.get(record.element) === 1) return true;
+    rejected.push({ element: record.element, problem: 'duplicate-element' });
+    return false;
+  });
+  const order = kept.map((record) => record.element);
+  if (order.length === 2 && order[0] === 'name') {
+    for (const record of kept) rejected.push({ element: record.element, problem: 'element-order' });
+    kept = [];
+  }
+  const elements = kept.filter((record) => record.parseOutcome === 'parsed').map(({ element, segment, labelTokens }) => ({ element, segment, labelTokens: [...labelTokens] }));
+  return { availability: 'available', elements, rejected };
+};
+
 const keyOf = ({ addressProfileId, addressedSnapshotId, occurrenceAddress }) => `${addressProfileId}\u0000${addressedSnapshotId}\u0000${occurrenceAddress}`;
 
 // S1.2, S1.3 (reference intake): the section's availability and its accepted records, by the bridge §4.7
@@ -62,10 +137,13 @@ const relationAt = (intake, folderTuple, labelIndex, memberTuple, memberIndex) =
 
 // The amended S3.2 walk for every member of every directory. `lexicalSection` is the payload's section
 // value (undefined when absent); `built.namespace` is the addressed namespace the case was built in.
+// `packageSection` is the §4.8 section value (undefined when absent; calculogic-validator#157): its
+// parsed elements are walked first, outermost, from position 0.
 // Returns the members per directory with their steps and notes, the units counted, and the units
 // themselves (for the no-repeat check).
-export const referenceStageThreeExpression = ({ built, lexicalSection }) => {
+export const referenceStageThreeExpression = ({ built, lexicalSection, packageSection }) => {
   const intake = referenceLexicalIntake(lexicalSection, { sectionIntake: built.sectionIntake, namespace: built.namespace });
+  const packageElements = referencePackageIntake(packageSection)?.elements ?? [];
   const lexical = intake?.availability === 'available' ? intake : null;
   const occurrenceFacts = built.factEvidence.occurrenceFacts;
   const folderByKey = new Map(occurrenceFacts.filter((entry) => entry.occurrenceType === 'folder').map((entry) => [keyOf(entry.identityTuple), entry]));
@@ -109,6 +187,15 @@ export const referenceStageThreeExpression = ({ built, lexicalSection }) => {
     const steps = [];
     const possible = [];
     let position = 0;
+    // S3.2 repository package expression: each element at most once, in order, only at the position the
+    // walk has reached, only on exact full equality, and never after a folder (they come first). No
+    // lexical comparison is made for them.
+    for (const { element, segment, labelTokens } of packageElements) {
+      const end = position + labelTokens.length;
+      if (end > tokens.length || labelTokens.some((token, offset) => tokens[position + offset] !== token)) continue;
+      steps.push({ element, segment, basis: PACKAGE_BASIS, positions: { start: position, end }, tokens: tokens.slice(position, end) });
+      position = end;
+    }
     for (const folderKey of relevantLineageOf(file).reverse()) {
       const folder = folderByKey.get(folderKey);
       const reached = [];

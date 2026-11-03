@@ -240,6 +240,25 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 - **When not to reuse:** dependency resolution, version checks or any manifest validation. This is a fact extractor, not a package manager.
 - **Reuse boundary type:** helper-area reuse
 
+### 3.11 Entry: suite-core repository package identity (Contract, implementation-pending)
+
+- **Status:** Contract, calculogic-validator#157; **implementation-pending**. The capability does not exist yet; this entry records the approved boundary for the implementation slice.
+- **Owner:** suite-core
+- **Path/area (planned):** beside 3.10, in `src/core/`
+- **Concern:** one neutral repository fact: the package identity the validation target's root manifest declares for itself. It reports the fact only. Its label interpretation belongs to Naming (bridge contract §4.8), and what it expresses belongs to Tree (Tree slice spec S3.2).
+- **Qualifying rule:**
+  - `<target>/package.json` is contained (3.9), matches a directory entry's spelling exactly, and parses as a JSON object, as for 3.10.
+  - Its `name` is a string in one of two forms:
+    - `@<scope>/<name>`: exactly one `/`, with a non-empty scope and a non-empty name;
+    - `<name>`: no `@` prefix and no `/`.
+  - Neither segment is empty or carries surrounding whitespace. A padded value is unsupported, not trimmed.
+  - Everything else yields no fact, never an error: a missing or malformed manifest, a missing or non-string `name`, or any other shape. The Validator does not validate manifests.
+- **Reusable capability (planned):** a collector returning `{ scope, name }` or `null`. `scope` is `null` when the identity is unscoped. Both segments are raw strings: no tokenization, case change or other normalization.
+- **Intended consumer:** Tree wiring, which passes the fact unchanged to the Naming bridge producer (bridge contract §4.8).
+- **When to reuse:** a slice that needs the target's own declared package identity as a fact.
+- **When not to reuse:** inferring an identity from a directory name, a git remote or a dependency; reading versions or other manifest fields; any manifest validation.
+- **Reuse boundary type:** helper-area reuse
+
 ## 4) Guardrails
 
 - Do **not** invent shared helpers in this inventory that do not currently exist.
