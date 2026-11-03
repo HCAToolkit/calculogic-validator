@@ -22,7 +22,11 @@
 // - `knownGap`: only on a known discrepancy (S3.9): the expected outcome, what the specified rules would
 //   produce, and the cause.
 // - `policyIncomplete`: only on a policy-incomplete case (S3.9): the candidates whose assessment the
-//   experimental policy cannot complete, the unresolved decisions (S3.8), and the cause.
+//   experimental policy cannot complete, the unresolved decisions (S3.8), and the cause. Optionally
+//   `outcomesAtTestedValues` (calculogic-validator#162): per unresolved decision, one entry per value of
+//   `EXPERIMENTAL_TEST_VALUES` (exactly those values), each giving every listed candidate's outcome with
+//   only that decision resolved to that value. A record of the experimental variants, never an adopted
+//   value or an expected outcome: `expected` stays what correct reasoning concludes.
 // - Without `memberSets`, every member is supported, except where `existing-structure` or `redundancy`
 //   decides the candidate first (E2), so the partition cannot matter (S3.6).
 // - `preconditions`: Stage 2 candidate outcomes, Stage 2 placements of named files, and Stage 1 root
@@ -681,6 +685,109 @@ const CASES = [
       },
     };
     return [e18, e19, e20, e21];
+  })(),
+  (() => {
+    // E22 (calculogic-validator#162): the measured `doc/ValidatorSpecs` at 40f18fa, with the `retirement`
+    // subgroup E8 leaves out on purpose (five of the eight `tree-known-roots` specs share it). An independent
+    // base case, not an E8 companion: the subgroup changes five of E8's files, and a companion only adds.
+    // The first case with nested eligible candidates, for the open `opportunity-selection` decision (S3.8):
+    // it records the evidence and decides no selection. One unrecognized file
+    // (`filename-case-and-interpretation-contract.md`) makes the four candidates that do not end at existing
+    // structure policy-incomplete, exactly as E8.1; their `expected` outcomes follow E8.1's.
+    const D = 'doc/specs';
+    const knownRoots = [
+      'derived-compatibility-path',
+      'responsibility-retirement-audit',
+      'retirement-addressed-occurrence-contract',
+      'retirement-naming-semantic-bridge-contract',
+      'retirement-registry-alignment',
+      'retirement-semantic-home-evidence-contract',
+      'retirement-target-model',
+      'structural-addressing-bridge',
+    ].map((rest) => file(D, ['tree', 'known', 'roots', ...rest.split('-')], spec));
+    const retirement = knownRoots.filter((entry) => entry.tokens[3] === 'retirement');
+    const otherTree = ['occurrence-addressing-profile', 'registry-policy-inventory', 'structural-address-usage-inventory', 'structure-advisor-validator'].map((rest) =>
+      file(D, ['tree', ...rest.split('-')], spec),
+    );
+    const addressing = ['get-tree-commands', 'shared-contract', 'tree-codebase-validation-input'].map((rest) => file(D, ['structural', 'addressing', ...rest.split('-')], spec));
+    const lowCoverage = { outcome: 'insufficient-evidence', reasons: ['low-coverage'] };
+    const opportunity = { outcome: 'opportunity', reasons: ['concentration', 'lexical-specificity', 'responsibility-diversity', 'separation-value'] };
+    const redundantWith = { outcome: 'not-an-opportunity', reasons: ['redundant-with'] };
+    const atEveryTestedShare = { structural: redundantWith, 'tree-known': redundantWith, 'tree-known-roots': opportunity, 'tree-known-roots-retirement': opportunity };
+    return {
+      id: 'E22',
+      source: 'measured',
+      relatedTo: 'E8',
+      tree: {
+        files: [
+          ...addressing,
+          ...knownRoots,
+          ...otherTree,
+          file(D, ['validator', 'config'], spec),
+          file(D, ['linguistic', 'foundation', 'shared', 'contract'], spec),
+          unobserved(D, 1),
+          ...['marker-strategies', 'profile', 'render-tree', 'tree-codebase', 'tree-codebase-validation-input'].map((rest) =>
+            file('structural-addressing/src', ['structural', 'addressing', ...rest.split('-')]),
+          ),
+          unobserved('structural-addressing/test', 6),
+          ...['advisor', 'wiring', 'host', 'contracts', 'intake', 'evidence'].map((rest) => file('tree', ['tree', rest])),
+        ],
+      },
+      directory: D,
+      directoryMembers: 17,
+      lineageTokens: [],
+      candidates: [
+        {
+          prefix: ['structural', 'addressing'],
+          members: names(addressing),
+          memberSets: { supported: [], conflicting: [], unresolved: names(addressing) },
+          expected: { outcome: 'insufficient-evidence', reasons: ['corresponding-home-unresolved'] },
+        },
+        {
+          prefix: ['structural'],
+          members: names(addressing),
+          memberSets: { supported: [], conflicting: [], unresolved: names(addressing) },
+          expected: lowCoverage,
+          relations: [{ to: 'structural-addressing', relation: 'redundant' }],
+        },
+        { prefix: ['tree'], members: names([...knownRoots, ...otherTree]), expected: { outcome: 'explained-by-existing-structure', reasons: [], home: 'tree' } },
+        {
+          prefix: ['tree', 'known'],
+          members: names(knownRoots),
+          expected: lowCoverage,
+          relations: [{ to: 'tree', relation: 'nested-subgroup' }, { to: 'tree-known-roots', relation: 'redundant' }],
+        },
+        {
+          prefix: ['tree', 'known', 'roots'],
+          members: names(knownRoots),
+          expected: lowCoverage,
+          relations: [{ to: 'tree', relation: 'nested-subgroup' }, { to: 'tree-known-roots-retirement', relation: 'nested-subgroup' }],
+        },
+        {
+          prefix: ['tree', 'known', 'roots', 'retirement'],
+          members: names(retirement),
+          expected: lowCoverage,
+          relations: [{ to: 'tree', relation: 'nested-subgroup' }, { to: 'tree-known', relation: 'nested-subgroup' }, { to: 'tree-known-roots', relation: 'nested-subgroup' }],
+        },
+      ],
+      policyIncomplete: {
+        candidates: ['structural', 'tree-known', 'tree-known-roots', 'tree-known-roots-retirement'],
+        unresolvedDecisions: ['coverage-share'],
+        cause:
+          'One unrecognized file could join any of these documentation groupings with another category, which the experimental policy leaves unresolved, so no conclusion is invariant under admissible completions (S3.6); for `structural` and `tree-known` it could also break redundancy. As E8.1.',
+        // Measured: every tested share decides the same outcomes (members ÷ files is 17/18).
+        outcomesAtTestedValues: {
+          'coverage-share': [
+            { value: 0.1, outcomes: atEveryTestedShare },
+            { value: 0.25, outcomes: atEveryTestedShare },
+            { value: 0.5, outcomes: atEveryTestedShare },
+          ],
+        },
+      },
+      preconditions: {
+        candidates: [{ folder: 'tree', outcome: 'eligible', reason: 'supported' }],
+      },
+    };
   })(),
 ];
 

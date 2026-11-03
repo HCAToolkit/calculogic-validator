@@ -16,8 +16,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { EMERGENT_BOUNDARY_CATALOGUE } from './fixtures/emergent-boundary-catalogue/emergent-boundary-catalogue-cases.fixture.mjs';
-import { EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY } from './fixtures/emergent-boundary-catalogue/emergent-boundary-experimental-policy.fixture.mjs';
+import { COVERAGE_SHARE_TEST_VALUES, EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY, EXPERIMENTAL_TEST_VALUES } from './fixtures/emergent-boundary-catalogue/emergent-boundary-experimental-policy.fixture.mjs';
 import { buildCatalogueCase, files } from './fixtures/semantic-home-catalogue/semantic-home-catalogue.fixture.mjs';
+import { EMERGENT_BOUNDARY_OUTCOMES } from '../src/tree-emergent-boundary-reasoning.knowledge.mjs';
 
 const SPEC = fs.readFileSync(new URL('../../doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md', import.meta.url), 'utf8');
 const section = (start, end) => SPEC.slice(SPEC.indexOf(start), SPEC.indexOf(end));
@@ -224,11 +225,54 @@ test('integrity: the implementation-pending marker is on exactly the cases S3.9 
   }
 });
 
+test('integrity: outcomes at tested values cover exactly the declared tested values, for the case\'s unresolved decisions and candidates', () => {
+  // One declaration: the test-only list beside the experimental policy, never a copy here.
+  assert.deepEqual(EXPERIMENTAL_TEST_VALUES, { 'coverage-share': COVERAGE_SHARE_TEST_VALUES });
+  assert.ok(Object.isFrozen(COVERAGE_SHARE_TEST_VALUES), 'the declaration is immutable');
+  assert.equal(EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY.decisions['coverage-share'].status, 'unresolved', 'declaring tested values adopts none');
+  assert.match(S3_9, /`COVERAGE_SHARE_TEST_VALUES`: 0\.1, 0\.25, 0\.5 for `coverage-share`/u, 'S3.9 cites the declaration');
+  assert.deepEqual([...COVERAGE_SHARE_TEST_VALUES], [0.1, 0.25, 0.5]);
+  const withRecord = EMERGENT_BOUNDARY_CATALOGUE.cases.filter((entry) => entry.policyIncomplete?.outcomesAtTestedValues);
+  assert.deepEqual(withRecord.map((entry) => entry.id), ['E22']);
+  for (const entry of withRecord) {
+    const { candidates, unresolvedDecisions, outcomesAtTestedValues } = entry.policyIncomplete;
+    for (const [decision, entries] of Object.entries(outcomesAtTestedValues)) {
+      assert.ok(unresolvedDecisions.includes(decision), `${entry.id}: ${decision} is one of the case's unresolved decisions`);
+      assert.ok(EXPERIMENTAL_TEST_VALUES[decision], `${entry.id}: ${decision} has declared tested values`);
+      assert.deepEqual(entries.map((item) => item.value), [...EXPERIMENTAL_TEST_VALUES[decision]], `${entry.id} ${decision}: every declared value, in order, and no other`);
+      for (const { value, outcomes } of entries) {
+        assert.deepEqual(Object.keys(outcomes).sort(), [...candidates].sort(), `${entry.id} ${decision}=${value}: one outcome per policy-incomplete candidate`);
+        for (const outcome of Object.values(outcomes)) assert.ok(Object.values(EMERGENT_BOUNDARY_OUTCOMES).includes(outcome.outcome) && Array.isArray(outcome.reasons), `${entry.id} ${decision}=${value}: an outcome with reasons`);
+      }
+    }
+    assert.ok(Object.keys(outcomesAtTestedValues).length > 0);
+  }
+  // The record is evidence, never the expected outcome: E22's expectations stay E8.1's.
+  const e22 = EMERGENT_BOUNDARY_CATALOGUE.cases.find((entry) => entry.id === 'E22');
+  for (const prefix of e22.policyIncomplete.candidates) {
+    assert.deepEqual(e22.candidates.find((candidate) => prefixKey(candidate.prefix) === prefix).expected, { outcome: 'insufficient-evidence', reasons: ['low-coverage'] }, `E22 ${prefix}: expected as E8.1`);
+  }
+});
+
+test('integrity: E22 is an independent measured base case related to E8, which, E8.1 and E12 are unchanged by it', () => {
+  const byId = Object.fromEntries([...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions].map((entry) => [entry.id, entry]));
+  assert.equal(byId.E22.relatedTo, 'E8');
+  assert.equal(byId.E22.companionOf, undefined, 'not a companion');
+  assert.equal(byId.E8.policyIncomplete, undefined);
+  assert.equal(byId['E8.1'].policyIncomplete.outcomesAtTestedValues, undefined, 'E8.1 keeps its record');
+  assert.equal(byId.E12.policyIncomplete.outcomesAtTestedValues, undefined, 'E12 keeps its record');
+  // The measured subgroup: five of E8's eight `tree-known-roots` specs share `retirement`, which E8 replaces
+  // with distinct fourth tokens on purpose; E22 keeps them, so it cannot extend E8 unchanged.
+  const knownRootsOf = (entry) => expandFiles(entry.tree).filter((item) => item.dir === 'doc/specs' && item.tokens?.slice(0, 3).join('-') === 'tree-known-roots');
+  assert.equal(knownRootsOf(byId.E22).filter((item) => item.tokens[3] === 'retirement').length, 5);
+  assert.equal(knownRootsOf(byId.E8).filter((item) => item.tokens[3] === 'retirement').length, 0);
+});
+
 test('integrity: the policy-incomplete marker is on exactly the cases S3.9 names, for unresolved decisions only', () => {
   const specCases = [...S3_9.matchAll(/^\| (E\d+) \|.*\*\*Policy-incomplete case:\*\*/gmu)].map((match) => match[1]);
   const tableCases = EMERGENT_BOUNDARY_CATALOGUE.cases.filter((entry) => entry.policyIncomplete).map((entry) => entry.id);
   assert.deepEqual(tableCases, specCases);
-  assert.deepEqual(tableCases, ['E12']);
+  assert.deepEqual(tableCases, ['E12', 'E22']);
   for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases.filter((candidateCase) => candidateCase.policyIncomplete)) {
     const { candidates, unresolvedDecisions, cause } = entry.policyIncomplete;
     assert.ok(!entry.knownGap, `${entry.id}: a policy-incomplete case is not a known gap`);

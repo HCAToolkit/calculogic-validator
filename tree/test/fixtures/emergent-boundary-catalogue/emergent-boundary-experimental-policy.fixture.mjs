@@ -25,3 +25,11 @@ export const EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY = Object.freeze({
     'opportunity-selection': Object.freeze({ status: 'unresolved' }),
   }),
 });
+
+// The `coverage-share` values the catalogue exercises (Tree spec S3.9; calculogic-validator#162). Test-only:
+// they name the variants a policy-incomplete case's `outcomesAtTestedValues` must record, and are neither
+// values S3.8 permits nor values it adopts. The one authority for those variants: the catalogue tests check
+// coverage against this list, never against another copy.
+export const COVERAGE_SHARE_TEST_VALUES = Object.freeze([0.1, 0.25, 0.5]);
+// Per unresolved decision, the tested values a case's `outcomesAtTestedValues` must cover.
+export const EXPERIMENTAL_TEST_VALUES = Object.freeze({ 'coverage-share': COVERAGE_SHARE_TEST_VALUES });
