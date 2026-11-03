@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EMERGENT_BOUNDARY_CATALOGUE } from './fixtures/emergent-boundary-catalogue/emergent-boundary-catalogue-cases.fixture.mjs';
-import { EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY } from './fixtures/emergent-boundary-catalogue/emergent-boundary-experimental-policy.fixture.mjs';
+import { EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY, EXPERIMENTAL_TEST_VALUES } from './fixtures/emergent-boundary-catalogue/emergent-boundary-experimental-policy.fixture.mjs';
 import { buildCatalogueCase, files } from './fixtures/semantic-home-catalogue/semantic-home-catalogue.fixture.mjs';
 import { repositoryPackageBridgeSections, repositoryPackageElementsOf } from './fixtures/repository-package/repository-package.fixture.mjs';
 import {
@@ -343,6 +343,30 @@ test('a policy-incomplete case is re-evaluated once a policy supplies its decisi
     assert.equal(candidateAt(prefix).assessment.completion, 'complete');
     assert.deepEqual(candidateAt(prefix).assessment.reasons, ['low-coverage']);
     assert.equal(candidateAt(prefix).assessment.decidedBy.decision, 'coverage-share');
+  }
+});
+
+// S3.9 outcomes at tested values (calculogic-validator#162): every recorded entry is what the runtime
+// concludes with only that decision resolved to that value, every other decision kept at its experimental
+// value; without the substitution the case stays incomplete (checked above). The entries are evidence for
+// an open decision, never adopted values.
+test('S3.9 outcomes at tested values: each recorded entry is reproduced by the runtime with only that decision substituted', () => {
+  const recorded = EMERGENT_BOUNDARY_CATALOGUE.cases.filter((entry) => entry.policyIncomplete?.outcomesAtTestedValues);
+  assert.deepEqual(recorded.map((entry) => entry.id), ['E22']);
+  for (const entry of recorded) {
+    for (const [decision, entries] of Object.entries(entry.policyIncomplete.outcomesAtTestedValues)) {
+      assert.deepEqual(entries.map((item) => item.value), [...EXPERIMENTAL_TEST_VALUES[decision]], `${entry.id} ${decision}: exactly the declared tested values`);
+      for (const { value, outcomes } of entries) {
+        const policy = withDecision(decision, { status: 'resolved', value });
+        assert.deepEqual(Object.keys(policy.decisions).filter((id) => policy.decisions[id] !== EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY.decisions[id]), [decision], 'only that decision differs');
+        const { candidateAt } = runCase(entry, { policy });
+        for (const [prefix, expected] of Object.entries(outcomes)) {
+          const { assessment } = candidateAt(prefix);
+          assert.equal(assessment.completion, 'complete', `${entry.id} ${prefix} at ${decision}=${value}: complete`);
+          assert.deepEqual({ outcome: assessment.outcome, reasons: assessment.reasons }, expected, `${entry.id} ${prefix} at ${decision}=${value}`);
+        }
+      }
+    }
   }
 });
 

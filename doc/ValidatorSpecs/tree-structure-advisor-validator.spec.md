@@ -1525,7 +1525,7 @@ When the conclusion is not invariant, the record lists the rules whose applicati
 E8.1 is the counterexample: the shortcut would conclude `opportunity` for `tree-known-roots`, but a joining file of another category leaves the grouping's classes unresolved under the experimental policy.
 
 **Consequence under `emergent-boundary-experimental` v1.** v1 leaves documentation in a mixed grouping unresolved (S3.8). So with any unrecognized file in the directory, `single-responsibility` is not invariant for any candidate that reaches it, and the conclusion is decided only where existing structure decides first.
-- E12 and E8.1 stay policy-incomplete for `coverage-share`. The decision that binds them is the mapping's mixed-documentation case, and the variant rules record it.
+- E12, E8.1 and E22 stay policy-incomplete for `coverage-share`. The decision that binds them is the mapping's mixed-documentation case, and the variant rules record it.
 - Invariance settles more once a policy resolves that case. No value is assumed here.
 
 #### S3.7 Output
@@ -1614,6 +1614,7 @@ Catalogue `emergent-boundary-catalogue`, version `1`.
 
   - Its expected outcome stays recorded. Incompleteness is an assessment-completion status, not a fifth outcome and not a defect.
   - When a policy supplies the decision, the check fails until the case is re-evaluated against that value and reclassified, and the result is recorded here.
+  - **Outcomes at tested values (calculogic-validator#162; optional).** A policy-incomplete case may also record, per unresolved decision, what the runtime concludes when only that decision is resolved to each **tested value**. The tested values are declared once, test-only, beside the experimental policy fixture (`COVERAGE_SHARE_TEST_VALUES`: 0.1, 0.25, 0.5 for `coverage-share`). They name the variants the catalogue exercises, not values S3.8 permits or adopts. A case that records them records every tested value, and each entry is checked against the runtime. The record is evidence for the decision, never its expected outcome, which stays what correct reasoning concludes. E22 records them.
 
 | Case | Tree | Expected outcome |
 |---|---|---|
@@ -1638,6 +1639,7 @@ Catalogue `emergent-boundary-catalogue`, version `1`.
 | E19 | `src/core` (measured at `9fe8bb1`, calculogic-validator#157): 22 members, 14 leading with `validator`; the same declared package | `candidate` (2 units): **`insufficient-evidence`** (`low-specificity`). `candidate-policy`: **`not-an-opportunity`** (`single-responsibility-unit`), nested in `candidate`. `registry`, `report` (4 files), `repository`: **`insufficient-evidence`** (`low-specificity`). `validator`, `validator-candidate`, `validator-candidate-policy` and `validator-report` are not discovered. **Before calculogic-validator#159** the runtime gave `validator`: `insufficient-evidence` (`low-specificity`); `validator-candidate`: `insufficient-evidence` (`below-minimum-units`); `validator-candidate-policy`: `not-an-opportunity`; `validator-report`: `opportunity`; `repository`: `insufficient-evidence` (`low-specificity`) |
 | E20 | `bin` (measured at `9fe8bb1`, calculogic-validator#157): six entry-point hosts, `calculogic-validate`, `-validate-naming`, `-validate-tree`, `calculogic-validator-health`, `-registry`, `-report-summarize`; the same declared package | `validate` (3): **`insufficient-evidence`** (`low-specificity`). The declared scope expresses `calculogic` for all six, and the declared name `validator` where it follows; `calculogic`, `calculogic-validate` and `calculogic-validator` are not discovered. **Before calculogic-validator#159** the runtime gave `calculogic`: `insufficient-evidence` (`whole-directory-value-undetermined`); `calculogic-validate` and `calculogic-validator`: `opportunity` |
 | E21 | synthetic, negative (calculogic-validator#157): `tree/src` with `tree-validator-alpha`, `-beta`, `-gamma` and two other `tree-*` units; the same declared package; `tree/` expresses `tree` | `validator` (3): **`insufficient-evidence`** (`low-specificity`). `validator` follows a folder-expressed token, so the package never expresses it: repository package expression applies only at position 0, before any lineage folder (S3.2). The outcome is the same with and without the declared package |
+| E22 | `doc/ValidatorSpecs` (measured at `40f18fa`, calculogic-validator#162): E8's directory with the `retirement` subgroup E8 leaves out (five of the eight `tree-known-roots` specs), the three `structural-addressing-*` specs, two other specs and one unrecognized file (18 files, 17 members). Related to E8, not a companion: the subgroup changes five of E8's files. The first case with nested eligible candidates (`opportunity-selection`, S3.8); it decides no selection | `tree`: **`explained-by-existing-structure`** (`tree/`). `structural-addressing`: **`insufficient-evidence`** (`corresponding-home-unresolved`). `structural`, `tree-known`, `tree-known-roots`, `tree-known-roots-retirement`: `insufficient-evidence` (`low-coverage`), as E8.1. **Policy-incomplete case:** one unrecognized file could make any of these documentation groupings mixed, which the experimental policy leaves unresolved, so none is invariant (S3.6). **Outcomes at tested values:** at every tested `coverage-share` (0.1, 0.25, 0.5) `tree-known-roots` and `tree-known-roots-retirement` are both `opportunity`, nested (`nested-subgroup`); `tree-known` and `structural` are `not-an-opportunity` (`redundant-with`). No tested share reproduces the expected `low-coverage` (members ÷ files is 17/18), as for E8.1 (calculogic-validator#162) |
 
 ##### Evidence sufficiency and policy dependency (S3.11 step 3)
 
@@ -1673,15 +1675,16 @@ Outcomes decided by `existing-structure` rest on the Stage 2 preconditions the c
 | E15 | evaluable | `semantic-home`: `opportunity`. `semantic`: `redundancy` | `minimum-primary-units`, `partial-evidence-aggregation`, `responsibility-class-mapping`, `separation-value-limit` | — |
 | E16 | evaluable | no candidate is discovered (S3.2) | — | — |
 | E17 | evaluable | `check`: `single-responsibility` | `responsibility-class-mapping` | — |
-| E18 | evaluable | `report`: `specificity` | `one-word-prefix`, `responsibility-class-mapping` | the unexpressed repository concept until repository package expression is implemented (S3.10) |
+| E18 | evaluable | `report`: `specificity` | `one-word-prefix`, `responsibility-class-mapping` | the unexpressed repository concept without the declared package; addressed by repository package expression (S3.2, calculogic-validator#159) |
 | E19 | evaluable | `candidate`, `registry`, `report`, `repository`: `specificity`. `candidate-policy`: `single-responsibility` | `one-word-prefix`, `responsibility-class-mapping` | as E18 |
 | E20 | evaluable | `validate`: `specificity` | `one-word-prefix`, `responsibility-class-mapping` | as E18 |
 | E21 | evaluable | `validator`: `specificity` | `one-word-prefix`, `responsibility-class-mapping` | — |
+| E22 | policy-incomplete | `tree`, `structural-addressing`: `existing-structure`. `structural`, `tree-known`, `tree-known-roots`, `tree-known-roots-retirement`: `coverage` | `coverage-share` | `coverage-share` is unresolved; what binds it is the mapping's mixed-documentation case (S3.6) |
 
 Further observations:
 - **Decisions no case depends on.**
-  - `opportunity-selection`: no case has two related opportunities. The first will be E8's deferred nested `retirement` group.
-  - Documentation in a mixed grouping (`responsibility-class-mapping`): no case has one among its recognized members. Under coverage invariance (S3.6) it is the decision that binds E12 and E8.1, since a joining file could make either grouping mixed.
+  - `opportunity-selection`: no case decides two related opportunities under the experimental policy. E22 (calculogic-validator#162) is the first with nested eligible candidates: at every tested `coverage-share` both `tree-known-roots` and `tree-known-roots-retirement` are `opportunity`, related as `nested-subgroup`. The selection between them is undecided.
+  - Documentation in a mixed grouping (`responsibility-class-mapping`): no case has one among its recognized members. Under coverage invariance (S3.6) it is the decision that binds E12, E8.1 and E22, since a joining file could make any of their groupings mixed.
 - **Every expected `opportunity` depends on `separation-value-limit`.** Outcomes are reachable only because the experimental policy supplies it explicitly. Under a policy that leaves it unresolved, every one of them, E10's known gap included, would be incomplete.
 - **Catalogue fidelity corrections (calculogic-validator#134).** These change no expected outcome:
   - E3 and E6 are built with unrelated siblings, so their groups no longer cover the whole directory, which would have made them E9's case;
