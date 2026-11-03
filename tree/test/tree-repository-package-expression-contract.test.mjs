@@ -318,6 +318,11 @@ test('§4.8 runtime intake equals the reference intake for every consumer case, 
     edited((section) => { section.records[0].element = 'name'; return section; }),
     edited((section) => { section.records.reverse(); return section; }),
     edited((section) => { section.records[1].labelRoot = 'other'; return section; }),
+    // Mixed-validity duplicates: the duplicate case (row 2) precedes the segment and parse-field cases, so
+    // a malformed record still makes its element a duplicate and both records are dropped.
+    edited((section) => ({ ...section, recordCount: 3, records: [...section.records, { ...section.records[1], segment: '' }] })),
+    edited((section) => ({ ...section, recordCount: 3, records: [...section.records, { element: 'name', segment: 'other', parseOutcome: 'bogus' }] })),
+    edited((section) => ({ ...section, recordCount: 3, records: [{ ...section.records[0], labelTokens: [] }, ...section.records] })),
   ];
   for (const section of sections) {
     const reference = referencePackageIntake(section);
@@ -332,6 +337,10 @@ test('§4.8 runtime intake equals the reference intake for every consumer case, 
     assert.deepEqual([...new Set(intake.rejectedRecords.map((record) => record.reason))].sort(), [...new Set(reference.rejected.map((record) => record.problem))].sort(), `${label}: rejection reasons`);
     assert.ok(intake.diagnostics.every((diagnostic) => diagnostic.section === 'naming-repository-package-label' && !('identityTuple' in diagnostic)), `${label}: diagnostics name the section and no occurrence`);
   }
+  // A valid record with a malformed duplicate of its element is dropped with it: no `name` element.
+  const mixedDuplicate = runtimeIntake(edited((section) => ({ ...section, recordCount: 3, records: [...section.records, { ...section.records[1], segment: '' }] })));
+  assert.deepEqual(toTreeRepositoryPackageElements(mixedDuplicate).map((element) => element.element), ['scope']);
+  assert.deepEqual(mixedDuplicate.rejectedRecords.map((record) => record.reason), ['duplicate-element', 'duplicate-element']);
   // A partly invalid section still contributes its accepted element.
   const partlyInvalid = runtimeIntake(edited((section) => { section.records[1].segment = ''; return section; }));
   assert.equal(partlyInvalid.rejectedRecords.length, 1);

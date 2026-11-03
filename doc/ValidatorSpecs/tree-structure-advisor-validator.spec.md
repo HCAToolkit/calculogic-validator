@@ -219,7 +219,7 @@ Intake produces Tree-owned **intake diagnostics** that name the section, the rej
 
 **Repository-package label section (Current, calculogic-validator#159).** Tree validates `namingRepositoryPackageLabels` as a supporting consumer, exactly as bridge contract §4.8 specifies:
 - the envelope by §4.4 rules 3 and 9: a plain object of the supported version, with no `identityTupleFields`, a `records` array and a matching `recordCount`. A malformed envelope makes the whole section invalid; another version is unsupported;
-- each record by the §4.8 consumer cases in table order: invalid record shape (an unknown `element`, an empty `segment`, or not exactly one §6.3 parse field group), duplicate element (every record carrying it is dropped), element order (a `scope` after the `name`: both are dropped). A rejected record drops only the records the case names;
+- each record by the §4.8 consumer cases in table order: an unknown `element` (invalid record shape); duplicate element, counted over every record with a known element whether or not the rest of it is valid (every record carrying it is dropped); an empty `segment` or not exactly one §6.3 parse field group (invalid record shape); element order (a `scope` after the `name`: both are dropped). A rejected record drops only the records the case names;
 - rejections and section diagnostics name the section `naming-repository-package-label`, the reason and the element when known. They live only in `treeRepositoryPackageIntake`: never a finding, a report field, a `meta` entry or a Stage 3 field.
 
 Only accepted `parsed` records become **package elements**. A `not-parsed` record is accepted evidence with no element, and leaves no trace in Stage 3 or the report.

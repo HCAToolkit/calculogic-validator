@@ -75,10 +75,12 @@ const envelopeStateOf = (section) => {
   return AVAILABILITY.available;
 };
 
-// [2.4] cfg-treeStructureAdvisor · Primitive · "hasRecordShape"
+// [2.4] cfg-treeStructureAdvisor · Primitive · "hasKnownElement" / "hasSegmentAndParseFields"
 // Concern: Logic · Parent: "prepareTreeRepositoryPackageIntake"
-// Notes: §4.8 rows 1, 3 and 4: a known element, a non-empty segment, and exactly one §6.3 parse field group.
-const hasRecordShape = (record) => isPlainObject(record) && ELEMENTS.includes(record.element) && isNonEmptyString(record.segment) && hasParseFieldGroup(record);
+// Notes: §4.8 row 1 (a known element), checked before duplicates; rows 3 and 4 (a non-empty segment and
+// exactly one §6.3 parse field group), checked after them, so a malformed record still counts as a duplicate.
+const hasKnownElement = (record) => isPlainObject(record) && ELEMENTS.includes(record.element);
+const hasSegmentAndParseFields = (record) => isNonEmptyString(record.segment) && hasParseFieldGroup(record);
 
 const toAcceptedRecord = (record) => ({
   element: record.element,
@@ -93,8 +95,9 @@ const toAcceptedRecord = (record) => ({
 // Concern: Logic · Parent: Tree wiring
 // Notes: reads only the payload's §4.8 section. Returns `null` when the payload carries none (absent:
 // nothing is recorded). A malformed envelope records one section diagnostic and no records. Otherwise each
-// record is checked in the §4.8 table order (shape, duplicate element, element order); a rejected record
-// drops only itself (duplicates and an order violation drop every record involved).
+// record is checked in the §4.8 table order: known element, duplicate element (counted over every record
+// with a known element, valid or not), segment and parse fields, element order. A rejected record drops
+// only itself; a duplicate and an order violation drop every record involved.
 export const prepareTreeRepositoryPackageIntake = ({ namingOccurrenceBridge } = {}) => {
   const payload = isPlainObject(namingOccurrenceBridge) ? namingOccurrenceBridge : null;
   if (!payload || payload[SECTION_KEY] === undefined) return null;
@@ -111,27 +114,24 @@ export const prepareTreeRepositoryPackageIntake = ({ namingOccurrenceBridge } = 
   }
 
   const rejectedRecords = [];
-  const shaped = [];
-  section.records.forEach((record, index) => {
-    if (hasRecordShape(record)) shaped.push(record);
-    else rejectedRecords.push({ index, element: ELEMENTS.includes(record?.element) ? record.element : null, reason: REASONS.invalidRecordShape });
-  });
   const counts = new Map();
-  for (const record of shaped) counts.set(record.element, (counts.get(record.element) ?? 0) + 1);
+  for (const record of section.records) if (hasKnownElement(record)) counts.set(record.element, (counts.get(record.element) ?? 0) + 1);
   let kept = [];
-  for (const record of shaped) {
-    if (counts.get(record.element) > 1) rejectedRecords.push({ index: section.records.indexOf(record), element: record.element, reason: REASONS.duplicateElement });
-    else kept.push(record);
-  }
-  if (kept.length === 2 && kept[0].element === 'name') {
-    for (const record of kept) rejectedRecords.push({ index: section.records.indexOf(record), element: record.element, reason: REASONS.elementOrder });
+  section.records.forEach((record, index) => {
+    if (!hasKnownElement(record)) rejectedRecords.push({ index, element: null, reason: REASONS.invalidRecordShape });
+    else if (counts.get(record.element) > 1) rejectedRecords.push({ index, element: record.element, reason: REASONS.duplicateElement });
+    else if (!hasSegmentAndParseFields(record)) rejectedRecords.push({ index, element: record.element, reason: REASONS.invalidRecordShape });
+    else kept.push({ index, record });
+  });
+  if (kept.length === 2 && kept[0].record.element === 'name') {
+    for (const { index, record } of kept) rejectedRecords.push({ index, element: record.element, reason: REASONS.elementOrder });
     kept = [];
   }
   const sortedRejected = rejectedRecords.sort((left, right) => left.index - right.index || left.reason.localeCompare(right.reason));
   return Object.freeze({
     source: SOURCE_ID,
     availability,
-    acceptedRecords: kept.map(toAcceptedRecord),
+    acceptedRecords: kept.map(({ record }) => toAcceptedRecord(record)),
     rejectedRecords: sortedRejected,
     diagnostics: sortedRejected.map(({ element, reason }) => ({ section: DIAGNOSTIC_SECTION, reason, element })),
   });

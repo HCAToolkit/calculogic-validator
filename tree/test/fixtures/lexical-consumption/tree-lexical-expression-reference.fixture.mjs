@@ -53,8 +53,10 @@ export const referencePackageLabelSection = (identity, interpretFolderLabel) => 
 // contributes none. An absent section records nothing (`null`).
 const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
 const PARSED_ONLY = ['labelTokens', 'labelRoot', 'labelFacts'];
-const packageRecordShapeProblem = (record) => {
-  if (!isPlainObject(record) || !PACKAGE_ELEMENTS.includes(record.element)) return 'invalid-record-shape';
+// §4.8 rows 1, 3 and 4. Row 2 (duplicate element) sits between them: it counts every record with a known
+// element, whether or not its segment and parse fields are valid.
+const isKnownElement = (record) => isPlainObject(record) && PACKAGE_ELEMENTS.includes(record.element);
+const segmentAndParseProblem = (record) => {
   if (!isNonEmptyString(record.segment)) return 'invalid-record-shape';
   if (record.parseOutcome === 'parsed') {
     const tokensOk = Array.isArray(record.labelTokens) && record.labelTokens.length > 0 && record.labelTokens.every(isNonEmptyString);
@@ -75,16 +77,17 @@ export const referencePackageIntake = (section) => {
     return { availability: 'section-invalid', elements: [], rejected: [] };
   }
   const rejected = [];
-  const shaped = section.records.filter((record, index) => {
-    const problem = packageRecordShapeProblem(record);
-    if (problem) rejected.push({ index, problem });
+  const known = section.records.filter(isKnownElement);
+  section.records.forEach((record, index) => { if (!isKnownElement(record)) rejected.push({ index, problem: 'invalid-record-shape' }); });
+  const counts = new Map(known.map((record) => [record.element, known.filter((other) => other.element === record.element).length]));
+  let kept = known.filter((record) => {
+    if (counts.get(record.element) > 1) {
+      rejected.push({ element: record.element, problem: 'duplicate-element' });
+      return false;
+    }
+    const problem = segmentAndParseProblem(record);
+    if (problem) rejected.push({ element: record.element, problem });
     return !problem;
-  });
-  const counts = new Map(shaped.map((record) => [record.element, shaped.filter((other) => other.element === record.element).length]));
-  let kept = shaped.filter((record) => {
-    if (counts.get(record.element) === 1) return true;
-    rejected.push({ element: record.element, problem: 'duplicate-element' });
-    return false;
   });
   const order = kept.map((record) => record.element);
   if (order.length === 2 && order[0] === 'name') {
