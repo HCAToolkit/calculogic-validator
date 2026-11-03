@@ -303,6 +303,15 @@ Naming produces the payload-level bridge section `namingRepositoryPackageLabels`
 - **Transport:** Tree wiring obtains the fact from suite core and passes it unchanged, with the folder-label interpreter it already passes. Naming staging is unchanged.
 - **Direct path:** `projectNamingOccurrenceBridge(output, { repositoryPackageIdentity })`.
 
+### 2.14 Role-category vocabulary projection (calculogic-validator#162; Contract, implementation-pending)
+
+Naming will produce the payload-level bridge section `namingRoleCategoryVocabulary` (bridge contract §4.4 rule 9, §4.9, §6.6). Not current behavior.
+
+- **Derivation:** one Naming-owned function over the resolved roles runtime (`toNamingRolesRuntime`): every role, whatever its status, grouped by category, as `{ category, roles }` sorted by category. It is the only place the derivation lives, so that a future registry-level bridge (registry lifecycle spec §9.4) cannot disagree with it.
+- **Completeness:** Naming's guarantee. The producer emits the whole vocabulary or omits the section; never a partial one.
+- **Provenance:** `registrySource` and `categoryRolePerspectiveDigest`, copied from the run's suite-provided registry resolution and provenance; Naming computes no digest of its own for it.
+- **Staging and producer:** `prepareNamingTreeStagingInputs` returns the vocabulary as an opaque staged value derived from the same registry resolution as the run; `createNamingOccurrenceBridgePayload` takes it as an optional input and emits the section; `projectNamingOccurrenceBridge` and `runNamingValidator` may pass it on the direct path. Without it the payload is unchanged.
+
 ## 3.0 Classification Contract
 
 ### 3.1 Canonical
