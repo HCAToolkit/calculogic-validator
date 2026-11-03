@@ -291,6 +291,18 @@ Naming produces the bridge section `namingTokenLexicalIdentities` (bridge contra
   - Neither of them resolves tokens, builds records or reads readings.
 - **Direct path:** `projectNamingOccurrenceBridge(output, { lexicalProfile })` produces the same section for direct callers.
 
+### 2.13 Repository-package label projection (calculogic-validator#157, #159)
+
+Naming produces the payload-level bridge section `namingRepositoryPackageLabels` (bridge contract §4.4 rule 9, §4.8, §6.5) from the suite-core repository package identity fact (capability inventory §3.11).
+
+- **Projection:** `naming/src/naming-repository-package-label-projection.logic.mjs`, `projectNamingRepositoryPackageLabels({ repositoryPackageIdentity, interpretFolderLabel })`.
+  - One record per declared segment, `scope` then `name`: `{ element, segment }` plus the §4.6 parse field group exactly as the folder-label interpreter returns it for that segment.
+  - It returns `null` without a fact, with a value that is not a §3.11 fact, or without an interpreter.
+  - Naming reads no manifest, derives no identity from a directory name and applies no rule of its own. The records carry no identity tuple and attach to no occurrence.
+- **Producer:** `createNamingOccurrenceBridgePayload` takes an optional `repositoryPackageIdentity` and adds the section last. It does not depend on the addressed namespace. Without a fact the payload is unchanged.
+- **Transport:** Tree wiring obtains the fact from suite core and passes it unchanged, with the folder-label interpreter it already passes. Naming staging is unchanged.
+- **Direct path:** `projectNamingOccurrenceBridge(output, { repositoryPackageIdentity })`.
+
 ## 3.0 Classification Contract
 
 ### 3.1 Canonical

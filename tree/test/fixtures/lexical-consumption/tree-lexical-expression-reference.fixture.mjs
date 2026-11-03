@@ -21,8 +21,8 @@ export const LEXICAL_UNIT_OUTCOMES = Object.freeze([
 export const EXPRESSION_UNIT_KINDS = Object.freeze(['lexical', 'possible', 'undetermined']);
 
 // Repository package expression (Tree slice spec S3.2; bridge contract §4.4 rule 9, §4.8; capability
-// inventory §3.11; calculogic-validator#157). Contract only, implementation-pending: no runtime module
-// exists, so the reference below is the only executable statement of the amendment.
+// inventory §3.11; calculogic-validator#157). An independent restatement of the amendment, written before
+// the runtime (calculogic-validator#159), which tree-repository-package-expression-contract checks against it.
 export const PACKAGE_BASIS = 'repository-package';
 export const PACKAGE_SECTION = 'namingRepositoryPackageLabels';
 export const PACKAGE_SECTION_VERSION = 'naming-repository-package-label.v1';

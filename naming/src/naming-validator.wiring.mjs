@@ -161,6 +161,7 @@ export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, 
         options.caseRulesRuntime ? () => options.caseRulesRuntime : toCaseRulesRuntimeResolver(undefined),
       ),
     lexicalProfile: options.lexicalProfile,
+    repositoryPackageIdentity: options.repositoryPackageIdentity,
     sourceReportRef: options.sourceReportRef,
     sourceSnapshotRef: options.sourceSnapshotRef,
   });

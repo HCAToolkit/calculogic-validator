@@ -566,11 +566,11 @@ const CASES = [
       },
     };
   })(),
-  // Repository package expression (S3.2; calculogic-validator#157). E18-E20 reproduce, as fixed trees, the
-  // directories measured at 9fe8bb1 whose members lead with the repository's concept. `repositoryPackage`
-  // is the target root manifest's declared package identity (raw segments), the case's added evidence;
-  // `lineageExpression` is what the amended S3.2 expresses with it. Implementation-pending: today's
-  // runtime has no repository package input, so `runtimeProduces` records its result exactly.
+  // Repository package expression (S3.2; calculogic-validator#157, implemented by #159). E18-E20 reproduce,
+  // as fixed trees, the directories measured at 9fe8bb1 whose members lead with the repository's concept.
+  // `repositoryPackage` is the target root manifest's declared package identity (raw segments), the case's
+  // added evidence; `lineageExpression` is what S3.2 expresses with it. The results the runtime gave before
+  // #159 are recorded in S3.9 and checked individually by tree-repository-package-expression-contract.
   ...(() => {
     const repositoryPackage = { scope: 'calculogic', name: 'validator' };
     const contracts = { role: 'contracts', roleCategory: 'architecture-support' };
@@ -594,13 +594,6 @@ const CASES = [
       lineageExpression: { ...Object.fromEntries(names(cliFiles).map((name) => [name, ['validator', 'cli']])), ...Object.fromEntries(names(cliReport).map((name) => [name, ['validator']])) },
       // `validator` is expressed by the declared package name, and `cli/` then continues at position 1.
       candidates: [{ prefix: ['report'], members: names(cliReport), expected: lowSpecificity }],
-      implementationPending: {
-        runtimeProduces: {
-          validator: { outcome: 'insufficient-evidence', reasons: ['whole-directory-value-undetermined'] },
-          'validator-cli': opportunity,
-          'validator-report': { outcome: 'insufficient-evidence', reasons: ['below-minimum-units'] },
-        },
-      },
       preconditions: {},
     };
 
@@ -651,15 +644,6 @@ const CASES = [
         { prefix: ['report'], members: ['validator-report', 'validator-report-capture-metadata', 'validator-report-identity', 'validator-report-meta'], expected: lowSpecificity },
         { prefix: ['repository'], members: ['repository-local-package-evidence', 'repository-root'], expected: lowSpecificity },
       ],
-      implementationPending: {
-        runtimeProduces: {
-          validator: lowSpecificity,
-          'validator-candidate': { outcome: 'insufficient-evidence', reasons: ['below-minimum-units'] },
-          'validator-candidate-policy': { outcome: 'not-an-opportunity', reasons: ['single-responsibility-unit'] },
-          'validator-report': opportunity,
-          repository: lowSpecificity,
-        },
-      },
       preconditions: {},
     };
 
@@ -676,13 +660,6 @@ const CASES = [
       lineageTokens: [],
       lineageExpression: { ...Object.fromEntries(names(validate).map((name) => [name, ['calculogic']])), ...Object.fromEntries(names(validatorHosts).map((name) => [name, ['calculogic', 'validator']])) },
       candidates: [{ prefix: ['validate'], members: names(validate), expected: lowSpecificity }],
-      implementationPending: {
-        runtimeProduces: {
-          calculogic: { outcome: 'insufficient-evidence', reasons: ['whole-directory-value-undetermined'] },
-          'calculogic-validate': opportunity,
-          'calculogic-validator': opportunity,
-        },
-      },
       preconditions: {},
     };
 

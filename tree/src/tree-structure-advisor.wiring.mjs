@@ -27,6 +27,7 @@ import { prepareNamingSemanticEvidenceBridge } from '../../naming/src/naming-sem
 import { projectNamingFolderCompositionBridge } from '../../naming/src/naming-folder-composition-projection.logic.mjs';
 import { prepareTreeNamingSectionIntake } from './tree-naming-section-intake.logic.mjs';
 import { createTreeLexicalRelation, prepareTreeLexicalIdentityIntake } from './tree-lexical-identity-evidence.logic.mjs';
+import { prepareTreeRepositoryPackageIntake, toTreeRepositoryPackageElements } from './tree-repository-package-evidence.logic.mjs';
 import { prepareTreeFolderFactEvidence } from './tree-folder-fact-evidence.logic.mjs';
 import { prepareTreeFolderCandidates } from './tree-folder-candidates.logic.mjs';
 import { prepareTreeFolderSemanticEvidence } from './tree-folder-semantic-evidence.logic.mjs';
@@ -37,6 +38,7 @@ import { prepareTreeNamingOccurrenceBridgeIntake } from './tree-naming-occurrenc
 import { prepareContextualTreeRepoShapePolicy } from './tree-contextual-repo-shape-policy.logic.mjs';
 import { prepareTreeRepoShapeEvidence } from './tree-repo-shape-evidence.logic.mjs';
 import { collectDeclaredLocalPackageEvidence } from '../../src/core/repository-local-package-evidence.logic.mjs';
+import { collectDeclaredRepositoryPackageIdentity } from '../../src/core/repository-package-identity.logic.mjs';
 import {
   loadTreeRuntimeRegistries,
   loadTreeSemanticHomeParameterSet,
@@ -189,6 +191,9 @@ export const prepareTreeStructureAdvisorInputs = (
     // producer unchanged; Tree never resolves tokens. Only the lexical-identity intake below reads the
     // section it produces.
     lexicalProfile,
+    // Suite-core repository package identity fact (capability inventory §3.11, bridge contract §4.8),
+    // passed unchanged; Naming interprets its segments, and Tree never tokenizes it.
+    repositoryPackageIdentity: collectDeclaredRepositoryPackageIdentity(repositoryRoot),
   });
   const treeNamingSectionIntake = prepareTreeNamingSectionIntake({
     namingOccurrenceBridge: addressedNamingOccurrenceBridge,
@@ -204,6 +209,10 @@ export const prepareTreeStructureAdvisorInputs = (
     namingOccurrenceBridge: addressedNamingOccurrenceBridge,
     sectionIntake: treeNamingSectionIntake,
   });
+  // Repository-package intake (S3.2; bridge contract §4.8; calculogic-validator#159): Tree's own record of
+  // the payload-level `namingRepositoryPackageLabels`, outside Stage 1A and every Stage 1/Stage 2 module;
+  // `null` (and no prepared dependency) without the section. Only Stage 3 reads its accepted elements.
+  const treeRepositoryPackageIntake = prepareTreeRepositoryPackageIntake({ namingOccurrenceBridge: addressedNamingOccurrenceBridge });
   // Stage 1B-i (S1.3 fact level, S1.8): built only from the intake above and Tree's snapshot.
   const treeFolderFactEvidence = prepareTreeFolderFactEvidence({
     sectionIntake: treeNamingSectionIntake,
@@ -273,6 +282,8 @@ export const prepareTreeStructureAdvisorInputs = (
     // S3.2 lexical-label expression and S3.7 `lexicalIdentity`, only with an available section.
     lexicalRelation: createTreeLexicalRelation(treeLexicalIdentityIntake),
     lexicalProfile: treeLexicalIdentityIntake?.lexicalProfile ?? null,
+    // S3.2 repository package expression: accepted, parsed package elements only.
+    repositoryPackageElements: toTreeRepositoryPackageElements(treeRepositoryPackageIntake),
   });
   const treeOccurrenceClassificationReplacementRuntime = prepareTreeOccurrenceClassificationReplacementRuntime({
     treeStructuralHomeEvidence,
@@ -314,6 +325,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeNamingOccurrenceBridgeIntake,
       treeNamingSectionIntake,
       ...(treeLexicalIdentityIntake ? { treeLexicalIdentityIntake } : {}),
+      ...(treeRepositoryPackageIntake ? { treeRepositoryPackageIntake } : {}),
       treeFolderFactEvidence,
       treeFolderSemanticEvidence,
       treeSemanticHomeParameterSet,

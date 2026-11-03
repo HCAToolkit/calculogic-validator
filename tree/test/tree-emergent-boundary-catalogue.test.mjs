@@ -216,9 +216,9 @@ test('integrity: S3.2 positional cases discover exactly their declared candidate
 test('integrity: the implementation-pending marker is on exactly the cases S3.9 names, with a recorded runtime result', () => {
   const specCases = [...S3_9.matchAll(/^\| (E\d+) \|.*\*\*Implementation-pending:\*\*/gmu)].map((match) => match[1]);
   assert.deepEqual(EMERGENT_BOUNDARY_CATALOGUE.cases.filter((entry) => entry.implementationPending).map((entry) => entry.id), specCases);
-  // E16 and E17 were reclassified when calculogic-validator#144 implemented S3.2. E18-E20 follow repository
-  // package expression (S3.2, calculogic-validator#157), contracted and not yet implemented.
-  assert.deepEqual(specCases, ['E18', 'E19', 'E20']);
+  // E16 and E17 were reclassified when calculogic-validator#144 implemented S3.2, and E18-E20 when
+  // calculogic-validator#159 implemented repository package expression. No base case is pending.
+  assert.deepEqual(specCases, []);
   for (const entry of EMERGENT_BOUNDARY_CATALOGUE.cases.filter((candidateCase) => candidateCase.implementationPending)) {
     assert.ok(Object.keys(entry.implementationPending.runtimeProduces).length > 0, `${entry.id}: today's runtime result is recorded`);
   }

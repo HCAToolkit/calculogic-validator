@@ -222,7 +222,7 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 
 - **Owner:** suite-core
 - **Path/area:**
-  - `src/core/repository-local-package-evidence.logic.mjs`
+  - `src/core/repository-local-package-evidence.logic.mjs` (its root-manifest read is shared with 3.11, `src/core/repository-root-manifest.logic.mjs`)
 - **Concern:** one neutral repository fact (#37): which top-level folders the validation target's root manifest explicitly declares as local packages, where each folder also has its own contained package manifest. It reports the fact only. Deciding what the fact allows (for example a top-level folder in Tree's repo shape) belongs to the consuming slice.
 - **Qualifying rule (both sides required):**
   - **Root declaration.** `<target>/package.json` is contained (3.9) and parses as a JSON object. It declares `<folder>` in one of these supported forms:
@@ -240,21 +240,26 @@ Only currently real, discoverable suite-owned surfaces are listed here.
 - **When not to reuse:** dependency resolution, version checks or any manifest validation. This is a fact extractor, not a package manager.
 - **Reuse boundary type:** helper-area reuse
 
-### 3.11 Entry: suite-core repository package identity (Contract, implementation-pending)
+### 3.11 Entry: suite-core repository package identity
 
-- **Status:** Contract, calculogic-validator#157; **implementation-pending**. The capability does not exist yet; this entry records the approved boundary for the implementation slice.
+- **Status:** contract-approved by calculogic-validator#157; current since calculogic-validator#159.
 - **Owner:** suite-core
-- **Path/area (planned):** beside 3.10, in `src/core/`
+- **Path/area:**
+  - `src/core/repository-package-identity.logic.mjs`
+  - `src/core/repository-root-manifest.logic.mjs`, the root-manifest read this entry shares with 3.10
 - **Concern:** one neutral repository fact: the package identity the validation target's root manifest declares for itself. It reports the fact only. Its label interpretation belongs to Naming (bridge contract §4.8), and what it expresses belongs to Tree (Tree slice spec S3.2).
 - **Qualifying rule:**
   - `<target>/package.json` is contained (3.9), matches a directory entry's spelling exactly, and parses as a JSON object, as for 3.10.
   - Its `name` is a string in one of two forms:
     - `@<scope>/<name>`: exactly one `/`, with a non-empty scope and a non-empty name;
     - `<name>`: no `@` prefix and no `/`.
-  - Neither segment is empty or carries surrounding whitespace. A padded value is unsupported, not trimmed.
+  - Neither segment is empty or carries whitespace. A padded value is unsupported, not trimmed.
   - Everything else yields no fact, never an error: a missing or malformed manifest, a missing or non-string `name`, or any other shape. The Validator does not validate manifests.
-- **Reusable capability (planned):** a collector returning `{ scope, name }` or `null`. `scope` is `null` when the identity is unscoped. Both segments are raw strings: no tokenization, case change or other normalization.
-- **Intended consumer:** Tree wiring, which passes the fact unchanged to the Naming bridge producer (bridge contract §4.8).
+- **Reusable capability:**
+  - `collectDeclaredRepositoryPackageIdentity(targetRoot)` returns `{ scope, name }` or `null`. `scope` is `null` when the identity is unscoped. Both segments are raw strings: no tokenization, case change or other normalization.
+  - `toRepositoryPackageIdentity(manifestName)`, the same rule for one `name` value.
+  - `readTargetRootManifest(targetRoot)` (`repository-root-manifest.logic.mjs`), the qualifying root-manifest read 3.10 and 3.11 share.
+- **Current consumers:** Tree wiring, which passes the fact unchanged to the Naming bridge producer (bridge contract §4.8).
 - **When to reuse:** a slice that needs the target's own declared package identity as a fact.
 - **When not to reuse:** inferring an identity from a directory name, a git remote or a dependency; reading versions or other manifest fields; any manifest validation.
 - **Reuse boundary type:** helper-area reuse
