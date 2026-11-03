@@ -155,8 +155,9 @@ const SAME_LEXEME = 'same-lexeme';
 const DIFFERENT_LEXEMES = 'different-lexemes';
 const UNDETERMINED = 'undetermined';
 // `relate`: Tree's lexical relation (tree-lexical-identity-evidence), or `null` without an available
-// section; `units` counts the S3.2 (member, lineage folder) units when it is given.
-const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake, relate = null, units = null }) => {
+// section; `units` counts the S3.2 (member, lineage folder) units when it is given. `packageElements`:
+// the accepted repository package elements (tree-repository-package-evidence), empty without any.
+const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake, relate = null, units = null, packageElements = [] }) => {
   const occurrenceFacts = factEvidence?.occurrenceFacts ?? [];
   const observationByKey = new Map((sectionIntake?.bridgeObservations?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record.observation]));
   const enrichmentByKey = new Map((sectionIntake?.semanticEvidenceEnrichment?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record]));
@@ -218,11 +219,23 @@ const collectDirectories = ({ factEvidence, semanticEvidence, sectionIntake, rel
   // positions alone are compared; one unit per (member, lineage folder): all `same-lexeme` expresses on
   // `lexical-label`; any `different-lexemes` records nothing; otherwise any `undetermined` is an
   // undetermined unit; otherwise (`possibly-same-lexeme`) a possible unit and a note, never a step.
+  //
+  // Repository package expression (calculogic-validator#157, #159): the accepted package elements, scope
+  // then name, are walked first, from p = 0. Each expresses only at the position reached, only when its
+  // label tokens equal the member's tokens there in full and in order, and at most once; one that does
+  // not continue is passed over. No lexical comparison is made for them, and the step names the element
+  // and segment, never a folder or occurrence.
   const lineageExpressionOf = (file, tokens) => {
     const stageOneEnds = stageOneEndsOf(file);
     const steps = [];
     const possible = [];
     let position = 0;
+    for (const { element, segment, labelTokens } of packageElements) {
+      const end = position + labelTokens.length;
+      if (end > tokens.length || labelTokens.some((token, offset) => tokens[position + offset] !== token)) continue;
+      steps.push({ element, segment, basis: LINEAGE_BASES.repositoryPackage, positions: { start: position, end }, tokens: tokens.slice(position, end) });
+      position = end;
+    }
     for (const folderKey of relevantLineageOf(file).reverse()) {
       const folder = folderByKey.get(folderKey);
       const reached = [];
@@ -625,7 +638,18 @@ const toMemberRecord = (member, prefix, classified) => ({
 
 // `lexicalRelation`: Tree's lexical relation (`createTreeLexicalRelation`), only for an available
 // lexical-identity section, with `lexicalProfile` its provenance; omitted otherwise (S3.2, S3.7).
-export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvidence, sectionIntake, semanticHomeReasoning, policy, lexicalRelation = null, lexicalProfile = null } = {}) => {
+// `repositoryPackageElements`: the accepted package elements (`toTreeRepositoryPackageElements`); with
+// none, the record is exactly as without this input (calculogic-validator#159).
+export const prepareTreeEmergentBoundaryReasoning = ({
+  factEvidence,
+  semanticEvidence,
+  sectionIntake,
+  semanticHomeReasoning,
+  policy,
+  lexicalRelation = null,
+  lexicalProfile = null,
+  repositoryPackageElements = [],
+} = {}) => {
   const policyCheck = policy === undefined || policy === null ? null : validateTreeEmergentBoundaryPolicy(policy);
   const assessment =
     policyCheck === null
@@ -670,7 +694,7 @@ export const prepareTreeEmergentBoundaryReasoning = ({ factEvidence, semanticEvi
   const limitations = { filesWithoutEvaluatedIdentity: 0, membersWithoutTokenSequence: 0, membersWithoutRoleCategory: 0 };
   const directories = [];
   const expressionUnits = lexicalRelation ? Object.fromEntries(Object.values(LEXICAL_UNITS).map((unit) => [unit, 0])) : null;
-  for (const { folder, fileCount, members } of collectDirectories({ factEvidence, semanticEvidence, sectionIntake, relate: lexicalRelation, units: expressionUnits })) {
+  for (const { folder, fileCount, members } of collectDirectories({ factEvidence, semanticEvidence, sectionIntake, relate: lexicalRelation, units: expressionUnits, packageElements: repositoryPackageElements })) {
     limitations.filesWithoutEvaluatedIdentity += fileCount - members.length;
     limitations.membersWithoutTokenSequence += members.filter((member) => !member.tokens).length;
     limitations.membersWithoutRoleCategory += members.filter((member) => !member.roleCategory).length;

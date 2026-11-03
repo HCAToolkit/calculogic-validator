@@ -33,6 +33,9 @@ export const EMERGENT_BOUNDARY_LINEAGE_BASES = Object.freeze({
   positionalLabel: 'positional-label',
   // S3.2 lexical-label expression (calculogic-validator#153): after Stage 1 and `positional-label` on ties.
   lexicalLabel: 'lexical-label',
+  // S3.2 repository package expression (calculogic-validator#157, #159): the outermost elements, walked
+  // before any lineage folder; the step names the element and segment, never a folder.
+  repositoryPackage: 'repository-package',
 });
 // S3.2, S3.7 (calculogic-validator#153): one (member, lineage folder) unit per lexical comparison outcome.
 export const EMERGENT_BOUNDARY_LEXICAL_UNITS = Object.freeze({

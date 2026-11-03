@@ -10,8 +10,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { isPathInsideTarget } from './target-path-containment.logic.mjs';
+import { MANIFEST_FILENAME, hasExactEntry, readContainedJsonObject, readTargetRootManifest } from './repository-root-manifest.logic.mjs';
 
-const MANIFEST_FILENAME = 'package.json';
 const DEPENDENCY_FIELDS = Object.freeze(['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']);
 const LOCAL_PACKAGE_PROTOCOLS = Object.freeze(['file:', 'link:']);
 const GLOB_CHARACTERS = /[*?[\]{}!]/u;
@@ -19,20 +19,6 @@ const GLOB_CHARACTERS = /[*?[\]{}!]/u;
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const compareOrdinal = (left, right) => (left === right ? 0 : left < right ? -1 : 1);
-
-// A contained JSON object, or null for anything that is absent, escaping, unreadable or not an object.
-const readContainedJsonObject = (targetRoot, filePath) => {
-  if (!isPathInsideTarget(targetRoot, filePath)) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    return isPlainObject(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-};
 
 // The top-level folder a declaration names exactly, or null. Accepted spellings: `<folder>`,
 // `./<folder>`, each with or without one trailing `/`. Surrounding whitespace, on the reference or
@@ -101,16 +87,6 @@ const isContainedDirectory = (targetRoot, directoryPath) => {
   }
 };
 
-// True when `name` is spelled exactly as an entry of `directoryPath`. Existence checks alone accept
-// another spelling on a case-insensitive filesystem, so evidence would differ between hosts.
-const hasExactEntry = (directoryPath, name) => {
-  try {
-    return fs.readdirSync(directoryPath).includes(name);
-  } catch {
-    return false;
-  }
-};
-
 const compareDeclarations = (left, right) =>
   compareOrdinal(left.field, right.field) ||
   compareOrdinal(left.key ?? '', right.key ?? '') ||
@@ -118,9 +94,7 @@ const compareDeclarations = (left, right) =>
 
 // Returns `[{ folder, manifestPath, declarations }]`, sorted by folder.
 export const collectDeclaredLocalPackageEvidence = (targetRoot) => {
-  const rootManifest = hasExactEntry(targetRoot, MANIFEST_FILENAME)
-    ? readContainedJsonObject(targetRoot, path.join(targetRoot, MANIFEST_FILENAME))
-    : null;
+  const rootManifest = readTargetRootManifest(targetRoot);
   if (!rootManifest) {
     return [];
   }

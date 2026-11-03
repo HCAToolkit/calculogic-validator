@@ -3,7 +3,7 @@
 - **Classification:** Normative for the Naming occurrence bridge identity, field-eligibility, existing v1 context/compatibility, enrichment, versioning, and migration contract; descriptive only where explicitly labeled as **current runtime truth**.
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
-- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. calculogic-validator#157 adds the payload-level section rule (§4.4 rule 9) and the Naming repository-package label section (§4.8, §6.5); contract only, implementation-pending. Tracking: calculogic-validator#85.
+- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. calculogic-validator#157 adds the payload-level section rule (§4.4 rule 9) and the Naming repository-package label section (§4.8, §6.5); calculogic-validator#159 implements it. Tracking: calculogic-validator#85.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
 - **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
@@ -338,7 +338,7 @@ The cases are checked in table order, and a record's shape is checked before its
 - **Section name:** `namingRepositoryPackageLabels`.
 - **Contract version:** `naming-repository-package-label.v1`.
 - **Provenance:** `producerId: naming-repository-package-label`, `source: calculogic-validator/naming`.
-- **Status:** Contract, calculogic-validator#157; **implementation-pending**. No producer emits it and no consumer reads it yet.
+- **Status:** contract-approved by calculogic-validator#157. **Current since calculogic-validator#159:** the Naming occurrence-bridge path emits it whenever a repository package identity fact is supplied, including in the bridge payload Tree wiring builds, and Tree is a supporting consumer for S3.2 only.
 - **Kind:** a payload-level section (§4.4 rule 9). Its record key is `element`.
 - **Envelope:** `contractVersion`, `producerId`, `source`, `recordCount`, `records` (ordered `scope`, then `name`), optional `diagnostics`.
 - **Interpretation rules:** Naming semantic interpretation spec §13, the folder-label interpretation, unchanged.
@@ -382,7 +382,7 @@ There is no fallback: a consumer never reads the manifest, a package name from e
 - Whether and where a package element expresses anything is Tree's decision (Tree slice spec S3.2). This section asserts no family, concept or lineage.
 - Structural Addressing is unchanged: the repository root stays a non-occurrence.
 
-**Current consumers.** None (implementation-pending). The intended consumer is Tree's S3.2 walk, through a separate Tree intake that Stage 1A does not read (§4.4 rule 2).
+**Current consumers.** Tree, since calculogic-validator#159: a separate Tree intake (`treeRepositoryPackageIntake`, `tree/src/tree-repository-package-evidence.logic.mjs`), read only by Stage 3 repository package expression (Tree slice spec S1.1–S1.3, S3.2). It performs the consumer checks above in their stated order. Tree's Stage 1A intake reads a payload carrying the section exactly as without it (§4.4 rule 2).
 
 ## 5. Ownership boundaries
 
@@ -469,7 +469,7 @@ Not approved for the §4.7 section in v1: comparison relations between tokens (a
 
 ### 6.5 Naming repository-package label fields (§4.8)
 
-These fields are approved for the §4.8 section only (calculogic-validator#157; implementation-pending). The parse fields (`parseOutcome`, `labelTokens`, `labelRoot`, `labelFacts`, `notParsedReasons`) have exactly the §6.3 definitions and are not repeated.
+These fields are approved for the §4.8 section only (calculogic-validator#157; current since calculogic-validator#159). The parse fields (`parseOutcome`, `labelTokens`, `labelRoot`, `labelFacts`, `notParsedReasons`) have exactly the §6.3 definitions and are not repeated.
 
 | Field | Owner | Source of truth | Value shape | Required / optional | Absence behavior | Normalization and deterministic order | Consumer limitation |
 | --- | --- | --- | --- | --- | --- | --- | --- |

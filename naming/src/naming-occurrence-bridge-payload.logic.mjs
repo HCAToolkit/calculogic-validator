@@ -1,4 +1,5 @@
 import { projectNamingTokenLexicalIdentities } from './naming-token-lexical-identity-projection.logic.mjs';
+import { projectNamingRepositoryPackageLabels } from './naming-repository-package-label-projection.logic.mjs';
 const BRIDGE_CONTRACT_VERSION = 'naming-occurrence-bridge.v1';
 const ENRICHMENT_SIDECAR_VERSION = 'naming-occurrence-bridge-enrichment.v1';
 const BRIDGE_SOURCE = 'calculogic-validator/naming';
@@ -498,6 +499,8 @@ export const createNamingOccurrenceBridgePayload = ({
   interpretFolderLabel,
   // The run's active Linguistic Foundation runtime profile, or absent (bridge contract §4.7).
   lexicalProfile,
+  // The suite-core repository package identity fact (capability inventory §3.11), or absent (§4.8).
+  repositoryPackageIdentity,
   sourceReportRef,
   sourceSnapshotRef,
 } = {}) => {
@@ -582,6 +585,10 @@ export const createNamingOccurrenceBridgePayload = ({
       })
     : null;
 
+  // §4.8: a payload-level section (§4.4 rule 9), independent of the addressed namespace; only with a
+  // fact and the folder-label interpreter. Nothing else in the payload changes.
+  const repositoryPackageLabelSection = projectNamingRepositoryPackageLabels({ repositoryPackageIdentity, interpretFolderLabel });
+
   return {
     bridgeContractVersion: BRIDGE_CONTRACT_VERSION,
     bridgeSource: BRIDGE_SOURCE,
@@ -631,6 +638,7 @@ export const createNamingOccurrenceBridgePayload = ({
     ...(semanticEvidenceEnrichmentSection ? { namingSemanticEvidenceEnrichment: semanticEvidenceEnrichmentSection } : {}),
     ...(folderLabelObservationSection ? { namingFolderLabelObservations: folderLabelObservationSection } : {}),
     ...(tokenLexicalIdentitySection ? { namingTokenLexicalIdentities: tokenLexicalIdentitySection } : {}),
+    ...(repositoryPackageLabelSection ? { namingRepositoryPackageLabels: repositoryPackageLabelSection } : {}),
     ...(diagnostics.length > 0 ? { diagnostics } : {}),
   };
 };

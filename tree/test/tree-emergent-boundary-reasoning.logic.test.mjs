@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { EMERGENT_BOUNDARY_CATALOGUE } from './fixtures/emergent-boundary-catalogue/emergent-boundary-catalogue-cases.fixture.mjs';
 import { EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY } from './fixtures/emergent-boundary-catalogue/emergent-boundary-experimental-policy.fixture.mjs';
 import { buildCatalogueCase, files } from './fixtures/semantic-home-catalogue/semantic-home-catalogue.fixture.mjs';
+import { repositoryPackageBridgeSections, repositoryPackageElementsOf } from './fixtures/repository-package/repository-package.fixture.mjs';
 import {
   evaluateCoverageInvariance,
   prepareTreeEmergentBoundaryReasoning,
@@ -25,15 +26,22 @@ const withDecision = (id, decision) => ({
   decisions: { ...EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY.decisions, [id]: decision },
 });
 
-// One catalogue case through Stage 1, Stage 2A and Stage 3; `policy: null` supplies none.
+// One catalogue case through Stage 1, Stage 2A and Stage 3; `policy: null` supplies none. A case that
+// declares a repository package (E18-E21) carries it as on the default path: Naming's §4.8 section, then
+// Tree's intake and its accepted elements (calculogic-validator#159).
 const runCase = (entry, { policy = EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY, parameterSet } = {}) => {
-  const built = buildCatalogueCase({ files: entry.tree.files.flatMap(({ dir, root, count, ...options }) => files(dir, root, count, options)), parameterSet });
+  const built = buildCatalogueCase({
+    files: entry.tree.files.flatMap(({ dir, root, count, ...options }) => files(dir, root, count, options)),
+    parameterSet,
+    bridgeSections: repositoryPackageBridgeSections(entry.repositoryPackage),
+  });
   const record = prepareTreeEmergentBoundaryReasoning({
     factEvidence: built.factEvidence,
     semanticEvidence: built.semanticEvidence,
     sectionIntake: built.sectionIntake,
     semanticHomeReasoning: built.reasoning,
     policy,
+    repositoryPackageElements: repositoryPackageElementsOf(built),
   });
   const directory = record.directories?.find((item) => item.path === entry.directory);
   const candidateAt = (prefix) => directory?.candidates.find((candidate) => prefixKey(candidate.prefix) === prefix);
@@ -121,9 +129,8 @@ const tokenFile = (dir, tokens) => ({ dir, root: tokens[0], tokens, semanticName
 const prefixesAt = (record, path) => (record.directories.find((item) => item.path === path)?.candidates ?? []).map((candidate) => prefixKey(candidate.prefix)).sort();
 
 test('S3.2 provenance: every catalogue member records the declared lineage expression, step by step, and its leading tokens', () => {
-  // An implementation-pending case declares the lineage the amended rule expresses; today's runtime is
-  // checked against its recorded result instead (above), and its declared lineage by the reference walk
-  // (tree-repository-package-expression-contract.test.mjs).
+  // An implementation-pending case declares the lineage an unimplemented amendment expresses; today's
+  // runtime is checked against its recorded result instead (above). There is none at present.
   for (const entry of [...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions].filter((candidateCase) => !candidateCase.implementationPending)) {
     const { directory } = runCase(entry);
     for (const candidate of directory?.candidates ?? []) {
