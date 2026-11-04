@@ -8,6 +8,10 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  EMERGENT_BOUNDARY_POLICY_ROOT_FIELDS,
+  assertValidEmergentBoundaryPolicyRegistry,
+} from './tree-emergent-boundary-policy-registry.logic.mjs';
 import { normalizeFolderKindsRegistryPayload } from './tree-folder-kinds-registry.logic.mjs';
 import { normalizeTreeRepoShapePolicyRegistryPayload } from './tree-repo-shape-policy-registry.logic.mjs';
 import { assertValidSemanticNamingFolderTypeRelationshipsRegistry } from './tree-semantic-naming-folder-type-relationships-registry.logic.mjs';
@@ -40,6 +44,7 @@ const TREE_REGISTRY_FILE_VALIDATORS = Object.freeze({
 });
 
 const TREE_REGISTRY_PAYLOAD_VALIDATORS = Object.freeze({
+  'emergent-boundary-policy': assertValidEmergentBoundaryPolicyRegistry,
   'folder-kinds': normalizeFolderKindsRegistryPayload,
   'repo-shape-policy': normalizeTreeRepoShapePolicyRegistryPayload,
   'semantic-home-policy': assertValidSemanticHomePolicyRegistry,
@@ -55,6 +60,7 @@ const TREE_REGISTRY_PAYLOAD_VALIDATORS = Object.freeze({
 // an undeclared root field, so it would pass validation and never reach runtime. A registry whose
 // root fields depend on its version maps each readable version to its fields.
 const TREE_REGISTRY_ROOT_FIELDS = Object.freeze({
+  'emergent-boundary-policy': EMERGENT_BOUNDARY_POLICY_ROOT_FIELDS,
   'folder-kinds': ['folderKinds'],
   'repo-shape-policy': ['allowedTopLevelDirectories'],
   'semantic-home-policy': SEMANTIC_HOME_POLICY_ROOT_FIELDS_BY_VERSION,

@@ -285,7 +285,7 @@ test('an activated Custom set is used by Naming, Tree and suite core in one run;
       assert.deepEqual(sourcesOf(report.registryProvenance), ['custom']);
       assert.deepEqual(sourcesOf(naming.meta.registryProvenance), ['custom']);
       assert.deepEqual(sourcesOf(tree.meta.registryProvenance), ['custom']);
-      assert.equal(Object.keys(tree.meta.registryProvenance).length, 11);
+      assert.equal(Object.keys(tree.meta.registryProvenance).length, 12);
     }
     for (const { report, naming, tree } of [builtinRepo, builtinApp]) {
       assert.equal(report.registrySet.activeSet, 'builtin');
@@ -327,7 +327,7 @@ test('validate:tree reports Tree registry provenance from the run resolution', (
 
     assert.equal(report.registrySet.activeSet, 'builtin');
     assert.deepEqual(Object.keys(treeProvenance).sort(), Object.keys(treeProvenance).filter((id) => id.startsWith('tree/')).sort());
-    assert.equal(Object.keys(treeProvenance).length, 11);
+    assert.equal(Object.keys(treeProvenance).length, 12);
     assert.deepEqual(sourcesOf(treeProvenance), ['builtin']);
   });
 });

@@ -64,6 +64,17 @@ const defineTreeRegistry = (
 
 // [6.1] cfg-registryLifecycle · Container · "Tree registry inventory"
 export const TREE_REGISTRY_INVENTORY = Object.freeze([
+  // The adopted Stage 3 policy (Tree spec S3.13.6; calculogic-validator#171): one policy record and one
+  // record per decision, each kept or taken whole (no reconciliation).
+  defineTreeRegistry('emergent-boundary-policy', {
+    setLike: [
+      { path: 'policies', key: 'policyId' },
+      { path: 'decisions', key: 'decisionId' },
+    ],
+  }, [
+    { kind: 'keyed', path: 'policies', key: 'policyId' },
+    { kind: 'keyed', path: 'decisions', key: 'decisionId' },
+  ]),
   defineTreeRegistry('folder-kinds', { setLike: [{ path: 'folderKinds', key: 'folderKind' }] }, [
     { kind: 'keyed', path: 'folderKinds', key: 'folderKind' },
   ], [{ path: 'folderKinds', mergeFields: [['status'], ['definition']] }]),
