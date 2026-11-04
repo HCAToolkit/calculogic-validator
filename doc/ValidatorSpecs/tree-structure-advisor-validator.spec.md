@@ -1282,7 +1282,7 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. The S3.2 lexical-label expression of calculogic-validator#153 is implemented by its implementation slice. The S3.2 repository package expression of calculogic-validator#157 is implemented by calculogic-validator#159. The S3.6 role-category vocabulary rule of calculogic-validator#162 is Contract only, implementation-pending; its S1 intake is implemented by the evidence-only slice, and Stage 3 does not read it. The S3.13 first-advisory contract of calculogic-validator#171: its adopted policy (S3.13.6, slice B) is implemented by the slice-B implementation; the first advisory finding (slice C) is Contract only, implementation-pending. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
+### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. The S3.2 lexical-label expression of calculogic-validator#153 is implemented by its implementation slice. The S3.2 repository package expression of calculogic-validator#157 is implemented by calculogic-validator#159. The S3.6 role-category vocabulary rule of calculogic-validator#162 is Contract only, implementation-pending; its S1 intake is implemented by the evidence-only slice, and Stage 3 does not read it. The S3.13 first-advisory contract of calculogic-validator#171: its adopted policy (S3.13.6, slice B) is implemented by the slice-B implementation; the first advisory finding (slice C, S3.13.2–S3.13.5 and S3.13.7) is implemented by the slice-C implementation and is emitted only under the adopted policy with an active language profile. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
 
 This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
 
@@ -1678,7 +1678,7 @@ Member records add a `lexical-label` step to `lineageExpression` and a `possible
 
 **Repository package steps (Current, calculogic-validator#159).** A member's `lineageExpression` may begin with `repository-package` steps: `{ element, segment, basis, positions, tokens }`, with no `folder` or `folderPath`. No other field or block is added: without an accepted package element the record is byte-identical to the record before calculogic-validator#159, and the intake's state and diagnostics are not repeated here. Otherwise every field and key is exactly as before. **Without an `available` section the record is byte-identical to the record before this amendment:** there is no `lexicalIdentity` block, and the `limitations` keys are unchanged. Intake diagnostics stay in `treeLexicalIdentityIntake` (S1.2) and are not repeated here.
 
-**This version emits no finding.** Any advisory finding is decided under S3.11 step 5; S3.13 is its contract (calculogic-validator#171; implementation-pending).
+**The record emits no finding itself.** Its `recommendation` stays `not-authorized`. Since calculogic-validator#171 slice C, a separate contributor derives the one advisory finding, `TREE_EMERGENT_BOUNDARY_OPPORTUNITY`, from this record without changing it (S3.13.2–S3.13.5). No other finding reads the record.
 
 #### S3.8 Parameters (all provisional)
 
@@ -1692,7 +1692,7 @@ None of the following is binding:
 
 No value is adopted without catalogue evidence (as S2.10), and none compensates for an upstream evidence gap (S2.15). Adopted values become Tree registry data through the registry migration sequence.
 
-**Adopted policy (current behavior since calculogic-validator#171 slice B).** S3.13.1 lists the approved values, and S3.13.6 how the adopted policy is supplied and told apart from an experimental one. Every validation run evaluates Stage 3 under the adopted policy from its resolved Tree registry `tree/emergent-boundary-policy`. No finding reads the result until slice C.
+**Adopted policy (current behavior since calculogic-validator#171 slice B).** S3.13.1 lists the approved values, and S3.13.6 how the adopted policy is supplied and told apart from an experimental one. Every validation run evaluates Stage 3 under the adopted policy from its resolved Tree registry `tree/emergent-boundary-policy`. Since slice C, the advisory finding reads the result, and only when EL1–EL5 hold (S3.13.3).
 
 **Experimental policy.** An **explicitly supplied, named experimental policy** decides in place of the adopted policy, as a programmatic override for testing (S3.13.6).
 - Without either source (a direct call that supplies neither), candidates, relations, member sets, coverage and limitations are still prepared, and no outcome is.
@@ -1914,7 +1914,7 @@ Each step needs its own authorization:
 | # | Decision | State |
 |---|---|---|
 | D-T1 | Candidate identity across a change of derivation (S3.2): E10-L's `check` and E10's `rule-check` have equal leading tokens over the same members | **Not decided.** As E17, the lexical companion records the new identifier and the equal leading tokens and members, and applies no identity rule |
-| D-T2 | Whether an advisory finding (step 5) requires an active language profile, or how it treats runs without one | **Open.** at calculogic-validator#153, where step 5 stayed blocked. **Decided by calculogic-validator#171:** an advisory finding requires one (S3.13.4); implementation-pending (S3.13.8) |
+| D-T2 | Whether an advisory finding (step 5) requires an active language profile, or how it treats runs without one | **Open.** at calculogic-validator#153, where step 5 stayed blocked. **Decided by calculogic-validator#171:** an advisory finding requires one (S3.13.4); implemented by slice C as EL2 (S3.13.3, S3.13.8) |
 | D-T3 | Whether a kind-suffix discovery method should exist (S3.10) | **Deferred.** Recorded only; positional constraints are not relaxed for it |
 | D5 (foundation contract §12) | Tree's treatment of `possibly-same-lexeme` | **Resolved:** no expression; recorded as a possible unit and a `possibleLexicalExpression` note (S3.2) |
 
@@ -1929,9 +1929,11 @@ Each step needs its own authorization:
 - Recommending subdivisions inside a directory that is itself a supported home (deferred; S3.5).
 - Any single strength score, or ranking across directories.
 
-#### S3.13 First advisory finding (Contract, calculogic-validator#171; implementation-pending)
+#### S3.13 First advisory finding (Contract, calculogic-validator#171; implemented by slices B and C)
 
-This section is the contract for S3.11 step 5. It takes effect through two separately authorized slices: the adopted-policy registry and loader (S3.13.8, slice B), then findings derivation (slice C). **Slice B is implemented:** S3.13.1 values, S3.13.6 and the slice-B part of S3.13.7 are current behavior. **Slice C is not:** S3.13.2–S3.13.5 and the slice-C part of S3.13.7 are Contract only, and Stage 3 emits no finding (S3.7).
+This section is the contract for S3.11 step 5. It takes effect through two separately authorized slices: the adopted-policy registry and loader (S3.13.8, slice B), then findings derivation (slice C). **Both slices are implemented.** Slice B: the S3.13.1 values, S3.13.6 and the slice-B part of S3.13.7 are current behavior. Slice C: S3.13.2–S3.13.5 and the slice-C part of S3.13.7 are current behavior; the contributor derives findings from the prepared record and adds no Stage 3 reasoning.
+
+**Still deferred after slice C** (each needs its own authorization): the S3.6 role-category vocabulary rule, M1 (mixed documentation), any class for `integration-adapter` or `concern-style`, outer-only or any other `opportunity-selection` rule, any `coverage-share` or `partial-evidence-aggregation` value, a `one-word-prefix` allowance, a profile-aware `minimum-primary-units`, and findings without an active language profile. Candidates these decisions would affect stay excluded (incomplete or related), and are visible only as counts.
 
 ##### S3.13.1 Owner decisions (calculogic-validator#171)
 
@@ -2026,6 +2028,7 @@ A candidate yields an advisory finding **only when all five conditions hold**:
   - `eligibility` is `{ eligible, notEligible: { incomplete, relatedOpportunity, otherOutcome } }`, counts over every candidate when EL1 and EL2 hold.
   - When EL1 or EL2 fails, `eligibility` is absent, and `reason` names the failing condition: `policy-not-adopted` or `language-profile-inactive`.
   - Exclusions stay visible as counts. They are never findings.
+  - As implemented: `status` is `evaluated` or `not-evaluated`. `policySource` is the record's (`adopted`, `experimental-override`, or `null` when no policy was available). `policy` is `{ policyId, policyVersion, registry? }`, absent when no policy was available; `registry` appears only for the adopted policy. `lexicalProfileActive` is whether the record carries `lexicalIdentity`. `governedCodes` is `['TREE_EMERGENT_BOUNDARY_OPPORTUNITY']`. The summary is absent when Stage 3 was not prepared.
 
 ##### S3.13.8 Slices and acceptance tests
 
@@ -2712,7 +2715,7 @@ Each finding uses the same stable envelope shape used by existing validators:
 - `TREE_OBSERVED_FAMILY_CLUSTER` (`info`) — retired in Stage 2B-ii (S2.12); formerly emitted by the naming bridge contributor as thresholded cluster observability. No longer emitted.
 - `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES` (`info`) — retired in Stage 2B-iv (S2.12), with the naming bridge contributor. No longer emitted.
 - `TREE_FAMILY_SCATTERED` (`info`) — implemented via the Semantic Home scatter contributor from Stage 2A placement (S2.12, Stage 2B-i)
-- `TREE_EMERGENT_BOUNDARY_OPPORTUNITY` (`info`) — Contract only (S3.13, calculogic-validator#171; implementation-pending). Not emitted until slice C is implemented
+- `TREE_EMERGENT_BOUNDARY_OPPORTUNITY` (`info`) — implemented via the Stage 3 emergent-boundary opportunity contributor (S3.13, calculogic-validator#171 slice C); emitted only under the adopted policy with an active language profile
 - `TREE_LANE_MIX_HIGH_ENTROPY`
 - `TREE_MISSING_NAMESPACE_ROOT`
 - `TREE_SUBSYSTEM_SCAFFOLD_ASYMMETRY`
@@ -2786,6 +2789,10 @@ Attached Semantic Home scatter contributor (`tree-semantic-home-scatter-contribu
 
 - `TREE_FAMILY_SCATTERED` (from `treeFolderSemanticHomeReasoning.placements`, S2.12; nothing when Stage 2 was not evaluated)
 
+Attached Stage 3 emergent-boundary opportunity contributor (`tree-emergent-boundary-opportunity-contributor`, calculogic-validator#171 slice C) currently ships during normal tree runs:
+
+- `TREE_EMERGENT_BOUNDARY_OPPORTUNITY` (from `treeEmergentBoundaryReasoning`, S3.13; one per candidate meeting EL1–EL5, so nothing without an active language profile or under an experimental override)
+
 The naming-bridge contributor is no longer attached: `TREE_OBSERVED_FAMILY_CLUSTER`, `TREE_FAMILY_SUBGROUP_OPPORTUNITY` and `TREE_SHARED_FAMILY_SCATTERED_ACROSS_LANES` were retired in Stage 2B-ii to 2B-iv, and the contributor with the last of them (S2.12).
 
 ### Current report payload from tree runtime
@@ -2797,8 +2804,9 @@ The tree runtime result includes:
 - `scope`
 - `filters` with `isFiltered` and optional `targets`
 - `semanticHomeReasoning` when Stage 2 was prepared (S2.12, B6)
+- `emergentBoundaryReasoning` when Stage 3 was prepared (S3.13.7)
 
-When tree runs through the shared validator runner / CLI surfaces, the composed validator entry additionally includes summary counts, optional `meta.filters`, `meta.registryProvenance` and `meta.semanticHomeReasoning`, and the runner envelope may include `configDigest` when `--config` is supplied. No tree-specific config payload is emitted today.
+When tree runs through the shared validator runner / CLI surfaces, the composed validator entry additionally includes summary counts, optional `meta.filters`, `meta.registryProvenance`, `meta.semanticHomeReasoning` and `meta.emergentBoundaryReasoning`, and the runner envelope may include `configDigest` when `--config` is supplied. No tree-specific config payload is emitted today.
 
 ---
 

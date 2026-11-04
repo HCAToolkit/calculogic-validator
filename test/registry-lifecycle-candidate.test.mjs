@@ -112,17 +112,22 @@ const normalized = (report) => {
     ...rest,
     registryProvenance: withoutSources(registryProvenance),
     validators: report.validators.map((entry) => {
-      const { registry, registrySet: entrySet, registryProvenance: entryProvenance, semanticHomeReasoning, ...meta } = entry.meta ?? {};
+      const { registry, registrySet: entrySet, registryProvenance: entryProvenance, semanticHomeReasoning, emergentBoundaryReasoning, ...meta } = entry.meta ?? {};
       // Tree's Stage 2 summary (S2.12 B6) carries the same source difference as the provenance above.
       const reasoningWithoutSource = semanticHomeReasoning?.registry
         ? { ...semanticHomeReasoning, registry: { ...semanticHomeReasoning.registry, source: undefined } }
         : semanticHomeReasoning;
+      // So does Tree's Stage 3 summary (S3.13.7), through its adopted-policy registry.
+      const stageThreeWithoutSource = emergentBoundaryReasoning?.policy?.registry
+        ? { ...emergentBoundaryReasoning, policy: { ...emergentBoundaryReasoning.policy, registry: { ...emergentBoundaryReasoning.policy.registry, source: undefined } } }
+        : emergentBoundaryReasoning;
       return {
         ...entry,
         meta: {
           ...meta,
           registryProvenance: withoutSources(entryProvenance ?? {}),
           ...(semanticHomeReasoning ? { semanticHomeReasoning: reasoningWithoutSource } : {}),
+          ...(emergentBoundaryReasoning ? { emergentBoundaryReasoning: stageThreeWithoutSource } : {}),
         },
       };
     }),

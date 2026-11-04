@@ -4,6 +4,9 @@ import {
 import {
   attachTreeSemanticHomeScatterContributor,
 } from './contributors/tree-semantic-home-scatter-contributor.wiring.mjs';
+import {
+  attachTreeEmergentBoundaryOpportunityContributor,
+} from './contributors/tree-emergent-boundary-opportunity-contributor.wiring.mjs';
 
 // `namingSemanticFamilyBridge` and `preparedAddressKeyedJoinEvidence` are still accepted and passed in
 // by wiring; since Stage 2B-iv (Tree spec S2.12) no default contributor reads them. Stage 1 and
@@ -23,4 +26,5 @@ export const collectDefaultTreeStructureAdvisorContributors = ({
     treeSignalPolicy,
   }),
   attachTreeSemanticHomeScatterContributor(),
+  attachTreeEmergentBoundaryOpportunityContributor(),
 ].filter(Boolean);

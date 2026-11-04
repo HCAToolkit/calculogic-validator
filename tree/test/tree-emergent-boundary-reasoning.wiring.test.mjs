@@ -1,7 +1,8 @@
-// Tree Stage 3 wiring and report isolation (Tree spec S3.7, S3.8; calculogic-validator#136). A real
-// run prepares `treeEmergentBoundaryReasoning` without a policy, so without outcomes; the programmatic
-// `emergentBoundaryPolicy` argument is the only way to supply one. With or without it, no finding,
-// report field or `meta` entry reads the record.
+// Tree Stage 3 wiring and report isolation (Tree spec S3.7, S3.8, S3.13; calculogic-validator#136, #171).
+// A real run evaluates `treeEmergentBoundaryReasoning` under the adopted policy; the programmatic
+// `emergentBoundaryPolicy` argument is the only way to supply an experimental one. The report never
+// carries the record: only the S3.13 advisory finding and the `meta.emergentBoundaryReasoning` summary
+// are derived from it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -81,13 +82,19 @@ test('the programmatic policy argument evaluates the record: the E6 shape reache
   });
 });
 
-test('report isolation: the Tree result is identical with and without the policy and carries none of the record', () => {
+test('report isolation: the override changes only the Stage 3 summary, never a finding, and the report carries no record', () => {
   withRepository(({ root, prepare }) => {
-    const without = JSON.stringify(runTreeStructureAdvisorRuntime(prepare()));
-    const withPolicy = JSON.stringify(runTreeStructureAdvisorRuntime(prepare({ emergentBoundaryPolicy: EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY })));
-    assert.equal(withPolicy, without);
+    const without = runTreeStructureAdvisorRuntime(prepare());
+    const withPolicy = runTreeStructureAdvisorRuntime(prepare({ emergentBoundaryPolicy: EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY }));
+    // Since calculogic-validator#171 slice C the summary names the policy source (S3.13.7); neither run
+    // emits a Stage 3 finding (no profile, EL2; the override, EL1).
+    const { emergentBoundaryReasoning: summaryWith, ...restWith } = withPolicy;
+    const { emergentBoundaryReasoning: summaryWithout, ...restWithout } = without;
+    assert.equal(JSON.stringify(restWith), JSON.stringify(restWithout));
+    assert.deepEqual([summaryWithout.policySource, summaryWith.policySource], ['adopted', 'experimental-override']);
+    assert.deepEqual([summaryWithout.reason, summaryWith.reason], ['language-profile-inactive', 'policy-not-adopted']);
     const report = JSON.stringify(runValidatorRunner(root, { validators: ['tree-structure-advisor'], scope: 'repo' }));
-    for (const serialized of [without, report]) {
+    for (const serialized of [JSON.stringify(without), report]) {
       for (const marker of IDENTIFYING_MARKERS) assert.equal(serialized.includes(marker), false, marker);
     }
   });

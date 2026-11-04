@@ -239,5 +239,7 @@ test('B-6: on this repository, adopted assessments equal the experimental-v1 ass
   assert.equal(adoptedRecord.assessment.policySource, 'adopted');
   assert.ok(Object.keys(signaturesOf(adoptedRecord)).length > 0);
   assert.deepEqual(signaturesOf(adoptedRecord), signaturesOf(experimental.preparedDependencies.treeEmergentBoundaryReasoning));
-  assert.equal(JSON.stringify(runTreeStructureAdvisorRuntime(adopted)), JSON.stringify(runTreeStructureAdvisorRuntime(experimental)));
+  // Since slice C the Stage 3 summary names the policy source, so findings are compared: without a
+  // profile neither run emits a Stage 3 finding (EL2), and the override never does (EL1).
+  assert.equal(JSON.stringify(runTreeStructureAdvisorRuntime(adopted).findings), JSON.stringify(runTreeStructureAdvisorRuntime(experimental).findings));
 });

@@ -82,6 +82,11 @@ const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
     meta.semanticHomeReasoning = treeStructureAdvisorResult.semanticHomeReasoning;
   }
 
+  // Tree spec S3.13.7: the Stage 3 eligibility, policy source and exclusion counts the advisory code rests on.
+  if (treeStructureAdvisorResult.emergentBoundaryReasoning) {
+    meta.emergentBoundaryReasoning = treeStructureAdvisorResult.emergentBoundaryReasoning;
+  }
+
   return {
     scope: treeStructureAdvisorResult.scope,
     totalFilesScanned: treeStructureAdvisorResult.totalFilesScanned,
