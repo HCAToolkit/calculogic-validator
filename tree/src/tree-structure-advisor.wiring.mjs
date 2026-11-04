@@ -39,6 +39,7 @@ import { prepareTreeFolderSemanticEvidence } from './tree-folder-semantic-eviden
 import { createNamingOccurrenceBridgePayload } from '../../naming/src/naming-occurrence-bridge-payload.logic.mjs';
 import {
   NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID,
+  NAMING_ROLES_REGISTRY_ID,
   isNamingDerivedRoleCategoryVocabulary,
 } from '../../naming/src/naming-role-category-vocabulary.logic.mjs';
 import { loadNamingFolderCompositionPatternsRegistryFromRegistryRoot } from '../../naming/src/registries/naming-folder-composition-patterns-registry.logic.mjs';
@@ -243,6 +244,7 @@ export const prepareTreeStructureAdvisorInputs = (
       : TREE_VOCABULARY_ORIGINS.callerSupplied,
     runCategoryRolePerspectiveProvenance:
       registryResolution?.registryProvenance?.[NAMING_REGISTRY_SLICE_ID]?.[NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID] ?? null,
+    runRolesProvenance: registryResolution?.registryProvenance?.[NAMING_REGISTRY_SLICE_ID]?.[NAMING_ROLES_REGISTRY_ID] ?? null,
     sectionIntake: treeNamingSectionIntake,
   });
   // Stage 1B-i (S1.3 fact level, S1.8): built only from the intake above and Tree's snapshot.
