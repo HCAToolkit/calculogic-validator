@@ -18,6 +18,7 @@ import {
   NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID,
   ROLE_CATEGORY_VOCABULARY_SECTION_VERSION,
   deriveNamingRoleCategoryVocabulary,
+  isNamingDerivedRoleCategoryVocabulary,
   prepareNamingRoleCategoryVocabulary,
   projectNamingRoleCategoryVocabulary,
 } from '../src/naming-role-category-vocabulary.logic.mjs';
@@ -173,4 +174,24 @@ test('payload: the section is added last and changes nothing else; the direct pa
   // Independent of the addressed namespace (an invalid one still carries it).
   assert.ok(createNamingOccurrenceBridgePayload({ roleCategoryVocabulary: VALID_INPUT }).namingRoleCategoryVocabulary);
   assert.deepEqual(projectNamingOccurrenceBridge({}, { addressedOccurrenceNamespace: namespace, roleCategoryVocabulary: VALID_INPUT }).namingRoleCategoryVocabulary, namingRoleCategoryVocabulary);
+});
+
+test('origin: only the exact staged value, for the exact resolution object, is Naming-derived; it is deeply frozen', () => {
+  withTargetRoot((targetRoot) => {
+    const registryResolution = resolveActiveRegistrySet({ targetRoot });
+    const vocabulary = prepareNamingTreeStagingInputs({}, { registryResolution }).roleCategoryVocabulary;
+    assert.equal(isNamingDerivedRoleCategoryVocabulary(vocabulary, registryResolution), true);
+    // Another resolution object, even with the same content; a copy; a hand-built value; missing arguments.
+    assert.equal(isNamingDerivedRoleCategoryVocabulary(vocabulary, { ...registryResolution }), false);
+    assert.equal(isNamingDerivedRoleCategoryVocabulary(vocabulary, resolveActiveRegistrySet({ targetRoot })), false);
+    assert.equal(isNamingDerivedRoleCategoryVocabulary(structuredClone(vocabulary), registryResolution), false);
+    assert.equal(isNamingDerivedRoleCategoryVocabulary({ ...vocabulary }, registryResolution), false);
+    assert.equal(isNamingDerivedRoleCategoryVocabulary(VALID_INPUT, registryResolution), false);
+    assert.equal(isNamingDerivedRoleCategoryVocabulary(vocabulary, undefined), false);
+    assert.equal(isNamingDerivedRoleCategoryVocabulary(undefined, registryResolution), false);
+    assert.ok(Object.isFrozen(vocabulary) && Object.isFrozen(vocabulary.records));
+    assert.ok(vocabulary.records.every((record) => Object.isFrozen(record) && Object.isFrozen(record.roles)));
+    // The frozen value still projects to the same section.
+    assert.equal(projectNamingRoleCategoryVocabulary({ roleCategoryVocabulary: vocabulary }).recordCount, vocabulary.records.length);
+  });
 });

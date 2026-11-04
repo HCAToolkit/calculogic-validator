@@ -44,10 +44,12 @@ const sectionIntakeWith = (categories) => ({
 const intakeOf = (options = {}) => {
   const vocabularySection = 'vocabularySection' in options ? options.vocabularySection : section();
   const bridgeOrigin = 'bridgeOrigin' in options ? options.bridgeOrigin : 'tree-built';
+  const vocabularyOrigin = 'vocabularyOrigin' in options ? options.vocabularyOrigin : 'naming-derived';
   const { runProvenance = RUN_PROVENANCE, observed = ['concern-core'], payloadExtras = {} } = options;
   return prepareTreeRoleCategoryVocabularyIntake({
     namingOccurrenceBridge: { bridgeSource: 'calculogic-validator/naming', ...payloadExtras, ...(vocabularySection === undefined ? {} : { namingRoleCategoryVocabulary: vocabularySection }) },
     bridgeOrigin,
+    vocabularyOrigin,
     runCategoryRolePerspectiveProvenance: runProvenance,
     sectionIntake: sectionIntakeWith(observed),
   });
@@ -120,6 +122,18 @@ test('acceptance 1 (module): caller-supplied with everything matching and `bridg
   }
 });
 
+test('a Tree-built payload whose vocabulary is not Naming-derived for the run → untrusted, before provenance and consistency', () => {
+  // Everything else would pass: the payload is Tree-built, provenance matches, and the vocabulary is consistent.
+  for (const vocabularyOrigin of ['caller-supplied', undefined, null, 'naming', 'tree-built']) {
+    const intake = intakeOf({ vocabularyOrigin });
+    assert.equal(intake.state, STATES.untrusted, String(vocabularyOrigin));
+    assert.equal(diagnosticOf(intake).reason, REASONS.vocabularyNotNamingDerived);
+    assert.equal(toTreeUsableRoleCategoryVocabulary(intake), null);
+  }
+  // A caller-supplied payload reports its own reason first, whatever the vocabulary origin.
+  assert.equal(diagnosticOf(intakeOf({ bridgeOrigin: 'caller-supplied', vocabularyOrigin: 'naming-derived' })).reason, REASONS.callerSupplied);
+});
+
 test('invalid is decided before origin: a broken caller-supplied section is invalid, not untrusted', () => {
   assert.equal(intakeOf({ bridgeOrigin: 'caller-supplied', vocabularySection: section({ recordCount: 9 }) }).state, STATES.invalid);
 });
@@ -163,8 +177,8 @@ test('acceptance 7 (documented limit): a missing category no accepted record car
 test('the intake record carries only its own fields, and the payload is never mutated', () => {
   const payload = { namingRoleCategoryVocabulary: section() };
   const before = JSON.stringify(payload);
-  const intake = prepareTreeRoleCategoryVocabularyIntake({ namingOccurrenceBridge: payload, bridgeOrigin: 'tree-built', runCategoryRolePerspectiveProvenance: RUN_PROVENANCE, sectionIntake: sectionIntakeWith([]) });
-  assert.deepEqual(Object.keys(intake), ['source', 'state', 'bridgeOrigin', 'vocabulary', 'diagnostics']);
+  const intake = prepareTreeRoleCategoryVocabularyIntake({ namingOccurrenceBridge: payload, bridgeOrigin: 'tree-built', vocabularyOrigin: 'naming-derived', runCategoryRolePerspectiveProvenance: RUN_PROVENANCE, sectionIntake: sectionIntakeWith([]) });
+  assert.deepEqual(Object.keys(intake), ['source', 'state', 'bridgeOrigin', 'vocabularyOrigin', 'vocabulary', 'diagnostics']);
   assert.equal(JSON.stringify(payload), before);
   intake.vocabulary.records[0].roles.push('x');
   assert.equal(JSON.stringify(payload), before);

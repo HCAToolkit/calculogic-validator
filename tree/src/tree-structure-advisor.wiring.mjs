@@ -28,12 +28,19 @@ import { projectNamingFolderCompositionBridge } from '../../naming/src/naming-fo
 import { prepareTreeNamingSectionIntake } from './tree-naming-section-intake.logic.mjs';
 import { createTreeLexicalRelation, prepareTreeLexicalIdentityIntake } from './tree-lexical-identity-evidence.logic.mjs';
 import { prepareTreeRepositoryPackageIntake, toTreeRepositoryPackageElements } from './tree-repository-package-evidence.logic.mjs';
-import { TREE_BRIDGE_ORIGINS, prepareTreeRoleCategoryVocabularyIntake } from './tree-role-category-vocabulary-evidence.logic.mjs';
+import {
+  TREE_BRIDGE_ORIGINS,
+  TREE_VOCABULARY_ORIGINS,
+  prepareTreeRoleCategoryVocabularyIntake,
+} from './tree-role-category-vocabulary-evidence.logic.mjs';
 import { prepareTreeFolderFactEvidence } from './tree-folder-fact-evidence.logic.mjs';
 import { prepareTreeFolderCandidates } from './tree-folder-candidates.logic.mjs';
 import { prepareTreeFolderSemanticEvidence } from './tree-folder-semantic-evidence.logic.mjs';
 import { createNamingOccurrenceBridgePayload } from '../../naming/src/naming-occurrence-bridge-payload.logic.mjs';
-import { NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID } from '../../naming/src/naming-role-category-vocabulary.logic.mjs';
+import {
+  NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID,
+  isNamingDerivedRoleCategoryVocabulary,
+} from '../../naming/src/naming-role-category-vocabulary.logic.mjs';
 import { loadNamingFolderCompositionPatternsRegistryFromRegistryRoot } from '../../naming/src/registries/naming-folder-composition-patterns-registry.logic.mjs';
 import { NAMING_BUILTIN_REGISTRY_ROOT, NAMING_REGISTRY_SLICE_ID } from '../../naming/src/registries/naming-registry-inventory.knowledge.mjs';
 import { prepareTreeNamingOccurrenceBridgeIntake } from './tree-naming-occurrence-intake.logic.mjs';
@@ -224,11 +231,16 @@ export const prepareTreeStructureAdvisorInputs = (
   const treeRepositoryPackageIntake = prepareTreeRepositoryPackageIntake({ namingOccurrenceBridge: addressedNamingOccurrenceBridge });
   // Role-category vocabulary intake (S1.1-S1.3; bridge contract §4.9; calculogic-validator#162): Tree's own
   // record of the payload-level `namingRoleCategoryVocabulary`, outside Stage 1A and every Stage 1/Stage 2
-  // module; `null` (and no prepared dependency) without the section. Trust from `bridgeOrigin`; provenance
+  // module; `null` (and no prepared dependency) without the section. Trust from `bridgeOrigin` and `vocabularyOrigin`; provenance
   // from the run's own suite-provided resolution. Nothing reads it yet: Stage 3 is unchanged (S3.6).
+  // `vocabularyOrigin`: whether the staged vocabulary is the exact value Naming derived for this run's
+  // registryResolution. Building the payload makes Tree its producer's caller, not the vocabulary's source.
   const treeRoleCategoryVocabularyIntake = prepareTreeRoleCategoryVocabularyIntake({
     namingOccurrenceBridge: addressedNamingOccurrenceBridge,
     bridgeOrigin,
+    vocabularyOrigin: isNamingDerivedRoleCategoryVocabulary(roleCategoryVocabulary, registryResolution)
+      ? TREE_VOCABULARY_ORIGINS.namingDerived
+      : TREE_VOCABULARY_ORIGINS.callerSupplied,
     runCategoryRolePerspectiveProvenance:
       registryResolution?.registryProvenance?.[NAMING_REGISTRY_SLICE_ID]?.[NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID] ?? null,
     sectionIntake: treeNamingSectionIntake,

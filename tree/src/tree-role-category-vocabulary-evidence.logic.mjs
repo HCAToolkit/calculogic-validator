@@ -7,8 +7,9 @@
  *   `namingRoleCategoryVocabulary` section into `treeRoleCategoryVocabularyIntake`, and the one accessor a
  *   future S3.6 slice would read.
  * Invariants: outside `treeNamingSectionIntake` and every Stage 1/Stage 2 module; imports no registry
- *   module and reads no registry state; trust comes from `bridgeOrigin` (wiring's execution branch), never
- *   from the payload's `bridgeSource` field; the whole section is judged, never record by record; ordered
+ *   module and reads no registry state; trust comes from wiring's two origins, `bridgeOrigin` (who built the
+ *   payload) and `vocabularyOrigin` (whether the staged vocabulary is the run's Naming derivation), never from
+ *   the payload's `bridgeSource` field; the whole section is judged, never record by record; ordered
  *   checks, first failure decides the state; an absent section gives no record; Stage 1A's record is read
  *   only for consistency and never changed; diagnostics stay in the intake and are never findings.
  */
@@ -23,6 +24,8 @@ const ENVELOPE_KEYS = Object.freeze(['contractVersion', 'producerId', 'source', 
 const RECORD_KEYS = new Set(['category', 'roles']);
 
 export const TREE_BRIDGE_ORIGINS = Object.freeze({ treeBuilt: 'tree-built', callerSupplied: 'caller-supplied' });
+// Whether the staged vocabulary Tree passed to the producer is the run's own Naming derivation (Tree spec S1.1).
+export const TREE_VOCABULARY_ORIGINS = Object.freeze({ namingDerived: 'naming-derived', callerSupplied: 'caller-supplied' });
 
 // Tree spec S1.3 states, in S1.2 check order (`absent` is no record at all).
 export const TREE_ROLE_CATEGORY_VOCABULARY_STATES = Object.freeze({
@@ -42,6 +45,7 @@ export const TREE_ROLE_CATEGORY_VOCABULARY_REASONS = Object.freeze({
   unsortedOrDuplicateCategory: 'unsorted-or-duplicate-category',
   recordCountMismatch: 'record-count-mismatch',
   callerSupplied: 'caller-supplied',
+  vocabularyNotNamingDerived: 'vocabulary-not-naming-derived',
   runProvenanceUnavailable: 'run-provenance-unavailable',
   sourceMismatch: 'source-mismatch',
   digestMismatch: 'digest-mismatch',
@@ -114,11 +118,12 @@ const missingObservedCategoriesOf = (section, sectionIntake) => {
   return [...observed].filter((category) => !declared.has(category)).sort();
 };
 
-const toIntake = ({ state, bridgeOrigin, reason, vocabulary = null, missingCategories }) =>
+const toIntake = ({ state, bridgeOrigin, vocabularyOrigin, reason, vocabulary = null, missingCategories }) =>
   Object.freeze({
     source: SOURCE_ID,
     state,
     bridgeOrigin: bridgeOrigin ?? null,
+    vocabularyOrigin: vocabularyOrigin ?? null,
     vocabulary,
     diagnostics: reason
       ? [{ section: DIAGNOSTIC_SECTION, state, reason, ...(missingCategories ? { missingCategories } : {}) }]
@@ -129,12 +134,14 @@ const toIntake = ({ state, bridgeOrigin, reason, vocabulary = null, missingCateg
 // Concern: Logic · Parent: Tree wiring
 // Notes: reads only the payload's §4.9 section. Returns `null` when the payload carries none (`absent`).
 // Otherwise the S1.2 checks in order, the first failure deciding the state: version (`unsupported`),
-// whole-section validity (`invalid`), origin (`untrusted` unless `bridgeOrigin` is exactly `tree-built`),
-// strict run provenance (`mismatched`), consistency with Stage 1A's accepted role facts (`inconsistent`),
-// else `usable`. The payload's own `bridgeSource` is never read.
+// whole-section validity (`invalid`), origin (`untrusted` unless `bridgeOrigin` is exactly `tree-built` and
+// `vocabularyOrigin` exactly `naming-derived`), strict run provenance (`mismatched`), consistency with
+// Stage 1A's accepted role facts (`inconsistent`), else `usable`. The payload's own `bridgeSource` is never
+// read. Tree building the payload is not enough: the completeness guarantee is the Naming derivation's.
 export const prepareTreeRoleCategoryVocabularyIntake = ({
   namingOccurrenceBridge,
   bridgeOrigin,
+  vocabularyOrigin,
   runCategoryRolePerspectiveProvenance,
   sectionIntake,
 } = {}) => {
@@ -142,22 +149,26 @@ export const prepareTreeRoleCategoryVocabularyIntake = ({
   if (!payload || payload[SECTION_KEY] === undefined) return null;
   const section = payload[SECTION_KEY];
   if (isPlainObject(section) && section.contractVersion !== SECTION_VERSION) {
-    return toIntake({ state: STATES.unsupported, bridgeOrigin, reason: REASONS.unsupportedVersion });
+    return toIntake({ state: STATES.unsupported, bridgeOrigin, vocabularyOrigin, reason: REASONS.unsupportedVersion });
   }
   const invalidReason = isPlainObject(section) ? invalidReasonOf(section) : REASONS.invalidEnvelope;
-  if (invalidReason) return toIntake({ state: STATES.invalid, bridgeOrigin, reason: invalidReason });
+  if (invalidReason) return toIntake({ state: STATES.invalid, bridgeOrigin, vocabularyOrigin, reason: invalidReason });
   if (bridgeOrigin !== TREE_BRIDGE_ORIGINS.treeBuilt) {
-    return toIntake({ state: STATES.untrusted, bridgeOrigin, reason: REASONS.callerSupplied });
+    return toIntake({ state: STATES.untrusted, bridgeOrigin, vocabularyOrigin, reason: REASONS.callerSupplied });
+  }
+  if (vocabularyOrigin !== TREE_VOCABULARY_ORIGINS.namingDerived) {
+    return toIntake({ state: STATES.untrusted, bridgeOrigin, vocabularyOrigin, reason: REASONS.vocabularyNotNamingDerived });
   }
   const mismatchReason = provenanceMismatchReasonOf(section, runCategoryRolePerspectiveProvenance);
-  if (mismatchReason) return toIntake({ state: STATES.mismatched, bridgeOrigin, reason: mismatchReason });
+  if (mismatchReason) return toIntake({ state: STATES.mismatched, bridgeOrigin, vocabularyOrigin, reason: mismatchReason });
   const missingCategories = missingObservedCategoriesOf(section, sectionIntake);
   if (missingCategories.length > 0) {
-    return toIntake({ state: STATES.inconsistent, bridgeOrigin, reason: REASONS.observedCategoryMissing, missingCategories });
+    return toIntake({ state: STATES.inconsistent, bridgeOrigin, vocabularyOrigin, reason: REASONS.observedCategoryMissing, missingCategories });
   }
   return toIntake({
     state: STATES.usable,
     bridgeOrigin,
+    vocabularyOrigin,
     vocabulary: Object.freeze({
       registrySource: section.registrySource,
       categoryRolePerspectiveDigest: section.categoryRolePerspectiveDigest,

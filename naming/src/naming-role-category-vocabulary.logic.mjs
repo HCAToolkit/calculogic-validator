@@ -8,7 +8,9 @@
  * Invariants: the one place the vocabulary is derived, from the resolved roles runtime only (every role,
  *   whatever its status); provenance is copied from the run's suite-provided registry provenance, never
  *   computed here; no provenance, no vocabulary; the section is emitted whole or omitted, never partial;
- *   no identity tuple, `repoRelativePath` or occurrence; categories and roles sorted by code unit.
+ *   no identity tuple, `repoRelativePath` or occurrence; categories and roles sorted by code unit. A staged
+ *   value is deeply frozen and bound to the registry resolution object it was derived from, so a consumer can
+ *   tell a Naming-derived vocabulary from one built or edited elsewhere (Tree spec S1.1, S1.2 check 3).
  */
 import { NAMING_REGISTRY_SLICE_ID } from './registries/naming-registry-inventory.knowledge.mjs';
 
@@ -23,6 +25,15 @@ const isNonEmptyString = (value) => typeof value === 'string' && value.length > 
 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const compareCodeUnits = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 const isStrictlyAscending = (values) => values.every((value, index) => index === 0 || values[index - 1] < value);
+
+// Each staged value this module derived, mapped to the registry resolution object it was derived from.
+// Module-private: no other code can add an entry, so membership is the derivation's own record.
+const derivedFromResolution = new WeakMap();
+const deepFreezeVocabulary = (vocabulary) =>
+  Object.freeze({
+    ...vocabulary,
+    records: Object.freeze(vocabulary.records.map(({ category, roles }) => Object.freeze({ category, roles: Object.freeze([...roles]) }))),
+  });
 
 // [2.14] cfg-namingValidator · Container · "deriveNamingRoleCategoryVocabulary"
 // Concern: Logic · Parent: "prepareNamingRoleCategoryVocabulary"
@@ -48,16 +59,31 @@ export const deriveNamingRoleCategoryVocabulary = (namingRolesRuntime) => {
 // Concern: Logic · Parent: Naming Tree staging (`prepareNamingTreeStagingInputs`)
 // Notes: the opaque staged value `{ registrySource, categoryRolePerspectiveDigest, records }`, with both
 // provenance fields copied from the run's provenance entry for `naming/category-role-perspective`. Returns
-// null when the resolution carries no such entry: Naming never supplies provenance of its own.
+// null when the resolution carries no such entry: Naming never supplies provenance of its own. The value
+// is deeply frozen and recorded against `registryResolution` (see `isNamingDerivedRoleCategoryVocabulary`).
 export const prepareNamingRoleCategoryVocabulary = ({ namingRolesRuntime, registryResolution } = {}) => {
   const provenance = registryResolution?.registryProvenance?.[NAMING_REGISTRY_SLICE_ID]?.[NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID];
   if (!isPlainObject(provenance) || !isNonEmptyString(provenance.source) || !isNonEmptyString(provenance.digest)) return null;
-  return {
+  const vocabulary = deepFreezeVocabulary({
     registrySource: provenance.source,
     categoryRolePerspectiveDigest: provenance.digest,
     records: deriveNamingRoleCategoryVocabulary(namingRolesRuntime),
-  };
+  });
+  derivedFromResolution.set(vocabulary, registryResolution);
+  return vocabulary;
 };
+
+// [2.14] cfg-namingValidator · Primitive · "isNamingDerivedRoleCategoryVocabulary"
+// Concern: Logic · Parent: Tree wiring (vocabulary origin, Tree spec S1.1)
+// Notes: true only for the exact value `prepareNamingRoleCategoryVocabulary` returned for this exact
+// `registryResolution` object. A copy, an edited or hand-built value, or one staged under another resolution
+// is not Naming-derived for the run. It reads no registry and returns no vocabulary content.
+export const isNamingDerivedRoleCategoryVocabulary = (value, registryResolution) =>
+  value !== null &&
+  typeof value === 'object' &&
+  registryResolution !== null &&
+  typeof registryResolution === 'object' &&
+  derivedFromResolution.get(value) === registryResolution;
 
 // [2.14] cfg-namingValidator · Primitive · "isCompleteVocabularyInput"
 // Concern: Logic · Parent: "projectNamingRoleCategoryVocabulary"
