@@ -3,7 +3,7 @@
 - **Classification:** Normative for the Naming occurrence bridge identity, field-eligibility, existing v1 context/compatibility, enrichment, versioning, and migration contract; descriptive only where explicitly labeled as **current runtime truth**.
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
-- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. calculogic-validator#157 adds the payload-level section rule (§4.4 rule 9) and the Naming repository-package label section (§4.8, §6.5); calculogic-validator#159 implements it. Tracking: calculogic-validator#85.
+- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. calculogic-validator#157 adds the payload-level section rule (§4.4 rule 9) and the Naming repository-package label section (§4.8, §6.5); calculogic-validator#159 implements it. calculogic-validator#162 widens rule 9 to run-scoped facts and adds the Naming role-category vocabulary section (§4.9, §6.6); contract only, implementation-pending. Tracking: calculogic-validator#85.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
 - **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
@@ -127,7 +127,7 @@ Envelope-section rules:
 6. **Identity.** Every section record carries the canonical identity tuple (§3.2). Its `addressProfileId` and `addressedSnapshotId` must equal the payload's namespace. Section records associate only through the identity tuple. `repoRelativePath` may be echoed as source-trace only and is never a join key; the §8 path fallback does not extend to section records.
 7. **Declared association.** Each section's contract states what a record attaches to (for example, an existing v1 observation, or an addressed occurrence) and which occurrence types it applies to.
 8. **Change control.** Adding a section, or a new section version, requires a contract amendment that passes the §6.2 decision standard for every field it carries.
-9. **Payload-level sections** (calculogic-validator#157). A section whose records describe the validation target as a whole, not an addressed occurrence, is a **payload-level section**. It must say so in its contract, and it is the only kind of section that departs from rules 5 and 6:
+9. **Payload-level sections** (calculogic-validator#157). A section whose records describe the validation target as a whole, or (calculogic-validator#162) the run itself, such as the vocabulary of its resolved registry set (§4.9), rather than an addressed occurrence, is a **payload-level section**. It must say so in its contract, and it is the only kind of section that departs from rules 5 and 6:
    - Its envelope carries no `identityTupleFields`, and its records carry no identity tuple and no `repoRelativePath`.
    - Its contract declares the record key that orders and distinguishes its records, in place of the tuple.
    - It never attaches to an occurrence, and an occurrence-keyed consumer never joins it to one.
@@ -384,6 +384,47 @@ There is no fallback: a consumer never reads the manifest, a package name from e
 
 **Current consumers.** Tree, since calculogic-validator#159: a separate Tree intake (`treeRepositoryPackageIntake`, `tree/src/tree-repository-package-evidence.logic.mjs`), read only by Stage 3 repository package expression (Tree slice spec S1.1–S1.3, S3.2). It performs the consumer checks above in their stated order. Tree's Stage 1A intake reads a payload carrying the section exactly as without it (§4.4 rule 2).
 
+### 4.9 Naming role-category vocabulary section
+
+- **Section name:** `namingRoleCategoryVocabulary`.
+- **Contract version:** `naming-role-category-vocabulary.v1`.
+- **Provenance:** `producerId: naming-role-category-vocabulary`, `source: calculogic-validator/naming`.
+- **Status:** Contract, calculogic-validator#162; **implementation-pending**. No producer emits it and no consumer reads it yet.
+- **Kind:** a payload-level section (§4.4 rule 9) describing the run, not the target or an occurrence. Its record key is `category`.
+- **Envelope:** `contractVersion`, `producerId`, `source`, `registrySource`, `categoryRolePerspectiveDigest`, `recordCount`, `records` (sorted by `category`), optional `diagnostics`. No `identityTupleFields`.
+
+**Purpose.** It states, for the run that produced the payload, every role category the §4.5 section's role-fact group can carry, with the roles that produce each one: the run's **producible role-category vocabulary**. It describes the domain of `roleCategory`; it classifies nothing. Its consumer uses it to bound what an unrecognized file could carry if it were recognized (Tree slice spec S3.6). It never assigns a category to an occurrence.
+
+**Independence.** It is separate from §4.5 and changes nothing in it: not its version, envelope, records or field groups. A consumer that does not support it reads every other section exactly as before (§4.4 rules 2 and 4). It is not part of §4.8, whose subject is the target's declared package, not the run's registry set.
+
+**Source and completeness guarantee (Naming).**
+- One Naming-owned derivation function produces the vocabulary from the run's **resolved roles runtime** (`toNamingRolesRuntime` over the resolved registry set, `naming/src/naming-runtime-converters.logic.mjs`): for every role the runtime holds, whatever its status, its category, with the roles that produce it. That is exactly the set of values a §4.5 `roleCategory` can take in the run, since every role-fact group is read from the same runtime.
+- **Completeness is Naming's guarantee.** The producer emits the whole vocabulary or no section; it never emits a partial one. A consumer cannot verify completeness without Naming's registry data, which it must not read (§5), and does not claim to.
+- The same function is the one place the derivation lives, so that a future registry-level bridge (registry lifecycle spec §9.4) over the category-role perspective cannot disagree with it.
+- Never a fallback to Builtin, never a directory name, never a value the producer did not derive from the run's runtime.
+
+**Provenance.**
+- `registrySource`: the run's resolved set (`builtin`, `custom` or `candidate`), as the run's registry resolution states it.
+- `categoryRolePerspectiveDigest`: the digest of the resolved `naming/category-role-perspective` registry, **copied from the run's suite-provided registry provenance** (registry lifecycle spec §11.2), not computed by Naming. Categories and roles come from that registry; role statuses come from `naming/roles` and do not change which categories are producible, so no `naming/roles` digest is carried unless a later version makes role status part of the contract.
+- What a digest establishes: which registry the vocabulary was derived from. It does **not** establish that the list is complete (the producer computes both) or that two independently produced payloads describe the same snapshot.
+
+**Records.** `{ category, roles }`: `category` a non-empty string, exactly as the §4.5 `roleCategory` carries it; `roles` a non-empty, sorted, duplicate-free list of non-empty role strings. Categories are unique. A declared category with no role is not producible and has no record.
+
+**Production and transport.** On the default path Naming's staging function returns the vocabulary as an opaque staged value, derived from the same registry resolution as the run; the runner passes it unchanged and Tree wiring passes it to `createNamingOccurrenceBridgePayload`, which emits the section (as §4.7 and §4.8). A direct caller of `projectNamingOccurrenceBridge` may supply the same value. The section does not depend on the addressed namespace.
+
+**Producer rules.**
+- No vocabulary input: the section is omitted, and nothing else in the payload changes.
+- An input that is not a complete, well-formed vocabulary: the section is omitted, never emitted partially.
+
+**Consumer rules.** A supporting consumer validates the envelope (§4.4 rules 3 and 9; `registrySource` and `categoryRolePerspectiveDigest` non-empty strings) and every record. Because a vocabulary missing a category is the unsafe direction, **any** invalid record, a duplicate category, or a `recordCount` mismatch makes the whole section invalid: there is no per-record dropping. Its trust, consistency and provenance checks are the consumer's own (Tree slice spec S1.2, S1.3).
+
+**Ownership boundaries.**
+- Naming owns the vocabulary and its completeness; suite core owns the registry provenance; the consumer owns what the vocabulary allows it to conclude.
+- The section must not carry a responsibility class, a mapping, Agnostic-Core meanings, folder-kind, placement, Tree diagnostic or finding fields (§7, rule 5).
+- A consumer never reads Naming's registries or registry state to obtain, check or complete the vocabulary.
+
+**Current consumers.** None (implementation-pending). The intended consumer is a separate Tree intake that Stage 1A does not read (§4.4 rule 2; Tree slice spec S1.1).
+
 ## 5. Ownership boundaries
 
 | Surface | Addressing | Naming | Tree | Suite-core |
@@ -477,6 +518,19 @@ These fields are approved for the §4.8 section only (calculogic-validator#157; 
 | `segment` | Suite core (presented by Naming) | The declared identity fact (capability inventory §3.11) | Non-empty string, without `@` or `/` | Required on every record | A record without it is invalid | Exact string, as the fact carries it | Source-trace for the interpretation; consumers never tokenize or parse it |
 
 Not approved for the §4.8 section in v1: the raw manifest `name` string, a version, any other manifest field, a lexical-identity reading for a segment, and an occurrence identity.
+
+### 6.6 Naming role-category vocabulary fields (§4.9)
+
+These fields are approved for the §4.9 section only (calculogic-validator#162; implementation-pending).
+
+| Field | Owner | Source of truth | Value shape | Required / optional | Absence behavior | Normalization and deterministic order | Consumer limitation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `registrySource` | Suite core (presented by Naming) | The run's registry resolution | `builtin`, `custom` or `candidate` | Required on the envelope | A section without it is invalid | Exact string | Names the set; never a quality or trust claim |
+| `categoryRolePerspectiveDigest` | Suite core (presented by Naming) | The run's registry provenance for `naming/category-role-perspective` | Non-empty string | Required on the envelope | A section without it is invalid | Exact string, copied | Identifies the source registry; never proof of completeness |
+| `category` | Naming | The resolved roles runtime | Non-empty string, the §4.5 `roleCategory` form | Required on every record | — | Records sorted by `category`; unique | A producible value, never an occurrence's category |
+| `roles` | Naming | The resolved roles runtime | Non-empty array of non-empty strings | Required on every record | — | Sorted; no duplicates | The roles producing the category; not a role classification |
+
+Not approved for the §4.9 section in v1: role statuses, role definitions, Agnostic-Core meanings, categories without roles, a responsibility class or mapping, and any per-occurrence field.
 
 ## 7. Guardrails for approved future enrichment fields
 

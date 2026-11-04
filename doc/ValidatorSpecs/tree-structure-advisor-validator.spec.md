@@ -205,6 +205,12 @@ Why this route: the addressed snapshot is built once, by Tree; occurrence identi
 - **Kept outside Stage 1 and Stage 2**, as the lexical-identity module is: `treeNamingSectionIntake`, every Stage 1 and Stage 2 record, and the Stage 2 conformance binding's bound modules and `sourceDigest` (S2.10) are unchanged by it.
 - **No occurrence.** The section is payload-level (bridge contract §4.4 rule 9). Its records carry no identity tuple, never pass through an occurrence-identity check or join, and the addressed snapshot is unchanged: no repository-root occurrence is created.
 
+**Role-category vocabulary section (Contract, calculogic-validator#162; implementation-pending; bridge contract §4.9).** Naming's staging function derives the run's producible role-category vocabulary from the same registry resolution as the run and returns it as an opaque staged value; the runner passes it unchanged and Tree wiring passes it to `createNamingOccurrenceBridgePayload`, which emits `namingRoleCategoryVocabulary`. Tree never reads Naming's registries or registry state to obtain, check or complete it.
+- **One Tree module will own the section**, outside `treeNamingSectionIntake` and every Stage 1 and Stage 2 module, so the Stage 2 conformance binding's bound modules and `sourceDigest` (S2.10) are unchanged. It performs the section's intake into its own prepared record, `treeRoleCategoryVocabularyIntake`.
+- **`bridgeOrigin` (execution origin).** Wiring passes the intake how the payload actually entered the run: `tree-built` when Tree invoked the Naming producer itself, `caller-supplied` when a payload was supplied. It is derived from the execution branch that already sets Stage 1A's `bridgeSource` argument, and it is a separate parameter of the new intake. The intake **never** reads the payload's own `bridgeSource` field (`calculogic-validator/naming`), which only names the claimed producer and is caller-controlled.
+- **Run provenance.** Wiring passes the run's suite-provided registry provenance for `naming/category-role-perspective` (registry lifecycle spec §11.2), or nothing when the run has no registry resolution.
+- **Stage 3 is unchanged by the intake.** Until a separately authorized slice implements the S3.6 rule below, Stage 3 keeps `joiningFileCanLeaveClassUnresolved: true` and reads nothing from the intake.
+
 #### S1.2 Section intake (consumer side)
 
 Tree validates each section exactly as the bridge contract specifies for supporting consumers: §4.4 rules 2–4 and 6 for the envelope (a malformed supported section is invalid as a whole), §4.5 consumer identity rules for N1, and §4.6 consumer identity rules for N2. Field groups are validated separately from identity. There is no path fallback.
@@ -225,6 +231,16 @@ Intake produces Tree-owned **intake diagnostics** that name the section, the rej
 Only accepted `parsed` records become **package elements**. A `not-parsed` record is accepted evidence with no element, and leaves no trace in Stage 3 or the report.
 
 **Dropped records.** A dropped record makes lexical identity unavailable for its occurrence. Structural reasoning, candidate outcomes and every non-lexical record are then exactly what they would be for that occurrence without the section. Only the intake diagnostics and the lexical availability metadata (S1.3, S3.7) record that it was dropped.
+
+**Role-category vocabulary section (Contract, calculogic-validator#162; implementation-pending).** Tree will validate `namingRoleCategoryVocabulary` as a supporting consumer, in this order; the first failing check decides the state (S1.3):
+1. **Presence and version.** No section: nothing is recorded. Another contract version: `unsupported`.
+2. **Envelope and records** (bridge contract §4.9 consumer rules): any malformed envelope field, malformed record, duplicate category or `recordCount` mismatch makes the whole section `invalid`. Records are never dropped one by one: a vocabulary missing a category is the unsafe direction.
+3. **Origin.** `bridgeOrigin` is `caller-supplied`: `untrusted`, whatever the payload claims. Completeness is Naming's guarantee (bridge contract §4.9), and only a payload Tree's own wiring had the Naming producer build carries it into the run; a trust contract for caller-supplied vocabularies may be defined later and is not assumed.
+4. **Provenance (strict).** The run's registry provenance for `naming/category-role-perspective` is unavailable, or its digest differs from `categoryRolePerspectiveDigest`, or `registrySource` differs from the run's: `mismatched`. A Tree-built vocabulary without independent run provenance is never usable.
+5. **Consistency.** Some accepted §4.5 role-fact group (read from `treeNamingSectionIntake`, never changed) carries a `roleCategory` the vocabulary lacks: `inconsistent`. This detects a vocabulary that disagrees with the run's own evidence; it does **not** prove completeness, since a category no accepted record uses can be missing unnoticed. That limit is why check 3 rests trust on the producer path.
+6. Otherwise: `usable`.
+
+Diagnostics name the section `naming-role-category-vocabulary` and the state's reason; they live only in `treeRoleCategoryVocabularyIntake`, never in `treeNamingSectionIntake`, Stage 3 output, a report field, a `meta` entry or a finding.
 
 #### S1.3 Evidence availability
 
@@ -249,6 +265,36 @@ Availability is recorded at three levels, so that a comparison that was not perf
 - **Absent: nothing is recorded.** Without an identity fact (no manifest, or one that is malformed or declares no supported `name`), Naming omits the section. Tree prepares no `treeRepositoryPackageIntake` record, and every prepared Tree record is byte-identical to before calculogic-validator#159.
 - **Present:** `treeRepositoryPackageIntake` carries the state (`available`, `section-unsupported` or `section-invalid`), the accepted and rejected records, and the diagnostics.
 - **Compatibility boundaries:** the bridge payload gains the section whenever a fact exists, and the intake record exists exactly when the section does. The Stage 3 record and the Tree report are byte-identical whenever **no package element is accepted**, whatever the section's state; with accepted elements they change only through `repository-package` steps (S3.2).
+
+**Role-category vocabulary section (Contract, calculogic-validator#162; implementation-pending).**
+- **States** (S1.2 order):
+
+  | State | Meaning | Vocabulary available to S3.6 |
+  |---|---|---|
+  | `absent` | the payload carries no section; **no intake record and no prepared dependency** | no |
+  | `unsupported` | another contract version | no |
+  | `invalid` | malformed envelope, record, duplicate or count | no |
+  | `untrusted` | well-formed, but the payload was caller-supplied | no |
+  | `mismatched` | Tree-built, but run provenance is unavailable or differs | no |
+  | `inconsistent` | Tree-built, provenance matches, but an accepted §4.5 category is missing from it | no |
+  | `usable` | Tree-built, valid, provenance matches, consistent | yes, once S3.6 consumes it |
+
+  `untrusted` and `invalid` are distinct states though both are conservative: one is evidence Tree does not trust, the other evidence that is broken. Every state except `usable` keeps the conservative assumption; no state is ever read as proof that every category is mapped.
+- **Limits stated by the contract:** a matching digest identifies the registry the vocabulary came from, not that the list is complete, and not that a caller-supplied payload's other sections came from the same run; the consistency check bounds disagreement with observed evidence and proves nothing about unobserved categories.
+- **Behavior preservation (the evidence-only implementation slice):** with the intake implemented and Stage 3 unchanged, the Stage 3 record and every Tree finding and report are byte-identical to before, for every state; the bridge payload gains the section whenever a vocabulary input exists, and the intake record exists exactly when the section does.
+- **Implementation acceptance** (for the evidence-only slice; tests to be written with it):
+  1. **Caller-supplied spoofing:** a payload entering through the caller-supplied branch with a well-formed vocabulary, matching declared provenance, matching run provenance and `bridgeSource: 'calculogic-validator/naming'` is `untrusted`, and nothing is made available to S3.6.
+  2. **Tree-built positive:** a payload Tree's wiring built through the Naming producer, with matching run provenance and consistent records, is `usable`.
+  3. **Absent:** no section, no intake record and no prepared dependency; Stage 3 and the report byte-identical.
+  4. **Unsupported:** another contract version is `unsupported`.
+  5. **Malformed:** each envelope and record defect (missing provenance field, empty category, empty or unsorted or duplicate roles, duplicate category, count mismatch, identity tuple fields present) makes the whole section `invalid`, never a partial vocabulary.
+  6. **Incomplete, observed:** a Tree-built vocabulary missing a category that an accepted §4.5 record carries is `inconsistent`.
+  7. **Incomplete, unobserved:** a vocabulary missing a category no accepted record carries is not detected by consistency; the test records this documented limit (trust then rests on the producer path).
+  8. **Mismatched:** a Tree-built vocabulary whose digest or source differs from the run's, and one in a run without registry provenance, are `mismatched`.
+  9. **Producer completeness:** the derivation function returns exactly the categories and roles of the resolved roles runtime, including deprecated roles, for the Builtin set and for a Custom set adding a category and a role; the producer omits the section rather than emit a partial one.
+  10. **Independence:** `treeNamingSectionIntake`, every Stage 1 and Stage 2 record and the semantic-home conformance result are byte-identical with and without the section; the §4.5 section is unchanged.
+  11. **Behavior preservation:** Stage 3 and findings byte-identical in every state; `joiningFileCanLeaveClassUnresolved` is still `true`.
+  12. **No registry access:** the Tree intake module imports nothing from `naming/src/registries/`.
 
 **Record level:** each record is `accepted` or `rejected` with its intake reason (S1.2).
 
@@ -1172,7 +1218,7 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. The S3.2 lexical-label expression of calculogic-validator#153 is implemented by its implementation slice. The S3.2 repository package expression of calculogic-validator#157 is implemented by calculogic-validator#159. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
+### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. The S3.2 lexical-label expression of calculogic-validator#153 is implemented by its implementation slice. The S3.2 repository package expression of calculogic-validator#157 is implemented by calculogic-validator#159. The S3.6 role-category vocabulary rule of calculogic-validator#162 is Contract only, implementation-pending. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
 
 This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
 
@@ -1527,6 +1573,27 @@ E8.1 is the counterexample: the shortcut would conclude `opportunity` for `tree-
 **Consequence under `emergent-boundary-experimental` v1.** v1 leaves documentation in a mixed grouping unresolved (S3.8). So with any unrecognized file in the directory, `single-responsibility` is not invariant for any candidate that reaches it, and the conclusion is decided only where existing structure decides first.
 - E12, E8.1 and E22 stay policy-incomplete for `coverage-share`. The decision that binds them is the mapping's mixed-documentation case, and the variant rules record it.
 - Invariance settles more once a policy resolves that case. No value is assumed here.
+
+**Two sources of non-invariance (calculogic-validator#162).** The `single-responsibility` row varies whenever a joining file can leave a responsibility class unresolved. Today that is assumed for every candidate (`joiningFileCanLeaveClassUnresolved: true`), because a joining file may carry **any** category: (A) documentation in a mixed grouping, which the mapping leaves unresolved, and (B) a category the mapping does not cover, including one a Custom Naming set adds. Resolving A alone does not make E8.1, E12 or E22 invariant.
+
+**Future rule (Contract, calculogic-validator#162; implementation-pending; not current behavior).** Once the role-category vocabulary intake is implemented and a separately authorized slice adopts this rule, with `V` the categories of a `usable` vocabulary (S1.3), `P` and `S` the mapping's primary and supporting categories, `D` = `documentation`, and `σ(C)` the candidate's supported members:
+
+```
+joiningFileCanLeaveClassUnresolved(C) =
+  true                                      when no usable vocabulary
+  unmapped(V) or mixedReachable(C, V)       otherwise
+
+unmapped(V)          = some c in V with c not in P, S or {D}
+mixedReachable(C, V) = mixedDocumentationUnresolved and (
+                           ( σ(C) all documentation and some c in V with c ≠ D )
+                        or ( σ(C) has no documentation and D in V )
+                       )
+mixedDocumentationUnresolved = the documentation rule leaves mixed groupings unresolved
+```
+
+- It changes only the `single-responsibility` row; every other row keeps its own invariance test, and `P < 2` still varies by itself.
+- It keeps the admissible-completion method: it bounds what a joining file could carry, never what an unrecognized file is.
+- Without a usable vocabulary it is exactly today's value. With the Builtin set and the experimental mapping it is still `true`, since `concern-style`, `deprecated` and `integration-adapter` are producible and unmapped; covering them is a separate policy decision, and mixed documentation is another (calculogic-validator#162).
 
 #### S3.7 Output
 

@@ -221,3 +221,4 @@ Deferred to later slices:
 - structural recommendation planning and move proposals
 - tree-specific config semantics beyond shared config validation + digest plumbing
 - any mutating or fix-mode behavior
+- Role-category vocabulary intake (Tree spec S1.1–S1.3, S3.6; bridge contract §4.9; calculogic-validator#162; Contract, implementation-pending): a separate intake `treeRoleCategoryVocabularyIntake`, outside Stage 1A, receiving `bridgeOrigin` and the run's registry provenance from wiring, with the states `absent`, `unsupported`, `invalid`, `untrusted`, `mismatched`, `inconsistent` and `usable`. The evidence-only slice leaves Stage 3 unchanged; the S3.6 rule that would consume a `usable` vocabulary needs its own authorization
