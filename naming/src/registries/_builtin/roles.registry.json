@@ -34,7 +34,7 @@
     {
       "role": "build",
       "status": "active",
-      "definition": "Role for structure and assembly of user-visible artifacts or interface units."
+      "definition": "Role for local structure construction of user-visible artifacts within one section or interface unit, without composing sibling sections or a unit's parts."
     },
     {
       "role": "build-style",
@@ -74,7 +74,7 @@
     {
       "role": "contracts",
       "status": "active",
-      "definition": "Architecture-support role for shared contracts, interfaces, schemas, or behavioral agreements."
+      "definition": "Architecture-support role for agreements between participants, including their versions, shared identifiers and vocabularies, expectations, and associated enforcement."
     },
     {
       "role": "crypto",
@@ -114,12 +114,12 @@
     {
       "role": "healthcheck",
       "status": "active",
-      "definition": "Documentation role for status, health, or readiness review artifacts."
+      "definition": "Documentation role for recurring health, status, or readiness check artifacts."
     },
     {
       "role": "host",
       "status": "active",
-      "definition": "Surface-system role for hosting, mounting, or containing a runtime/UI/system surface."
+      "definition": "Architecture-support role for composition hosts that assemble, place, initialize, or coordinate the parts of a bounded structural or executable unit."
     },
     {
       "role": "i18n",

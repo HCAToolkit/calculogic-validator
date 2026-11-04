@@ -550,7 +550,7 @@ const CASES = [
     };
   })(),
   (() => {
-    const health = [file('naming/src/health', ['naming', 'health', 'check'], { role: 'host', roleCategory: 'surface-system' }), file('naming/src/health', ['naming', 'health', 'check'])];
+    const health = [file('naming/src/health', ['naming', 'health', 'check'], { role: 'host', roleCategory: 'architecture-support' }), file('naming/src/health', ['naming', 'health', 'check'])];
     return {
       id: 'E17',
       source: 'measured',
@@ -579,7 +579,7 @@ const CASES = [
     const repositoryPackage = { scope: 'calculogic', name: 'validator' };
     const contracts = { role: 'contracts', roleCategory: 'architecture-support' };
     const knowledge = { role: 'knowledge', roleCategory: 'concern-core' };
-    const host = { role: 'host', roleCategory: 'surface-system' };
+    const host = { role: 'host', roleCategory: 'architecture-support' };
     const opportunity = { outcome: 'opportunity', reasons: ['concentration', 'lexical-specificity', 'responsibility-diversity', 'separation-value'] };
     const lowSpecificity = { outcome: 'insufficient-evidence', reasons: ['low-specificity'] };
     const split = (dir, name, options) => file(dir, name.split('-'), options);

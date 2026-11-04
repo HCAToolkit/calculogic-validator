@@ -20,9 +20,9 @@
   "registryState": "builtin",
   "registrySource": "builtin",
   "registryDigests": {
-    "builtin": "603befb271f58265771b5106d85c3b593e956a73f2c768352aa4a305a4a2b0fd",
-    "custom": "603befb271f58265771b5106d85c3b593e956a73f2c768352aa4a305a4a2b0fd",
-    "resolved": "603befb271f58265771b5106d85c3b593e956a73f2c768352aa4a305a4a2b0fd"
+    "builtin": "6ea8df9eb540267bfe9e32a9ebc07a4b1228c76911473e7ea725f29a0772c8f3",
+    "custom": "6ea8df9eb540267bfe9e32a9ebc07a4b1228c76911473e7ea725f29a0772c8f3",
+    "resolved": "6ea8df9eb540267bfe9e32a9ebc07a4b1228c76911473e7ea725f29a0772c8f3"
   },
   "registrySet": {
     "activeSet": "builtin",
@@ -30,7 +30,7 @@
     "customDiffers": false,
     "orphanRegistries": [],
     "customIssues": [],
-    "resolvedSetDigest": "cade92d7bab01c0436d26b8253cf6f002c408ce778ebef039f173553083b52a0",
+    "resolvedSetDigest": "1d57dcb9890a2bf7c7454afbf7ab37ee00455f04fdef647fd210d13f780a35e2",
     "bridgeCompatibility": {
       "set": "builtin",
       "bridges": [
@@ -66,7 +66,7 @@
     },
     "naming/category-role-perspective": {
       "source": "builtin",
-      "digest": "9e21f18fb48faa0382d2474f9f9309ca0e58772c346cff8c2239c331cc3b4965"
+      "digest": "32572ca91cc5d69fea64c44c99b5142eddaf11def48360bfd076e383642cdc82"
     },
     "naming/finding-policy": {
       "source": "builtin",
@@ -90,7 +90,7 @@
     },
     "naming/roles": {
       "source": "builtin",
-      "digest": "c3643e56950c3b49f773ef38392f1c38eeca4fefc9ca85d4a74aca3fdf193dd3"
+      "digest": "27cbb9ccf0807491c1ef4a189ac7c37d96e85d96000c2a78a0d72d617689fc39"
     },
     "naming/special-cases": {
       "source": "builtin",
