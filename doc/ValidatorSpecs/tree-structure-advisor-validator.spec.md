@@ -212,6 +212,13 @@ Why this route: the addressed snapshot is built once, by Tree; occurrence identi
 - **Run provenance.** Wiring passes the run's suite-provided registry provenance for `naming/category-role-perspective` (registry lifecycle spec §11.2), or nothing when the run has no registry resolution.
 - **Stage 3 is unchanged by the intake.** Until a separately authorized slice implements the S3.6 rule below, Stage 3 keeps `joiningFileCanLeaveClassUnresolved: true` and reads nothing from the intake.
 
+**Version 2 of the section (Contract, calculogic-validator#162, v2 contract; implementation-pending; bridge contract §4.9.1).** Current behavior is v1.
+- **Transport is unchanged.** The staged value is the same Naming-derived, frozen, origin-bound value, extended with `rolesDigest` and `admissibleCategories`. Tree passes it to the producer exactly as for v1, and never supplies or edits the bound itself.
+- **Run provenance.** Wiring additionally passes the run's provenance for `naming/roles`, or nothing when the run has no registry resolution.
+- **Trust.** Both origins apply unchanged. `bridgeOrigin` is wiring's execution branch. `vocabularyOrigin` is `naming-derived` only for Naming's own value for the run's `registryResolution`, and it covers the bound, since the bound travels inside that value.
+- **No status interpretation.** Tree reads no role status, finding-policy label or admission rule. It takes the bound as Naming states it.
+- **Stage 3 stays unchanged by v2 as well.** Only a separately authorized S3.6 slice may read the bound.
+
 #### S1.2 Section intake (consumer side)
 
 Tree validates each section exactly as the bridge contract specifies for supporting consumers: §4.4 rules 2–4 and 6 for the envelope (a malformed supported section is invalid as a whole), §4.5 consumer identity rules for N1, and §4.6 consumer identity rules for N2. Field groups are validated separately from identity. There is no path fallback.
@@ -242,6 +249,17 @@ Only accepted `parsed` records become **package elements**. A `not-parsed` recor
 6. Otherwise: `usable`.
 
 Diagnostics name the section `naming-role-category-vocabulary` and the state's reason; they live only in `treeRoleCategoryVocabularyIntake`, never in `treeNamingSectionIntake`, Stage 3 output, a report field, a `meta` entry or a finding.
+
+**Version 2 checks (Contract, calculogic-validator#162, v2 contract; implementation-pending).** Same order, same states. The first failing check decides:
+1. **Presence and version.** No section: nothing is recorded. v2 is the supported version. Once v2 is implemented, any other version, v1 included, is `unsupported` (`unsupported-version`). A v1 section is never read as admissibility evidence.
+2. **Envelope and records.** The v1 rules apply, plus:
+   - `rolesDigest` must be a non-empty string;
+   - `admissibleCategories` must be an array of non-empty strings, sorted and duplicate-free, each the `category` of a record (`invalid-admissible-bound`).
+   An empty `admissibleCategories` is valid. Any defect makes the whole section `invalid`.
+3. **Origin.** Both origins, as for v1 (`caller-supplied`, `vocabulary-not-naming-derived`).
+4. **Provenance (strict).** As for v1, plus: the run's provenance for `naming/roles` is unavailable (`run-provenance-unavailable`), or its digest differs from `rolesDigest` (`roles-digest-mismatch`): `mismatched`.
+5. **Consistency.** Some accepted §4.5 `roleCategory` is missing from `admissibleCategories`: `inconsistent` (`observed-category-missing`), with the missing categories. This covers a declared but non-admissible category, such as a staged §4.5 source carrying `deprecated`. Checking against `admissibleCategories` rather than the declared records is stricter, since the bound is a subset of the records.
+6. Otherwise: `usable`.
 
 #### S1.3 Evidence availability
 
@@ -298,6 +316,47 @@ Availability is recorded at three levels, so that a comparison that was not perf
   11. **Behavior preservation:** Stage 3 and findings byte-identical in every state; `joiningFileCanLeaveClassUnresolved` is still `true`.
   12. **No registry access:** the Tree intake module imports nothing from `naming/src/registries/`.
   13. **Directly supplied vocabulary:** with no caller-supplied payload, a `roleCategoryVocabulary` given to Tree wiring that is not Naming's value for the run (incomplete in a category no accepted record carries, with matching provenance; a complete copy; the Naming value under another resolution object) is `untrusted` (`vocabulary-not-naming-derived`). Added after review of the first implementation commit: Tree building the payload does not establish the completeness guarantee.
+
+**Version 2 (Contract, calculogic-validator#162, v2 contract; implementation-pending; bridge contract §4.9.1).**
+- **States:** the seven states above, decided by the v2 checks (S1.2).
+- **Usable view.** For `usable`, `toTreeUsableRoleCategoryVocabulary` exposes the declared `records`, `admissibleCategories`, `registrySource` and both digests. A future S3.6 slice reads only `admissibleCategories`.
+- **Unavailable versus empty.** These are distinct, and never conflated:
+  - **Unavailable:** no `usable` v2 vocabulary. That covers `absent`, `unsupported` (v1 included), `invalid`, `untrusted`, `mismatched` and `inconsistent`. S3.6 keeps its conservative assumption.
+  - **Empty:** a `usable` v2 vocabulary with `admissibleCategories: []`, which is evidence that no category can be canonically admitted.
+  - The accessor returns `null` only for unavailable, and the usable view for empty. The declared records are never offered as the bound.
+- **Behavior preservation (v2 evidence-only slice).** The Stage 3 record, every Tree finding and every report are byte-identical to before, for every state. `joiningFileCanLeaveClassUnresolved` stays `true`. The bridge payload carries v2 in place of v1 whenever a staged v2 value exists. The intake record exists exactly when the section does.
+- **Implementation acceptance (v2; tests to be written with the implementation slice).** *Soundness* tests check inclusion. *Precision* tests are labelled as such, and a precision failure is never reported as a soundness failure.
+  1. **Builtin derivation.** The declared records equal the category-role perspective, `deprecated` included. `admissibleCategories` equals the categories of `activeRoles`, so `deprecated` is excluded. `rolesDigest` and `categoryRolePerspectiveDigest` equal the run's provenance entries.
+  2. **Custom sets.**
+     - A Custom set adding a category whose only roles are deprecated: the category is declared but not admissible.
+     - A Custom set deprecating one role inside an otherwise active category: the category stays admissible.
+     - A Custom set adding an active role: its category is admissible.
+  3. **Custom finding-policy relabelling.** A Custom set labelling the deprecated-role outcome `canonical` leaves `admissibleCategories` unchanged, and §4.5 still carries no non-admissible category.
+  4. **Canonical-admission probes (soundness, regression).** For every role in the resolved runtime, Builtin and Custom, classify `probe.<role>.mjs` with the real classifier, first asserting it is not a special case. Every category that reaches the canonical outcome with a §4.5 role fact must be in `admissibleCategories`.
+     - A separately named *precision* check may assert equality.
+     - The probes cover the role dimension of the current structural dependency. They do not prove every filename or context, and say so.
+  5. **Malformed bound.** The whole section is `invalid` for: a missing `admissibleCategories` or `rolesDigest`; an unsorted list, duplicate, non-string or empty string; a category without a record. An empty list is valid.
+  6. **Unavailable versus empty.**
+     - An empty bound is `usable`, and the accessor returns its view.
+     - No section is `absent`; a v1 section is `unsupported`. The accessor returns `null` for both.
+     - Neither unavailable case is read as empty, and the declared records are never read as the bound.
+  7. **Provenance.** A `rolesDigest` mismatch, a run without `naming/roles` provenance, and the v1 perspective-digest and source cases are all `mismatched`.
+  8. **Trust.**
+     - Caller-supplied payload: a v2 payload through the caller-supplied branch, matching everything and claiming `bridgeSource: 'calculogic-validator/naming'`, is `untrusted`.
+     - Directly supplied vocabulary: with no caller-supplied payload, each of the following is `untrusted` (`vocabulary-not-naming-derived`):
+       - a hand-built v2 value with a narrowed bound and matching provenance;
+       - a copy of Naming's value;
+       - Naming's value with its bound edited (rejected as frozen) or replaced;
+       - Naming's value under another resolution object.
+  9. **Consistency.** A staged §4.5 source carrying a declared but non-admissible category, with Naming's own v2 value, is `inconsistent`, naming that category.
+  10. **Producer.**
+      - v2 is emitted whenever a complete staged v2 value exists, on the Tree-built and the direct `projectNamingOccurrenceBridge` paths.
+      - v1 and v2 are never emitted together.
+      - A malformed staged bound omits the section.
+      - The factory returns no value without either digest.
+  11. **Independence.** Stage 1A, Stage 1, Stage 2, the conformance result and §4.5 are byte-identical with and without the section.
+  12. **Behavior preservation.** Stage 3, findings and reports are byte-identical in every state, and the fixed `true` remains.
+  13. **No registry or status access.** The Tree intake imports nothing from `naming/src/registries/` and reads no role status.
 
 **Record level:** each record is `accepted` or `rejected` with its intake reason (S1.2).
 
@@ -1579,11 +1638,11 @@ E8.1 is the counterexample: the shortcut would conclude `opportunity` for `tree-
 
 **Two sources of non-invariance (calculogic-validator#162).** The `single-responsibility` row varies whenever a joining file can leave a responsibility class unresolved. Today that is assumed for every candidate (`joiningFileCanLeaveClassUnresolved: true`), because a joining file may carry **any** category: (A) documentation in a mixed grouping, which the mapping leaves unresolved, and (B) a category the mapping does not cover, including one a Custom Naming set adds. Resolving A alone does not make E8.1, E12 or E22 invariant.
 
-**Future rule (Contract, calculogic-validator#162; implementation-pending; not current behavior).** The role-category vocabulary intake is implemented (S1.1–S1.3); once a separately authorized slice adopts this rule, with `V` the categories of a `usable` vocabulary (S1.3), `P` and `S` the mapping's primary and supporting categories, `D` = `documentation`, and `σ(C)` the candidate's supported members:
+**Future rule (Contract, calculogic-validator#162; implementation-pending; not current behavior).** The role-category vocabulary intake is implemented (S1.1–S1.3); once a separately authorized slice adopts this rule, with `V` the `admissibleCategories` of a `usable` **v2** vocabulary (S1.3; bridge contract §4.9.1; a v1 vocabulary supplies no `V`, and an empty bound is `V = ∅`, not unavailability), `P` and `S` the mapping's primary and supporting categories, `D` = `documentation`, and `σ(C)` the candidate's supported members:
 
 ```
 joiningFileCanLeaveClassUnresolved(C) =
-  true                                      when no usable vocabulary
+  true                                      when no usable v2 vocabulary
   unmapped(V) or mixedReachable(C, V)       otherwise
 
 unmapped(V)          = some c in V with c not in P, S or {D}
@@ -1596,7 +1655,7 @@ mixedDocumentationUnresolved = the documentation rule leaves mixed groupings unr
 
 - It changes only the `single-responsibility` row; every other row keeps its own invariance test, and `P < 2` still varies by itself.
 - It keeps the admissible-completion method: it bounds what a joining file could carry, never what an unrecognized file is.
-- Without a usable vocabulary it is exactly today's value. With the Builtin set and the experimental mapping it is still `true`, since `concern-style`, `deprecated` and `integration-adapter` are producible and unmapped; covering them is a separate policy decision, and mixed documentation is another (calculogic-validator#162).
+- Without a usable v2 vocabulary it is exactly today's value. With the Builtin set and the experimental mapping it is still `true`, since `concern-style` and `integration-adapter` are admissible and unmapped. Covering them is a separate policy decision, and mixed documentation is another (calculogic-validator#162). `deprecated` is declared but not admissible, so under v2 it no longer counts, and it needs no responsibility class.
 
 #### S3.7 Output
 

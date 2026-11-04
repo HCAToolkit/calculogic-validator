@@ -227,3 +227,9 @@ Deferred to later slices:
 - tree-specific config semantics beyond shared config validation + digest plumbing
 - any mutating or fix-mode behavior
 - S3.6 consumption of a `usable` role-category vocabulary (Tree spec S3.6 future rule; calculogic-validator#162): the intake exists (§2.4), but Stage 3 keeps `joiningFileCanLeaveClassUnresolved: true`; adopting the rule needs its own authorization
+- §4.9 v2 intake (Tree spec S1.1–S1.3 v2 blocks; bridge contract §4.9.1; calculogic-validator#162, v2 contract; implementation-pending):
+  - Supports v2 only; v1 becomes `unsupported` and is never read as admissibility evidence.
+  - Adds `rolesDigest` provenance and `admissibleCategories` validation (sorted, a subset of the declared records, possibly empty).
+  - Checks consistency against `admissibleCategories`; both trust origins are unchanged.
+  - Keeps unavailable distinct from an empty bound.
+  - Stage 3 stays unchanged, and S3.6 would read only `admissibleCategories` of a `usable` v2 vocabulary
