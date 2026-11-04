@@ -81,12 +81,15 @@ This spec is intentionally explicit and semantic (no guessing/inference required
     - [Category ↔ Surface Allowance Matrix (governance)](#category--surface-allowance-matrix-governance)
     - [Role Status Values (deterministic vocabulary)](#role-status-values-deterministic-vocabulary)
     - [Role Change-Control Rules](#role-change-control-rules)
+    - [Semantic authority and synchronization](#semantic-authority-and-synchronization)
     - [Validator taxonomy compatibility (naming slice)](#validator-taxonomy-compatibility-naming-slice)
     - [Governance validity rule (taxonomy)](#governance-validity-rule-taxonomy)
   - [Role Semantics Definitions](#role-semantics-definitions)
     - [Active Roles](#active-roles)
     - [Deprecated Roles](#deprecated-roles)
     - [Provisional Roles (Documented, Not Finalized)](#provisional-roles-documented-not-finalized)
+    - [Planned role lanes (semantics not yet documented)](#planned-role-lanes-semantics-not-yet-documented)
+    - [Unregistered role candidates](#unregistered-role-candidates)
   - [Role Decision Rubric](#role-decision-rubric)
   - [Primary Concern Roles](#primary-concern-roles)
     - [`build`](#build)
@@ -100,7 +103,7 @@ This spec is intentionally explicit and semantic (no guessing/inference required
   - [Integration / Support Roles](#integration--support-roles)
     - [`wiring`](#wiring)
     - [`contracts`](#contracts)
-  - [Optional / Future Roles (Not Active by Default)](#optional--future-roles-not-active-by-default)
+  - [Optional / Future Roles (Semantics Not Yet Documented)](#optional--future-roles-semantics-not-yet-documented)
     - [`adapter` (optional future)](#adapter-optional-future)
     - [`registry` (optional future)](#registry-optional-future)
     - [`selector` (optional future, use carefully)](#selector-optional-future-use-carefully)
@@ -415,7 +418,7 @@ Surface change-control notes:
 
 #### Role Categories (deterministic set)
 
-All role registry entries MUST declare one category from the bounded list below.
+Every role entry in [Role Semantics Definitions](#role-semantics-definitions) MUST declare one intended category from the bounded list below.
 
 - `concern-core`: core Calculogic concern roles that represent primary concern responsibilities.
 - `concern-style`: style-partner concern roles dedicated to visual/layout styling concerns.
@@ -433,9 +436,9 @@ All role registry entries MUST declare one category from the bounded list below.
 - `concurrency`: worker/concurrency roles.
 - `persistence`: storage/cache roles.
 - `networking`: transport/network boundary roles.
-- `documentation`: documentation-only filename roles (spec/policy/workflow/plan/audit/healthcheck).
-- `indexing-registry`: stable indexing/catalog/inventory/anchor/identifier-style roles.
-- `integration-adapter`: adapter/mapper/resolver boundary translation roles (defined now for deterministic future use).
+- `documentation`: documentation-only filename roles (spec/policy/workflow/plan/audit/healthcheck/inventory/note).
+- `indexing-registry`: stable indexing/catalog/registry/anchor/identifier-style roles (organized reference collections; a state-oriented record of existing artifacts is the `documentation` role `inventory`).
+- `integration-adapter`: adapter/mapper/resolver boundary translation roles (member-role semantics not yet documented in this master list).
 - `quality-support`: quality artifact roles (test/fixture/mock/benchmark).
 - `deprecated`: historical role segments retained for detection and migration guidance.
 
@@ -467,24 +470,58 @@ The table below is canonical taxonomy policy for allowed category/surface pairin
 
 #### Role Status Values (deterministic vocabulary)
 
-All role registry entries MUST declare one status from the bounded list below.
+Every role entry in [Role Semantics Definitions](#role-semantics-definitions) MUST declare one status from the bounded list below.
 
-- `active`: finalized role, allowed for canonical naming decisions.
-- `deprecated`: historical role retained for detection/migration guidance; not allowed for new canonical naming.
-- `provisional`: documented role candidate that is explicitly not finalized.
+Status values are scoped to entries in this master list. They describe semantic and lifecycle intent; they do not determine runtime eligibility, which the resolved Naming registry set determines (`NamingValidatorSpec.md`, Role Registry Metadata). A role that the runtime admits but that has no entry in Role Semantics Definitions has no status here, and its runtime admission does not imply `active`.
+
+- `active`: current role whose semantics are established in this document.
+- `deprecated`: historical role retained for detection, migration, or compatibility guidance; new filenames should not use it.
+- `provisional`: current role whose semantics are documented here but not finalized; it carries a finalization plan.
 
 #### Role Change-Control Rules
 
-- Any new role segment MUST be documented in this master list before use, including category, status, and semantics.
+- A role segment MUST have an entry in Role Semantics Definitions (category, status, and semantics) before it becomes runtime-eligible in the Builtin registry. This gate applies prospectively: roles that the Builtin registry already admits without an entry are legacy exceptions (see Documentation debt below). Their runtime use is not invalidated; each is reconciled by adding an entry (`active` or `provisional`) or by a separate registry decision.
 - Provisional roles MUST include a finalization plan note describing what evidence/conditions would make the role `active` versus removed/renamed.
 - Deprecated roles MUST include a deprecation note and migration intent (manual migration intent is acceptable; no automatic mapping promise required).
-- Role meaning changes MUST update the semantics definition block in this document first, then any downstream validator/spec references.
+- Role meaning changes MUST update the semantics definition block in this document first, then any downstream validator/spec references. A change to a registry `definition` that alters a role's meaning is a role meaning change.
+
+#### Semantic authority and synchronization
+
+Each taxonomy fact has one owner. Other places that state the fact are dependent copies.
+
+| Fact | Owner | Dependent copies |
+| --- | --- | --- |
+| Role meaning | The role's entry in [Role Semantics Definitions](#role-semantics-definitions) | The usage-guidance sections later in this document (Primary Concern Roles, Structural / Composition Roles, Integration / Support Roles, Optional / Future Roles); the `definition` field of the Naming roles registry |
+| Intended category of a role | The entry's **Category** line | none |
+| Runtime category of a role | The resolved Naming category-role perspective registry | none |
+| Runtime eligibility | The resolved Naming registry set (`NamingValidatorSpec.md`, Role Registry Metadata) | none |
+| Semantic maturity and lifecycle intent | The entry's **Status** line and finalization or deprecation notes; for roles without an entry, their placement under Planned role lanes or Optional / Future Roles | none |
+| Category meaning | [Role Categories](#role-categories-deterministic-set) | The `definition` field of the Naming categories registry |
+
+Rules for dependent copies:
+
+- Usage-guidance sections add guidance and examples. They never define a different meaning; where one differs from the Role Semantics Definitions entry, the entry governs and the guidance is corrected.
+- A registry `definition` is a runtime-carried summary of the meaning defined here. It must be implied by that meaning and does not define meaning of its own.
+- The runtime category of a role that has an entry here should equal the entry's intended category.
+
+Synchronization:
+
+- Semantic changes originate in this document. Registry changes implement approved intent.
+- A mismatch between this document and the registry is first classified as one of: an approved semantic decision not yet implemented in the registry; outdated documentation; or an unintended runtime divergence. It is then resolved by an owner decision. Neither side overrides the other automatically.
+- No automated synchronization check exists; mismatches are found by review.
+- Role candidates recorded outside this document (for example in Naming notes) are transitional. Their decisions are carried into this document ([Unregistered role candidates](#unregistered-role-candidates)); the original record remains as historical context.
+
+Documentation debt and open reconciliation items (at this revision):
+
+- Legacy exceptions to the eligibility gate: every role that the Builtin registry admits and that appears here only under Planned role lanes or Optional / Future Roles, without an entry in Role Semantics Definitions.
+- `host`: the Builtin registry places it under `surface-system` with a surface-mounting definition; its intended category and meaning are recorded in its entry below (`architecture-support`). This is a registry alignment item.
+- Registry `definition` wording for `build` ("assembly"), `contracts` ("schemas") and `healthcheck` (omits "recurring") does not yet match the sharpened entries below. These are registry alignment items.
 
 #### Validator taxonomy compatibility (naming slice)
 
 - This master list defines the full intended taxonomy, including richer categories and explicit category↔surface policy.
 - This master list owns taxonomy semantics. It does not own the runtime role inventory: which roles and categories the naming validator runtime recognizes, and with which status, is determined by the resolved Naming registry set (Builtin or Custom). Runtime eligibility requires both category-role perspective membership and `active` status; see `NamingValidatorSpec.md` (Role Registry Metadata) for current runtime behavior.
-- Where a per-role status, planned-lane, or optional-future label in this master list differs from the role's runtime eligibility, that difference is an open governance question, not a statement of runtime behavior.
+- Where a per-role entry, planned-lane, or optional-future label in this master list differs from the role's runtime category or eligibility, the difference is classified and reconciled under [Semantic authority and synchronization](#semantic-authority-and-synchronization); it is not a statement of runtime behavior.
 - Surface-aware validation is not runtime-enforced in the naming slice yet.
 - Adoption path for runtime compatibility:
   - a consumer adds or changes roles by editing its complete Custom registry set (registry lifecycle, #41), not through config
@@ -494,8 +531,10 @@ All role registry entries MUST declare one status from the bounded list below.
 
 A role usage is taxonomy-valid iff:
 
-1. the role exists in this registry with `status: active`; and
-2. the role's category allows the file surface according to the category↔surface matrix above.
+1. the role has an entry in Role Semantics Definitions with `status: active`; and
+2. the role's intended category allows the file surface according to the category↔surface matrix above.
+
+Taxonomy validity is a governance judgment, separate from runtime eligibility: a `provisional` role, or an admitted role without an entry, can be runtime-eligible without being taxonomy-valid.
 
 Runtime note: V0.1.7 naming validation currently enforces role recognition/status via runtime registry rules and does not yet enforce surface-based validity.
 
@@ -510,9 +549,9 @@ Each role below has an explicit deterministic definition: meaning, purpose/use-c
 - **Meaning:** local UI structure/content construction for a specific target.
 - **Purpose / use-cases:**
   - section-level UI composition
-  - local structural assembly for a specific semantic target
+  - local structure construction within one section for a specific semantic target
 - **Non-goals / misuse examples:**
-  - not top-level placement/orchestration across sibling sections (use `host`)
+  - not top-level placement/orchestration across sibling sections, or assembly of a unit's parts (use `host`)
   - not generic integration glue (use `wiring`)
 - **Category:** `concern-core`
 - **Status:** `active`
@@ -579,13 +618,17 @@ Each role below has an explicit deterministic definition: meaning, purpose/use-c
 
 ##### `host`
 
-- **Meaning:** structural host/composition file for section/subsection placement.
+- **Meaning:** composition host for a bounded structural or executable unit: it owns the assembly, placement, initialization, or coordination of the parts that form the unit, without owning those parts' internal responsibilities.
 - **Purpose / use-cases:**
-  - assembling and placing sibling sections
-  - defining structural layout relationships
+  - assembling and placing sibling sections or panels in a UI shell, and defining their structural layout relationships
+  - assembling and starting an executable unit (for example a command, script, or validator run) from its parts
 - **Non-goals / misuse examples:**
   - not local section implementation detail files (`build`)
-  - not generic helper glue without clear hosting responsibility (`wiring`)
+  - not connection glue between components without ownership of the unit's overall composition (`wiring`)
+  - not executable behavior itself (`logic`)
+  - not a file that only exposes or forwards an entry into the unit without composing it (`entry`)
+  - not the definition of a command-line interaction surface (`cli`)
+- **Boundary note:** the distinctions above are behavioral, not based on file extension or folder location. Existing filenames that do not match this meaning (for example single-line re-export files using `host`) are not renamed by this definition; they follow the legacy rename policy.
 - **Category:** `architecture-support`
 - **Status:** `active`
 
@@ -670,18 +713,51 @@ Each role below has an explicit deterministic definition: meaning, purpose/use-c
 - **Non-goals / misuse examples:**
   - not one-off deep-dive reconciliations (use `audit`)
   - not step-by-step runbook procedures (use `workflow`)
+- **Boundary note:** the recurring cadence is what distinguishes `healthcheck` from `audit`.
+- **Category:** `documentation`
+- **Status:** `active`
+
+##### `inventory`
+
+- **Meaning:** state-oriented documentation of a bounded set of existing artifacts: what exists, and its migration, classification, or cleanup status.
+- **Purpose / use-cases:**
+  - documentation maps and reorganization inventories
+  - compatibility or transitional-state records
+  - cleanup-target lists for an existing scope
+- **Non-goals / misuse examples:**
+  - not policy, formal specification, or procedure (`policy`, `spec`, `workflow`)
+  - not findings or judgments about a scope (`audit`)
+  - not intended future work (`plan`)
+  - not an organized reference collection for lookup or discovery (`catalog`)
+- **Boundary note:** `inventory` records the state of what exists; `catalog` organizes items for reference. The distinction is the artifact's responsibility, not whether it is Markdown or machine-readable.
+- **Category:** `documentation`
+- **Status:** `active`
+
+##### `note`
+
+- **Meaning:** bounded explanatory documentation that records context, rationale, or observations for a specific target.
+- **Purpose / use-cases:**
+  - implementation or design context that clarifies other documents
+  - recorded observations and rationale for a bounded topic
+- **Non-goals / misuse examples:**
+  - not authoritative for policy, specification, procedure, audit findings, or planned work (`policy`, `spec`, `workflow`, `audit`, `plan`)
+  - not the place where a governance decision takes effect; decisions recorded in a note are carried into their owning document (for role candidates, this master list)
 - **Category:** `documentation`
 - **Status:** `active`
 
 ##### `contracts`
 
-- **Meaning:** stable contract boundary definitions, parsing/normalization, and shape guards.
+- **Meaning:** an agreement between participants (modules, persisted payloads, or consumers), including its versions, shared identifiers and vocabularies, expectations, and associated enforcement such as parsing, normalization, and guards.
 - **Purpose / use-cases:**
-  - contract-level input/output expectations
+  - contract-level input/output expectations and versioned payload shapes
   - version/shape guard logic and normalization contracts
+  - shared version identifiers or outcome vocabularies that other modules depend on as part of the agreement
 - **Non-goals / misuse examples:**
   - not general runtime interaction behavior (`logic`)
-  - not static non-contract metadata-only files (`knowledge`)
+  - not static reference metadata that is not part of a cross-participant agreement (`knowledge`)
+  - not the declarative shape and constraints of a data structure owned as its own artifact (`schema`)
+  - not standalone type declarations and relationships (`types`)
+- **Boundary note:** the distinction from `schema` and `types` is what the artifact owns, not whether it contains enforcement code. A contract may be purely declarative, and a schema may participate directly in validation.
 - **Category:** `architecture-support`
 - **Status:** `active`
 
@@ -730,13 +806,14 @@ Each role below has an explicit deterministic definition: meaning, purpose/use-c
 
 ##### `catalog`
 
-- **Meaning:** inventory/listing of what exists for a bounded target.
+- **Meaning:** organized reference collection of items for a bounded target, structured for lookup or discovery.
 - **Purpose / use-cases:**
-  - explicit inventories/manifests
+  - explicit reference listings
   - listing/index surfaces without resolution execution
 - **Non-goals / misuse examples:**
   - not resolution/orchestration logic
   - not adapter glue or contracts parsing
+  - not a state-oriented record of existing artifacts and their migration or cleanup status (`inventory`)
 - **Category:** `indexing-registry`
 - **Status:** `provisional`
 - **Finalization plan note:** promote to `active` when inventory-only usage is stable and distinguishable from `knowledge` plus `wiring`; otherwise keep as semantic-name term under existing active roles.
@@ -753,9 +830,37 @@ Each role below has an explicit deterministic definition: meaning, purpose/use-c
 - **Status:** `provisional`
 - **Finalization plan note:** before activation, this document MUST define a single intended meaning and boundary; if no single meaning converges, remove/rename instead of activating.
 
-#### Planned role lanes (documented for future expansion, not active)
+##### `cli`
 
-The roles below are documented as planned taxonomy lanes but are intentionally **not** activated in this version. They remain governance candidates until role semantics, usage evidence, and runtime checks are mature enough for deterministic activation.
+- **Meaning:** the command-line interaction surface of a bounded tool: its argument and flag vocabulary, usage text, and command dispatch.
+- **Purpose / use-cases:**
+  - definitions of a tool's commands, flags, and usage output
+- **Non-goals / misuse examples:**
+  - not the file that assembles and starts the executable unit (`host`)
+  - not the behavior the commands perform (`logic`)
+  - not a file that only exposes or forwards an entry (`entry`)
+- **Category:** `architecture-support`
+- **Status:** `provisional`
+- **Open boundary question:** no file currently uses `cli` as its role segment. Current practice places executable entry files under `host` and command-line behavior in `.logic` files inside `cli` folders, so it is not yet shown that `cli` adds a responsibility distinct from `host` plus `logic`.
+- **Finalization plan note:** promote to `active` when repository usage establishes files whose primary responsibility is the command-line interaction surface, distinguishable from `host` and `logic`; otherwise remove the role and keep command-line meaning in folder names and semantic names.
+
+##### `boundary`
+
+- **Meaning:** an enforcement point at a module, package, or integration boundary: what may cross the boundary, such as a public export surface or access and import guards.
+- **Purpose / use-cases:**
+  - files whose primary responsibility is defining or protecting what crosses a boundary
+- **Non-goals / misuse examples:**
+  - not the shape or terms of what crosses the boundary (`contracts`)
+  - not connection glue between components (`wiring`)
+  - not a file that only exposes or forwards an entry (`entry`)
+- **Category:** `architecture-support`
+- **Status:** `provisional`
+- **Open boundary question:** no file currently uses `boundary` as its role segment, so this meaning is a proposed interpretation of the registry definition, not one confirmed by usage.
+- **Finalization plan note:** promote to `active` when repository usage shows boundary-enforcement files distinguishable from `contracts`, `wiring`, and `entry`; otherwise remove the role or fold its intent into `contracts`.
+
+#### Planned role lanes (semantics not yet documented)
+
+The roles below are planned taxonomy lanes whose semantics are not yet documented in Role Semantics Definitions. Listing a role here states its intended category only; it does not state runtime eligibility, which the resolved registry determines. Some of these roles are already admitted by the Builtin registry; they are legacy exceptions to the eligibility gate (see [Role Change-Control Rules](#role-change-control-rules)).
 
 - `surface-system`: `entry`, `router`
 - `indexing-registry`: `manifest`, `index`, `tokens`
@@ -774,7 +879,28 @@ The roles below are documented as planned taxonomy lanes but are intentionally *
 - `networking`: `transport`
 - `quality-support`: `test`, `fixture`, `mock`, `benchmark`
 
-Activation rule for this set: each role must receive a full semantics block (meaning/use-cases/non-goals/category/status), plus validator compatibility updates, before it can move from planned candidate to `active` or `provisional`.
+Documentation rule for this set: each role must receive a full semantics block (meaning/use-cases/non-goals/category/status) before it can move from planned candidate to `active` or `provisional` in this document. Runtime eligibility is a separate registry decision, governed by the eligibility gate in Role Change-Control Rules.
+
+#### Unregistered role candidates
+
+Role segments considered but not registered. They have no runtime eligibility and no entry in Role Semantics Definitions. These records carry forward candidate decisions first recorded in Naming notes; the original notes remain as historical context.
+
+##### `constants` (candidate; do not activate yet)
+
+- **Reason it came up:** Structural Addressing V0 needed centralized exported values for profile ids, bridge output ids, render view ids, marker strategies, formats, and defaults.
+- **Possible meaning:** reusable immutable symbolic values used across implementation files.
+- **Concerns:**
+  - may describe implementation shape rather than dominant responsibility
+  - may overlap with `knowledge`, `config`, `ids`, `tokens`, `registry`, and `settings`
+  - could become a dumping-ground role if activated too early
+- **Current decision:** do not add `constants` as a role yet. Prefer the role whose responsibility is clearer:
+  - `knowledge` for static/declarative reference data
+  - `contracts` for shared values that are part of a cross-participant agreement
+  - `config` for configurable options/setup policy (planned lane)
+  - `ids` for stable identifiers (provisional)
+  - `tokens` for reusable lexical/design/semantic symbols (planned lane)
+  - `registry` for canonical registered data (optional/future section)
+  - `settings` for behavior-tuning values (planned lane)
 
 ### Role Decision Rubric
 
@@ -926,24 +1052,28 @@ When a legacy file is replaced by canonical files:
 #### `host`
 
 **Purpose:**  
-Composes/places sections or sub-sections and defines structural layout relationships.  
-This is the “main file” concept (canonical name).
+Composes a bounded structural or executable unit: assembles, places, initializes, or coordinates its parts.  
+This is the “main file” concept (canonical name). Meaning: see the `host` entry in Role Semantics Definitions.
 
 **Use when:**
 
 - file places panels/sections in overall layout
 - file mounts/assembles subparts
 - file defines where sections go structurally
+- file assembles and starts an executable unit (command, script, validator run) from its parts
 
 **Do not use when:**
 
 - file is mostly local section rendering details (`build`)
 - file is mostly integration helpers/shared adapters (`wiring`)
+- file only exposes or forwards an entry into the unit (`entry`)
+- file mainly implements the behavior being run (`logic`)
 
 **Examples:**
 
-- `buildsurface.host.tsx`
+- `buildsurface.host.tsx` (UI shell host)
 - `leftpanel.host.tsx` (for nested subpanels)
+- `validate-naming.host.mjs` (executable composition root)
 
 ---
 
@@ -985,11 +1115,13 @@ Defines contract-level shapes, parsing/validation boundaries, normalization cont
 - parsing/normalizing persisted payloads into known shapes
 - version/shape guard logic is the file’s primary responsibility
 - contract behavior should be protected by unit/contract tests
+- file holds shared version identifiers or outcome vocabularies that other modules depend on as part of the agreement
 
 **Do not use when:**
 
 - file is primarily general runtime interaction behavior (`logic`)
-- file is static reference/config metadata without contract parsing/validation responsibility (`knowledge`)
+- file is static reference/config metadata that is not part of a cross-participant agreement (`knowledge`)
+- file owns the declarative shape and constraints of a data structure as its own artifact (`schema`), or standalone type declarations (`types`)
 - file becomes a mixed “helpers + contracts + wiring” dump
 
 **Examples:**
@@ -999,9 +1131,9 @@ Defines contract-level shapes, parsing/validation boundaries, normalization cont
 
 ---
 
-## Optional / Future Roles (Not Active by Default)
+## Optional / Future Roles (Semantics Not Yet Documented)
 
-These are placeholders you may adopt later. Keep inactive until explicitly approved.
+These are placeholders whose semantics are not yet documented in Role Semantics Definitions. Listing a role here does not state runtime eligibility, which the resolved registry determines; a role listed here that the Builtin registry already admits is a legacy exception to the eligibility gate (see Role Change-Control Rules). Do not add new runtime eligibility for these roles until they receive an entry in Role Semantics Definitions.
 
 #### `adapter` (optional future)
 
