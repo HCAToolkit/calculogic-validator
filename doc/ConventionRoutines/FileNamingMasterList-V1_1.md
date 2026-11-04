@@ -816,7 +816,7 @@ Each role below has an explicit deterministic definition: meaning, purpose/use-c
   - not a state-oriented record of existing artifacts and their migration or cleanup status (`inventory`)
 - **Category:** `indexing-registry`
 - **Status:** `provisional`
-- **Finalization plan note:** promote to `active` when inventory-only usage is stable and distinguishable from `knowledge` plus `wiring`; otherwise keep as semantic-name term under existing active roles.
+- **Finalization plan note:** promote to `active` when reference-collection usage is stable and distinguishable from `knowledge` plus `wiring` (and from `inventory`); otherwise keep as semantic-name term under existing active roles.
 
 ##### `provider`
 
