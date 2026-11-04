@@ -1,8 +1,8 @@
 // Tree Stage 3 emergent structural-boundary reasoning, evidence only (Tree slice spec S3.1-S3.10;
 // calculogic-validator#136). Prepares `treeEmergentBoundaryReasoning`: prefix-based V0 discovery,
-// candidate relations, member sets and dimension evidence for every directory and, only under an
-// explicitly supplied experimental policy (S3.8), each candidate's assessment by the S3.6 resolution
-// order. It reads the Stage 1 and Stage 2 records by reference and never changes them, never
+// candidate relations, member sets and dimension evidence for every directory and, under the run's
+// adopted policy or an explicitly supplied experimental override (S3.8, S3.13.6), each candidate's
+// assessment by the S3.6 resolution order. The record states which source decided (`policySource`). It reads the Stage 1 and Stage 2 records by reference and never changes them, never
 // tokenizes or compares tokens with folder labels as strings (S3.1, S3.10): S3.2 positional lineage
 // expression compares Naming's parsed label tokens with Naming's N1 tokens for exact equality, the S1.5
 // operation at another position. Lexical-label expression (calculogic-validator#153) reads only the
@@ -37,6 +37,7 @@ import {
   EMERGENT_BOUNDARY_MEMBER_SETS,
   EMERGENT_BOUNDARY_OUTCOMES,
   EMERGENT_BOUNDARY_PARTIAL_EVIDENCE_POINT,
+  EMERGENT_BOUNDARY_POLICY_SOURCES,
   EMERGENT_BOUNDARY_POLICY_STATUSES,
   EMERGENT_BOUNDARY_PREPARATION_REASONS,
   EMERGENT_BOUNDARY_PREPARATION_STATUSES,
@@ -100,12 +101,14 @@ const RESOLVED_VALUE_CHECKS = Object.freeze({
   [EMERGENT_BOUNDARY_DECISIONS.opportunitySelection]: () => false,
 });
 
-export const validateTreeEmergentBoundaryPolicy = (policy) => {
+// `expectedStatus` is the status the policy's source requires (S3.13.6): `experimental` for a programmatic
+// override, `adopted` for the registry policy. A policy is never accepted under the other status.
+export const validateTreeEmergentBoundaryPolicy = (policy, { expectedStatus = EMERGENT_BOUNDARY_POLICY_STATUSES.experimental } = {}) => {
   const problems = [];
   if (policy === null || typeof policy !== 'object') return { valid: false, problems: ['policy-not-an-object'] };
   if (!isNonEmptyString(policy.policyId)) problems.push('policy-id');
   if (!isNonEmptyString(policy.policyVersion)) problems.push('policy-version');
-  if (policy.policyStatus !== EMERGENT_BOUNDARY_POLICY_STATUSES.experimental) problems.push('policy-status');
+  if (policy.policyStatus !== expectedStatus) problems.push('policy-status');
   const decisions = policy.decisions;
   if (decisions === null || typeof decisions !== 'object') {
     problems.push('decisions');
@@ -126,6 +129,38 @@ const copyPolicy = (policy) => ({
   policyStatus: policy.policyStatus,
   decisions: Object.fromEntries(DECISION_IDS.map((id) => [id, structuredClone(policy.decisions[id])])),
 });
+
+// S3.13.6 policy sources. `policy` is the programmatic experimental override; `adoptedPolicy` is the
+// prepared adopted policy from the run's resolved Tree registry (`loadTreeEmergentBoundaryPolicy`). An
+// override, when supplied, decides, and is never replaced by the adopted policy even when it is invalid.
+// Without one, the adopted policy decides when it is available and valid. Nothing falls back to anything
+// else: with neither source there is no outcome.
+const selectAssessmentPolicy = ({ policy, adoptedPolicy }) => {
+  const unavailable = (reason, extra = {}) => ({
+    status: EMERGENT_BOUNDARY_ASSESSMENT_STATUSES.configurationUnavailable,
+    reason,
+    policy: null,
+    ...extra,
+  });
+  if (policy !== undefined && policy !== null) {
+    const check = validateTreeEmergentBoundaryPolicy(policy, { expectedStatus: EMERGENT_BOUNDARY_POLICY_STATUSES.experimental });
+    return check.valid
+      ? { status: EMERGENT_BOUNDARY_ASSESSMENT_STATUSES.evaluated, policySource: EMERGENT_BOUNDARY_POLICY_SOURCES.experimentalOverride, policy: copyPolicy(policy) }
+      : unavailable(EMERGENT_BOUNDARY_ASSESSMENT_REASONS.experimentalPolicyInvalid, { problems: check.problems });
+  }
+  // A direct call that supplies no policy source at all keeps the reason it always reported.
+  if (adoptedPolicy === undefined || adoptedPolicy === null) return unavailable(EMERGENT_BOUNDARY_ASSESSMENT_REASONS.experimentalPolicyAbsent);
+  if (adoptedPolicy.availability !== 'available') return unavailable(EMERGENT_BOUNDARY_ASSESSMENT_REASONS.adoptedPolicyUnavailable);
+  const check = validateTreeEmergentBoundaryPolicy(adoptedPolicy.policy, { expectedStatus: EMERGENT_BOUNDARY_POLICY_STATUSES.adopted });
+  return check.valid
+    ? {
+        status: EMERGENT_BOUNDARY_ASSESSMENT_STATUSES.evaluated,
+        policySource: EMERGENT_BOUNDARY_POLICY_SOURCES.adopted,
+        policy: copyPolicy(adoptedPolicy.policy),
+        policyRegistry: { ...adoptedPolicy.registry },
+      }
+    : unavailable(EMERGENT_BOUNDARY_ASSESSMENT_REASONS.adoptedPolicyInvalid, { problems: check.problems });
+};
 
 // S3.5: an existing folder candidate's claim, as Naming tokens: its label tokens when the prefix
 // channel governs, otherwise its lexical root.
@@ -646,22 +681,12 @@ export const prepareTreeEmergentBoundaryReasoning = ({
   sectionIntake,
   semanticHomeReasoning,
   policy,
+  adoptedPolicy,
   lexicalRelation = null,
   lexicalProfile = null,
   repositoryPackageElements = [],
 } = {}) => {
-  const policyCheck = policy === undefined || policy === null ? null : validateTreeEmergentBoundaryPolicy(policy);
-  const assessment =
-    policyCheck === null
-      ? { status: EMERGENT_BOUNDARY_ASSESSMENT_STATUSES.configurationUnavailable, reason: EMERGENT_BOUNDARY_ASSESSMENT_REASONS.experimentalPolicyAbsent, policy: null }
-      : policyCheck.valid
-        ? { status: EMERGENT_BOUNDARY_ASSESSMENT_STATUSES.evaluated, policy: copyPolicy(policy) }
-        : {
-            status: EMERGENT_BOUNDARY_ASSESSMENT_STATUSES.configurationUnavailable,
-            reason: EMERGENT_BOUNDARY_ASSESSMENT_REASONS.experimentalPolicyInvalid,
-            policy: null,
-            problems: policyCheck.problems,
-          };
+  const assessment = selectAssessmentPolicy({ policy, adoptedPolicy });
   const base = {
     source: SOURCE_ID,
     evidenceOnly: true,

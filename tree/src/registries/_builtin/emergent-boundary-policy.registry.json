@@ -1,0 +1,56 @@
+{
+  "version": "1",
+  "policies": [
+    {
+      "policyId": "emergent-boundary",
+      "policyVersion": "1",
+      "policyStatus": "adopted",
+      "definition": "The adopted Stage 3 emergent-boundary policy (Tree spec S3.8, S3.13). Its values were approved by owner decision in calculogic-validator#171; decisions not yet approved stay unresolved."
+    }
+  ],
+  "decisions": [
+    {
+      "decisionId": "coverage-share",
+      "status": "unresolved",
+      "rationale": "Not decidable as a share alone (calculogic-validator#162, #171). A candidate whose conclusion is not invariant under admissible completions stays incomplete and never yields a finding (S3.13.3)."
+    },
+    {
+      "decisionId": "minimum-primary-units",
+      "status": "resolved",
+      "value": 3,
+      "rationale": "The only tested value that reproduces every catalogue expectation (S3.9). Not profile-aware; profile-awareness is a deferred alternative (S3.13.1)."
+    },
+    {
+      "decisionId": "one-word-prefix",
+      "status": "resolved",
+      "value": "no-allowance",
+      "rationale": "A single token carries no lexical specificity (S3.3); every catalogue case reaching the rule expects low-specificity. It can only prevent an opportunity, never create one."
+    },
+    {
+      "decisionId": "opportunity-selection",
+      "status": "unresolved",
+      "rationale": "Outer-only selection is supported by E22 but not adopted. Related complete opportunities yield no finding while this stays unresolved (S3.13.3, EL5)."
+    },
+    {
+      "decisionId": "partial-evidence-aggregation",
+      "status": "unresolved",
+      "rationale": "Only the S3.5 point (E14, E15) is fixed; any further limit needs more catalogue cases."
+    },
+    {
+      "decisionId": "responsibility-class-mapping",
+      "status": "resolved",
+      "value": {
+        "primary": ["concern-core", "architecture-support", "surface-system", "data-model", "indexing-registry"],
+        "supporting": ["quality-support"],
+        "documentation": "primary-in-documentation-grouping"
+      },
+      "rationale": "The established S3.5 assignment. Mixed documentation stays unresolved (M0); concern-style and integration-adapter stay unmapped, so their candidates are incomplete (S3.13.1)."
+    },
+    {
+      "decisionId": "separation-value-limit",
+      "status": "resolved",
+      "value": "whole-directory-only",
+      "rationale": "A necessary condition only: a grouping covering the whole directory separates nothing (S3.8). Not an organizational-quality standard."
+    }
+  ]
+}

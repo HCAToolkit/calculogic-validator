@@ -43,14 +43,29 @@ const withRepository = (run) => {
 
 const IDENTIFYING_MARKERS = ['tree-emergent-boundary-reasoning', 'treeEmergentBoundaryReasoning', 'emergent-boundary-experimental', 'stage-3-evidence-only', 'prefix-v0'];
 
-test('a real run prepares Stage 3 evidence without outcomes: no policy reaches it', () => {
+// Tree spec S3.13.6 (calculogic-validator#171, slice B): a real run evaluates Stage 3 under the adopted
+// policy from its resolved Tree registry. Before slice B this run recorded `experimental-policy-absent`.
+test('a real run evaluates Stage 3 under the adopted Builtin policy, and the record says so', () => {
   withRepository(({ prepare }) => {
-    const record = prepare().preparedDependencies.treeEmergentBoundaryReasoning;
+    const prepared = prepare().preparedDependencies;
+    const record = prepared.treeEmergentBoundaryReasoning;
     assert.deepEqual(record.preparation, { status: 'prepared' });
-    assert.deepEqual(record.assessment, { status: 'configuration-unavailable', reason: 'experimental-policy-absent', policy: null });
+    assert.equal(record.assessment.status, 'evaluated');
+    assert.equal(record.assessment.policySource, 'adopted');
+    assert.deepEqual(
+      [record.assessment.policy.policyId, record.assessment.policy.policyVersion, record.assessment.policy.policyStatus],
+      ['emergent-boundary', '1', 'adopted'],
+    );
+    assert.deepEqual(
+      { registryId: record.assessment.policyRegistry.registryId, version: record.assessment.policyRegistry.version, source: record.assessment.policyRegistry.source },
+      { registryId: 'tree/emergent-boundary-policy', version: '1', source: 'builtin' },
+    );
+    assert.equal(record.assessment.policyRegistry.digest, prepared.treeEmergentBoundaryPolicy.registry.digest);
     const lib = record.directories.find((directory) => directory.path === 'lib');
     assert.deepEqual(lib.candidates.map((candidate) => candidate.prefix.join('-')), ['registry', 'registry-lifecycle']);
-    assert.ok(lib.candidates.every((candidate) => candidate.assessment === undefined));
+    const outcomes = Object.fromEntries(lib.candidates.map((candidate) => [candidate.prefix.join('-'), [candidate.assessment.outcome, ...candidate.assessment.reasons]]));
+    assert.equal(outcomes['registry-lifecycle'][0], 'opportunity');
+    assert.deepEqual(outcomes.registry, ['insufficient-evidence', 'low-specificity']);
   });
 });
 

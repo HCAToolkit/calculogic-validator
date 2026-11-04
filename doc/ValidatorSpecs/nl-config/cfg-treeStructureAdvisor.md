@@ -131,12 +131,12 @@ V0.1.7 introduces a suite-core scoped snapshot/input helper boundary and migrate
   - **Inputs, all read by reference:** the section intake (N1 tokens, `semanticName`, `roleCategory`, ambiguity flags behind the Stage 1B-i fact gates), the Stage 1 fact and semantic-evidence records (directories, direct members, lineage comparisons) and `treeFolderSemanticHomeReasoning` (candidate outcomes and placements).
   - **Status:**
     - `preparation.status` is `prepared`, or `not-prepared` when Stage 2 was not evaluated.
-    - `assessment.status` is `evaluated`, or `configuration-unavailable` with the reason `experimental-policy-absent` or `experimental-policy-invalid`.
+    - `assessment.status` is `evaluated`, with `policySource` `adopted` or `experimental-override` (and `policyRegistry` for the adopted policy), or `configuration-unavailable` with the reason `adopted-policy-unavailable`, `adopted-policy-invalid`, `experimental-policy-invalid`, or `experimental-policy-absent` for a direct call that supplies neither source.
   - **What is prepared:** discovery (prefix-based V0), candidate relations, member sets, dimension evidence, coverage and limitations, with or without a policy.
-  - **Outcomes:** only under an explicitly supplied experimental policy (S3.8), passed through the wiring's programmatic `emergentBoundaryPolicy` argument.
-    - No CLI flag, config file or registry reaches that argument, and no default policy exists.
-    - A real run therefore records `configuration-unavailable / experimental-policy-absent`.
-    - The catalogue's policy, `emergent-boundary-experimental` v1, is a test fixture.
+  - **Outcomes (calculogic-validator#171 slice B; Tree spec S3.8, S3.13.6):** under the adopted policy, `emergent-boundary` v1, from the run's resolved Tree registry `tree/emergent-boundary-policy`.
+    - `registries/tree-emergent-boundary-policy-registry.logic.mjs` owns its shape: one `policies` record with `policyStatus: adopted`, and one `decisions` record per S3.8 decision, resolved with a value or unresolved. Resolved values must pass the reasoning's own policy check.
+    - `registries/tree-emergent-boundary-policy-loader.logic.mjs` prepares `treeEmergentBoundaryPolicy` from the run's resolution, with its registry provenance; Builtin for a direct call without a root; `not-prepared` for an explicit non-Builtin root without a resolution. Wiring passes it to Stage 3 only.
+    - The wiring's programmatic `emergentBoundaryPolicy` argument is an experimental override: it decides in place of the adopted policy, its status must be `experimental`, and it is never finding-eligible. No CLI flag, config file or registry reaches it. The catalogue's policy, `emergent-boundary-experimental` v1, is a test fixture.
   - **Each assessment records:**
     - its completion (`complete`, or `incomplete` with the unresolved decisions; S3.6);
     - the deciding rule and value with the policy id and version;
@@ -145,8 +145,8 @@ V0.1.7 introduces a suite-core scoped snapshot/input helper boundary and migrate
     - Each candidate an undetermined placement consulted is read by the claim its Stage 2 relation puts forward: established correspondence, possible correspondence, broader context, a possible other destination, or a missing comparison. The reading is kept on the member, and the member set follows from it.
     - In a directory with unrecognized files, the coverage step decides only whether the conclusion is invariant under every admissible completion, using the S3.6 bounds. A non-invariant conclusion stays incomplete for `coverage-share`, recording its variant rules and the decisions involved. Invariance never decides an outcome by itself: the experimental rules decide it.
   - **No consumer:** no finding, no report field and no `meta` entry reads the record, so every report is unchanged (S3.7: this version emits no finding).
-  - **First advisory finding (Contract, calculogic-validator#171; implementation-pending; not current behavior):** Tree spec S3.13 defines it in two slices.
-    - Slice B: an adopted Builtin policy in a new Tree registry, `tree/emergent-boundary-policy`, read by a Tree loader. It holds four approved values and three unresolved decisions. The programmatic experimental override stays for testing and is never finding-eligible.
+  - **First advisory finding (calculogic-validator#171):** Tree spec S3.13 defines it in two slices. Slice B is current behavior; slice C is Contract only, implementation-pending.
+    - Slice B (implemented): an adopted Builtin policy in a new Tree registry, `tree/emergent-boundary-policy`, read by a Tree loader. It holds four approved values and three unresolved decisions. The programmatic experimental override stays for testing and is never finding-eligible.
     - Slice C: `tree/src/contributors/tree-emergent-boundary-opportunity-contributor.logic.mjs` emits `TREE_EMERGENT_BOUNDARY_OPPORTUNITY` (`info`) only for a complete `opportunity` with `selection: not-needed`, under the adopted policy and an active language profile (S3.13.3), and adds `meta.emergentBoundaryReasoning`. It reads the prepared record only and never changes an assessment.
 - Lexical-identity consumption (Tree spec S1.1–S1.3, S3.2, S3.7; calculogic-validator#153): `tree-lexical-identity-evidence.logic.mjs` is Tree's one lexical-identity evidence module and its only importer of the Linguistic Foundation (`compareLexicalResolutions`, `isFoundationFeatureMap`).
   - **Intake:** `prepareTreeLexicalIdentityIntake` takes in the payload's `namingTokenLexicalIdentities` as its own prepared record, `treeLexicalIdentityIntake`, outside `treeNamingSectionIntake` and every Stage 1/Stage 2 module (so the Stage 2 conformance binding is untouched).
@@ -230,4 +230,4 @@ Deferred to later slices:
 - tree-specific config semantics beyond shared config validation + digest plumbing
 - any mutating or fix-mode behavior
 - S3.6 consumption of a `usable` role-category vocabulary (Tree spec S3.6 future rule; calculogic-validator#162): the intake exists (§2.4), but Stage 3 keeps `joiningFileCanLeaveClassUnresolved: true`; adopting the rule needs its own authorization
-- The adopted Stage 3 policy registry and loader, and the first advisory finding (Tree spec S3.13, calculogic-validator#171): Contract only; slices B and C each need their own authorization
+- The first advisory finding (Tree spec S3.13, slice C; calculogic-validator#171): Contract only; it needs its own authorization. The adopted policy (slice B) is implemented

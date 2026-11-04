@@ -1,7 +1,8 @@
 // The Stage 3 experimental policy the catalogue is evaluated under (Tree spec S3.8;
 // calculogic-validator#136): `emergent-boundary-experimental`, version `1`. A test fixture only:
-// production code holds no default policy, and a real run never supplies one. It is not adopted
-// policy and not Tree registry data; its values are bound to the S3.8 table by the catalogue tests.
+// a real run never supplies it as an override, and evaluates under the adopted policy instead (the Tree
+// registry `tree/emergent-boundary-policy`, S3.13.6). It is not adopted policy and not Tree registry data;
+// its values are bound to the S3.8 table by the catalogue tests.
 
 export const EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY = Object.freeze({
   policyId: 'emergent-boundary-experimental',

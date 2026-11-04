@@ -51,6 +51,7 @@ import { collectDeclaredLocalPackageEvidence } from '../../src/core/repository-l
 import { collectDeclaredRepositoryPackageIdentity } from '../../src/core/repository-package-identity.logic.mjs';
 import {
   loadTreeRuntimeRegistries,
+  loadTreeEmergentBoundaryPolicy,
   loadTreeSemanticHomeParameterSet,
 } from './registries/tree-runtime-registries.logic.mjs';
 import { TREE_REGISTRY_SLICE_ID } from './registries/tree-registry-inventory.knowledge.mjs';
@@ -96,8 +97,10 @@ const resolveRegistryRoots = ({ registryResolution, registryRoots }) => {
   return registryResolution.registryRoots;
 };
 
-// `emergentBoundaryPolicy` is a programmatic argument only (Tree spec S3.8): no CLI flag, config file,
-// registry or suite hook supplies it, so a validation run prepares Stage 3 evidence without outcomes.
+// Stage 3 policy sources (Tree spec S3.13.6): the adopted policy comes from the run's resolved Tree
+// registry `tree/emergent-boundary-policy`. `emergentBoundaryPolicy` is a programmatic experimental
+// override only: no CLI flag, config file, registry or suite hook supplies it, and when supplied it
+// decides in place of the adopted policy.
 
 export const prepareTreeStructureAdvisorInputs = (
   repositoryRoot,
@@ -163,6 +166,8 @@ export const prepareTreeStructureAdvisorInputs = (
   } = loadTreeRuntimeRegistries(registryRoots?.[TREE_REGISTRY_SLICE_ID]);
   // Read only by Stage 2A reasoning below (Tree spec S2.9, S2.14).
   const treeSemanticHomeParameterSet = loadTreeSemanticHomeParameterSet({ registryResolution, registryRoots });
+  // Read only by Stage 3 reasoning below (Tree spec S3.13.6).
+  const treeEmergentBoundaryPolicy = loadTreeEmergentBoundaryPolicy({ registryResolution, registryRoots });
   const treeRepoShapeEvidence = prepareTreeRepoShapeEvidence({
     localPackageEvidence: collectDeclaredLocalPackageEvidence(repositoryRoot),
   });
@@ -305,14 +310,15 @@ export const prepareTreeStructureAdvisorInputs = (
     scope: scopedSnapshotInputs.scope,
   });
   // Stage 3 (S3.1-S3.10), evidence only: discovery, relations and member sets from the Stage 1 and
-  // Stage 2 records by reference; outcomes only under an explicitly supplied experimental policy. No
-  // finding, report field or `meta` entry reads it.
+  // Stage 2 records by reference; outcomes under the adopted policy, or under an experimental override
+  // when one is supplied (S3.13.6). No finding, report field or `meta` entry reads it.
   const treeEmergentBoundaryReasoning = prepareTreeEmergentBoundaryReasoning({
     factEvidence: treeFolderFactEvidence,
     semanticEvidence: treeFolderSemanticEvidence,
     sectionIntake: treeNamingSectionIntake,
     semanticHomeReasoning: treeFolderSemanticHomeReasoning,
     policy: emergentBoundaryPolicy,
+    adoptedPolicy: treeEmergentBoundaryPolicy,
     // S3.2 lexical-label expression and S3.7 `lexicalIdentity`, only with an available section.
     lexicalRelation: createTreeLexicalRelation(treeLexicalIdentityIntake),
     lexicalProfile: treeLexicalIdentityIntake?.lexicalProfile ?? null,
@@ -365,6 +371,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeFolderSemanticEvidence,
       treeSemanticHomeParameterSet,
       treeFolderSemanticHomeReasoning,
+      treeEmergentBoundaryPolicy,
       treeEmergentBoundaryReasoning,
     },
     findingContributors: collectDefaultTreeStructureAdvisorContributors({

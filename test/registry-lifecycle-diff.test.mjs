@@ -66,7 +66,7 @@ const entryClasses = (registry) => Object.fromEntries((registry?.entries ?? []).
 // ---- comparison identity declarations ---------------------------------------------------------
 
 test('every inventory registry declares comparison identity that fully covers its Builtin payload', () => {
-  assert.equal(inventoryEntries.length, 26);
+  assert.equal(inventoryEntries.length, 27);
   for (const { slice, entry } of inventoryEntries) {
     const payload = readJson(path.join(slice.builtinRoot, entry.fileName));
     const entries = extractComparisonEntries(payload, entry);
@@ -201,7 +201,7 @@ test('a fresh Custom set is unchanged everywhere, and diff writes nothing', () =
 
     const result = diff();
     assert.equal(result.customExists, true);
-    assert.deepEqual(result.counts, { registries: { unchanged: 26 }, entries: {} });
+    assert.deepEqual(result.counts, { registries: { unchanged: 27 }, entries: {} });
     assert.ok(result.registries.every((registry) => registry.class === 'unchanged' && registry.entries === undefined));
     assert.deepEqual(snapshot(), before);
     assert.deepEqual(diff(), result, 'deterministic');
@@ -362,7 +362,7 @@ test('a malformed manifest leaves no trusted Baseline for any registry', () => {
     const result = diff();
 
     assert.match(result.manifestError, /unreadable/u);
-    assert.deepEqual(result.counts.registries, { 'not-comparable': 26 });
+    assert.deepEqual(result.counts.registries, { 'not-comparable': 27 });
     assert.ok(result.registries.every((registry) => registry.reason === 'baseline-unavailable'));
   });
 });

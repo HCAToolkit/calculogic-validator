@@ -9,7 +9,8 @@ export const EMERGENT_BOUNDARY_PREPARATION_REASONS = Object.freeze({
   semanticHomeReasoningNotEvaluated: 'semantic-home-reasoning-not-evaluated',
 });
 
-// S3.8: outcomes need an explicitly supplied experimental policy; there is no default.
+// S3.8, S3.13.6: outcomes need a policy. The adopted policy comes from the run's resolved Tree registry;
+// an experimental override is supplied programmatically and is never finding-eligible.
 export const EMERGENT_BOUNDARY_ASSESSMENT_STATUSES = Object.freeze({
   evaluated: 'evaluated',
   configurationUnavailable: 'configuration-unavailable',
@@ -17,6 +18,13 @@ export const EMERGENT_BOUNDARY_ASSESSMENT_STATUSES = Object.freeze({
 export const EMERGENT_BOUNDARY_ASSESSMENT_REASONS = Object.freeze({
   experimentalPolicyAbsent: 'experimental-policy-absent',
   experimentalPolicyInvalid: 'experimental-policy-invalid',
+  adoptedPolicyUnavailable: 'adopted-policy-unavailable',
+  adoptedPolicyInvalid: 'adopted-policy-invalid',
+});
+// S3.13.6: where an evaluated assessment's policy came from.
+export const EMERGENT_BOUNDARY_POLICY_SOURCES = Object.freeze({
+  adopted: 'adopted',
+  experimentalOverride: 'experimental-override',
 });
 
 // S3.3, S3.10: the discovery method, and the limits inherent to it (never detected, always recorded).
@@ -144,7 +152,7 @@ export const EMERGENT_BOUNDARY_DECISIONS = Object.freeze({
   partialEvidenceAggregation: 'partial-evidence-aggregation',
   opportunitySelection: 'opportunity-selection',
 });
-export const EMERGENT_BOUNDARY_POLICY_STATUSES = Object.freeze({ experimental: 'experimental' });
+export const EMERGENT_BOUNDARY_POLICY_STATUSES = Object.freeze({ experimental: 'experimental', adopted: 'adopted' });
 
 // S3.5 responsibility classes.
 export const EMERGENT_BOUNDARY_RESPONSIBILITY_CLASSES = Object.freeze({ primary: 'primary', supporting: 'supporting' });
