@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveActiveRegistrySet } from '../../src/core/registry-lifecycle/registry-lifecycle-resolution.logic.mjs';
 import { prepareNamingTreeStagingInputs, runNamingValidator } from '../../naming/src/naming-validator.host.mjs';
-import { NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID } from '../../naming/src/naming-role-category-vocabulary.logic.mjs';
+import { NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID, NAMING_ROLES_REGISTRY_ID } from '../../naming/src/naming-role-category-vocabulary.logic.mjs';
 import { prepareTreeStructureAdvisorInputs } from '../src/tree-structure-advisor.wiring.mjs';
 import { runTreeStructureAdvisor as runTreeStructureAdvisorRuntime } from '../src/tree-structure-advisor.logic.mjs';
 import { toTreeUsableRoleCategoryVocabulary } from '../src/tree-role-category-vocabulary-evidence.logic.mjs';
@@ -74,6 +74,7 @@ const withProvenance = (registryResolution, entry) => ({
   },
 });
 const PERSPECTIVE = NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID;
+const ROLES = NAMING_ROLES_REGISTRY_ID;
 
 // Every scenario, prepared once per target; each pairs the run with its no-section control on the same route.
 const SCENARIOS = withTarget((root) => {
@@ -103,6 +104,10 @@ const SCENARIOS = withTarget((root) => {
   const foreignEnrichment = structuredClone(staged.namingSemanticEvidenceEnrichment);
   const foreignRecord = foreignEnrichment.records.find((record) => typeof record.roleCategory === 'string');
   foreignRecord.roleCategory = foreignCategory;
+  // A §4.5 source carrying a category the run declares but cannot admit (Builtin `deprecated`).
+  const deprecatedEnrichment = structuredClone(staged.namingSemanticEvidenceEnrichment);
+  deprecatedEnrichment.records.find((record) => typeof record.roleCategory === 'string').roleCategory = 'deprecated';
+  const { rolesDigest, admissibleCategories, ...v1Fields } = treeBuilt.payload.namingRoleCategoryVocabulary;
   const unobservedCategory = 'integration-adapter';
   return {
     vocabulary,
@@ -113,12 +118,15 @@ const SCENARIOS = withTarget((root) => {
     treeBuilt,
     callerControl,
     callerSupplied,
-    unsupported: callerWith({ contractVersion: 'naming-role-category-vocabulary.v2' }),
+    // A v1 section (the previous contract) is never read as admissibility evidence.
+    unsupported: run({ namingOccurrenceBridge: { ...treeBuilt.payload, namingRoleCategoryVocabulary: { ...v1Fields, contractVersion: 'naming-role-category-vocabulary.v1' } } }),
     invalid: callerWith({ recordCount: 99 }),
     // Tree builds the payload, but the vocabulary did not come from the run's Naming derivation.
-    // Regression (review of 488b022): well-formed, provenance matching, incomplete in a category no accepted
-    // record carries, and no caller-supplied payload; consistency alone cannot see it.
-    externalIncomplete: run({ roleCategoryVocabulary: { ...vocabulary, records: vocabulary.records.filter((record) => record.category !== unobservedCategory) } }),
+    // Regression (review of 488b022), v2 form: a hand-built value whose bound is narrowed in a category no
+    // accepted record carries, provenance matching, no caller-supplied payload; consistency cannot see it.
+    externalIncomplete: run({ roleCategoryVocabulary: { ...vocabulary, admissibleCategories: vocabulary.admissibleCategories.filter((category) => category !== unobservedCategory) } }),
+    // Naming's value with its bound replaced by an identical, separately supplied list.
+    replacedBound: run({ roleCategoryVocabulary: { ...vocabulary, admissibleCategories: [...vocabulary.admissibleCategories] } }),
     // A complete, identical copy of the Naming value: still not the derivation's own value.
     externalCopy: run({ roleCategoryVocabulary: structuredClone(vocabulary) }),
     // The Naming value, but a different resolution object for the Tree run (same provenance content).
@@ -130,9 +138,13 @@ const SCENARIOS = withTarget((root) => {
     digestMismatch: mutatedAfterStaging((naming) => { naming[PERSPECTIVE] = { ...naming[PERSPECTIVE], digest: 'another-digest' }; }),
     sourceMismatch: mutatedAfterStaging((naming) => { naming[PERSPECTIVE] = { ...naming[PERSPECTIVE], source: 'custom' }; }),
     noRunProvenance: mutatedAfterStaging((naming) => { delete naming[PERSPECTIVE]; }),
+    rolesDigestMismatch: mutatedAfterStaging((naming) => { naming[ROLES] = { ...naming[ROLES], digest: 'another-roles-digest' }; }),
+    noRolesProvenance: mutatedAfterStaging((naming) => { delete naming[ROLES]; }),
     // Naming-derived and provenance matching, but the staged §4.5 source carries a category the vocabulary lacks.
     inconsistent: run({ roleCategoryVocabulary: vocabulary, namingSemanticEvidenceEnrichment: foreignEnrichment }),
     inconsistentControl: run({ namingSemanticEvidenceEnrichment: foreignEnrichment }),
+    inconsistentDeprecated: run({ roleCategoryVocabulary: vocabulary, namingSemanticEvidenceEnrichment: deprecatedEnrichment }),
+    inconsistentDeprecatedControl: run({ namingSemanticEvidenceEnrichment: deprecatedEnrichment }),
   };
 });
 
@@ -162,6 +174,7 @@ test('acceptance 1: the caller-supplied branch is untrusted, whatever the payloa
   assert.equal(payload.bridgeSource, 'calculogic-validator/naming');
   assert.deepEqual(payload.namingRoleCategoryVocabulary, treeBuilt.payload.namingRoleCategoryVocabulary);
   assert.equal(payload.namingRoleCategoryVocabulary.categoryRolePerspectiveDigest, registryResolution.registryProvenance.naming[PERSPECTIVE].digest);
+  assert.equal(payload.namingRoleCategoryVocabulary.rolesDigest, registryResolution.registryProvenance.naming[ROLES].digest);
   assert.equal(callerSupplied.intake.state, 'untrusted');
   assert.equal(callerSupplied.intake.bridgeOrigin, 'caller-supplied');
   assert.equal(callerSupplied.intake.diagnostics[0].reason, 'caller-supplied');
@@ -169,14 +182,17 @@ test('acceptance 1: the caller-supplied branch is untrusted, whatever the payloa
 });
 
 test('regression: a vocabulary supplied to Tree directly is untrusted even when Tree builds the payload', () => {
-  const { externalIncomplete, externalCopy, otherResolution, noResolution, unobservedCategory, treeBuilt } = SCENARIOS;
-  // The incomplete vocabulary reached the payload, matches provenance, and would pass consistency:
-  // `unobservedCategory` is missing, and no accepted §4.5 record carries it.
+  const { externalIncomplete, replacedBound, externalCopy, otherResolution, noResolution, unobservedCategory, treeBuilt } = SCENARIOS;
+  // The narrowed bound reached the payload as valid v2, matches both digests, and would pass consistency:
+  // `unobservedCategory` is declared but missing from the bound, and no accepted §4.5 record carries it.
   const section = externalIncomplete.payload.namingRoleCategoryVocabulary;
-  assert.equal(section.records.some((record) => record.category === unobservedCategory), false);
+  assert.equal(section.contractVersion, 'naming-role-category-vocabulary.v2');
+  assert.ok(section.records.some((record) => record.category === unobservedCategory));
+  assert.equal(section.admissibleCategories.includes(unobservedCategory), false);
+  assert.equal(section.rolesDigest, treeBuilt.payload.namingRoleCategoryVocabulary.rolesDigest);
   assert.equal(section.categoryRolePerspectiveDigest, treeBuilt.payload.namingRoleCategoryVocabulary.categoryRolePerspectiveDigest);
   assert.equal(externalIncomplete.deps.treeNamingSectionIntake.semanticEvidenceEnrichment.acceptedRecords.some((record) => record.roleCategory === unobservedCategory), false);
-  for (const [name, scenario] of Object.entries({ externalIncomplete, externalCopy, otherResolution, noResolution })) {
+  for (const [name, scenario] of Object.entries({ externalIncomplete, replacedBound, externalCopy, otherResolution, noResolution })) {
     assert.equal(scenario.intake.bridgeOrigin, 'tree-built', name);
     assert.equal(scenario.intake.vocabularyOrigin, 'caller-supplied', name);
     assert.equal(scenario.intake.state, 'untrusted', name);
@@ -190,30 +206,39 @@ test('the staged Naming value cannot be edited in place to keep its origin', () 
   assert.ok(Object.isFrozen(vocabulary) && Object.isFrozen(vocabulary.records) && vocabulary.records.every((record) => Object.isFrozen(record) && Object.isFrozen(record.roles)));
   assert.throws(() => { vocabulary.records.pop(); }, TypeError);
   assert.throws(() => { vocabulary.records[0].roles.push('extra'); }, TypeError);
+  assert.throws(() => { vocabulary.admissibleCategories.pop(); }, TypeError);
+  assert.throws(() => { vocabulary.admissibleCategories = []; }, TypeError);
 });
 
 test('acceptance 3: no vocabulary input → no section, no intake record, no prepared dependency', () => {
-  const { treeBuiltControl, callerControl, inconsistentControl } = SCENARIOS;
-  for (const control of [treeBuiltControl, callerControl, inconsistentControl]) {
+  const { treeBuiltControl, callerControl, inconsistentControl, inconsistentDeprecatedControl } = SCENARIOS;
+  for (const control of [treeBuiltControl, callerControl, inconsistentControl, inconsistentDeprecatedControl]) {
     assert.equal('namingRoleCategoryVocabulary' in control.payload, false);
     assert.equal(control.intake, undefined);
     assert.equal(control.hasIntakeDependency, false);
   }
 });
 
-test('acceptance 4, 5, 6, 8 on the wiring path: unsupported, invalid, inconsistent and mismatched', () => {
-  const { unsupported, invalid, digestMismatch, sourceMismatch, noRunProvenance, inconsistent, foreignCategory } = SCENARIOS;
+test('v2 acceptance 5-9 on the wiring path: unsupported (v1), invalid, mismatched (both digests), inconsistent (incl. declared, not admissible)', () => {
+  const { unsupported, invalid, digestMismatch, sourceMismatch, noRunProvenance, rolesDigestMismatch, noRolesProvenance, inconsistent, inconsistentDeprecated, foreignCategory } = SCENARIOS;
   assert.equal(unsupported.intake.state, 'unsupported');
+  assert.equal(unsupported.intake.diagnostics[0].reason, 'unsupported-version');
   assert.equal(invalid.intake.state, 'invalid');
-  assert.deepEqual([digestMismatch, sourceMismatch, noRunProvenance].map((scenario) => [scenario.intake.vocabularyOrigin, scenario.intake.state, scenario.intake.diagnostics[0].reason]), [
+  assert.deepEqual([digestMismatch, sourceMismatch, noRunProvenance, rolesDigestMismatch, noRolesProvenance].map((scenario) => [scenario.intake.vocabularyOrigin, scenario.intake.state, scenario.intake.diagnostics[0].reason]), [
     ['naming-derived', 'mismatched', 'digest-mismatch'],
     ['naming-derived', 'mismatched', 'source-mismatch'],
+    ['naming-derived', 'mismatched', 'run-provenance-unavailable'],
+    ['naming-derived', 'mismatched', 'roles-digest-mismatch'],
     ['naming-derived', 'mismatched', 'run-provenance-unavailable'],
   ]);
   assert.equal(inconsistent.intake.vocabularyOrigin, 'naming-derived');
   assert.equal(inconsistent.intake.state, 'inconsistent');
   assert.deepEqual(inconsistent.intake.diagnostics[0].missingCategories, [foreignCategory]);
-  for (const scenario of [unsupported, invalid, digestMismatch, sourceMismatch, noRunProvenance, inconsistent]) {
+  // Acceptance 9: `deprecated` is in the declared records of Naming's own value, but not in its bound.
+  assert.ok(SCENARIOS.vocabulary.records.some((record) => record.category === 'deprecated'));
+  assert.equal(inconsistentDeprecated.intake.state, 'inconsistent');
+  assert.deepEqual(inconsistentDeprecated.intake.diagnostics[0].missingCategories, ['deprecated']);
+  for (const scenario of [unsupported, invalid, digestMismatch, sourceMismatch, noRunProvenance, rolesDigestMismatch, noRolesProvenance, inconsistent, inconsistentDeprecated]) {
     assert.equal(toTreeUsableRoleCategoryVocabulary(scenario.intake), null);
     assert.equal(scenario.hasIntakeDependency, true);
   }
@@ -222,13 +247,15 @@ test('acceptance 4, 5, 6, 8 on the wiring path: unsupported, invalid, inconsiste
 test('acceptance 10 and 11: Stage 1A/1/2, the other intakes, Stage 3 and the report are byte-identical in every state', () => {
   const {
     treeBuiltControl, callerControl, noResolutionControl, inconsistentControl, treeBuilt, callerSupplied, unsupported, invalid,
-    externalIncomplete, externalCopy, otherResolution, noResolution, digestMismatch, sourceMismatch, noRunProvenance, inconsistent,
+    externalIncomplete, replacedBound, externalCopy, otherResolution, noResolution, digestMismatch, sourceMismatch, noRunProvenance,
+    rolesDigestMismatch, noRolesProvenance, inconsistent, inconsistentDeprecated, inconsistentDeprecatedControl,
   } = SCENARIOS;
   const byRoute = [
-    [treeBuiltControl, { usable: treeBuilt, externalIncomplete, externalCopy, otherResolution, digestMismatch, sourceMismatch, noRunProvenance }],
+    [treeBuiltControl, { usable: treeBuilt, externalIncomplete, replacedBound, externalCopy, otherResolution, digestMismatch, sourceMismatch, noRunProvenance, rolesDigestMismatch, noRolesProvenance }],
     [callerControl, { untrusted: callerSupplied, unsupported, invalid }],
     [noResolutionControl, { noResolution }],
     [inconsistentControl, { inconsistent }],
+    [inconsistentDeprecatedControl, { inconsistentDeprecated }],
   ];
   for (const [control, scenarios] of byRoute) {
     for (const [name, scenario] of Object.entries(scenarios)) {

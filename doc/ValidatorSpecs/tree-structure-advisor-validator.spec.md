@@ -212,7 +212,7 @@ Why this route: the addressed snapshot is built once, by Tree; occurrence identi
 - **Run provenance.** Wiring passes the run's suite-provided registry provenance for `naming/category-role-perspective` (registry lifecycle spec §11.2), or nothing when the run has no registry resolution.
 - **Stage 3 is unchanged by the intake.** Until a separately authorized slice implements the S3.6 rule below, Stage 3 keeps `joiningFileCanLeaveClassUnresolved: true` and reads nothing from the intake.
 
-**Version 2 of the section (Contract, calculogic-validator#162, v2 contract; implementation-pending; bridge contract §4.9.1).** Current behavior is v1.
+**Version 2 of the section (Contract, calculogic-validator#162, v2 contract; current since its evidence-only implementation slice; bridge contract §4.9.1).** It replaces v1 in emission and in Tree's intake.
 - **Transport is unchanged.** The staged value is the same Naming-derived, frozen, origin-bound value, extended with `rolesDigest` and `admissibleCategories`. Tree passes it to the producer exactly as for v1, and never supplies or edits the bound itself.
 - **Run provenance.** Wiring additionally passes the run's provenance for `naming/roles`, or nothing when the run has no registry resolution.
 - **Trust.** Both origins apply unchanged. `bridgeOrigin` is wiring's execution branch. `vocabularyOrigin` is `naming-derived` only for Naming's own value for the run's `registryResolution`, and it covers the bound, since the bound travels inside that value.
@@ -250,7 +250,7 @@ Only accepted `parsed` records become **package elements**. A `not-parsed` recor
 
 Diagnostics name the section `naming-role-category-vocabulary` and the state's reason; they live only in `treeRoleCategoryVocabularyIntake`, never in `treeNamingSectionIntake`, Stage 3 output, a report field, a `meta` entry or a finding.
 
-**Version 2 checks (Contract, calculogic-validator#162, v2 contract; implementation-pending).** Same order, same states. The first failing check decides:
+**Version 2 checks (Contract, calculogic-validator#162, v2 contract; current since its evidence-only implementation slice).** Same order, same states. The first failing check decides:
 1. **Presence and version.** No section: nothing is recorded. v2 is the supported version. Once v2 is implemented, any other version, v1 included, is `unsupported` (`unsupported-version`). A v1 section is never read as admissibility evidence.
 2. **Envelope and records.** The v1 rules apply, plus:
    - `rolesDigest` must be a non-empty string;
@@ -317,7 +317,7 @@ Availability is recorded at three levels, so that a comparison that was not perf
   12. **No registry access:** the Tree intake module imports nothing from `naming/src/registries/`.
   13. **Directly supplied vocabulary:** with no caller-supplied payload, a `roleCategoryVocabulary` given to Tree wiring that is not Naming's value for the run (incomplete in a category no accepted record carries, with matching provenance; a complete copy; the Naming value under another resolution object) is `untrusted` (`vocabulary-not-naming-derived`). Added after review of the first implementation commit: Tree building the payload does not establish the completeness guarantee.
 
-**Version 2 (Contract, calculogic-validator#162, v2 contract; implementation-pending; bridge contract §4.9.1).**
+**Version 2 (Contract, calculogic-validator#162, v2 contract; current since its evidence-only implementation slice; bridge contract §4.9.1).**
 - **States:** the seven states above, decided by the v2 checks (S1.2).
 - **Usable view.** For `usable`, `toTreeUsableRoleCategoryVocabulary` exposes the declared `records`, `admissibleCategories`, `registrySource` and both digests. A future S3.6 slice reads only `admissibleCategories`.
 - **Unavailable versus empty.** These are distinct, and never conflated:
@@ -325,7 +325,7 @@ Availability is recorded at three levels, so that a comparison that was not perf
   - **Empty:** a `usable` v2 vocabulary with `admissibleCategories: []`, which is evidence that no category can be canonically admitted.
   - The accessor returns `null` only for unavailable, and the usable view for empty. The declared records are never offered as the bound.
 - **Behavior preservation (v2 evidence-only slice).** The Stage 3 record, every Tree finding and every report are byte-identical to before, for every state. `joiningFileCanLeaveClassUnresolved` stays `true`. The bridge payload carries v2 in place of v1 whenever a staged v2 value exists. The intake record exists exactly when the section does.
-- **Implementation acceptance (v2; tests to be written with the implementation slice).** *Soundness* tests check inclusion. *Precision* tests are labelled as such, and a precision failure is never reported as a soundness failure.
+- **Implementation acceptance (v2; tests: `naming/test/naming-role-category-vocabulary.logic.test.mjs` for 1–4 and 10, `tree/test/tree-role-category-vocabulary-evidence.logic.test.mjs` for the module checks, `tree/test/tree-role-category-vocabulary.wiring.test.mjs` for trust, provenance, consistency, independence and behavior preservation).** *Soundness* tests check inclusion. *Precision* tests are labelled as such, and a precision failure is never reported as a soundness failure.
   1. **Builtin derivation.** The declared records equal the category-role perspective, `deprecated` included. `admissibleCategories` equals the categories of `activeRoles`, so `deprecated` is excluded. `rolesDigest` and `categoryRolePerspectiveDigest` equal the run's provenance entries.
   2. **Custom sets.**
      - A Custom set adding a category whose only roles are deprecated: the category is declared but not admissible.

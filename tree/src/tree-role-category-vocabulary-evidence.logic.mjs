@@ -17,10 +17,14 @@ import { TREE_NAMING_FIELD_GROUP_STATES } from './tree-naming-section-intake.log
 
 const SOURCE_ID = 'tree-role-category-vocabulary-evidence';
 const SECTION_KEY = 'namingRoleCategoryVocabulary';
-const SECTION_VERSION = 'naming-role-category-vocabulary.v1';
+// Version 2 only (bridge contract §4.9.1): v1, or any other version, is `unsupported` and is never read as
+// admissibility evidence.
+const SECTION_VERSION = 'naming-role-category-vocabulary.v2';
 const DIAGNOSTIC_SECTION = 'naming-role-category-vocabulary';
 const REGISTRY_SOURCES = new Set(['builtin', 'custom', 'candidate']);
-const ENVELOPE_KEYS = Object.freeze(['contractVersion', 'producerId', 'source', 'registrySource', 'categoryRolePerspectiveDigest', 'recordCount', 'records']);
+const ENVELOPE_KEYS = Object.freeze([
+  'contractVersion', 'producerId', 'source', 'registrySource', 'categoryRolePerspectiveDigest', 'rolesDigest', 'recordCount', 'records', 'admissibleCategories',
+]);
 const RECORD_KEYS = new Set(['category', 'roles']);
 
 export const TREE_BRIDGE_ORIGINS = Object.freeze({ treeBuilt: 'tree-built', callerSupplied: 'caller-supplied' });
@@ -44,11 +48,13 @@ export const TREE_ROLE_CATEGORY_VOCABULARY_REASONS = Object.freeze({
   invalidRecord: 'invalid-record',
   unsortedOrDuplicateCategory: 'unsorted-or-duplicate-category',
   recordCountMismatch: 'record-count-mismatch',
+  invalidAdmissibleBound: 'invalid-admissible-bound',
   callerSupplied: 'caller-supplied',
   vocabularyNotNamingDerived: 'vocabulary-not-naming-derived',
   runProvenanceUnavailable: 'run-provenance-unavailable',
   sourceMismatch: 'source-mismatch',
   digestMismatch: 'digest-mismatch',
+  rolesDigestMismatch: 'roles-digest-mismatch',
   observedCategoryMissing: 'observed-category-missing',
 });
 const REASONS = TREE_ROLE_CATEGORY_VOCABULARY_REASONS;
@@ -69,6 +75,16 @@ const isValidRecord = (record) =>
   record.roles.every(isNonEmptyString) &&
   isStrictlyAscending(record.roles);
 
+// [2.4] cfg-treeStructureAdvisor · Primitive · "isAdmissibleBound"
+// Concern: Logic · Parent: "invalidReasonOf"
+// Notes: §4.9.1 consumer rule: an array of non-empty strings, sorted, duplicate-free, each the category of a
+// record. An empty array is a valid empty bound, never read as unavailable (Tree spec S1.3, v2).
+const isAdmissibleBound = (bound, records) => {
+  if (!Array.isArray(bound) || !bound.every(isNonEmptyString) || !isStrictlyAscending(bound)) return false;
+  const declared = new Set(records.map((record) => record.category));
+  return bound.every((category) => declared.has(category));
+};
+
 // [2.4] cfg-treeStructureAdvisor · Primitive · "invalidReasonOf"
 // Concern: Logic · Parent: "prepareTreeRoleCategoryVocabularyIntake"
 // Notes: S1.2 check 2, the whole section: envelope (§4.4 rules 3 and 9, §6.6), then every record, then
@@ -81,6 +97,7 @@ const invalidReasonOf = (section) => {
     !isNonEmptyString(section.source) ||
     !REGISTRY_SOURCES.has(section.registrySource) ||
     !isNonEmptyString(section.categoryRolePerspectiveDigest) ||
+    !isNonEmptyString(section.rolesDigest) ||
     !Array.isArray(section.records) ||
     !Number.isInteger(section.recordCount)
   ) {
@@ -89,27 +106,30 @@ const invalidReasonOf = (section) => {
   if (!section.records.every(isValidRecord)) return REASONS.invalidRecord;
   if (!isStrictlyAscending(section.records.map((record) => record.category))) return REASONS.unsortedOrDuplicateCategory;
   if (section.recordCount !== section.records.length) return REASONS.recordCountMismatch;
+  if (!isAdmissibleBound(section.admissibleCategories, section.records)) return REASONS.invalidAdmissibleBound;
   return null;
 };
 
 // [2.4] cfg-treeStructureAdvisor · Primitive · "provenanceMismatchReasonOf"
 // Concern: Logic · Parent: "prepareTreeRoleCategoryVocabularyIntake"
-// Notes: S1.2 check 4, strict: the run's own provenance entry must exist and agree on source and digest.
-const provenanceMismatchReasonOf = (section, runProvenance) => {
-  if (!isPlainObject(runProvenance) || !isNonEmptyString(runProvenance.source) || !isNonEmptyString(runProvenance.digest)) {
-    return REASONS.runProvenanceUnavailable;
-  }
-  if (runProvenance.source !== section.registrySource) return REASONS.sourceMismatch;
-  if (runProvenance.digest !== section.categoryRolePerspectiveDigest) return REASONS.digestMismatch;
+// Notes: S1.2 check 4, strict (v2): the run's own provenance entries for `naming/category-role-perspective`
+// and `naming/roles` must both exist and agree with the section on source and digest.
+const isRunProvenanceEntry = (entry) => isPlainObject(entry) && isNonEmptyString(entry.source) && isNonEmptyString(entry.digest);
+const provenanceMismatchReasonOf = (section, perspectiveProvenance, rolesProvenance) => {
+  if (!isRunProvenanceEntry(perspectiveProvenance) || !isRunProvenanceEntry(rolesProvenance)) return REASONS.runProvenanceUnavailable;
+  if (perspectiveProvenance.source !== section.registrySource || rolesProvenance.source !== section.registrySource) return REASONS.sourceMismatch;
+  if (perspectiveProvenance.digest !== section.categoryRolePerspectiveDigest) return REASONS.digestMismatch;
+  if (rolesProvenance.digest !== section.rolesDigest) return REASONS.rolesDigestMismatch;
   return null;
 };
 
 // [2.4] cfg-treeStructureAdvisor · Primitive · "missingObservedCategoriesOf"
 // Concern: Logic · Parent: "prepareTreeRoleCategoryVocabularyIntake"
-// Notes: S1.2 check 5: the `roleCategory` of every accepted §4.5 role-fact group in Stage 1A's record that
-// the vocabulary lacks, sorted. Bounds disagreement with observed evidence; proves nothing about the rest.
+// Notes: S1.2 check 5 (v2): the `roleCategory` of every accepted §4.5 role-fact group in Stage 1A's record
+// that the admissible bound lacks, sorted. A declared but non-admissible category counts as missing. Bounds
+// disagreement with observed evidence; proves nothing about the rest.
 const missingObservedCategoriesOf = (section, sectionIntake) => {
-  const declared = new Set(section.records.map((record) => record.category));
+  const declared = new Set(section.admissibleCategories);
   const observed = new Set(
     (sectionIntake?.semanticEvidenceEnrichment?.acceptedRecords ?? [])
       .filter((record) => record.roleFactGroup === TREE_NAMING_FIELD_GROUP_STATES.ACCEPTED && isNonEmptyString(record.roleCategory))
@@ -132,7 +152,7 @@ const toIntake = ({ state, bridgeOrigin, vocabularyOrigin, reason, vocabulary = 
 
 // [2.4] cfg-treeStructureAdvisor · Container · "prepareTreeRoleCategoryVocabularyIntake"
 // Concern: Logic · Parent: Tree wiring
-// Notes: reads only the payload's §4.9 section. Returns `null` when the payload carries none (`absent`).
+// Notes: reads only the payload's §4.9 section, version 2 (§4.9.1). Returns `null` when the payload carries none (`absent`).
 // Otherwise the S1.2 checks in order, the first failure deciding the state: version (`unsupported`),
 // whole-section validity (`invalid`), origin (`untrusted` unless `bridgeOrigin` is exactly `tree-built` and
 // `vocabularyOrigin` exactly `naming-derived`), strict run provenance (`mismatched`), consistency with
@@ -143,6 +163,7 @@ export const prepareTreeRoleCategoryVocabularyIntake = ({
   bridgeOrigin,
   vocabularyOrigin,
   runCategoryRolePerspectiveProvenance,
+  runRolesProvenance,
   sectionIntake,
 } = {}) => {
   const payload = isPlainObject(namingOccurrenceBridge) ? namingOccurrenceBridge : null;
@@ -159,7 +180,7 @@ export const prepareTreeRoleCategoryVocabularyIntake = ({
   if (vocabularyOrigin !== TREE_VOCABULARY_ORIGINS.namingDerived) {
     return toIntake({ state: STATES.untrusted, bridgeOrigin, vocabularyOrigin, reason: REASONS.vocabularyNotNamingDerived });
   }
-  const mismatchReason = provenanceMismatchReasonOf(section, runCategoryRolePerspectiveProvenance);
+  const mismatchReason = provenanceMismatchReasonOf(section, runCategoryRolePerspectiveProvenance, runRolesProvenance);
   if (mismatchReason) return toIntake({ state: STATES.mismatched, bridgeOrigin, vocabularyOrigin, reason: mismatchReason });
   const missingCategories = missingObservedCategoriesOf(section, sectionIntake);
   if (missingCategories.length > 0) {
@@ -172,7 +193,9 @@ export const prepareTreeRoleCategoryVocabularyIntake = ({
     vocabulary: Object.freeze({
       registrySource: section.registrySource,
       categoryRolePerspectiveDigest: section.categoryRolePerspectiveDigest,
+      rolesDigest: section.rolesDigest,
       records: section.records.map(({ category, roles }) => ({ category, roles: [...roles] })),
+      admissibleCategories: [...section.admissibleCategories],
     }),
   });
 };
