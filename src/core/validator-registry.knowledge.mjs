@@ -52,6 +52,8 @@ const runTreeStructureAdvisorHook = (repositoryRoot, options = {}) => {
     interpretFolderLabel: options.interpretFolderLabel,
     // Opaque Naming staging value (calculogic-validator#150): transported, never read here.
     lexicalProfile: options.lexicalProfile,
+    // Opaque Naming staging value (calculogic-validator#162, bridge contract §4.9): transported, never read here.
+    roleCategoryVocabulary: options.roleCategoryVocabulary,
     registryResolution: options.registryResolution,
     registryRoots: options.registryResolution?.registryRoots,
   });

@@ -1,4 +1,4 @@
-import { resolveNamingRegistryInputs } from './registries/registry-state.logic.mjs';
+import { resolveNamingRegistryInputs, toNamingRegistryInputsOptions } from './registries/registry-state.logic.mjs';
 import { loadNamingWalkExclusionsFromRegistryRoot } from './registries/naming-walk-exclusions-registry.logic.mjs';
 import { loadNamingSpecialCaseRulesFromRegistryRoot } from './registries/naming-special-case-rules-registry.logic.mjs';
 import { NAMING_REGISTRY_SLICE_ID } from './registries/naming-registry-inventory.knowledge.mjs';
@@ -24,6 +24,7 @@ import {
 import { projectNamingSemanticFamilyBridge } from './naming-semantic-family-bridge-projection.logic.mjs';
 import { projectNamingSemanticEvidenceEnrichment } from './naming-semantic-evidence-enrichment-projection.logic.mjs';
 import { createNamingOccurrenceBridgePayload } from './naming-occurrence-bridge-payload.logic.mjs';
+import { prepareNamingRoleCategoryVocabulary } from './naming-role-category-vocabulary.logic.mjs';
 import { interpretNamingFolderLabel } from './rules/naming-rule-interpret-folder-label.logic.mjs';
 import { prepareNamingSemanticEvidenceBridge } from './naming-semantic-evidence-bridge.logic.mjs';
 import { normalizePath } from '../../src/core/scoped-target-paths.logic.mjs';
@@ -45,12 +46,8 @@ const BUILTIN_REGISTRY_RESOLUTION = Object.freeze({
 // `registryResolution` comes from `resolveActiveRegistrySet`; without it, Builtin roots are used.
 export const prepareNamingRuntimeInputs = ({ registryResolution = BUILTIN_REGISTRY_RESOLUTION } = {}) => {
   const namingRegistryRoot = registryResolution.registryRoots[NAMING_REGISTRY_SLICE_ID];
-  const registryInputs = resolveNamingRegistryInputs({
-    registryRoot: namingRegistryRoot,
-    // Naming's transitional fields name the run's source: the active set, or `candidate` (spec §11.3).
-    activeSet: registryResolution.activeSet ?? registryResolution.source,
-    customRegistryRoot: registryResolution.customRegistryRoots?.[NAMING_REGISTRY_SLICE_ID],
-  });
+  // Naming's transitional fields name the run's source: the active set, or `candidate` (spec §11.3).
+  const registryInputs = resolveNamingRegistryInputs(toNamingRegistryInputsOptions(registryResolution));
 
   return {
     reportableExtensions: toReportableExtensionsSet(registryInputs.reportableExtensions),
@@ -162,6 +159,7 @@ export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, 
       ),
     lexicalProfile: options.lexicalProfile,
     repositoryPackageIdentity: options.repositoryPackageIdentity,
+    roleCategoryVocabulary: options.roleCategoryVocabulary,
     sourceReportRef: options.sourceReportRef,
     sourceSnapshotRef: options.sourceSnapshotRef,
   });
@@ -172,12 +170,21 @@ export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, 
 // unchanged; Tree passes the last two to the Naming-owned bridge payload producer.
 // With an active Linguistic Foundation profile (calculogic-validator#150), a fourth opaque value,
 // `lexicalProfile`, is added for the same producer (bridge contract §4.7); without one it is absent.
-export const prepareNamingTreeStagingInputs = (namingRunOutput = {}, { registryResolution, linguisticFoundation } = {}) => ({
-  namingSemanticFamilyBridge: projectNamingSemanticFamilyBridge(namingRunOutput),
-  namingSemanticEvidenceEnrichment: projectNamingSemanticEvidenceEnrichment(namingRunOutput),
-  interpretFolderLabel: toFolderLabelInterpreter(toCaseRulesRuntimeResolver(registryResolution)),
-  ...(linguisticFoundation?.profile ? { lexicalProfile: linguisticFoundation.profile } : {}),
-});
+// The run's role-category vocabulary (calculogic-validator#162, bridge contract §4.9) is added as the opaque
+// `roleCategoryVocabulary`, derived from the same registryResolution as the run, only when that resolution
+// carries the suite-provided provenance it copies; without it the value is absent.
+export const prepareNamingTreeStagingInputs = (namingRunOutput = {}, { registryResolution, linguisticFoundation } = {}) => {
+  const roleCategoryVocabulary = registryResolution?.registryProvenance
+    ? prepareNamingRoleCategoryVocabulary({ registryResolution })
+    : null;
+  return {
+    namingSemanticFamilyBridge: projectNamingSemanticFamilyBridge(namingRunOutput),
+    namingSemanticEvidenceEnrichment: projectNamingSemanticEvidenceEnrichment(namingRunOutput),
+    interpretFolderLabel: toFolderLabelInterpreter(toCaseRulesRuntimeResolver(registryResolution)),
+    ...(linguisticFoundation?.profile ? { lexicalProfile: linguisticFoundation.profile } : {}),
+    ...(roleCategoryVocabulary ? { roleCategoryVocabulary } : {}),
+  };
+};
 
 export const runNamingValidator = (
   repositoryRoot,

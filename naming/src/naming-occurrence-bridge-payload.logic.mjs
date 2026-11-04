@@ -1,5 +1,6 @@
 import { projectNamingTokenLexicalIdentities } from './naming-token-lexical-identity-projection.logic.mjs';
 import { projectNamingRepositoryPackageLabels } from './naming-repository-package-label-projection.logic.mjs';
+import { projectNamingRoleCategoryVocabulary } from './naming-role-category-vocabulary.logic.mjs';
 const BRIDGE_CONTRACT_VERSION = 'naming-occurrence-bridge.v1';
 const ENRICHMENT_SIDECAR_VERSION = 'naming-occurrence-bridge-enrichment.v1';
 const BRIDGE_SOURCE = 'calculogic-validator/naming';
@@ -501,6 +502,8 @@ export const createNamingOccurrenceBridgePayload = ({
   lexicalProfile,
   // The suite-core repository package identity fact (capability inventory §3.11), or absent (§4.8).
   repositoryPackageIdentity,
+  // The run's staged role-category vocabulary, or absent (§4.9).
+  roleCategoryVocabulary,
   sourceReportRef,
   sourceSnapshotRef,
 } = {}) => {
@@ -589,6 +592,10 @@ export const createNamingOccurrenceBridgePayload = ({
   // fact and the folder-label interpreter. Nothing else in the payload changes.
   const repositoryPackageLabelSection = projectNamingRepositoryPackageLabels({ repositoryPackageIdentity, interpretFolderLabel });
 
+  // §4.9: a payload-level section describing the run, independent of the addressed namespace; emitted
+  // whole from a complete staged vocabulary, or omitted. Nothing else in the payload changes.
+  const roleCategoryVocabularySection = projectNamingRoleCategoryVocabulary({ roleCategoryVocabulary });
+
   return {
     bridgeContractVersion: BRIDGE_CONTRACT_VERSION,
     bridgeSource: BRIDGE_SOURCE,
@@ -639,6 +646,7 @@ export const createNamingOccurrenceBridgePayload = ({
     ...(folderLabelObservationSection ? { namingFolderLabelObservations: folderLabelObservationSection } : {}),
     ...(tokenLexicalIdentitySection ? { namingTokenLexicalIdentities: tokenLexicalIdentitySection } : {}),
     ...(repositoryPackageLabelSection ? { namingRepositoryPackageLabels: repositoryPackageLabelSection } : {}),
+    ...(roleCategoryVocabularySection ? { namingRoleCategoryVocabulary: roleCategoryVocabularySection } : {}),
     ...(diagnostics.length > 0 ? { diagnostics } : {}),
   };
 };
