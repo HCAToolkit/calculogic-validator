@@ -3,7 +3,7 @@
 - **Classification:** Normative for the Naming occurrence bridge identity, field-eligibility, existing v1 context/compatibility, enrichment, versioning, and migration contract; descriptive only where explicitly labeled as **current runtime truth**.
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
-- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. calculogic-validator#157 adds the payload-level section rule (§4.4 rule 9) and the Naming repository-package label section (§4.8, §6.5); calculogic-validator#159 implements it. calculogic-validator#162 widens rule 9 to run-scoped facts and adds the Naming role-category vocabulary section (§4.9, §6.6); its evidence-only implementation slice emits it and adds Tree's intake. Tracking: calculogic-validator#85.
+- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. calculogic-validator#157 adds the payload-level section rule (§4.4 rule 9) and the Naming repository-package label section (§4.8, §6.5); calculogic-validator#159 implements it. calculogic-validator#162 widens rule 9 to run-scoped facts and adds the Naming role-category vocabulary section (§4.9, §6.6); its evidence-only implementation slice emits it and adds Tree's intake. calculogic-validator#162 (v2 contract) adds version v2 of that section, with the canonically admissible upper bound (§4.9.1, §6.6); contract only, implementation-pending. Tracking: calculogic-validator#85.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
 - **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
@@ -398,7 +398,7 @@ There is no fallback: a consumer never reads the manifest, a package name from e
 **Independence.** It is separate from §4.5 and changes nothing in it: not its version, envelope, records or field groups. A consumer that does not support it reads every other section exactly as before (§4.4 rules 2 and 4). It is not part of §4.8, whose subject is the target's declared package, not the run's registry set.
 
 **Source and completeness guarantee (Naming).**
-- One Naming-owned derivation function produces the vocabulary from the run's **resolved roles runtime** (`toNamingRolesRuntime` over the resolved registry set, `naming/src/naming-runtime-converters.logic.mjs`): for every role the runtime holds, whatever its status, its category, with the roles that produce it. That is exactly the set of values a §4.5 `roleCategory` can take in the run, since every role-fact group is read from the same runtime.
+- One Naming-owned derivation function produces the vocabulary from the run's **resolved roles runtime** (`toNamingRolesRuntime` over the resolved registry set, `naming/src/naming-runtime-converters.logic.mjs`): for every role the runtime holds, whatever its status, its category, with the roles that produce it. Every role-fact group is read from the same runtime, so the vocabulary contains every value a §4.5 `roleCategory` can take in the run. It is an upper bound, **not** an exact one: canonical admission (§4.9.1) can exclude a declared category entirely, as Builtin `deprecated` is excluded, since its only role is deprecated. (Clarified by calculogic-validator#162, v2 contract; no behavior changes.)
 - **Completeness is Naming's guarantee.** The producer emits the whole vocabulary or no section; it never emits a partial one. A consumer cannot verify completeness without Naming's registry data, which it must not read (§5), and does not claim to.
 - The same function is the one place the derivation lives, so that a future registry-level bridge (registry lifecycle spec §9.4) over the category-role perspective cannot disagree with it.
 - Never a fallback to Builtin, never a directory name, never a value the producer did not derive from the run's runtime.
@@ -424,6 +424,67 @@ There is no fallback: a consumer never reads the manifest, a package name from e
 - A consumer never reads Naming's registries or registry state to obtain, check or complete the vocabulary.
 
 **Current consumers.** Tree, since the evidence-only implementation slice: a separate Tree intake (`treeRoleCategoryVocabularyIntake`, `tree/src/tree-role-category-vocabulary-evidence.logic.mjs`) that performs the consumer checks above and Tree's own trust, provenance and consistency checks (Tree slice spec S1.2, S1.3). Nothing reads its result yet: Stage 3 is unchanged until a separately authorized slice adopts the S3.6 rule. Tree's Stage 1A intake reads a payload carrying the section exactly as without it (§4.4 rule 2).
+
+#### 4.9.1 Version 2: declared vocabulary and canonically admissible upper bound
+
+- **Contract version:** `naming-role-category-vocabulary.v2`. Same section name, provenance fields, kind and record key as v1.
+- **Status:** Contract, calculogic-validator#162 (v2 contract); **implementation-pending**. Current behavior is v1 (§4.9): no producer emits v2 and no consumer reads it yet.
+- **Envelope:** `contractVersion`, `producerId`, `source`, `registrySource`, `categoryRolePerspectiveDigest`, `rolesDigest`, `recordCount`, `records`, `admissibleCategories`, optional `diagnostics`. No `identityTupleFields`.
+- **Records:** exactly as v1. `{ category, roles }` is the run's **declared vocabulary**: every category of every role the resolved roles runtime holds, whatever its status, sorted by `category`.
+
+**Purpose.** v2 states two facts Naming owns, kept distinct:
+- **Declared vocabulary** (`records`): the categories Naming recognizes in the run (as v1).
+- **Canonically admissible upper bound** (`admissibleCategories`): a set of categories that contains every category Naming's canonical outcome can admit into a §4.5 role-fact group in the run.
+
+A consumer that needs to bound what an unrecognized file could carry if it were recognized (Tree slice spec S3.6) reads the bound, not the declared vocabulary. Neither set classifies anything or assigns a category to an occurrence.
+
+**Canonical admission.** A §4.5 role-fact group exists only for a finding that reaches Naming's **canonical outcome**. Admission is defined by that outcome, not by the `canonical` classification label. The label comes from the finding-policy registry, which a Custom set may edit; relabelling an outcome changes neither admission nor the bound. (Evidence, calculogic-validator#162: a Custom set labelling the deprecated-role outcome `canonical` still adds no deprecated category to §4.5, because the §4.5 projection needs semantic-family details that only the canonical outcome derives.)
+
+**Soundness (mandatory).** `admissibleCategories` must contain every category the canonical outcome can admit in the run, for every file the run could classify. A bound missing such a category is a contract violation. It is the unsafe direction: it would let a consumer treat a possible category as impossible.
+
+**Precision (best-effort).** The bound may also contain categories the canonical outcome cannot admit. That never violates soundness. Naming leaves a declared category out of the bound only when it can establish, from the run's resolved role metadata alone, that no role of that category can reach the canonical outcome.
+
+**Structural dependency (current derivation).**
+- Today the canonical outcome is reachable for a role only when the role is in the resolved roles runtime's `activeRoles` (`isUnknownOrInactiveRole(role, roleMetadata, runtime.activeRoles)` is false; `naming/src/naming-validator.logic.mjs`). `activeRoles` is built by `toNamingRolesRuntime` from the same runtime as the declared vocabulary.
+- The other conditions for a §4.5 role fact depend only on the filename: special cases, missing-role patterns, semantic-name case rules, and the semantic-family details the §4.5 projection requires, which a single-token semantic name does not get. They can only exclude a file, never admit a role's category.
+- Therefore, today, `admissibleCategories` is the categories of the roles in `activeRoles`. It is computed from the runtime, never by inspecting files.
+
+**Governance of admission changes.**
+- Canonical admission must not bypass the eligibility source the bound is derived from. Contract review of §4.9 is required, in the same amendment as the change itself, for any change to how canonical admission depends on a role: a new admissible status, eligibility that depends on more than resolved role metadata, or a path that produces §4.5 role facts outside the canonical outcome.
+- If eligibility can no longer be established from resolved role metadata alone, the producer must not emit a narrower bound. It emits no v2 section, and the bound is **unavailable**.
+- Per-role canonical probes (Tree slice spec S1.3, v2 acceptance) are regression tests of this dependency, not a proof over every filename or context.
+
+**Unavailable versus empty.** These must never be conflated:
+- An **empty** bound (`admissibleCategories: []`) is valid evidence that no declared category can be canonically admitted in the run.
+- An **unavailable** bound is the absence of trustworthy v2 evidence: no v2 section, an unsupported or invalid one, or one the consumer does not trust.
+
+A consumer never reads unavailability as empty, and never reads the declared vocabulary as the admissible bound.
+
+**Provenance.**
+- `registrySource` and `categoryRolePerspectiveDigest`: as v1.
+- `rolesDigest`: the digest of the resolved `naming/roles` registry, **copied from the run's suite-provided registry provenance** (registry lifecycle spec §11.2), not computed by Naming. Role statuses come from that registry, so the bound depends on it.
+- Both digests identify their source registries. As in v1, neither establishes completeness or soundness, which are Naming's guarantees.
+
+**Production and transport.**
+- One Naming-owned derivation produces the declared records and `admissibleCategories` together, from one resolved roles runtime, in the factory that resolves that runtime from the registry resolution alone.
+- The result is the same deeply frozen, origin-bound staged value as v1 (`isNamingDerivedRoleCategoryVocabulary`), extended with `rolesDigest` and `admissibleCategories`. The bound is never supplied, edited or transported apart from that value.
+- The factory returns no value when the run's provenance lacks either registry's digest.
+- The producer emits v2 whenever it receives a complete, well-formed staged v2 value, on every path that accepts the staged value (Tree wiring and a direct `projectNamingOccurrenceBridge` caller alike). Whether to trust the section is the consumer's decision, never the producer's.
+- Once v2 is implemented, the producer emits v2 in place of v1: never both in one payload.
+
+**Producer rules.** As v1, plus: a staged value whose `admissibleCategories` is missing, not sorted and duplicate-free, contains a non-string or empty string, or names a category without a record, is not a complete, well-formed vocabulary, and the section is omitted.
+
+**Consumer rules.**
+- A supporting consumer validates the whole section: the v1 envelope and record rules; `rolesDigest` a non-empty string; `admissibleCategories` an array of non-empty strings, sorted, duplicate-free, each the `category` of a record. An empty array is valid.
+- Any defect makes the whole section invalid. There is no per-record or per-category dropping.
+- Trust, provenance (both digests) and consistency checks are the consumer's own (Tree slice spec S1.2, S1.3).
+
+**v1 compatibility.**
+- A v1 section never provides admissibility evidence, and a consumer never derives a bound from v1 records.
+- Once a consumer supports v2 for the bound, v1 is unsupported for that purpose: conservative and observable, never read silently as v2.
+- The v1 contract (§4.9) stays documented. It is the current contract until the v2 implementation lands.
+
+**Ownership boundaries.** As v1. Naming owns both sets and their guarantees, including canonical admission and its relation to the bound. A consumer never reads role statuses, finding-policy labels or Naming's admission logic to obtain, check or complete either set.
 
 ## 5. Ownership boundaries
 
@@ -531,6 +592,15 @@ These fields are approved for the §4.9 section only (calculogic-validator#162; 
 | `roles` | Naming | The resolved roles runtime | Non-empty array of non-empty strings | Required on every record | — | Sorted; no duplicates | The roles producing the category; not a role classification |
 
 Not approved for the §4.9 section in v1: role statuses, role definitions, Agnostic-Core meanings, categories without roles, a responsibility class or mapping, and any per-occurrence field.
+
+**Version 2 (§4.9.1; calculogic-validator#162, v2 contract; implementation-pending).** v2 carries every v1 field with the same definition, plus:
+
+| Field | Owner | Source of truth | Value shape | Required / optional | Absence behavior | Normalization and deterministic order | Consumer limitation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `rolesDigest` | Suite core (presented by Naming) | The run's registry provenance for `naming/roles` | Non-empty string | Required on the envelope | A section without it is invalid | Exact string, copied | Identifies the registry role statuses came from; never proof of soundness |
+| `admissibleCategories` | Naming | Canonical admission over the resolved roles runtime (§4.9.1) | Array of non-empty strings, each a record's `category`; may be empty | Required on the envelope | A section without it is invalid; an empty array is a valid empty bound | Sorted; no duplicates | A sound upper bound on categories the canonical outcome can admit; not every member need occur, and it classifies nothing |
+
+Not approved for the §4.9 section in v2: role statuses or any per-role or per-record admissibility flag, finding-policy classifications, admission conditions, and everything v1 excludes.
 
 ## 7. Guardrails for approved future enrichment fields
 
