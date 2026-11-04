@@ -13,6 +13,8 @@
  *   tell a Naming-derived vocabulary from one built or edited elsewhere (Tree spec S1.1, S1.2 check 3).
  */
 import { NAMING_REGISTRY_SLICE_ID } from './registries/naming-registry-inventory.knowledge.mjs';
+import { resolveNamingRegistryInputs, toNamingRegistryInputsOptions } from './registries/registry-state.logic.mjs';
+import { toNamingRolesRuntime } from './naming-runtime-converters.logic.mjs';
 
 export const ROLE_CATEGORY_VOCABULARY_SECTION_VERSION = 'naming-role-category-vocabulary.v1';
 // The registry whose suite-provided provenance the section carries (registry lifecycle spec §11.2).
@@ -59,11 +61,14 @@ export const deriveNamingRoleCategoryVocabulary = (namingRolesRuntime) => {
 // Concern: Logic · Parent: Naming Tree staging (`prepareNamingTreeStagingInputs`)
 // Notes: the opaque staged value `{ registrySource, categoryRolePerspectiveDigest, records }`, with both
 // provenance fields copied from the run's provenance entry for `naming/category-role-perspective`. Returns
-// null when the resolution carries no such entry: Naming never supplies provenance of its own. The value
-// is deeply frozen and recorded against `registryResolution` (see `isNamingDerivedRoleCategoryVocabulary`).
-export const prepareNamingRoleCategoryVocabulary = ({ namingRolesRuntime, registryResolution } = {}) => {
+// null when the resolution carries no such entry: Naming never supplies provenance of its own. The roles
+// runtime is resolved here, from `registryResolution` alone (the same loader and converter as the run's
+// runtime inputs), never taken from the caller: the value is then deeply frozen and recorded against that
+// resolution (see `isNamingDerivedRoleCategoryVocabulary`), so nothing but the resolution decides its content.
+export const prepareNamingRoleCategoryVocabulary = ({ registryResolution } = {}) => {
   const provenance = registryResolution?.registryProvenance?.[NAMING_REGISTRY_SLICE_ID]?.[NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID];
   if (!isPlainObject(provenance) || !isNonEmptyString(provenance.source) || !isNonEmptyString(provenance.digest)) return null;
+  const namingRolesRuntime = toNamingRolesRuntime(resolveNamingRegistryInputs(toNamingRegistryInputsOptions(registryResolution)).roles);
   const vocabulary = deepFreezeVocabulary({
     registrySource: provenance.source,
     categoryRolePerspectiveDigest: provenance.digest,

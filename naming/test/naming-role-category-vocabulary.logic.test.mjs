@@ -121,10 +121,9 @@ test('Custom set adding a category and roles (one deprecated): derived from the 
 });
 
 test('no run provenance for the perspective registry: no staged value (never a vocabulary without provenance)', () => {
-  const runtime = prepareNamingRuntimeInputs().namingRolesRuntime;
-  assert.equal(prepareNamingRoleCategoryVocabulary({ namingRolesRuntime: runtime }), null);
-  assert.equal(prepareNamingRoleCategoryVocabulary({ namingRolesRuntime: runtime, registryResolution: { registryProvenance: { naming: {} } } }), null);
-  assert.equal(prepareNamingRoleCategoryVocabulary({ namingRolesRuntime: runtime, registryResolution: { registryProvenance: { naming: { [NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID]: { source: 'builtin', digest: '' } } } } }), null);
+  assert.equal(prepareNamingRoleCategoryVocabulary({}), null);
+  assert.equal(prepareNamingRoleCategoryVocabulary({ registryResolution: { registryProvenance: { naming: {} } } }), null);
+  assert.equal(prepareNamingRoleCategoryVocabulary({ registryResolution: { registryProvenance: { naming: { [NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID]: { source: 'builtin', digest: '' } } } } }), null);
   assert.equal('roleCategoryVocabulary' in prepareNamingTreeStagingInputs({}, {}), false);
   assert.equal('roleCategoryVocabulary' in prepareNamingTreeStagingInputs({}, { registryResolution: { activeSet: 'builtin', registryRoots: {} } }), false);
 });
@@ -193,5 +192,26 @@ test('origin: only the exact staged value, for the exact resolution object, is N
     assert.ok(vocabulary.records.every((record) => Object.isFrozen(record) && Object.isFrozen(record.roles)));
     // The frozen value still projects to the same section.
     assert.equal(projectNamingRoleCategoryVocabulary({ roleCategoryVocabulary: vocabulary }).recordCount, vocabulary.records.length);
+  });
+});
+
+test('regression (review of 3db95b8): the branded factory takes no caller runtime; a truncated one cannot shape a trusted value', () => {
+  withTargetRoot((targetRoot) => {
+    const registryResolution = resolveActiveRegistrySet({ targetRoot });
+    const runtime = prepareNamingRuntimeInputs({ registryResolution }).namingRolesRuntime;
+    const truncated = {
+      ...runtime,
+      roleMetadata: new Map([...runtime.roleMetadata].filter(([, entry]) => entry.category !== 'integration-adapter')),
+    };
+    // A runtime argument is not part of the factory's input: the content comes from the resolution alone.
+    const vocabulary = prepareNamingRoleCategoryVocabulary({ registryResolution, namingRolesRuntime: truncated });
+    assert.deepEqual(vocabulary.records, expectedVocabularyOf(NAMING_BUILTIN_REGISTRY_ROOT));
+    assert.ok(vocabulary.records.some((record) => record.category === 'integration-adapter'));
+    assert.equal(isNamingDerivedRoleCategoryVocabulary(vocabulary, registryResolution), true);
+    // The pure derivation over a truncated runtime is incomplete, and it is never Naming-derived for the run.
+    const fromTruncated = deriveNamingRoleCategoryVocabulary(truncated);
+    assert.equal(fromTruncated.some((record) => record.category === 'integration-adapter'), false);
+    assert.equal(isNamingDerivedRoleCategoryVocabulary(fromTruncated, registryResolution), false);
+    assert.equal(isNamingDerivedRoleCategoryVocabulary({ ...vocabulary, records: fromTruncated }, registryResolution), false);
   });
 });

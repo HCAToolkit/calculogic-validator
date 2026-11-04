@@ -708,6 +708,15 @@ const tryLoadNamingRegistryPayload = (registryRoot) => {
   }
 };
 
+// The `resolveNamingRegistryInputs` arguments for one lifecycle resolution (#41 registry lifecycle): the
+// resolved Naming root, the run's source (the active set, or `candidate`, spec §11.3), and the Custom root.
+// One mapping, shared by the runtime inputs and the role-category vocabulary derivation.
+export const toNamingRegistryInputsOptions = (registryResolution) => ({
+  registryRoot: registryResolution.registryRoots[NAMING_REGISTRY_SLICE_ID],
+  activeSet: registryResolution.activeSet ?? registryResolution.source,
+  customRegistryRoot: registryResolution.customRegistryRoots?.[NAMING_REGISTRY_SLICE_ID],
+});
+
 // Resolves Naming's registry inputs for one run (lifecycle spec §6, §11.3).
 // - `registryRoot`: the resolved (active) Naming registry root; defaults to Builtin.
 // - `activeSet`: the lifecycle's active set; defaults to `builtin`.

@@ -1,4 +1,4 @@
-import { resolveNamingRegistryInputs } from './registries/registry-state.logic.mjs';
+import { resolveNamingRegistryInputs, toNamingRegistryInputsOptions } from './registries/registry-state.logic.mjs';
 import { loadNamingWalkExclusionsFromRegistryRoot } from './registries/naming-walk-exclusions-registry.logic.mjs';
 import { loadNamingSpecialCaseRulesFromRegistryRoot } from './registries/naming-special-case-rules-registry.logic.mjs';
 import { NAMING_REGISTRY_SLICE_ID } from './registries/naming-registry-inventory.knowledge.mjs';
@@ -46,12 +46,8 @@ const BUILTIN_REGISTRY_RESOLUTION = Object.freeze({
 // `registryResolution` comes from `resolveActiveRegistrySet`; without it, Builtin roots are used.
 export const prepareNamingRuntimeInputs = ({ registryResolution = BUILTIN_REGISTRY_RESOLUTION } = {}) => {
   const namingRegistryRoot = registryResolution.registryRoots[NAMING_REGISTRY_SLICE_ID];
-  const registryInputs = resolveNamingRegistryInputs({
-    registryRoot: namingRegistryRoot,
-    // Naming's transitional fields name the run's source: the active set, or `candidate` (spec §11.3).
-    activeSet: registryResolution.activeSet ?? registryResolution.source,
-    customRegistryRoot: registryResolution.customRegistryRoots?.[NAMING_REGISTRY_SLICE_ID],
-  });
+  // Naming's transitional fields name the run's source: the active set, or `candidate` (spec §11.3).
+  const registryInputs = resolveNamingRegistryInputs(toNamingRegistryInputsOptions(registryResolution));
 
   return {
     reportableExtensions: toReportableExtensionsSet(registryInputs.reportableExtensions),
@@ -179,10 +175,7 @@ export const projectNamingOccurrenceBridge = (namingRuntimeOrReportOutput = {}, 
 // carries the suite-provided provenance it copies; without it the value is absent.
 export const prepareNamingTreeStagingInputs = (namingRunOutput = {}, { registryResolution, linguisticFoundation } = {}) => {
   const roleCategoryVocabulary = registryResolution?.registryProvenance
-    ? prepareNamingRoleCategoryVocabulary({
-        namingRolesRuntime: prepareNamingRuntimeInputs({ registryResolution }).namingRolesRuntime,
-        registryResolution,
-      })
+    ? prepareNamingRoleCategoryVocabulary({ registryResolution })
     : null;
   return {
     namingSemanticFamilyBridge: projectNamingSemanticFamilyBridge(namingRunOutput),
