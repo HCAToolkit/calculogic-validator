@@ -332,7 +332,9 @@ Availability is recorded at three levels, so that a comparison that was not perf
      - A Custom set deprecating one role inside an otherwise active category: the category stays admissible.
      - A Custom set adding an active role: its category is admissible.
   3. **Custom finding-policy relabelling.** A Custom set labelling the deprecated-role outcome `canonical` leaves `admissibleCategories` unchanged, and §4.5 still carries no non-admissible category.
-  4. **Canonical-admission probes (soundness, regression).** For every role in the resolved runtime, Builtin and Custom, classify `probe.<role>.mjs` with the real classifier, first asserting it is not a special case. Every category that reaches the canonical outcome with a §4.5 role fact must be in `admissibleCategories`.
+  4. **Canonical-admission probes (soundness, regression).** For every role in the resolved runtime, Builtin and Custom, run the real classifier and the §4.5 projection on a probe file with a **multi-token** semantic name and a reportable extension (for example `probe-file.<role>.mjs`), first asserting it is not a special case.
+     - **Non-vacuity first.** For every probe whose role is in `activeRoles`, assert that the probe actually produces a §4.5 role fact. A single-token name such as `probe.<role>.mjs` reaches the canonical outcome but gets no semantic-family details, so it produces no §4.5 record and would make the probe vacuous.
+     - **Inclusion.** Every category that reaches §4.5 through a probe must be in `admissibleCategories`.
      - A separately named *precision* check may assert equality.
      - The probes cover the role dimension of the current structural dependency. They do not prove every filename or context, and say so.
   5. **Malformed bound.** The whole section is `invalid` for: a missing `admissibleCategories` or `rolesDigest`; an unsorted list, duplicate, non-string or empty string; a category without a record. An empty list is valid.

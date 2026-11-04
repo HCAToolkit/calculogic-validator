@@ -446,7 +446,7 @@ A consumer that needs to bound what an unrecognized file could carry if it were 
 
 **Structural dependency (current derivation).**
 - Today the canonical outcome is reachable for a role only when the role is in the resolved roles runtime's `activeRoles` (`isUnknownOrInactiveRole(role, roleMetadata, runtime.activeRoles)` is false; `naming/src/naming-validator.logic.mjs`). `activeRoles` is built by `toNamingRolesRuntime` from the same runtime as the declared vocabulary.
-- The other admission conditions depend only on the filename (special cases, missing-role patterns, semantic-name case rules). They can only exclude a file, never admit a role's category.
+- The other conditions for a §4.5 role fact depend only on the filename: special cases, missing-role patterns, semantic-name case rules, and the semantic-family details the §4.5 projection requires, which a single-token semantic name does not get. They can only exclude a file, never admit a role's category.
 - Therefore, today, `admissibleCategories` is the categories of the roles in `activeRoles`. It is computed from the runtime, never by inspecting files.
 
 **Governance of admission changes.**
