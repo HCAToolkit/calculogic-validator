@@ -1905,7 +1905,7 @@ Each step needs its own authorization:
 4. Prepared-evidence implementation (`treeEmergentBoundaryReasoning`), with findings byte-identical at `repo`, `validator` and `app` scope.
 5. The advisory finding decision, with before/after tables, as Stage 2B did.
    - **It is blocked while the catalogue holds a known discrepancy that the reasoning cannot detect, under the conditions in which findings can be emitted** (S3.13.4). Without that scope, E10 and E10.1 would block it permanently.
-   - It is unblocked only when upstream evidence removes the cause and the case is reclassified as an ordinary case. Authorizing a finding cannot accept a known discrepancy in its place.
+   - A known discrepancy that remains reachable under finding-eligible conditions blocks step 5 until upstream evidence removes its cause and the case is reclassified as ordinary. A known-gap case confined to finding-ineligible conditions does not block step 5; its discrepancy and catalogue status remain recorded. Authorizing a finding cannot accept a known discrepancy in its place.
    - Until then, no outcome affected by a known discrepancy is reported as a confirmed opportunity.
    - **Profile-conditional removal (calculogic-validator#153, D-T2).** Lexical-label expression removes E10's cause only under an active language profile (E10-L). Without one, E10 and E10.1 stay known-gap cases. So implementing #153 does not by itself unblock this step. D-T2 settles it (calculogic-validator#171): an advisory finding requires an active language profile, so runs without one never emit, and E10 and E10.1 no longer block the step.
 
