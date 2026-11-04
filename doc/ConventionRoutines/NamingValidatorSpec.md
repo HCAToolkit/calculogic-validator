@@ -58,44 +58,32 @@ Filename grammar is unchanged from V0.1.1.
 ## Role Registry Metadata (V0.1.2)
 
 V0.1.2 uses a structured role registry with metadata:
-The role registry source-of-truth is `FileNamingMasterList-V1_1.md`.
+Taxonomy semantics (role meanings, category meanings, status vocabulary, change control) are owned by `FileNamingMasterList-V1_1.md`. The runtime role inventory and each role's runtime category and status are owned by the resolved Naming registry set (Builtin or Custom; `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md`), not by this spec or the master list.
 
 - `role`
-- `category` (runtime-bounded: `concern-core` | `architecture-support` | `documentation` | `deprecated`)
+- `category` (one of the categories declared by the resolved categories registry; a role's runtime category is the category under which the `category-role-perspective` registry lists it)
 - `status` (runtime-bounded: `active` | `deprecated`)
 - `notes` (optional)
 
-Default runtime registry roles in the naming slice:
+Runtime role eligibility (current behavior):
 
-- `host` (`architecture-support`, `active`)
-- `wiring` (`architecture-support`, `active`)
-- `contracts` (`architecture-support`, `active`)
-- `build` (`concern-core`, `active`)
-- `build-style` (`concern-core`, `active`)
-- `logic` (`concern-core`, `active`)
-- `knowledge` (`concern-core`, `active`)
-- `results` (`concern-core`, `active`)
-- `results-style` (`concern-core`, `active`)
-- `spec` (`documentation`, `active`)
-- `policy` (`documentation`, `active`)
-- `workflow` (`documentation`, `active`)
-- `plan` (`documentation`, `active`)
-- `audit` (`documentation`, `active`)
-- `healthcheck` (`documentation`, `active`)
+- The runtime role inventory is the set of roles listed in the resolved `category-role-perspective` registry, each with its status from the resolved `roles` registry; a set without a perspective registry uses the legacy grouped membership in the `roles` registry. A role entry in the `roles` registry that the perspective does not list is not part of the runtime inventory, whatever its status.
+- A filename's role is eligible for canonical classification only when the role is in the runtime inventory **and** its status is `active`. Perspective membership and `active` status are both required; neither alone is sufficient.
+- For a filename that parses into the canonical grammar and is not first classified as an allowed special case or a missing role, a role in the runtime inventory with status `deprecated` produces `NAMING_DEPRECATED_ROLE`, and a role outside the runtime inventory produces `NAMING_UNKNOWN_ROLE`.
+- The categories registry may declare categories that no perspective role is listed under. A declared category with no listed role admits no filename.
+- The current Builtin inventory is read from `naming/src/registries/_builtin/` (`categories.registry.json`, `category-role-perspective.registry.json`, `roles.registry.json`). This spec does not duplicate it.
 
 Registry vocabulary vs Custom registries:
 
 - The Builtin role registry is the runtime baseline used by naming validation.
 - A consumer customizes roles by editing its complete Custom registry set, not through config (#41). Custom roles are validated against the Custom categories registry.
-- `FileNamingMasterList-V1_1.md` remains the source-of-truth taxonomy, while the naming slice currently uses a bounded category vocabulary for deterministic checks.
-- If runtime-supported category values expand beyond the bounded set listed here, update this section and the master-list compatibility note accordingly.
+- `FileNamingMasterList-V1_1.md` remains the source-of-truth for taxonomy semantics; the resolved registry set is the source of runtime eligibility.
 
-Governance taxonomy vs runtime subset (explicit boundary):
+Governance taxonomy vs runtime behavior (explicit boundary):
 
-- The master list includes additional governance categories (for example `concern-style`, `surface-system`, `indexing-registry`, `integration-adapter`, and other planned categories) plus category↔surface allowance policy.
-- V0.1.7 runtime does **not** enforce category↔surface validity yet and does not require/support the full governance category vocabulary in this slice.
+- The master list also defines category↔surface allowance policy. V0.1.7 runtime does **not** enforce category↔surface validity yet.
 - Governance status vocabulary includes `provisional`; runtime role classification in this slice remains bounded to active/deprecated handling for deterministic report behavior.
-- Runtime currently keeps `build-style` and `results-style` under `concern-core` as an implementation taxonomy constraint for deterministic checks; this is not a governance semantic redefinition.
+- `build-style` and `results-style` are listed under `concern-style` in the Builtin perspective, matching their master-list category.
 
 Deprecated historical roles:
 

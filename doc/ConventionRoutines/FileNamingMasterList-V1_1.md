@@ -483,12 +483,12 @@ All role registry entries MUST declare one status from the bounded list below.
 #### Validator taxonomy compatibility (naming slice)
 
 - This master list defines the full intended taxonomy, including richer categories and explicit category↔surface policy.
-- The current naming validator runtime uses a bounded subset of category values for deterministic checks (`concern-core`, `architecture-support`, `documentation`, `deprecated`).
+- This master list owns taxonomy semantics. It does not own the runtime role inventory: which roles and categories the naming validator runtime recognizes, and with which status, is determined by the resolved Naming registry set (Builtin or Custom). Runtime eligibility requires both category-role perspective membership and `active` status; see `NamingValidatorSpec.md` (Role Registry Metadata) for current runtime behavior.
+- Where a per-role status, planned-lane, or optional-future label in this master list differs from the role's runtime eligibility, that difference is an open governance question, not a statement of runtime behavior.
 - Surface-aware validation is not runtime-enforced in the naming slice yet.
 - Adoption path for runtime compatibility:
-  - use config to add roles and map them to currently supported runtime categories where needed
-  - treat richer master-list categories and category↔surface rules as governance/semantic intent until runtime handling expands
-- Current slice taxonomy constraint note: runtime currently treats `build-style` and `results-style` as concern-aligned roles under `concern-core` for deterministic naming checks. This is an implementation taxonomy constraint in the naming slice today, not a semantic redefinition of those roles in this master list.
+  - a consumer adds or changes roles by editing its complete Custom registry set (registry lifecycle, #41), not through config
+  - treat category↔surface rules as governance/semantic intent until runtime handling expands
 
 #### Governance validity rule (taxonomy)
 
