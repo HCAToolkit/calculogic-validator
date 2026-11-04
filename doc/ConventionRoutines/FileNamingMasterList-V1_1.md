@@ -514,8 +514,7 @@ Synchronization:
 Documentation debt and open reconciliation items (at this revision):
 
 - Legacy exceptions to the eligibility gate: every role that the Builtin registry admits and that appears here only under Planned role lanes or Optional / Future Roles, without an entry in Role Semantics Definitions.
-- `host`: the Builtin registry places it under `surface-system` with a surface-mounting definition; its intended category and meaning are recorded in its entry below (`architecture-support`). This is a registry alignment item.
-- Registry `definition` wording for `build` ("assembly"), `contracts` ("schemas") and `healthcheck` (omits "recurring") does not yet match the sharpened entries below. These are registry alignment items.
+- No open registry alignment items: the Builtin registry places `host` under `architecture-support`, and its `definition` fields for `host`, `build`, `contracts` and `healthcheck` summarize the entries below (calculogic-validator#162, B3).
 
 #### Validator taxonomy compatibility (naming slice)
 

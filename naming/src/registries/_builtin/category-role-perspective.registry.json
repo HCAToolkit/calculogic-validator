@@ -23,6 +23,12 @@
         ]
       },
       {
+        "role": "host",
+        "agnosticCoreMeanings": [
+          "structure"
+        ]
+      },
+      {
         "role": "wiring",
         "agnosticCoreMeanings": [
           "structure"
@@ -293,12 +299,6 @@
         "agnosticCoreMeanings": [
           "structure",
           "behavior"
-        ]
-      },
-      {
-        "role": "host",
-        "agnosticCoreMeanings": [
-          "structure"
         ]
       },
       {
