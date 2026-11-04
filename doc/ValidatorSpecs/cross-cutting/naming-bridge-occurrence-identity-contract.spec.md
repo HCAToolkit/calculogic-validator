@@ -3,7 +3,7 @@
 - **Classification:** Normative for the Naming occurrence bridge identity, field-eligibility, existing v1 context/compatibility, enrichment, versioning, and migration contract; descriptive only where explicitly labeled as **current runtime truth**.
 - **Applies to:** Cross-slice occurrence identity used by Addressing, Naming bridge observations, Tree evidence joins, and suite-core neutral transport.
 - **Status:** Contract/specification decision slice only for issue #651; no runtime behavior is changed by this artifact.
-- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. calculogic-validator#157 adds the payload-level section rule (§4.4 rule 9) and the Naming repository-package label section (§4.8, §6.5); calculogic-validator#159 implements it. calculogic-validator#162 widens rule 9 to run-scoped facts and adds the Naming role-category vocabulary section (§4.9, §6.6); contract only, implementation-pending. Tracking: calculogic-validator#85.
+- **Amendment:** calculogic-validator#84 adds the additive envelope-section rule (§4.4), the Naming semantic-evidence enrichment section (§4.5), and approves `semanticTokens` and role facts for that section only (§6.2). Contract only; no runtime behavior is changed by the amendment. calculogic-validator#87 implemented the §4.5 section. calculogic-validator#89 adds the Naming folder-label observation section (§4.6, §6.3) and clarifies §7 rule 1; contract only. calculogic-validator#150 adds the Naming token lexical-identity section (§4.7, §6.4); its implementation slice emits it with an active language profile. calculogic-validator#157 adds the payload-level section rule (§4.4 rule 9) and the Naming repository-package label section (§4.8, §6.5); calculogic-validator#159 implements it. calculogic-validator#162 widens rule 9 to run-scoped facts and adds the Naming role-category vocabulary section (§4.9, §6.6); its evidence-only implementation slice emits it and adds Tree's intake. Tracking: calculogic-validator#85.
 - **Issue context:** Refs #651 and Refs #647. Earlier identity baseline: Refs #621, Refs #618, and Slice 1 audit #648 / PR #649.
 - **Repo-reality input:** `calculogic-validator/doc/Audits/occurrence-identity-and-naming-tree-bridge.audit.md` and `calculogic-validator/doc/Audits/addressing-backed-naming-tree-bridge-enrichment-surfaces.audit.md`.
 
@@ -389,7 +389,7 @@ There is no fallback: a consumer never reads the manifest, a package name from e
 - **Section name:** `namingRoleCategoryVocabulary`.
 - **Contract version:** `naming-role-category-vocabulary.v1`.
 - **Provenance:** `producerId: naming-role-category-vocabulary`, `source: calculogic-validator/naming`.
-- **Status:** Contract, calculogic-validator#162; **implementation-pending**. No producer emits it and no consumer reads it yet.
+- **Status:** Contract, calculogic-validator#162. **Current since its evidence-only implementation slice:** the Naming occurrence-bridge path emits it whenever a vocabulary input is supplied, including in the bridge payload Tree wiring builds on the staged path, and Tree takes it in as a supporting consumer whose result nothing reads yet (Tree slice spec S1.1–S1.3).
 - **Kind:** a payload-level section (§4.4 rule 9) describing the run, not the target or an occurrence. Its record key is `category`.
 - **Envelope:** `contractVersion`, `producerId`, `source`, `registrySource`, `categoryRolePerspectiveDigest`, `recordCount`, `records` (sorted by `category`), optional `diagnostics`. No `identityTupleFields`.
 
@@ -410,7 +410,7 @@ There is no fallback: a consumer never reads the manifest, a package name from e
 
 **Records.** `{ category, roles }`: `category` a non-empty string, exactly as the §4.5 `roleCategory` carries it; `roles` a non-empty, sorted, duplicate-free list of non-empty role strings. Categories are unique. A declared category with no role is not producible and has no record.
 
-**Production and transport.** On the default path Naming's staging function returns the vocabulary as an opaque staged value, derived from the same registry resolution as the run; the runner passes it unchanged and Tree wiring passes it to `createNamingOccurrenceBridgePayload`, which emits the section (as §4.7 and §4.8). A direct caller of `projectNamingOccurrenceBridge` may supply the same value. The section does not depend on the addressed namespace.
+**Production and transport.** On the default path Naming's staging function returns the vocabulary as an opaque staged value, derived from the same registry resolution as the run; the runner passes it unchanged and Tree wiring passes it to `createNamingOccurrenceBridgePayload`, which emits the section (as §4.7 and §4.8). A direct caller of `projectNamingOccurrenceBridge` may supply the same value. The section does not depend on the addressed namespace. The staged value is `{ registrySource, categoryRolePerspectiveDigest, records }`; staging returns none when the run's registry resolution carries no provenance for `naming/category-role-perspective`, so there is never a vocabulary without provenance.
 
 **Producer rules.**
 - No vocabulary input: the section is omitted, and nothing else in the payload changes.
@@ -423,7 +423,7 @@ There is no fallback: a consumer never reads the manifest, a package name from e
 - The section must not carry a responsibility class, a mapping, Agnostic-Core meanings, folder-kind, placement, Tree diagnostic or finding fields (§7, rule 5).
 - A consumer never reads Naming's registries or registry state to obtain, check or complete the vocabulary.
 
-**Current consumers.** None (implementation-pending). The intended consumer is a separate Tree intake that Stage 1A does not read (§4.4 rule 2; Tree slice spec S1.1).
+**Current consumers.** Tree, since the evidence-only implementation slice: a separate Tree intake (`treeRoleCategoryVocabularyIntake`, `tree/src/tree-role-category-vocabulary-evidence.logic.mjs`) that performs the consumer checks above and Tree's own trust, provenance and consistency checks (Tree slice spec S1.2, S1.3). Nothing reads its result yet: Stage 3 is unchanged until a separately authorized slice adopts the S3.6 rule. Tree's Stage 1A intake reads a payload carrying the section exactly as without it (§4.4 rule 2).
 
 ## 5. Ownership boundaries
 
@@ -521,7 +521,7 @@ Not approved for the §4.8 section in v1: the raw manifest `name` string, a vers
 
 ### 6.6 Naming role-category vocabulary fields (§4.9)
 
-These fields are approved for the §4.9 section only (calculogic-validator#162; implementation-pending).
+These fields are approved for the §4.9 section only (calculogic-validator#162; current since its evidence-only implementation slice).
 
 | Field | Owner | Source of truth | Value shape | Required / optional | Absence behavior | Normalization and deterministic order | Consumer limitation |
 | --- | --- | --- | --- | --- | --- | --- | --- |

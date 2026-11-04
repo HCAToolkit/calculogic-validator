@@ -28,10 +28,12 @@ import { projectNamingFolderCompositionBridge } from '../../naming/src/naming-fo
 import { prepareTreeNamingSectionIntake } from './tree-naming-section-intake.logic.mjs';
 import { createTreeLexicalRelation, prepareTreeLexicalIdentityIntake } from './tree-lexical-identity-evidence.logic.mjs';
 import { prepareTreeRepositoryPackageIntake, toTreeRepositoryPackageElements } from './tree-repository-package-evidence.logic.mjs';
+import { TREE_BRIDGE_ORIGINS, prepareTreeRoleCategoryVocabularyIntake } from './tree-role-category-vocabulary-evidence.logic.mjs';
 import { prepareTreeFolderFactEvidence } from './tree-folder-fact-evidence.logic.mjs';
 import { prepareTreeFolderCandidates } from './tree-folder-candidates.logic.mjs';
 import { prepareTreeFolderSemanticEvidence } from './tree-folder-semantic-evidence.logic.mjs';
 import { createNamingOccurrenceBridgePayload } from '../../naming/src/naming-occurrence-bridge-payload.logic.mjs';
+import { NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID } from '../../naming/src/naming-role-category-vocabulary.logic.mjs';
 import { loadNamingFolderCompositionPatternsRegistryFromRegistryRoot } from '../../naming/src/registries/naming-folder-composition-patterns-registry.logic.mjs';
 import { NAMING_BUILTIN_REGISTRY_ROOT, NAMING_REGISTRY_SLICE_ID } from '../../naming/src/registries/naming-registry-inventory.knowledge.mjs';
 import { prepareTreeNamingOccurrenceBridgeIntake } from './tree-naming-occurrence-intake.logic.mjs';
@@ -99,6 +101,7 @@ export const prepareTreeStructureAdvisorInputs = (
     namingSemanticEvidenceEnrichment,
     interpretFolderLabel,
     lexicalProfile,
+    roleCategoryVocabulary,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
     registryResolution,
@@ -182,6 +185,9 @@ export const prepareTreeStructureAdvisorInputs = (
   };
   // A caller-supplied payload is used as supplied. Otherwise Tree builds one against its own snapshot
   // with the Naming-owned producer, passing the staged N1 source and folder-label interpreter (S1.1).
+  // `bridgeOrigin` is that execution branch: the one source of Stage 1A's `bridgeSource` argument and of
+  // the vocabulary intake's trust (S1.1); the payload's own `bridgeSource` field is never consulted for it.
+  const bridgeOrigin = namingOccurrenceBridge ? TREE_BRIDGE_ORIGINS.callerSupplied : TREE_BRIDGE_ORIGINS.treeBuilt;
   const addressedNamingOccurrenceBridge = namingOccurrenceBridge ?? createNamingOccurrenceBridgePayload({
     namingSemanticFamilyBridge: combinedNamingSemanticObservations,
     addressedOccurrenceNamespace,
@@ -194,10 +200,13 @@ export const prepareTreeStructureAdvisorInputs = (
     // Suite-core repository package identity fact (capability inventory §3.11, bridge contract §4.8),
     // passed unchanged; Naming interprets its segments, and Tree never tokenizes it.
     repositoryPackageIdentity: collectDeclaredRepositoryPackageIdentity(repositoryRoot),
+    // Opaque Naming staging value (bridge contract §4.9, Tree spec S1.1): passed unchanged; Naming emits
+    // the section, and Tree never reads Naming's registries to obtain, check or complete it.
+    roleCategoryVocabulary,
   });
   const treeNamingSectionIntake = prepareTreeNamingSectionIntake({
     namingOccurrenceBridge: addressedNamingOccurrenceBridge,
-    bridgeSource: namingOccurrenceBridge ? 'caller-supplied' : 'tree-built',
+    bridgeSource: bridgeOrigin,
     addressedNamespace: { addressProfileId: TREE_ADDRESS_PROFILE_ID, addressedSnapshotId: TREE_ADDRESSED_SNAPSHOT_ID },
     addressedOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
     staged: { namingSemanticFamilyBridge, namingSemanticEvidenceEnrichment, interpretFolderLabel },
@@ -213,6 +222,17 @@ export const prepareTreeStructureAdvisorInputs = (
   // the payload-level `namingRepositoryPackageLabels`, outside Stage 1A and every Stage 1/Stage 2 module;
   // `null` (and no prepared dependency) without the section. Only Stage 3 reads its accepted elements.
   const treeRepositoryPackageIntake = prepareTreeRepositoryPackageIntake({ namingOccurrenceBridge: addressedNamingOccurrenceBridge });
+  // Role-category vocabulary intake (S1.1-S1.3; bridge contract §4.9; calculogic-validator#162): Tree's own
+  // record of the payload-level `namingRoleCategoryVocabulary`, outside Stage 1A and every Stage 1/Stage 2
+  // module; `null` (and no prepared dependency) without the section. Trust from `bridgeOrigin`; provenance
+  // from the run's own suite-provided resolution. Nothing reads it yet: Stage 3 is unchanged (S3.6).
+  const treeRoleCategoryVocabularyIntake = prepareTreeRoleCategoryVocabularyIntake({
+    namingOccurrenceBridge: addressedNamingOccurrenceBridge,
+    bridgeOrigin,
+    runCategoryRolePerspectiveProvenance:
+      registryResolution?.registryProvenance?.[NAMING_REGISTRY_SLICE_ID]?.[NAMING_CATEGORY_ROLE_PERSPECTIVE_REGISTRY_ID] ?? null,
+    sectionIntake: treeNamingSectionIntake,
+  });
   // Stage 1B-i (S1.3 fact level, S1.8): built only from the intake above and Tree's snapshot.
   const treeFolderFactEvidence = prepareTreeFolderFactEvidence({
     sectionIntake: treeNamingSectionIntake,
@@ -326,6 +346,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeNamingSectionIntake,
       ...(treeLexicalIdentityIntake ? { treeLexicalIdentityIntake } : {}),
       ...(treeRepositoryPackageIntake ? { treeRepositoryPackageIntake } : {}),
+      ...(treeRoleCategoryVocabularyIntake ? { treeRoleCategoryVocabularyIntake } : {}),
       treeFolderFactEvidence,
       treeFolderSemanticEvidence,
       treeSemanticHomeParameterSet,
@@ -353,6 +374,7 @@ export const runTreeStructureAdvisor = (
     namingSemanticEvidenceEnrichment,
     interpretFolderLabel,
     lexicalProfile,
+    roleCategoryVocabulary,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
     registryResolution,
@@ -368,6 +390,7 @@ export const runTreeStructureAdvisor = (
     namingSemanticEvidenceEnrichment,
     interpretFolderLabel,
     lexicalProfile,
+    roleCategoryVocabulary,
     namingOccurrenceBridge,
     preparedAddressKeyedJoinEvidence,
     registryResolution,

@@ -303,14 +303,14 @@ Naming produces the payload-level bridge section `namingRepositoryPackageLabels`
 - **Transport:** Tree wiring obtains the fact from suite core and passes it unchanged, with the folder-label interpreter it already passes. Naming staging is unchanged.
 - **Direct path:** `projectNamingOccurrenceBridge(output, { repositoryPackageIdentity })`.
 
-### 2.14 Role-category vocabulary projection (calculogic-validator#162; Contract, implementation-pending)
+### 2.14 Role-category vocabulary projection (calculogic-validator#162; current since its evidence-only implementation slice)
 
-Naming will produce the payload-level bridge section `namingRoleCategoryVocabulary` (bridge contract §4.4 rule 9, §4.9, §6.6). Not current behavior.
+Naming produces the payload-level bridge section `namingRoleCategoryVocabulary` (bridge contract §4.4 rule 9, §4.9, §6.6). One module owns it: `naming/src/naming-role-category-vocabulary.logic.mjs`.
 
-- **Derivation:** one Naming-owned function over the resolved roles runtime (`toNamingRolesRuntime`): every role, whatever its status, grouped by category, as `{ category, roles }` sorted by category. It is the only place the derivation lives, so that a future registry-level bridge (registry lifecycle spec §9.4) cannot disagree with it.
+- **Derivation:** `deriveNamingRoleCategoryVocabulary(namingRolesRuntime)` over the resolved roles runtime (`toNamingRolesRuntime`): every role the runtime holds, whatever its status, grouped by the category the runtime records for it, as `{ category, roles }` sorted by category, roles sorted. It is the only place the derivation lives, so that a future registry-level bridge (registry lifecycle spec §9.4) cannot disagree with it.
 - **Completeness:** Naming's guarantee. The producer emits the whole vocabulary or omits the section; never a partial one.
-- **Provenance:** `registrySource` and `categoryRolePerspectiveDigest`, copied from the run's suite-provided registry resolution and provenance; Naming computes no digest of its own for it.
-- **Staging and producer:** `prepareNamingTreeStagingInputs` returns the vocabulary as an opaque staged value derived from the same registry resolution as the run; `createNamingOccurrenceBridgePayload` takes it as an optional input and emits the section; `projectNamingOccurrenceBridge` and `runNamingValidator` may pass it on the direct path. Without it the payload is unchanged.
+- **Provenance:** `prepareNamingRoleCategoryVocabulary({ namingRolesRuntime, registryResolution })` copies `registrySource` and `categoryRolePerspectiveDigest` from the run's suite-provided provenance entry for `naming/category-role-perspective` (`source` and `digest`); Naming computes no digest of its own for it. Without that entry it returns `null`: no vocabulary without provenance.
+- **Staging and producer:** `prepareNamingTreeStagingInputs` adds the staged value `roleCategoryVocabulary` (`{ registrySource, categoryRolePerspectiveDigest, records }`), derived from the same registry resolution as the run, only when it exists. `createNamingOccurrenceBridgePayload` takes it as an optional input and `projectNamingRoleCategoryVocabulary` emits the section last; an input that is not a complete, well-formed vocabulary gives no section. `projectNamingOccurrenceBridge` accepts the same option on the direct path. Without it the payload is unchanged.
 
 ## 3.0 Classification Contract
 
