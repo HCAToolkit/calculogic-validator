@@ -1282,7 +1282,7 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. The S3.2 lexical-label expression of calculogic-validator#153 is implemented by its implementation slice. The S3.2 repository package expression of calculogic-validator#157 is implemented by calculogic-validator#159. The S3.6 role-category vocabulary rule of calculogic-validator#162 is Contract only, implementation-pending; its S1 intake is implemented by the evidence-only slice, and Stage 3 does not read it. The S3.13 first-advisory contract of calculogic-validator#171: its adopted policy (S3.13.6, slice B) is implemented by the slice-B implementation; the first advisory finding (slice C, S3.13.2–S3.13.5 and S3.13.7) is implemented by the slice-C implementation and is emitted only under the adopted policy with an active language profile. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
+### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. The S3.2 lexical-label expression of calculogic-validator#153 is implemented by its implementation slice. The S3.2 repository package expression of calculogic-validator#157 is implemented by calculogic-validator#159. The S3.6 role-category vocabulary rule of calculogic-validator#162 is Contract only, implementation-pending; its S1 intake is implemented by the evidence-only slice, and Stage 3 does not read it. The S3.13 first-advisory contract of calculogic-validator#171: its adopted policy (S3.13.6, slice B) is implemented by the slice-B implementation; the first advisory finding (slice C, S3.13.2–S3.13.5 and S3.13.7) is implemented by the slice-C implementation and is emitted only under the adopted policy with an active language profile. The S3.13.9 selection evidence contract of calculogic-validator#175 is Contract only: `opportunity-selection` stays unresolved and EL5 is unchanged. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
 
 This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
 
@@ -1709,7 +1709,7 @@ The catalogue is evaluated under `emergent-boundary-experimental`, version `1`:
 | `separation-value-limit` | `whole-directory-only` | see below |
 | `coverage-share` | unresolved: whether, and how far, a candidate whose conclusion is not invariant under admissible completions (S3.6) may still be decided | no catalogue case fixes it (E12, E8.1) |
 | `partial-evidence-aggregation` | unresolved beyond the E14/E15 point | S3.5 |
-| `opportunity-selection` | unresolved | no catalogue case needs it |
+| `opportunity-selection` | unresolved | no catalogue case decides it; E22 is the first with nested opportunities and decides no selection (S3.13.9) |
 
 **`whole-directory-only`** means that a grouping whose supported set does not cover the whole directory has **separation potential**: it would separate some members from others.
 - It does not establish that the separation is beneficial. For example, three files among twenty can be separated, but that alone does not justify a folder.
@@ -1816,7 +1816,7 @@ Outcomes decided by `existing-structure` rest on the Stage 2 preconditions the c
 
 Further observations:
 - **Decisions no case depends on.**
-  - `opportunity-selection`: no case decides two related opportunities under the experimental policy. E22 (calculogic-validator#162) is the first with nested eligible candidates: at every tested `coverage-share` both `tree-known-roots` and `tree-known-roots-retirement` are `opportunity`, related as `nested-subgroup`. The selection between them is undecided.
+  - `opportunity-selection`: no case decides two related opportunities under the experimental policy. E22 (calculogic-validator#162) is the first with nested eligible candidates: at every tested `coverage-share` both `tree-known-roots` and `tree-known-roots-retirement` are `opportunity`, related as `nested-subgroup`. The selection between them is undecided, and nothing recorded for E22 makes either boundary preferable (S3.13.9).
   - Documentation in a mixed grouping (`responsibility-class-mapping`): no case has one among its recognized members. Under coverage invariance (S3.6) it is the decision that binds E12, E8.1 and E22, since a joining file could make any of their groupings mixed.
 - **Every expected `opportunity` depends on `separation-value-limit`.** Outcomes are reachable only because the experimental policy supplies it explicitly. Under a policy that leaves it unresolved, every one of them, E10's known gap included, would be incomplete.
 - **Catalogue fidelity corrections (calculogic-validator#134).** These change no expected outcome:
@@ -1929,11 +1929,11 @@ Each step needs its own authorization:
 - Recommending subdivisions inside a directory that is itself a supported home (deferred; S3.5).
 - Any single strength score, or ranking across directories.
 
-#### S3.13 First advisory finding (Contract, calculogic-validator#171; implemented by slices B and C)
+#### S3.13 First advisory finding (Contract, calculogic-validator#171; implemented by slices B and C. S3.13.9: Contract only, calculogic-validator#175)
 
 This section is the contract for S3.11 step 5. It takes effect through two separately authorized slices: the adopted-policy registry and loader (S3.13.8, slice B), then findings derivation (slice C). **Both slices are implemented.** Slice B: the S3.13.1 values, S3.13.6 and the slice-B part of S3.13.7 are current behavior. Slice C: S3.13.2–S3.13.5 and the slice-C part of S3.13.7 are current behavior; the contributor derives findings from the prepared record and adds no Stage 3 reasoning.
 
-**Still deferred after slice C** (each needs its own authorization): the S3.6 role-category vocabulary rule, M1 (mixed documentation), any class for `integration-adapter` or `concern-style`, outer-only or any other `opportunity-selection` rule, any `coverage-share` or `partial-evidence-aggregation` value, a `one-word-prefix` allowance, a profile-aware `minimum-primary-units`, and findings without an active language profile. Candidates these decisions would affect stay excluded (incomplete or related), and are visible only as counts.
+**Still deferred after slice C** (each needs its own authorization): the S3.6 role-category vocabulary rule, M1 (mixed documentation), any class for `integration-adapter` or `concern-style`, any `opportunity-selection` rule (outer-only, inner-only or remainder-based; S3.13.9), any `coverage-share` or `partial-evidence-aggregation` value, a `one-word-prefix` allowance, a profile-aware `minimum-primary-units`, and findings without an active language profile. Candidates these decisions would affect stay excluded (incomplete or related), and are visible only as counts.
 
 ##### S3.13.1 Owner decisions (calculogic-validator#171)
 
@@ -1941,14 +1941,14 @@ This section is the contract for S3.11 step 5. It takes effect through two separ
 |---|---|---|
 | D-T2 | An advisory finding requires an active language profile (S3.13.4) | Findings without a profile |
 | Incomplete candidates | Never yield a finding; their assessments are unchanged | A finding for an incomplete candidate under some `coverage-share` |
-| Related complete opportunities | Neither yields a finding while `opportunity-selection` is unresolved; both assessments and their relation are kept | Outer-only selection, supported by E22 but not adopted |
+| Related complete opportunities | Neither yields a finding while `opportunity-selection` is unresolved; both assessments and their relation are kept | A selection rule: outer-only, inner-only or remainder-based, none adopted (S3.13.9). E22 shows nested opportunities with selection unresolved; it does not establish that the outer boundary is better |
 | `minimum-primary-units` | 3, not profile-aware | A profile-aware value (documentation versus implementation) |
 | `one-word-prefix` | `no-allowance` | An allowance, pending the review of the 20 measured one-word candidates |
 | `separation-value-limit` | `whole-directory-only`, as a necessary condition only (S3.8) | A limit that measures beneficial separation |
 | `responsibility-class-mapping` | The current assignment: primary `concern-core`, `architecture-support`, `surface-system`, `data-model`, `indexing-registry`; supporting `quality-support`; `documentation` primary only in an all-documentation grouping (M0) | M1 (mixed documentation), `concern-style` → supporting (preferred, not recorded), any class for `integration-adapter` |
 | `coverage-share` | Stays unresolved | Any share; the S3.6 vocabulary rule |
 | `partial-evidence-aggregation` | Stays unresolved beyond the S3.5 point | Any limit, after more catalogue cases |
-| `opportunity-selection` | Stays unresolved | Outer-only (above) |
+| `opportunity-selection` | Stays unresolved | Any selection rule (above; S3.13.9) |
 
 Categories outside the mapping (`concern-style`, `integration-adapter`) stay unmapped: a member in one of them leaves its candidate's primary-unit count unresolved, so the candidate is incomplete and never yields a finding. Adopting the mapping does not settle mixed documentation and does not classify any unmapped category.
 
@@ -2055,6 +2055,56 @@ A candidate yields an advisory finding **only when all five conditions hold**:
 | C-6 | Baseline, measured at `f708302` under the adopted values: this repository at `repo` scope with English gains **exactly one** finding, `TREE_EMERGENT_BOUNDARY_OPPORTUNITY` at `tree/src`, prefix `semantic-home`, 9 supported members, `primaryUnitCount` 8: the measured counterpart of catalogue case E1, whose expected outcome is `opportunity`. Without a profile, none. The React app: none. The 16 existing findings and every exit code are unchanged. `validator` and `app` scope are recorded in the before/after tables |
 | C-7 | Determinism: two runs are identical, and the order follows S3.13.5 |
 | C-8 | Ownership: the contributor reads only the prepared record and computes no assessment |
+
+##### S3.13.9 Opportunity selection: evidence contract (Contract only, calculogic-validator#175)
+
+**Status.** This subsection adopts no selection rule and changes no behavior. `opportunity-selection` stays `unresolved` in the adopted policy. EL5 is unchanged: while it is unresolved, related complete opportunities yield no finding, and their assessments, relation and `selection` record are kept. Stage 3 reasoning, the registry, findings and reports are unchanged.
+
+**E22, evidence versus interpretation.**
+- **What E22 records** (measured at `c1d8607` with `coverage-share` set to a tested value, the only way the pair becomes complete):
+  - `tree-known-roots` and `tree-known-roots-retirement` are both complete `opportunity`, with the same four reasons, related as `nested-subgroup`.
+  - 8 and 5 primary units, no supporting and no outside members, all `documentation`, prefix lengths 3 and 4.
+  - The outer candidate's supported units outside the subgroup (its **remainder**) are 3.
+- **What it establishes:** nested complete opportunities arise in a measured directory, and their selection is unresolved.
+- **What it does not establish:** that the outer boundary is better. No recorded field distinguishes the two boundaries' quality. Reading the remainder's three specs as part of the same retirement work is domain interpretation, not recorded evidence. The catalogue expects `low-coverage` for both, and E22 decides no selection (S3.9).
+
+**Candidate strategies (none adopted).** Each was evaluated on the shapes below at `c1d8607`.
+- The shapes are synthetic structural trees assessed under the adopted policy with the catalogue builder. They are investigation evidence, not catalogue fixtures.
+- The `semantic` shape was traced by the S3.6 resolution order, not executed, because the adopted policy permits no one-word allowance.
+
+| Shape | Outer-only | Inner-only | Remainder-based (hypothesis) | Unresolved (current) |
+|---|---|---|---|---|
+| E22 shape: outer 8 units, subgroup 5, remainder 3 | the outer boundary; plausible | the subgroup; plausible, leaving three specs in place | the outer boundary, only if the threshold is at most 3; at the threshold, one renamed file flips it | neither reported |
+| Inner-preferred: outer 5, subgroup 3, remainder 2 | a folder whose only addition is two unrelated units; weak | the subgroup; good | the subgroup | neither reported |
+| Two subgroups of 3 under an outer of 6, remainder 0 | the outer boundary, which hides two coherent subgroups | both subgroups, which requires "every innermost" set semantics | both subgroups | none reported |
+| Three-level chain: 9 ⊃ 6 ⊃ 3 | the outermost | the innermost (3), which drops the 6-unit middle level; harmful | undefined without a recursive definition | none reported |
+| `tree/src`: `semantic` (9 units, one-word) ⊃ `semantic-home` (8), remainder 1, under a hypothetical one-word allowance | the one-word `semantic` replaces the current finding; harmful | `semantic-home` kept | `semantic-home` kept | the current finding is lost |
+
+- **Neither fixed direction is adopted.** Each damages at least one shape: outer-only the inner-preferred and `semantic` shapes, inner-only the chain.
+- **Remainder-based selection is a testable hypothesis, not an adopted principle or a committed direction.** As stated so far: select the outer candidate only when its supported units outside every nested opportunity reach a threshold; otherwise select the nested opportunities.
+  - It reads only the recorded supported member sets. It adds no input, score or filename heuristic, and compares sets, not raw counts across candidates.
+  - **Its threshold is a separate decision.** It does not inherit `minimum-primary-units`, whose meaning (enough primary units for a candidate) stays unchanged.
+  - **Its limit:** a remainder's size does not show that the remainder is a cohesive responsibility deserving its own boundary. Members share the outer prefix and nothing more is recorded about them.
+  - **Unresolved semantics:** chains (whether selection recurses, and whether a selected outer boundary also reports its subgroups) and several subgroups under one outer candidate.
+
+**Policy-expansion regression guard.** Any proposed change to the adopted policy, the Stage 3 rules or eligibility that can make a candidate a complete `opportunity` must first be measured against the findings the current policy emits. This covers a `one-word-prefix` allowance, a `coverage-share` value, a mapping change and S3.6.
+1. **Measure:** the before and after record every newly complete opportunity that is related to a currently eligible candidate, and every finding that would be removed, changed or newly suppressed by EL5, in both measured repositories and the catalogue.
+2. **Preserve, or obtain approval:** an existing finding is kept, by a justified and adopted selection mechanism, or its removal or change is documented in the proposal and approved by the owner as part of that change.
+3. **A test is not permission.** A passing test, or an updated expectation, never authorizes silently removing or changing an existing finding.
+4. Until a selection rule is adopted, a change that would newly suppress an existing finding through EL5 is not adopted without that approval.
+
+**Evidence required before any selection rule is adopted.** The catalogue (S3.9) must first hold cases for each structural situation below, with each expected outcome and selection stated:
+
+| Required case | Structural evidence (synthetic, recorded fields) | Domain interpretation (stated separately, never inferred) |
+|---|---|---|
+| SE-1 inner-preferred | outer and subgroup both complete `opportunity`; remainder below any candidate threshold | why the remainder does not belong in the outer boundary |
+| SE-2 outer-preferred | the same, with a remainder clearly above any candidate threshold, not at it | why the remainder belongs with the subgroup |
+| SE-3 two coherent subgroups | two disjoint nested opportunities under one outer opportunity, with a small or empty remainder | whether one outer boundary or two subgroups is the better structure |
+| SE-4 three-level chain | three nested complete opportunities | which level or levels should be reported |
+
+- Every case states its structural evidence and its domain interpretation separately. An expected selection that rests only on interpretation is recorded as such, and cannot justify a rule by itself.
+- E22 remains a measured case with selection unresolved. It is not counted as SE-2.
+- Adding these cases is a separately authorized catalogue slice. Adopting a rule, its threshold, and its chain and multi-subgroup semantics is a later owner decision.
 
 ### Naming-bridge folder-kind interpretation + placement model (Status: Bounded modeling note)
 
