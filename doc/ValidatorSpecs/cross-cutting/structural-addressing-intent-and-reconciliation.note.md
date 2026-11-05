@@ -42,7 +42,7 @@ The depth span describes reach, not membership. Membership comes from explicit r
 
 ## 6. CCPP in the architecture's history
 
-- **What CCPP does (Contract, CCPP §3.2, §3.3, §5, §10).** Its bracket token is an NL-section number, and the leading digit matches the NL skeleton's concern index. It positions an NL section; many code annotations can reference one section. A structural address is a separate optional draft line, not a replacement.
+- **What CCPP does (Contract, CCPP §3.2, §3.3, §5, §10).** Its bracket token identifies an NL section by its numbered position. For concern sections 3–8, the leading digit corresponds to the NL skeleton's concern index; other sections, such as Configuration Contracts (§2), are not concern indices. It positions an NL section; many code annotations can reference one section. A structural address is a separate optional draft line, not a replacement.
 - **Status.** CCPP is a legacy NL-section reference convention within the architecture's history. It is not automatically the grammar for newer profiles. Mapping it to an `nl-document` profile is Deferred (D2).
 - **Open hypothesis (Draft-Assumption).** The annotation vocabulary may mix three dimensions: hierarchical type (Container, Subcontainer, Primitive), concern, and content role (for example Workflow, Derived value, Knowledge). Whether all labels fit these dimensions is not established, and no dimension model is adopted here. A separate review of CCS and the NL skeleton's concern numbering may refine or replace this hypothesis.
 
