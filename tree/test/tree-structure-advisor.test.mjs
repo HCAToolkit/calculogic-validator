@@ -2472,8 +2472,9 @@ test('tree-structure-advisor wiring composes shim contributor with lazy staged c
     const prepared = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo' });
 
     assert.equal(Array.isArray(prepared.findingContributors), true);
-    // The shim contributor, then the Semantic Home scatter contributor (Stage 2B-i), which needs no staged Naming input.
-    assert.equal(prepared.findingContributors.length, 2);
+    // The shim contributor, then the Semantic Home scatter contributor (Stage 2B-i) and the Stage 3
+    // emergent-boundary opportunity contributor (S3.13), which need no staged Naming input.
+    assert.equal(prepared.findingContributors.length, 3);
 
     const shimFindingsFirst = prepared.findingContributors[0](prepared);
     assert.deepEqual(
@@ -2574,8 +2575,8 @@ test('tree structure advisor wiring still accepts the family-bridge inputs, and 
       { namingSemanticFamilyBridge, preparedAddressKeyedJoinEvidence: notCleanPreparedAddressKeyedJoinEvidence },
     ]) {
       const preparedInputs = prepareTreeStructureAdvisorInputs(fixtureDir, { scope: 'repo', ...options });
-      // The shim contributor and the Semantic Home scatter contributor; no bridge contributor.
-      assert.equal(preparedInputs.findingContributors.length, 2);
+      // The shim, Semantic Home scatter and Stage 3 opportunity contributors; no bridge contributor.
+      assert.equal(preparedInputs.findingContributors.length, 3);
       assert.deepEqual(runTreeStructureAdvisorRuntime(preparedInputs).findings, baseline.findings);
       assert.deepEqual(runTreeStructureAdvisor(fixtureDir, { scope: 'repo', ...options }).findings, baseline.findings);
     }

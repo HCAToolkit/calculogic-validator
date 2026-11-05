@@ -88,7 +88,7 @@ test('R3: the payload Tree builds equals what the Naming producer builds from th
   assert.equal(section.recordCount, eligible);
 });
 
-test('Tree conclusions are unchanged with the section present: every Stage 1 and Stage 2 record and every finding; only Stage 3 and the lexical intake read it', () => {
+test('Tree conclusions are unchanged with the section present: every Stage 1 and Stage 2 record and every finding but the Stage 3 advisory one; only Stage 3 and the lexical intake read it', () => {
   const dependenciesWithout = inputsWithout.preparedDependencies;
   const dependenciesWith = inputsWith.preparedDependencies;
   // Data only: prepared runtimes hold functions created per call, which are not evidence.
@@ -110,8 +110,14 @@ test('Tree conclusions are unchanged with the section present: every Stage 1 and
   const stageThree = dependenciesWith.treeEmergentBoundaryReasoning;
   assert.deepEqual(stageThree.lexicalIdentity.lexicalProfile, section.lexicalProfile);
   assert.equal('lexicalIdentity' in dependenciesWithout.treeEmergentBoundaryReasoning, false);
+  // Every finding is unchanged, except the one Stage 3 advisory finding an active profile makes eligible
+  // (Tree S3.13, EL2; calculogic-validator#171 slice C).
+  const STAGE_3 = 'TREE_EMERGENT_BOUNDARY_OPPORTUNITY';
   const findings = (staged) => runTreeStructureAdvisor(ROOT, { scope: SCOPE, registryResolution, registryRoots: registryResolution.registryRoots, ...staged }).findings;
-  assert.deepEqual(findings(stagedWith), findings(stagedWithout));
+  const [with_, without] = [findings(stagedWith), findings(stagedWithout)];
+  assert.deepEqual(with_.filter((finding) => finding.code !== STAGE_3), without);
+  assert.equal(without.some((finding) => finding.code === STAGE_3), false);
+  assert.deepEqual(with_.filter((finding) => finding.code === STAGE_3).map((finding) => `${finding.path} :: ${finding.details.candidate.prefix.join('-')}`), ['tree/src :: semantic-home']);
 });
 
 test('measured coverage: the section relates the E10, E10.1 and E11 folder labels to their member tokens', () => {
