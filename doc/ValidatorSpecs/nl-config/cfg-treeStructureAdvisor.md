@@ -87,13 +87,16 @@ Current boundary note: shipped tree heuristics may ingest naming-derived semanti
      - `thinReexportShim`, `canonicalTargetPath`, `reexportTargetCount`
      - `insideCompatSurface`
      - intentional pass-through markers (`isCanonicalHostPassThrough`, `isPublicEntryPointPassThrough`)
-   - Thin re-export remains the strongest/high-confidence shim signal.
+   - After the resolved extension allowlist, content-read eligibility requires a folder or basename-token signal, a compat surface, a Validator-owned basename matcher, `.host.` in the basename, or the development-context public entrypoint. The contributor retains containment and regular-file guards on reads.
+   - Current signal provenance is folder-segment and Tree-tokenized basename evidence, together with separately evaluated file-content evidence. Basename tokenization lowercases, removes the final extension and splits on non-alphanumeric characters; it does not separate assigned role from subject. Naming role and subject evidence are not passed to the shim contributor.
+   - Recognized thin re-export remains the strongest/high-confidence shim signal. After trimming and ignoring blank lines and lines starting with `//`, every remaining line must match a flat `export * from ...` or `export { ... } from ...` statement. Only the first target is checked for a `core/`, `tree/`, `naming/` or `validators/` segment at its start or after `/`.
    - Token/path-only shim signals on non-runtime surfaces (`quality/docs/examples/fixtures`) are suppressed from shim-debt findings.
-   - Intentional pass-through surfaces are excluded from shim debt:
-     - canonical `*.host.* -> sibling *.wiring.*` forwarding inside owned slices
-     - public package entrypoint barrel (`<validator development root>/src/index.mjs`, Validator development context only) including `export * from`, namespace re-export (`export * as <name> from`), and optional `export { ... } from` forms
+   - Canonical host boundaries forwarding only to a sibling wiring module avoid findings through parser non-recognition: `./<name>.wiring.<ext>` has no required canonical directory segment. The dedicated host check instead needs a recognized single-target thin re-export exactly targeting `./` plus the host basename with `.host.` replaced by `.wiring.`. The predicates cannot recognize that intended sibling target; the exclusion branch does not execute for it.
+   - The public package entrypoint barrel is excluded separately (`<validator development root>/src/index.mjs`, Validator development context only), including `export * from`, namespace re-export (`export * as <name> from`), and optional `export { ... } from` forms.
+   - Basename matchers come from the resolved `validator-owned-signals` registry. Builtin patterns are specific to this Validator's module names and run in every context. The public-entrypoint and detector-module self-exemptions, in contrast, depend on a validator development root.
    - Token/path-only signals on the shim detector's own implementation modules (`<validator development root>/tree/src/**` with a detector-implementation token) are suppressed in Validator development context only. Installed consumers get no Validator self-exemption; their shim reasoning otherwise runs unchanged.
    - Runtimeish token/path-only matches remain info-level observability (`TREE_SHIM_SURFACE_PRESENT`) and do not emit debt-style `TREE_SHIM_OUTSIDE_COMPAT` unless thin re-export evidence exists.
+   - The diagnostic does not promise discovery of every thin forwarding module. Widening the read gate and widening the parser are separate, undecided decisions; neither is adopted here.
 
 
 ### 2.4 Input ownership split (V0.1.7)
