@@ -1,5 +1,6 @@
-// Organizational-placement contract and catalogue (Tree spec S2.16). The registry and its loader exist
-// (slice 1); no emitter reads them, and `TREE_FAMILY_SCATTERED` and R2 are unchanged. The catalogue OP-1 to OP-8
+// Organizational-placement contract and catalogue (Tree spec S2.16). The test-only reference stays the
+// contract's executable statement; `tree-organizational-placement.runtime.test.mjs` runs the same
+// catalogue through the production classifier and emitter (slices 1 and 2). The catalogue OP-1 to OP-8
 // runs real temporary repositories through Naming staging and Tree wiring; a test-only reference
 // classifies each relation against fixture policies, reading R2 from the production emitter.
 import test from 'node:test';
@@ -139,21 +140,25 @@ test('inspectability: each relation record carries identities, classification an
   });
 });
 
-test('S2.16 states the contract and its catalogue; only the registry and its loader exist, and no reasoning or emitter reads them', () => {
-  assert.match(S2_16, /changes no finding/u);
+test('S2.16 states the contract and its catalogue, and only the owning modules name the policy', () => {
+  assert.match(S2_16, /Builtin policy changes no finding/u);
   assert.match(S2_16, /\*\*Builtin:\*\* `entries: \[\]`\. The Builtin set adopts no organizational exemption/u);
   for (const classification of ['`paired`', '`consistent`', '`reportable`']) assert.ok(S2_16.includes(`**${classification}:**`), classification);
   for (const entry of ORGANIZATIONAL_PLACEMENT_CASES) assert.ok(S2_16.includes(`| ${entry.id} `), `${entry.id}: a catalogue row`);
   assert.match(S2_16, /`meta\.organizationalPlacement`/u);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(ROOT, 'tree/src/registries/_builtin/organizational-placement.registry.json'), 'utf8')), { version: '1', entries: [] });
-  // Slice 1: the registry module, its loader and the lifecycle and wiring surfaces name it; nothing else.
+  // The registry module, its loader, the lifecycle and wiring surfaces, the classification layer (S2.16
+  // slice 2), the runtime summary and the contributor that presents it; nothing else.
   const owners = [
+    'contributors/tree-semantic-home-scatter-contributor.logic.mjs',
     'registries/tree-organizational-placement-loader.logic.mjs',
     'registries/tree-organizational-placement-registry.logic.mjs',
     'registries/tree-registry-inventory.knowledge.mjs',
     'registries/tree-registry-references.logic.mjs',
     'registries/tree-registry-set.logic.mjs',
     'registries/tree-runtime-registries.logic.mjs',
+    'tree-organizational-placement.logic.mjs',
+    'tree-structure-advisor.logic.mjs',
     'tree-structure-advisor.wiring.mjs',
   ];
   const readers = fs.readdirSync(path.join(ROOT, 'tree/src'), { recursive: true })

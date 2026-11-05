@@ -134,7 +134,13 @@ V0.1.7 introduces a suite-core scoped snapshot/input helper boundary and migrate
     - Every namespace must be declared in `tree/structural-homes` (reference edge `tree/organizational-placement-namespace`).
     - Its Builtin holds `entries: []`.
   - `registries/tree-organizational-placement-loader.logic.mjs` prepares `treeOrganizationalPlacementPolicy` from the run's resolution, with its registry provenance. A direct call without a root gets the Builtin policy; an explicit non-Builtin root without a resolution gets `not-prepared`.
-  - Wiring adds it to the prepared dependencies with no reader: Stage 2A, R2 and the scatter contributor are unchanged.
+  - Wiring adds it to the prepared dependencies.
+- Organizational placement, slice 2 (Tree spec S2.16): `tree-organizational-placement.logic.mjs` classifies every `home-elsewhere` relation from the prepared records.
+  - **Inputs:** the Stage 2A placements and candidates, Naming's accepted section records (role, role category and `familyRoot`), the run's role-category vocabulary, `treeStructuralHomeEvidence` and the prepared policy.
+  - **Classification, in order:** R2 `paired`, then `consistent`, else `reportable`. It is the one owner of R2.
+  - **Outputs:** wiring prepares `treeOrganizationalPlacement` for the run's development root; the runtime reports `meta.organizationalPlacement`, with provenance, counts and diagnostics.
+  - **The scatter contributor** presents the classification: a file is reported only with a reportable relation, consistent homes leave the finding's home set and are listed as `consistentHomes`, and paired homes stay in `pairedHomes`.
+  - **With the Builtin policy** every finding is unchanged.
 - Stage 3, evidence only (Tree spec S3.1–S3.11 step 4, calculogic-validator#136): Tree wiring prepares `treeEmergentBoundaryReasoning` (`tree-emergent-boundary-reasoning.logic.mjs`; closed vocabularies in `tree-emergent-boundary-reasoning.knowledge.mjs`).
   - **Inputs, all read by reference:** the section intake (N1 tokens, `semanticName`, `roleCategory`, ambiguity flags behind the Stage 1B-i fact gates), the Stage 1 fact and semantic-evidence records (directories, direct members, lineage comparisons) and `treeFolderSemanticHomeReasoning` (candidate outcomes and placements).
   - **Status:**
@@ -241,9 +247,6 @@ Deferred to later slices:
 - structural recommendation planning and move proposals
 - tree-specific config semantics beyond shared config validation + digest plumbing
 - any mutating or fix-mode behavior
-- Organizational placement relation classification (Tree spec S2.16, slice 2). Each `home-elsewhere` relation would be classified as R2 `paired`, organizationally `consistent` or `reportable`, with a prepared record and `meta.organizationalPlacement`.
-  - Implemented so far (slice 1): the registry `tree/organizational-placement` (Builtin `entries: []`) and its loader, which prepares `treeOrganizationalPlacementPolicy` with no reader (§2.4).
-  - The test-only catalogue is OP-1 to OP-8.
-  - R2 and `TREE_FAMILY_SCATTERED` stay unchanged until slice 2 is approved.
+- Builtin organizational-placement defaults (Tree spec S2.16): the Builtin `tree/organizational-placement` holds no entry, and adopting any centralized convention as a Builtin default needs its own decision. Slices 1 and 2 are implemented (§2.4); Custom policies already apply.
 - S3.6 consumption of a `usable` role-category vocabulary (Tree spec S3.6 future rule; calculogic-validator#162): the intake exists (§2.4), but Stage 3 keeps `joiningFileCanLeaveClassUnresolved: true`; adopting the rule needs its own authorization
 - Stage 3 policy decisions left deferred by the first advisory finding (Tree spec S3.13; calculogic-validator#171): M1 (mixed documentation), any class for `integration-adapter` or `concern-style`, an `opportunity-selection` rule (outer-only, inner-only or remainder-based; none adopted, Tree spec S3.13.9, calculogic-validator#175; E22 decides no selection), `coverage-share` and `partial-evidence-aggregation` values, a `one-word-prefix` allowance, a profile-aware `minimum-primary-units`, and findings without an active language profile. Each needs its own authorization; slices B and C are implemented. Any such change that can make a candidate a complete `opportunity` must first pass the S3.13.9 policy-expansion regression guard: its effect on existing findings is measured, and an existing finding is preserved or its removal is approved by the owner

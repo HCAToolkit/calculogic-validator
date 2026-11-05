@@ -59,7 +59,16 @@ const prepare = (root, options) => {
     intake: deps.treeRoleCategoryVocabularyIntake,
     hasIntakeDependency: 'treeRoleCategoryVocabularyIntake' in deps,
     stage3: JSON.stringify(deps.treeEmergentBoundaryReasoning),
-    report: JSON.stringify(runTreeStructureAdvisorRuntime(prepared)),
+    // Organizational placement (Tree spec S2.16) reads the vocabulary for selector applicability only; the
+    // report is compared without that one field, which is checked on its own below.
+    ...(() => {
+      const result = runTreeStructureAdvisorRuntime(prepared);
+      const { applicability, reason, ...policy } = result.organizationalPlacement?.policy ?? {};
+      return {
+        report: JSON.stringify({ ...result, ...(result.organizationalPlacement ? { organizationalPlacement: { ...result.organizationalPlacement, policy } } : {}) }),
+        placementApplicability: applicability ?? null,
+      };
+    })(),
     stageOne: JSON.stringify(STAGE_ONE_KEYS.map((key) => deps[key])),
     lexicalAndPackage: JSON.stringify([deps.treeLexicalIdentityIntake ?? null, deps.treeRepositoryPackageIntake ?? null]),
   };
@@ -263,6 +272,8 @@ test('acceptance 10 and 11: Stage 1A/1/2, the other intakes, Stage 3 and the rep
       assert.equal(scenario.lexicalAndPackage, control.lexicalAndPackage, `${name}: other intakes`);
       assert.equal(scenario.stage3, control.stage3, `${name}: Stage 3`);
       assert.equal(scenario.report, control.report, `${name}: report`);
+      // S2.16: the policy is applicable exactly when the run's vocabulary is usable.
+      assert.equal(scenario.placementApplicability, scenario.intake?.state === 'usable' ? 'applicable' : 'inapplicable', `${name}: placement applicability`);
       // The §4.5 section is unchanged by the vocabulary.
       assert.deepEqual(scenario.payload.namingSemanticEvidenceEnrichment, control.payload.namingSemanticEvidenceEnrichment, name);
     }

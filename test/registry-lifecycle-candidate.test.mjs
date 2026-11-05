@@ -112,7 +112,7 @@ const normalized = (report) => {
     ...rest,
     registryProvenance: withoutSources(registryProvenance),
     validators: report.validators.map((entry) => {
-      const { registry, registrySet: entrySet, registryProvenance: entryProvenance, semanticHomeReasoning, emergentBoundaryReasoning, ...meta } = entry.meta ?? {};
+      const { registry, registrySet: entrySet, registryProvenance: entryProvenance, semanticHomeReasoning, emergentBoundaryReasoning, organizationalPlacement, ...meta } = entry.meta ?? {};
       // Tree's Stage 2 summary (S2.12 B6) carries the same source difference as the provenance above.
       const reasoningWithoutSource = semanticHomeReasoning?.registry
         ? { ...semanticHomeReasoning, registry: { ...semanticHomeReasoning.registry, source: undefined } }
@@ -128,6 +128,8 @@ const normalized = (report) => {
           registryProvenance: withoutSources(entryProvenance ?? {}),
           ...(semanticHomeReasoning ? { semanticHomeReasoning: reasoningWithoutSource } : {}),
           ...(emergentBoundaryReasoning ? { emergentBoundaryReasoning: stageThreeWithoutSource } : {}),
+          // And Tree's organizational-placement summary (S2.16), through its registry.
+          ...(organizationalPlacement ? { organizationalPlacement: { ...organizationalPlacement, policy: { ...organizationalPlacement.policy, source: undefined } } } : {}),
         },
       };
     }),
