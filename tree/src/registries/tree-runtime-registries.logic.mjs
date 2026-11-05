@@ -10,7 +10,9 @@
  * (`tree-semantic-home-parameter-set-loader.logic.mjs`), re-exported here so this module stays Tree
  * wiring's one registry entry point; it takes the run's whole resolution, because its provenance needs
  * it (Tree spec S2.9). `emergent-boundary-policy` is loaded the same way by the adopted Stage 3 policy
- * loader (`tree-emergent-boundary-policy-loader.logic.mjs`; Tree spec S3.13.6). Tree inventory registries without a runtime consumer
+ * loader (`tree-emergent-boundary-policy-loader.logic.mjs`; Tree spec S3.13.6). `organizational-placement` is
+ * loaded the same way by its own loader (`tree-organizational-placement-loader.logic.mjs`; Tree spec S2.16),
+ * with no Tree consumer yet. Tree inventory registries without a runtime consumer
  * (`structural-home-signal-policy`, `surface-structural-home-perspective`) are validated by the
  * registry-set entry point (`tree-registry-set.logic.mjs`) only.
  */
@@ -47,6 +49,7 @@ import {
 
 export { loadTreeSemanticHomeParameterSet } from './tree-semantic-home-parameter-set-loader.logic.mjs';
 export { loadTreeEmergentBoundaryPolicy } from './tree-emergent-boundary-policy-loader.logic.mjs';
+export { loadTreeOrganizationalPlacementPolicy } from './tree-organizational-placement-loader.logic.mjs';
 
 let cachedBuiltinTreeRuntimeRegistries = null;
 

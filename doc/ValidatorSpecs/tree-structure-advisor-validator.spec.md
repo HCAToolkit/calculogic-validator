@@ -1282,13 +1282,16 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-#### S2.16 Organizational placement (Contract only; not implemented)
+#### S2.16 Organizational placement (Contract; registry and loader implemented, classification not implemented)
 
-**Status.** This subsection is a contract and a test-only catalogue. It changes no runtime behavior:
-- no production registry, loader or emitter exists for it;
-- `TREE_FAMILY_SCATTERED`, R2 (S2.12 B2) and every report are unchanged.
+**Status.** This subsection is a contract with a test-only catalogue, implemented in two separately authorized slices. It changes no finding:
+- **Slice 1, registry and loader (implemented).**
+  - What exists: the Builtin registry `tree/organizational-placement` (`entries: []`), its shape validation and the reference edge `tree/organizational-placement-namespace` to `tree/structural-homes` (lifecycle §12.11).
+  - The loader prepares `treeOrganizationalPlacementPolicy` from the run's resolution, with its provenance. No reasoning, emitter or report field reads it.
+  - Effects on reports: the Tree entry's `meta.registryProvenance` lists the new registry, and the resolved-set digests change. A Custom set created before this registry existed is incomplete until it inherits it (lifecycle §7.1 item 2).
+- **Slice 2, relation classification (not implemented).** The prepared record, `meta.organizationalPlacement` and the emitter changes below. It must consume the prepared placement and R2 pairing evidence through an internal contract, never by re-reading filtered findings.
 
-A separately authorized implementation slice adopts it.
+`TREE_FAMILY_SCATTERED`, R2 (S2.12 B2) and every finding are unchanged.
 
 **Purpose.** A `home-elsewhere` file can share a semantic subject with an eligible home while correctly belonging to a different organizational context. The common example is a specification kept in a central `doc/` tree about code under `src/`. Today:
 - R2 recognizes this only for documents in the validator's own repository whose Naming `familyRoot` names the home's top-level folder;

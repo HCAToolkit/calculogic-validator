@@ -78,6 +78,13 @@ export const TREE_REGISTRY_INVENTORY = Object.freeze([
   defineTreeRegistry('folder-kinds', { setLike: [{ path: 'folderKinds', key: 'folderKind' }] }, [
     { kind: 'keyed', path: 'folderKinds', key: 'folderKind' },
   ], [{ path: 'folderKinds', mergeFields: [['status'], ['definition']] }]),
+  // Organizational placement (Tree spec S2.16): each entry is kept or taken whole (no reconciliation).
+  // A centralized entry names structural homes of the same set (lifecycle spec §12.11).
+  defineTreeRegistry('organizational-placement', { setLike: [{ path: 'entries', key: 'entryId' }] }, [
+    { kind: 'keyed', path: 'entries', key: 'entryId' },
+  ], [], [], [
+    { edgeId: 'tree/organizational-placement-namespace', to: 'tree/structural-homes', targetCollection: 'structuralHomes' },
+  ]),
   defineTreeRegistry('repo-shape-policy', { setLike: [{ path: 'allowedTopLevelDirectories' }] }, [
     { kind: 'members', path: 'allowedTopLevelDirectories' },
   ]),

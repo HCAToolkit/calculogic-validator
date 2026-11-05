@@ -42,7 +42,31 @@ const resolveSurfacePerspectiveReferences = (payload) => {
   return uniqueReferences(references);
 };
 
-const RESOLVERS_BY_REGISTRY = Object.freeze({ [SURFACE_PERSPECTIVE_REGISTRY_ID]: resolveSurfacePerspectiveReferences });
+const ORGANIZATIONAL_PLACEMENT_REGISTRY_ID = 'tree/organizational-placement';
+
+// Each centralized entry names the structural homes that hold its kind (Tree spec S2.16).
+const resolveOrganizationalPlacementReferences = (payload) => {
+  const references = [];
+  for (const entry of Array.isArray(payload.entries) ? payload.entries : []) {
+    if (!isPlainObject(entry) || typeof entry.entryId !== 'string' || !Array.isArray(entry.namespaces)) {
+      continue;
+    }
+    for (const namespace of entry.namespaces) {
+      if (typeof namespace !== 'string') continue;
+      references.push({
+        edgeId: 'tree/organizational-placement-namespace',
+        source: { collection: 'entries', groups: [], key: entry.entryId },
+        target: { groups: [], key: namespace },
+      });
+    }
+  }
+  return uniqueReferences(references);
+};
+
+const RESOLVERS_BY_REGISTRY = Object.freeze({
+  [ORGANIZATIONAL_PLACEMENT_REGISTRY_ID]: resolveOrganizationalPlacementReferences,
+  [SURFACE_PERSPECTIVE_REGISTRY_ID]: resolveSurfacePerspectiveReferences,
+});
 
 // [5.2.20] cfg-registryLifecycle · Derived value · "Tree reference resolver"
 // `versions` are the source `version` values it reads; `resolve({ registryId, payload })` returns

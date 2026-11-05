@@ -65,13 +65,18 @@ const entryClasses = (registry) => Object.fromEntries((registry?.entries ?? []).
 
 // ---- comparison identity declarations ---------------------------------------------------------
 
+const BUILTIN_EMPTY_REGISTRIES = new Set(['tree/organizational-placement']);
+
 test('every inventory registry declares comparison identity that fully covers its Builtin payload', () => {
-  assert.equal(inventoryEntries.length, 27);
+  assert.equal(inventoryEntries.length, 28);
   for (const { slice, entry } of inventoryEntries) {
     const payload = readJson(path.join(slice.builtinRoot, entry.fileName));
     const entries = extractComparisonEntries(payload, entry);
 
-    assert.ok(entries.size > 0, entry.registryId);
+    // `tree/organizational-placement` is empty in Builtin by contract (Tree spec S2.16): its keyed
+    // collection exists and holds no entry; a Custom entry is compared as custom-only.
+    if (BUILTIN_EMPTY_REGISTRIES.has(entry.registryId)) assert.equal(entries.size, 0, entry.registryId);
+    else assert.ok(entries.size > 0, entry.registryId);
     const addresses = [...entries.keys()];
     assert.deepEqual(addresses, [...addresses].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0)), entry.registryId);
   }
@@ -201,7 +206,7 @@ test('a fresh Custom set is unchanged everywhere, and diff writes nothing', () =
 
     const result = diff();
     assert.equal(result.customExists, true);
-    assert.deepEqual(result.counts, { registries: { unchanged: 27 }, entries: {} });
+    assert.deepEqual(result.counts, { registries: { unchanged: 28 }, entries: {} });
     assert.ok(result.registries.every((registry) => registry.class === 'unchanged' && registry.entries === undefined));
     assert.deepEqual(snapshot(), before);
     assert.deepEqual(diff(), result, 'deterministic');
@@ -362,7 +367,7 @@ test('a malformed manifest leaves no trusted Baseline for any registry', () => {
     const result = diff();
 
     assert.match(result.manifestError, /unreadable/u);
-    assert.deepEqual(result.counts.registries, { 'not-comparable': 27 });
+    assert.deepEqual(result.counts.registries, { 'not-comparable': 28 });
     assert.ok(result.registries.every((registry) => registry.reason === 'baseline-unavailable'));
   });
 });

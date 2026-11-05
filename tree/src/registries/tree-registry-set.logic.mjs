@@ -13,6 +13,11 @@ import {
   assertValidEmergentBoundaryPolicyRegistry,
 } from './tree-emergent-boundary-policy-registry.logic.mjs';
 import { normalizeFolderKindsRegistryPayload } from './tree-folder-kinds-registry.logic.mjs';
+import {
+  ORGANIZATIONAL_PLACEMENT_ROOT_FIELDS,
+  assertOrganizationalPlacementReferences,
+  assertValidOrganizationalPlacementRegistry,
+} from './tree-organizational-placement-registry.logic.mjs';
 import { normalizeTreeRepoShapePolicyRegistryPayload } from './tree-repo-shape-policy-registry.logic.mjs';
 import { assertValidSemanticNamingFolderTypeRelationshipsRegistry } from './tree-semantic-naming-folder-type-relationships-registry.logic.mjs';
 import {
@@ -46,6 +51,7 @@ const TREE_REGISTRY_FILE_VALIDATORS = Object.freeze({
 const TREE_REGISTRY_PAYLOAD_VALIDATORS = Object.freeze({
   'emergent-boundary-policy': assertValidEmergentBoundaryPolicyRegistry,
   'folder-kinds': normalizeFolderKindsRegistryPayload,
+  'organizational-placement': assertValidOrganizationalPlacementRegistry,
   'repo-shape-policy': normalizeTreeRepoShapePolicyRegistryPayload,
   'semantic-home-policy': assertValidSemanticHomePolicyRegistry,
   'semantic-naming-folder-type-relationships': assertValidSemanticNamingFolderTypeRelationshipsRegistry,
@@ -62,6 +68,7 @@ const TREE_REGISTRY_PAYLOAD_VALIDATORS = Object.freeze({
 const TREE_REGISTRY_ROOT_FIELDS = Object.freeze({
   'emergent-boundary-policy': EMERGENT_BOUNDARY_POLICY_ROOT_FIELDS,
   'folder-kinds': ['folderKinds'],
+  'organizational-placement': ORGANIZATIONAL_PLACEMENT_ROOT_FIELDS,
   'repo-shape-policy': ['allowedTopLevelDirectories'],
   'semantic-home-policy': SEMANTIC_HOME_POLICY_ROOT_FIELDS_BY_VERSION,
   'semantic-naming-folder-type-relationships': ['semanticNamingFolderTypeRelationships'],
@@ -89,6 +96,11 @@ const rootFieldsOf = (name, payload) => {
 // Same-slice reference edges, checked against the resolved root once the referring registry's shape
 // passed. Each check reads its registries and throws on a failed edge (lifecycle spec §9.3).
 const TREE_REGISTRY_REFERENCE_CHECKS = Object.freeze({
+  'organizational-placement': (registryRoot) =>
+    assertOrganizationalPlacementReferences(
+      readRegistryPayload(registryRoot, 'organizational-placement.registry.json'),
+      readRegistryPayload(registryRoot, 'structural-homes.registry.json'),
+    ),
   'surface-structural-home-perspective': (registryRoot) =>
     assertSurfaceStructuralHomePerspectiveReferences(
       readRegistryPayload(registryRoot, 'surface-structural-home-perspective.registry.json'),
