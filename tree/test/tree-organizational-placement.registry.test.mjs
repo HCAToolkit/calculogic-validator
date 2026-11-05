@@ -126,7 +126,7 @@ test('lifecycle: a Custom set validates the registry and its edge, and an active
   });
 });
 
-test('no finding changes: a run prepares the policy and reports its provenance, and Stage 2 findings are those of the empty-policy contract', () => {
+test('no finding changes under the Builtin policy: a run prepares the policy and reports its provenance', () => {
   const registryResolution = resolveActiveRegistrySet({ targetRoot: ROOT });
   const staged = prepareNamingTreeStagingInputs(runNamingValidator(ROOT, { scope: 'repo', registryResolution }), { registryResolution });
   const prepared = prepareTreeStructureAdvisorInputs(ROOT, { scope: 'repo', registryResolution, ...staged }).preparedDependencies;
@@ -139,5 +139,7 @@ test('no finding changes: a run prepares the policy and reports its provenance, 
   ]);
   const [entry] = runValidatorRunner(ROOT, { validators: ['tree-structure-advisor'], scope: 'repo' }).validators;
   assert.deepEqual(entry.meta.registryProvenance[ORGANIZATIONAL_PLACEMENT_REGISTRY_ID], { source: 'builtin', digest: getBuiltinTreeOrganizationalPlacementPolicy().registry.digest });
-  assert.equal(Object.hasOwn(entry.meta, 'organizationalPlacement'), false, 'no report field before slice 2');
+  // Slice 2: the report carries the summary, with the Builtin provenance and no consistent relation.
+  assert.equal(entry.meta.organizationalPlacement.policy.source, 'builtin');
+  assert.equal(entry.meta.organizationalPlacement.counts.consistent, 0);
 });

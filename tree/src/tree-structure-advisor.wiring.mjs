@@ -58,6 +58,7 @@ import {
 import { TREE_REGISTRY_SLICE_ID } from './registries/tree-registry-inventory.knowledge.mjs';
 import { prepareTreeFolderSemanticHomeReasoning } from './tree-folder-semantic-home-reasoning.logic.mjs';
 import { prepareTreeEmergentBoundaryReasoning } from './tree-emergent-boundary-reasoning.logic.mjs';
+import { prepareTreeOrganizationalPlacement } from './tree-organizational-placement.logic.mjs';
 
 const TOP_LEVEL_SCAN_EXCLUSIONS = new Set(['.git', 'node_modules']);
 const TREE_ADDRESS_PROFILE_ID = 'tree-structure-advisor-address-profile';
@@ -169,8 +170,7 @@ export const prepareTreeStructureAdvisorInputs = (
   const treeSemanticHomeParameterSet = loadTreeSemanticHomeParameterSet({ registryResolution, registryRoots });
   // Read only by Stage 3 reasoning below (Tree spec S3.13.6).
   const treeEmergentBoundaryPolicy = loadTreeEmergentBoundaryPolicy({ registryResolution, registryRoots });
-  // Prepared with its provenance and read by no consumer yet: relation classification is a separately
-  // authorized slice (Tree spec S2.16).
+  // Read only by organizational-placement classification below (Tree spec S2.16).
   const treeOrganizationalPlacementPolicy = loadTreeOrganizationalPlacementPolicy({ registryResolution, registryRoots });
   const treeRepoShapeEvidence = prepareTreeRepoShapeEvidence({
     localPackageEvidence: collectDeclaredLocalPackageEvidence(repositoryRoot),
@@ -313,6 +313,16 @@ export const prepareTreeStructureAdvisorInputs = (
     parameterSet: treeSemanticHomeParameterSet,
     scope: scopedSnapshotInputs.scope,
   });
+  // Organizational placement (S2.16): every home-elsewhere relation classified as R2-paired, consistent
+  // with the organizational-placement policy, or reportable, from the prepared records above.
+  const treeOrganizationalPlacement = prepareTreeOrganizationalPlacement({
+    semanticHomeReasoning: treeFolderSemanticHomeReasoning,
+    sectionIntake: treeNamingSectionIntake,
+    vocabularyIntake: treeRoleCategoryVocabularyIntake,
+    structuralHomeEvidence: treeStructuralHomeEvidence,
+    placementPolicy: treeOrganizationalPlacementPolicy,
+    validatorDevelopmentRoot,
+  });
   // Stage 3 (S3.1-S3.10), evidence only: discovery, relations and member sets from the Stage 1 and
   // Stage 2 records by reference; outcomes under the adopted policy, or under an experimental override
   // when one is supplied (S3.13.6). No finding, report field or `meta` entry reads it.
@@ -378,6 +388,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeEmergentBoundaryPolicy,
       treeEmergentBoundaryReasoning,
       treeOrganizationalPlacementPolicy,
+      ...(treeOrganizationalPlacement ? { treeOrganizationalPlacement } : {}),
     },
     findingContributors: collectDefaultTreeStructureAdvisorContributors({
       repositoryRoot,

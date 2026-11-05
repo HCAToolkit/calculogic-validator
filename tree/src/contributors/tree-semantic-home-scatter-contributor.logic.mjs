@@ -1,9 +1,11 @@
-// Tree Stage 2B-i `TREE_FAMILY_SCATTERED` (Tree slice spec S2.12, B1-B8; calculogic-validator#102).
+// Tree Stage 2B-i `TREE_FAMILY_SCATTERED` (Tree slice spec S2.12, B1-B8; calculogic-validator#102; S2.16).
 // Reports files whose placement is `home-elsewhere`: an eligible Semantic Home exists elsewhere and the
 // file matches it, but sits outside it. It reads the prepared Stage 2A record and never re-decides
 // eligibility, comparison or structural home; every other placement, and a run where Stage 2 was not
 // evaluated, emits nothing, with no fallback to the earlier family heuristics. Informational only:
 // being outside a home is not a misplacement (S2.15).
+// Which homes a file is reported against is the organizational-placement classification's (S2.16): it
+// owns R2 pairing and the policy; this contributor presents its result and decides nothing about it.
 
 import { toCandidateKey } from '../tree-folder-candidates.logic.mjs';
 import {
@@ -12,7 +14,7 @@ import {
   SEMANTIC_HOME_REASONING_STATUSES,
 } from '../tree-semantic-home-reasoning.knowledge.mjs';
 import { claimOf } from '../tree-semantic-home-strength-profile.logic.mjs';
-import { toValidatorDevelopmentPathPrefix, toValidatorDocAuthorityPathPrefix } from '../tree-validator-development-root.logic.mjs';
+import { ORGANIZATIONAL_PLACEMENT_CLASSIFICATIONS, prepareTreeOrganizationalPlacement, relationsByFile } from '../tree-organizational-placement.logic.mjs';
 
 const CODE = 'TREE_FAMILY_SCATTERED';
 const BASIS = 'semantic-home-placement';
@@ -37,18 +39,6 @@ const toClaim = (candidate, governingChannel) => {
   return governingChannel === SEMANTIC_HOME_CHANNELS.prefix ? { channel, tokens: value.split('\u0000') } : { channel, root: value };
 };
 
-// B2 (R2): a document under the validator development root's `doc/` is paired with a home when the
-// home lies under that root, outside its `doc/`, in the top-level owned area the document's Naming
-// `familyRoot` names. Without a validator development root nothing is paired.
-const isPairedDocument = ({ filePath, familyRoot, homePath, developmentContext }) => {
-  const { validatorRootPrefix, docAuthorityRootPrefix } = developmentContext;
-  if (docAuthorityRootPrefix === null || !filePath.startsWith(docAuthorityRootPrefix)) return false;
-  const homePrefix = `${homePath}/`;
-  if (!homePrefix.startsWith(validatorRootPrefix) || homePrefix.startsWith(docAuthorityRootPrefix)) return false;
-  const ownedArea = homePath.slice(validatorRootPrefix.length).split('/')[0];
-  return typeof familyRoot === 'string' && ownedArea.length > 0 && familyRoot === ownedArea;
-};
-
 // B1: the file's homes are the distinct folders of the eligible candidates it matches elsewhere.
 const homesOf = (placement, candidateByKey) => {
   const homeByFolder = new Map();
@@ -62,11 +52,12 @@ const homesOf = (placement, candidateByKey) => {
   return [...homeByFolder.values()].sort((left, right) => byAddress(left.folder, right.folder));
 };
 
-const toFileRecord = ({ placement, pairedHomes, observation }) => ({
+const toFileRecord = ({ placement, pairedHomes, consistentHomes, observation }) => ({
   occurrence: copyTuple(placement.file),
   path: placement.path,
   matchedCandidates: placement.elsewhereHomes.map(copyCandidateId).sort(byCandidateKey),
   ...(pairedHomes.length > 0 ? { pairedHomes: pairedHomes.map((home) => copyTuple(home.folder)) } : {}),
+  ...(consistentHomes.length > 0 ? { consistentHomes: consistentHomes.map((home) => copyTuple(home.folder)) } : {}),
   otherCandidates: placement.consultedCandidates.map(({ candidateId, outcome, reason, relation, location }) => ({
     candidateId: copyCandidateId(candidateId),
     outcome,
@@ -122,10 +113,21 @@ export const collectSemanticHomeScatterFindings = ({ preparedDependencies, valid
   const observationByTuple = new Map(
     (preparedDependencies.treeNamingSectionIntake?.bridgeObservations?.acceptedRecords ?? []).map((record) => [toTupleKey(record), record.observation]),
   );
-  const developmentContext = {
-    validatorRootPrefix: toValidatorDevelopmentPathPrefix(validatorDevelopmentRoot),
-    docAuthorityRootPrefix: toValidatorDocAuthorityPathPrefix(validatorDevelopmentRoot),
-  };
+  // S2.16: every relation is classified by the organizational-placement layer, the one owner of R2 pairing
+  // and of the policy. The run's prepared record is used when it was prepared for this development root.
+  const prepared = preparedDependencies.treeOrganizationalPlacement;
+  const placementRecord =
+    prepared && prepared.validatorDevelopmentRoot === validatorDevelopmentRoot
+      ? prepared
+      : prepareTreeOrganizationalPlacement({
+          semanticHomeReasoning: reasoning,
+          sectionIntake: preparedDependencies.treeNamingSectionIntake,
+          vocabularyIntake: preparedDependencies.treeRoleCategoryVocabularyIntake,
+          structuralHomeEvidence: preparedDependencies.treeStructuralHomeEvidence,
+          placementPolicy: preparedDependencies.treeOrganizationalPlacementPolicy,
+          validatorDevelopmentRoot,
+        });
+  const classified = relationsByFile(placementRecord);
 
   const groups = new Map();
   for (const placement of reasoning.placements) {
@@ -133,14 +135,17 @@ export const collectSemanticHomeScatterFindings = ({ preparedDependencies, valid
     const observation = observationByTuple.get(toTupleKey(placement.file));
     const homes = homesOf(placement, candidateByKey);
     if (homes.length === 0) throw new Error(`Placement home-elsewhere without an eligible home for ${placement.path}.`);
-    const pairedHomes = homes.filter((home) =>
-      isPairedDocument({ filePath: placement.path, familyRoot: observation?.familyRoot, homePath: home.folderPath, developmentContext }),
-    );
-    // B2: a document paired with every home it belongs to is documentation beside its runtime.
-    if (pairedHomes.length === homes.length) continue;
-    const setKey = homes.map((home) => home.folderKey).join('\u0001');
-    if (!groups.has(setKey)) groups.set(setKey, { setKey, homes, members: [] });
-    groups.get(setKey).members.push({ placement, homes, pairedHomes, observation });
+    const relations = classified.get(toTupleKey(placement.file));
+    const classOf = (home) => relations.get(home.folderKey).classification;
+    const pairedHomes = homes.filter((home) => classOf(home) === ORGANIZATIONAL_PLACEMENT_CLASSIFICATIONS.paired);
+    const consistentHomes = homes.filter((home) => classOf(home) === ORGANIZATIONAL_PLACEMENT_CLASSIFICATIONS.consistent);
+    // B2, S2.16: reported only when some relation is reportable; one consistent or paired relation never
+    // exempts the file's other relations. Consistent homes leave the finding's home set.
+    if (!homes.some((home) => classOf(home) === ORGANIZATIONAL_PLACEMENT_CLASSIFICATIONS.reportable)) continue;
+    const reportedHomes = homes.filter((home) => classOf(home) !== ORGANIZATIONAL_PLACEMENT_CLASSIFICATIONS.consistent);
+    const setKey = reportedHomes.map((home) => home.folderKey).join('\u0001');
+    if (!groups.has(setKey)) groups.set(setKey, { setKey, homes: reportedHomes, members: [] });
+    groups.get(setKey).members.push({ placement, homes: reportedHomes, pairedHomes, consistentHomes, observation });
   }
 
   return [...groups.values()]

@@ -4,6 +4,7 @@ import { getBuiltinTreeRepoShapePolicy } from './registries/tree-repo-shape-poli
 import { toValidatorDevelopmentPathPrefix } from './tree-validator-development-root.logic.mjs';
 import { toTreeSemanticHomeReasoningReport } from './tree-semantic-home-reasoning-report.logic.mjs';
 import { toTreeEmergentBoundaryReasoningReport } from './tree-emergent-boundary-reasoning-report.logic.mjs';
+import { toTreeOrganizationalPlacementReport } from './tree-organizational-placement.logic.mjs';
 
 // Registry policy comes from the prepared dependencies Tree wiring builds from the run's resolved
 // registry root (#41 registry lifecycle). Direct runtime callers that omit it get Builtin.
@@ -334,6 +335,8 @@ export const runTreeStructureAdvisor = (preparedInputs = {}) => {
   const semanticHomeReasoning = toTreeSemanticHomeReasoningReport(prepared.preparedDependencies?.treeFolderSemanticHomeReasoning);
   // S3.13.7: what the Stage 3 advisory finding rested on; absent when Stage 3 was not prepared.
   const emergentBoundaryReasoning = toTreeEmergentBoundaryReasoningReport(prepared.preparedDependencies?.treeEmergentBoundaryReasoning);
+  // S2.16: the organizational-placement provenance and relation counts; absent when Stage 2 was not evaluated.
+  const organizationalPlacement = toTreeOrganizationalPlacementReport(prepared.preparedDependencies?.treeOrganizationalPlacement);
 
   return {
     findings,
@@ -350,5 +353,6 @@ export const runTreeStructureAdvisor = (preparedInputs = {}) => {
     },
     ...(semanticHomeReasoning ? { semanticHomeReasoning } : {}),
     ...(emergentBoundaryReasoning ? { emergentBoundaryReasoning } : {}),
+    ...(organizationalPlacement ? { organizationalPlacement } : {}),
   };
 };

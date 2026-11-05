@@ -3,8 +3,9 @@
 // eligible home) relation of a prepared Stage 2 record as `paired`, `consistent` or `reportable`, exactly
 // as S2.16 specifies, and derives which files the contract would report.
 //
-// R2 is never re-implemented: pairing is read from the production `TREE_FAMILY_SCATTERED` emitter, which
-// omits a file paired with every home and lists `pairedHomes` on the others.
+// R2 is never re-implemented: pairing is read from the production `TREE_FAMILY_SCATTERED` emitter run with
+// no organizational-placement policy, where only R2 can exempt a file: it omits a file paired with every
+// home and lists `pairedHomes` on the others. (The production classifier owns R2 directly, S2.16.)
 
 import { collectSemanticHomeScatterFindings } from '../../../src/contributors/tree-semantic-home-scatter-contributor.logic.mjs';
 
@@ -67,8 +68,9 @@ export const classifyOrganizationalPlacement = ({ preparedDependencies, validato
     return applicable.find((entry) => entry.select.roles?.includes(record.role)) ?? applicable.find((entry) => entry.select.roleCategories?.includes(record.roleCategory)) ?? null;
   };
 
-  // R2 pairing, from the production emitter.
-  const findings = collectSemanticHomeScatterFindings({ preparedDependencies, validatorDevelopmentRoot });
+  // R2 pairing, from the production emitter with no policy (so that an absent file means R2 pairing).
+  const { treeOrganizationalPlacement: _record, treeOrganizationalPlacementPolicy: _policy, ...withoutPolicy } = preparedDependencies;
+  const findings = collectSemanticHomeScatterFindings({ preparedDependencies: withoutPolicy, validatorDevelopmentRoot });
   const reportedToday = new Map(findings.flatMap((finding) => finding.details.files.map((file) => [file.path, new Set((file.pairedHomes ?? []).map(tupleKey))])));
 
   const relations = [];

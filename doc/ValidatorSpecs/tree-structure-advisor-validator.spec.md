@@ -1282,16 +1282,19 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
-#### S2.16 Organizational placement (Contract; registry and loader implemented, classification not implemented)
+#### S2.16 Organizational placement (Contract; implemented by slices 1 and 2)
 
-**Status.** This subsection is a contract with a test-only catalogue, implemented in two separately authorized slices. It changes no finding:
+**Status.** This subsection is a contract with a catalogue, implemented in two separately authorized slices. The Builtin policy changes no finding:
 - **Slice 1, registry and loader (implemented).**
   - What exists: the Builtin registry `tree/organizational-placement` (`entries: []`), its shape validation and the reference edge `tree/organizational-placement-namespace` to `tree/structural-homes` (lifecycle §12.11).
-  - The loader prepares `treeOrganizationalPlacementPolicy` from the run's resolution, with its provenance. No reasoning, emitter or report field reads it.
+  - The loader prepares `treeOrganizationalPlacementPolicy` from the run's resolution, with its provenance.
   - Effects on reports: the Tree entry's `meta.registryProvenance` lists the new registry, and the resolved-set digests change. A Custom set created before this registry existed is incomplete until it inherits it (lifecycle §7.1 item 2).
-- **Slice 2, relation classification (not implemented).** The prepared record, `meta.organizationalPlacement` and the emitter changes below. It must consume the prepared placement and R2 pairing evidence through an internal contract, never by re-reading filtered findings.
+- **Slice 2, relation classification (implemented).**
+  - `tree/src/tree-organizational-placement.logic.mjs` classifies every relation from the prepared records. It is the one owner of R2 pairing and of the policy's interpretation, and it never reads emitted findings.
+  - Wiring prepares `treeOrganizationalPlacement` for the run's validator development root; the runtime reports `meta.organizationalPlacement`.
+  - The `TREE_FAMILY_SCATTERED` contributor presents the classification (S2.12 B2 is now that classification). It reuses the prepared record for the run's root and reclassifies for another root, as for direct library calls.
 
-`TREE_FAMILY_SCATTERED`, R2 (S2.12 B2) and every finding are unchanged.
+With the Builtin policy, `TREE_FAMILY_SCATTERED` and R2 (S2.12 B2) are exactly as before, and every exit code is unchanged. Only the new record and `meta.organizationalPlacement` are added.
 
 **Purpose.** A `home-elsewhere` file can share a semantic subject with an eligible home while correctly belonging to a different organizational context. The common example is a specification kept in a central `doc/` tree about code under `src/`. Today:
 - R2 recognizes this only for documents in the validator's own repository whose Naming `familyRoot` names the home's top-level folder;
@@ -1358,17 +1361,17 @@ Stage 2A reasoning, its placements, the S2.11 catalogue and the conformance bind
 
 **Inspectability (for the implementation slice).**
 - **A prepared record, `treeOrganizationalPlacement`,** is present whenever Stage 2 is evaluated. It holds:
-  - `policy`: `{ registryId, version, source, digest, applicability }`;
+  - `validatorDevelopmentRoot`: the root R2 was evaluated for;
+  - `policy`: `{ registryId, version, source, digest, applicability, reason? }`. `reason` is `policy-not-prepared` or `vocabulary-unusable` when the policy is inapplicable;
   - one record per relation: `{ file: identity tuple, path, home: identity tuple, homePath, classification, basis }`, sorted by file then home address. `basis` is one of:
     - `{ rule: 'r2-ownership' }`;
     - `{ rule: 'organizational-policy', entryId, arrangement, fileNamespace, homeNamespace }`;
     - `{ rule: 'no-applicable-entry' | 'same-namespace' | 'colocated' | 'policy-inapplicable' }`;
   - `diagnostics` for inapplicable entries.
-- **The report entry** carries `meta.organizationalPlacement`: `{ policy, counts: { paired, consistent, reportable }, governedCodes: ['TREE_FAMILY_SCATTERED'] }`. Consistent and paired relations are visible as counts, and in the record, even when no finding is emitted.
+- **The report entry** carries `meta.organizationalPlacement`: `{ policy, counts: { paired, consistent, reportable }, diagnostics?, governedCodes: ['TREE_FAMILY_SCATTERED'] }`. `diagnostics` appears only when an entry is inapplicable. Consistent and paired relations are visible as counts, and in the record, even when no finding is emitted.
 
 **Compatibility.**
-- **Until the implementation slice is approved:** R2, `TREE_FAMILY_SCATTERED` and every exit code stay exactly as they are.
-- **After it, with the Builtin (empty) policy:** findings stay byte-identical; only the new record and `meta` entry are added.
+- **With the Builtin (empty) policy:** findings stay byte-identical; only the new record and `meta` entry are added (current behavior since slice 2).
 - **What a policy would change in this repository** (measured at `2538487` by the test-only reference). These are the three relations S2.12 B2 deliberately reports today: "a document whose root names a different area than its home … is reported", with the `9770ce7` effect table.
 
   | File | Today | Under a Custom policy (documentation roles centralized in `doc`/`docs`; `host`/`entry`/`cli` centralized in `bin`/`scripts`) |
@@ -1382,7 +1385,10 @@ Stage 2A reasoning, its placements, the S2.11 catalogue and the conformance bind
   - **React app:** it has no `home-elsewhere` file, so no change.
   - **Approval needed:** the S3.13.9 guard applies in spirit. Removing these findings needs the owner's approval as part of the implementation slice.
 
-**Catalogue (test-only).** OP-1 to OP-8 are real temporary repositories prepared through Naming staging and Tree wiring, evaluated by a test-only reference against fixture policies. The reference obtains R2 pairing from the production emitter, so R2 is never re-implemented.
+**Catalogue.**
+- OP-1 to OP-8 are real temporary repositories prepared through Naming staging and Tree wiring.
+- **Test-only reference:** it evaluates the cases against fixture policies. It obtains R2 pairing from the production emitter run without a policy, so R2 is never re-implemented.
+- **Production run (slice 2):** each case also runs with its policy activated as a Custom set. The production classifier must give exactly the reference's relations, basis included.
 
 | Case | Shape | Policy | Expected classification | Reported |
 |---|---|---|---|---|
