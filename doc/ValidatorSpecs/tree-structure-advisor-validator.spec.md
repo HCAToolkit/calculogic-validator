@@ -1282,6 +1282,119 @@ Each step needs its own authorization:
 - Changing findings outside the per-code decisions in S2.12.
 - Broader local-context reasoning is deferred. Stage 2 reads containment, ancestry (`rootAncestry`, as a facet only), composition and candidate-relative relationships. It does not reason over parent or sibling context in the wider sense the Tree blueprint describes. Adding that needs its own contract amendment and adds no dependency to this one.
 
+#### S2.16 Organizational placement (Contract only; not implemented)
+
+**Status.** This subsection is a contract and a test-only catalogue. It changes no runtime behavior:
+- no production registry, loader or emitter exists for it;
+- `TREE_FAMILY_SCATTERED`, R2 (S2.12 B2) and every report are unchanged.
+
+A separately authorized implementation slice adopts it.
+
+**Purpose.** A `home-elsewhere` file can share a semantic subject with an eligible home while correctly belonging to a different organizational context. The common example is a specification kept in a central `doc/` tree about code under `src/`. Today:
+- R2 recognizes this only for documents in the validator's own repository whose Naming `familyRoot` names the home's top-level folder;
+- it never applies to installed consumers;
+- and the files it exempts are not reported anywhere.
+
+This contract makes the organizational relationship explicit, configurable and inspectable, without changing what Naming, Addressing or Stage 2A decide.
+
+**Ownership.**
+
+| Layer | Owner | Responsibility |
+|---|---|---|
+| Artifact facts: role, role category, role status, semantic tokens | Naming (unchanged), through the section intake (S1.1) | Upstream facts. Never reinterpreted |
+| Role and category vocabulary of the run | Naming, through the §4.9 vocabulary intake (`treeRoleCategoryVocabularyIntake`) | Bounds which selectors are applicable |
+| Structural namespace of a folder | Tree, `tree/structural-homes` (unchanged), through `treeStructuralHomeEvidence` | Which folders are `doc`, `docs`, `scripts`, `src`, … |
+| Path, ancestry, occurrence identity | Addressing and suite core (unchanged) | — |
+| **Organizational placement policy** | **Tree, new registry `tree/organizational-placement`** | Which artifact kinds are kept in which namespaces, and how |
+| Relation classification and the finding | Tree, Stage 2 emitter (S2.12) | Classifies each relation and decides the finding |
+
+Stage 2A reasoning, its placements, the S2.11 catalogue and the conformance binding are unchanged. The policy is read only after placement.
+
+**Registry shape (`tree/organizational-placement`, version 1).**
+- `entries[]`, each:
+  - `entryId`: unique;
+  - `select`: exactly one of `{ roles: [...] }` or `{ roleCategories: [...] }`, non-empty, naming Naming roles or role categories;
+  - `arrangement`: `centralized` or `colocated`;
+  - `namespaces`: Tree structural-home ids. Required and non-empty when `centralized`; absent when `colocated`;
+  - `definition`: the convention it records.
+- **Builtin:** `entries: []`. The Builtin set adopts no organizational exemption.
+- **Custom:** a consumer's Custom set may add entries through the existing registry lifecycle (lifecycle §7–§8), with its source and digest reported.
+- **Load-time validation:**
+  - a closed shape;
+  - `namespaces` drawn from `tree/structural-homes` in the same resolved set;
+  - no two entries whose selectors of the same kind (`roles`, or `roleCategories`) both name one value. That would be an ambiguous precedence.
+
+**Arrangements.**
+- **Centralized:** files of the selected kind are kept in the listed namespaces, away from the subjects they concern.
+- **Colocated:** files of the selected kind are kept inside their subject's home. A file outside its home is reportable, which is today's behavior.
+- **Mixed** is not a third value. It is several entries with different arrangements, for example documentation centralized and entry scripts colocated.
+- **A kind with no entry** keeps today's behavior.
+
+**Deterministic matching**, per file, before any relation is classified:
+1. **Applicability.** If the vocabulary intake is not `usable`, no entry applies: the policy is inapplicable, recorded as such, with today's behavior. An entry whose selector names a role or category absent from the run's usable vocabulary is inapplicable and recorded, never an error.
+2. **File kind.** The file's Naming role and role category come from its accepted section-intake record (`roleStatus: active` only). A file without an accepted active role matches no entry.
+3. **Precedence.** An applicable `roles` entry naming the file's role wins over a `roleCategories` entry naming its category. Load-time validation makes at most one entry of each kind match.
+4. **Namespace.** A folder's namespace is the structural home of the folder itself or of its nearest ancestor with one in `treeStructuralHomeEvidence`, or none.
+   - A file's namespace is that of its folder.
+   - A home's namespace is that of the home folder.
+
+**Relation classification.** A relation is one (`home-elsewhere` file, eligible home folder) pair, using the home set of S2.12 B1. Each relation is classified independently, in this order:
+1. **`paired`:** R2 pairs the file with that home (S2.12 B2, unchanged). R2 stays an ownership relation, distinct from organizational consistency, and always takes precedence.
+2. **`consistent`:** the file's matching entry is `centralized`, the file's namespace is one of the entry's `namespaces`, and the home's namespace is not one of them (none counts as outside). The relation crosses from the kind's organizational context into a different one, which is the configured convention.
+3. **`reportable`:** every other relation, including:
+   - a home inside the same namespace (scatter within the documentation tree stays reportable);
+   - a `colocated` entry;
+   - no matching entry;
+   - an inapplicable policy.
+
+**The finding.**
+- **When a file is reported:** only when at least one of its relations is `reportable`. One `consistent` or `paired` relation never exempts a file's other relations.
+- **What its record lists:** today's `pairedHomes`, plus a new `consistentHomes`. The finding's home set excludes consistent homes.
+- **Grouping** (S2.12 B1) uses that home set.
+- **With an empty or inapplicable policy,** no relation is `consistent`, so every finding is byte-identical to today.
+
+**Inspectability (for the implementation slice).**
+- **A prepared record, `treeOrganizationalPlacement`,** is present whenever Stage 2 is evaluated. It holds:
+  - `policy`: `{ registryId, version, source, digest, applicability }`;
+  - one record per relation: `{ file: identity tuple, path, home: identity tuple, homePath, classification, basis }`, sorted by file then home address. `basis` is one of:
+    - `{ rule: 'r2-ownership' }`;
+    - `{ rule: 'organizational-policy', entryId, arrangement, fileNamespace, homeNamespace }`;
+    - `{ rule: 'no-applicable-entry' | 'same-namespace' | 'colocated' | 'policy-inapplicable' }`;
+  - `diagnostics` for inapplicable entries.
+- **The report entry** carries `meta.organizationalPlacement`: `{ policy, counts: { paired, consistent, reportable }, governedCodes: ['TREE_FAMILY_SCATTERED'] }`. Consistent and paired relations are visible as counts, and in the record, even when no finding is emitted.
+
+**Compatibility.**
+- **Until the implementation slice is approved:** R2, `TREE_FAMILY_SCATTERED` and every exit code stay exactly as they are.
+- **After it, with the Builtin (empty) policy:** findings stay byte-identical; only the new record and `meta` entry are added.
+- **What a policy would change in this repository** (measured at `2538487` by the test-only reference). These are the three relations S2.12 B2 deliberately reports today: "a document whose root names a different area than its home … is reported", with the `9770ce7` effect table.
+
+  | File | Today | Under a Custom policy (documentation roles centralized in `doc`/`docs`; `host`/`entry`/`cli` centralized in `bin`/`scripts`) |
+  |---|---|---|
+  | `doc/ValidatorSpecs/linguistic-foundation-shared-contract.spec.md` | reported (homes `linguistic-foundation`, `test/fixtures/linguistic-foundation`) | `consistent` with both; not reported |
+  | `doc/ValidatorSpecs/suite-owned/registry-lifecycle-builtin-custom.spec.md` | reported (home `src/core/registry-lifecycle`) | `consistent`; not reported |
+  | `scripts/registry-lifecycle.host.mjs` | reported (home `src/core/registry-lifecycle`) | `consistent`; not reported |
+
+  - **Self-check:** R2's 22 exempted documents stay `paired`.
+  - **Installed-consumer view:** without a validator development root, R2 is inactive. All 25 `home-elsewhere` files in this repository are reported today, in 4 findings. The same Custom policy would make all 25 `consistent`.
+  - **React app:** it has no `home-elsewhere` file, so no change.
+  - **Approval needed:** the S3.13.9 guard applies in spirit. Removing these findings needs the owner's approval as part of the implementation slice.
+
+**Catalogue (test-only).** OP-1 to OP-8 are real temporary repositories prepared through Naming staging and Tree wiring, evaluated by a test-only reference against fixture policies. The reference obtains R2 pairing from the production emitter, so R2 is never re-implemented.
+
+| Case | Shape | Policy | Expected classification | Reported |
+|---|---|---|---|---|
+| OP-1 centralized documentation | `doc/specs/widget-engine-overview.spec.md`, home `src/widget-engine` | documentation centralized in `doc`/`docs` | `consistent` | no |
+| OP-2 entry script | `scripts/widget-engine.host.mjs`, home `src/widget-engine` | `host`/`entry`/`cli` centralized in `bin`/`scripts` | `consistent` | no |
+| OP-3 within-namespace scatter | `doc/guides/widget-engine-usage.spec.md`, home `doc/widget-engine` | documentation centralized | `reportable` (`same-namespace`) | yes |
+| OP-4 colocated documentation | the OP-1 tree | documentation colocated | `reportable` (`colocated`) | yes |
+| OP-5 no applicable entry | `src/misc/widget-engine-helper.logic.mjs`, home `src/widget-engine` | documentation centralized | `reportable` (`no-applicable-entry`) | yes |
+| OP-6 several namespaces | `doc/specs/widget-engine-overview.spec.md`, homes `doc/widget-engine` and `src/widget-engine` | documentation centralized | `src` home `consistent`, `doc` home `reportable` | yes, for the `doc` home only |
+| OP-7 R2 ownership | `doc/specs/widget-overview.spec.md`, home `widget`, under a validator development root | documentation centralized | `paired` (R2 precedes the policy) | no |
+| OP-8 mixed arrangement | the OP-1 tree plus `scripts/widget-engine.host.mjs` | documentation centralized; entry scripts colocated | doc `consistent`, script `reportable` (`colocated`) | the script only |
+
+With the empty Builtin policy, the reference reproduces the production emitter exactly on every case and on this repository, with and without a validator development root.
+
+
 ### Emergent structural-boundary opportunities, Stage 3 (Status: Contract; evidence-only runtime, S3.11 step 4. The S3.5 claim-relative uncertainty and S3.6 coverage-invariance amendments of calculogic-validator#138 are implemented by calculogic-validator#140. The S3.2 positional lineage expression of calculogic-validator#142 is implemented by calculogic-validator#144. The S3.2 lexical-label expression of calculogic-validator#153 is implemented by its implementation slice. The S3.2 repository package expression of calculogic-validator#157 is implemented by calculogic-validator#159. The S3.6 role-category vocabulary rule of calculogic-validator#162 is Contract only, implementation-pending; its S1 intake is implemented by the evidence-only slice, and Stage 3 does not read it. The S3.13 first-advisory contract of calculogic-validator#171: its adopted policy (S3.13.6, slice B) is implemented by the slice-B implementation; the first advisory finding (slice C, S3.13.2–S3.13.5 and S3.13.7) is implemented by the slice-C implementation and is emitted only under the adopted policy with an active language profile. The S3.13.9 selection evidence contract of calculogic-validator#175 is Contract only: `opportunity-selection` stays unresolved and EL5 is unchanged. Rules marked *provisional* are not binding until adopted with catalogue evidence; S3.11)
 
 This section is the contract for potential-home discovery, the capability Stage 2B-iii recorded as deferred (E2). It asks one question: **does a directory hold a cohesive group of responsibilities that a new structural boundary would make clearer?**
