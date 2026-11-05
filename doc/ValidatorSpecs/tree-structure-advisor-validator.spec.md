@@ -2825,10 +2825,12 @@ V0.1.4 hardened subset:
   - `canonicalTargetPath`
   - `reexportTargetCount`
   - intentional pass-through booleans (canonical host pass-through / public entrypoint pass-through)
-- thin flat re-export files (`export * from ...` / `export { ... } from ...` only) remain the strongest/high-confidence shim signal
-- intentional pass-through entrypoints are excluded from shim debt findings:
-  - canonical `*.host.* -> sibling *.wiring.*` pass-through in owned slices
-  - `<validator development root>/src/index.mjs` package/public entrypoint barrel (Validator development context only; see Runtime boundary)
+- content reads are gated after the resolved extension allowlist: an eligible selected path must have a folder or basename-token signal, be inside a compat surface, match a Validator-owned basename matcher, contain `.host.` in its basename, or be the development-context public entrypoint. Content access also retains the contributor's containment and regular-file guards.
+- signal provenance in current runtime truth is folder-segment and Tree-tokenized basename evidence, together with separately evaluated file-content evidence. Tree lowercases the basename, removes its final extension and splits on non-alphanumeric characters for token matching. Naming role and subject evidence are not passed to the shim contributor; these tokens do not distinguish assigned role from subject.
+- recognized thin re-exports remain the strongest/high-confidence shim signal. After trimming lines and ignoring blank lines and lines starting with `//`, every remaining line must be a flat `export * from ...` or `export { ... } from ...` statement. The first target alone must contain a `core/`, `tree/`, `naming/` or `validators/` segment (at the start or after `/`); later targets are collected but are not checked for that segment.
+- canonical host boundaries forwarding only to a sibling wiring module do not produce thin-re-export evidence or the `TREE_SHIM_OUTSIDE_COMPAT` warning through that forwarding: `./<name>.wiring.<ext>` lacks the required canonical directory segment. The dedicated host pass-through check requires a recognized, single-target thin re-export whose target equals `./` plus the host basename with `.host.` replaced by `.wiring.`. These predicates cannot recognize the intended sibling target. Parser non-recognition does not prevent weak path/token findings: a host with a shim-related basename token or folder segment can still emit `TREE_SHIM_SURFACE_PRESENT`, and the dedicated host exclusion cannot match the sibling target to suppress it.
+- the `<validator development root>/src/index.mjs` package/public entrypoint barrel is excluded separately in Validator development context (see Runtime boundary).
+- the resolved `validator-owned-signals` registry supplies basename matchers. Its Builtin patterns are specific to this Validator's module names and apply in every context, including installed consumers. Unlike these matchers, the public-entrypoint and detector-module self-exemptions depend on a validator development root.
 - weak token/path-only shim signals on non-runtime surfaces (`quality/docs/examples/fixtures`) are suppressed from shim-debt output
 - weak token/path-only shim signals on the shim detector's own implementation modules (under `<validator development root>/tree/src/`, with a detector-implementation token) are suppressed from shim-debt output (Validator development context only)
 - runtimeish token/path-only shim signals remain info-only observability
@@ -2845,6 +2847,7 @@ Constraints:
 
 - do not require creation of empty `compat/` folders
 - report findings are advisory diagnostics only (not pass/fail by default)
+- the diagnostic does not promise discovery of every thin forwarding module. Widening content-read eligibility and widening parser recognition are separate, undecided decisions; this description adopts neither.
 
 ---
 
