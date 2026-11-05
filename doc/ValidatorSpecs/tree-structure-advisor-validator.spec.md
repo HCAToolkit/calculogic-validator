@@ -2104,7 +2104,32 @@ A candidate yields an advisory finding **only when all five conditions hold**:
 
 - Every case states its structural evidence and its domain interpretation separately. An expected selection that rests only on interpretation is recorded as such, and cannot justify a rule by itself.
 - E22 remains a measured case with selection unresolved. It is not counted as SE-2.
-- Adding these cases is a separately authorized catalogue slice. Adopting a rule, its threshold, and its chain and multi-subgroup semantics is a later owner decision.
+- The cases are added by calculogic-validator#175 slice S3 (below). Adopting a rule, its threshold, and its chain and multi-subgroup semantics is a later owner decision.
+
+**Catalogue cases (calculogic-validator#175, slice S3).** SE-1 to SE-4 are executable synthetic fixtures, `selectionCases` in the Stage 3 catalogue. They are kept apart from the S3.9 cases and do not join their integrity checks.
+- **What every case shows:** each case runs under both the adopted and the experimental policy, with the same results.
+  - Every candidate is complete. There is no unrecognized file, so coverage plays no part.
+  - Every member is supported and `concern-core`.
+  - The one-word prefix is `not-an-opportunity` (`redundant-with`).
+  - Every nested candidate is a complete `opportunity` with `selection: unresolved`.
+  - With an active profile, EL5 counts them as related opportunities and no finding is emitted.
+- **How the strategy columns are computed:** by a test-only reference that reads recorded outcomes, selection and supported members. It is not runtime behavior, and the catalogue builder has no selection logic.
+- **The interpretation column is not checked against reasoning.**
+
+| Case | Structural evidence (recorded) | Domain interpretation | Outer-only | Inner-only | Remainder-based | Recorded fields determine a boundary? |
+|---|---|---|---|---|---|---|
+| SE-1 | `cache-store` (5 units) ⊃ `cache-store-index` (3); remainder 2 | the index is one responsibility; `config` and `errors` do not justify the outer folder. Prefers the inner | `cache-store` | `cache-store-index` | outer only for a threshold of at most 2 | No |
+| SE-2 | `report-render` (8) ⊃ `report-render-html` (3); remainder 5 | every unit is a format renderer; HTML is a sub-concern. Prefers the outer | `report-render` | `report-render-html` | outer only for a threshold of at most 5 | No |
+| SE-3 | `pipeline-stage` (6) ⊃ `pipeline-stage-parse` (3) and `pipeline-stage-emit` (3), the two disjoint; remainder 0 | one folder with two subfolders, or two sibling folders; no preference | `pipeline-stage` | both subgroups | never the outer | No |
+| SE-4 | `sync-engine` (9) ⊃ `sync-engine-journal` (6) ⊃ `sync-engine-journal-segment` (3); remainder 3 and 3, one per nesting step | which levels deserve folders is a design choice; no preference | `sync-engine` | `sync-engine-journal-segment` | not defined: a chain needs a recursive definition | No |
+
+**What the cases establish.**
+- **SE-1 and SE-2 differ only in counts.** Their records are otherwise alike: relations, outcomes, reasons, categories, prefix lengths, no supporting or unrecognized files.
+  - Each fixed direction contradicts one of the two interpretations: outer-only goes against SE-1, inner-only against SE-2.
+  - The remainder (2 against 5) is the only recorded difference. It separates them only for a threshold above 2 and at most 5, and that threshold is an undecided value with no evidence for any point in the range.
+- **The interpretations rest on reading file names,** which the record does not carry. The preference in SE-1 and SE-2 is interpretation, not evidence.
+- **SE-3 and SE-4 have no preferred reading.** No strategy can be checked against them. They record what each strategy would do, and that remainder-based selection is undefined for a chain.
+- **Result:** existing recorded fields do not justify a deterministic selection rule. `opportunity-selection` stays unresolved and EL5 is unchanged. A rule would need evidence the record does not carry, such as whether the remainder is itself cohesive.
 
 ### Naming-bridge folder-kind interpretation + placement model (Status: Bounded modeling note)
 

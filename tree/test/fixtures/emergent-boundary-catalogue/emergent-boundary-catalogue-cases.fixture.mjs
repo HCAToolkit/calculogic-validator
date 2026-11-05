@@ -33,6 +33,8 @@
 //   comparisons of named files against a folder's label candidate. Names select files in the focus
 //   directory only (a semantic name can recur elsewhere, as E2's spec and logic file do).
 
+import { EMERGENT_BOUNDARY_SELECTION_CASES } from './emergent-boundary-selection-cases.fixture.mjs';
+
 const spec = { role: 'spec', roleCategory: 'documentation' };
 const fixture = { role: 'fixture', roleCategory: 'quality-support' };
 const test = { role: 'test', roleCategory: 'quality-support' };
@@ -963,4 +965,7 @@ export const EMERGENT_BOUNDARY_CATALOGUE = Object.freeze({
   cases: CASES,
   companions: COMPANIONS,
   lexicalCompanions: LEXICAL_COMPANIONS,
+  // SE-1 to SE-4 (Tree spec S3.13.9; calculogic-validator#175): selection evidence, kept apart from the
+  // S3.9 cases, whose integrity checks they do not join.
+  selectionCases: EMERGENT_BOUNDARY_SELECTION_CASES,
 });

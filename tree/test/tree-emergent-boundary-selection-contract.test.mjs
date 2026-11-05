@@ -57,6 +57,7 @@ test('the evidence required before adoption names four structural cases, each se
   assert.deepEqual([...required.matchAll(/^\| (SE-\d) /gmu)].map((match) => match[1]), ['SE-1', 'SE-2', 'SE-3', 'SE-4']);
   assert.match(required, /\| Required case \| Structural evidence \(synthetic, recorded fields\) \| Domain interpretation \(stated separately, never inferred\) \|/u);
   assert.match(S3_13_9, /E22 remains a measured case with selection unresolved\. It is not counted as SE-2/u);
-  // The catalogue gains no case in this slice.
+  // The S3.9 cases gain none of them: SE-1 to SE-4 live in their own collection (slice S3).
   assert.equal([...EMERGENT_BOUNDARY_CATALOGUE.cases, ...EMERGENT_BOUNDARY_CATALOGUE.companions].some((entry) => /^SE-/u.test(entry.id)), false);
+  assert.deepEqual(EMERGENT_BOUNDARY_CATALOGUE.selectionCases.map((entry) => entry.id), ['SE-1', 'SE-2', 'SE-3', 'SE-4']);
 });
