@@ -92,6 +92,9 @@ Authority labels used in this index:
 
 ### 4.2 Supporting implementation guidance
 
+- `doc/ValidatorSpecs/cross-cutting/structural-addressing-intent-and-reconciliation.note.md`
+  **Authority:** supporting implementation guidance (informative, non-authoritative; defers to the shared contract). **Intended use:** preserve Structural Addressing architectural intent and reconciliation questions without adopting a grammar, changing contract authority, or authorizing implementation.
+
 - `doc/ValidatorSpecs/nl-config/cfg-treeStructureAdvisor.md`
   **Authority:** supporting implementation guidance. **Intended use:** tree NL/config implementation context and sequencing notes; defer runtime authority to suite contract + tree slice spec.
 
