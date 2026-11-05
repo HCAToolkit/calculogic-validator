@@ -86,6 +86,26 @@ Draft boundary protection for atomic comments:
 
 These should read like compressed NL bullets and are the main thing AI should preserve.
 
+#### 3.3.1 Annotation dimensions (clarification)
+
+> **Classification:** Informative clarification. It restates CCPP §3.3 and CCS and adds no new requirement, field or syntax.
+
+An atomic comment can express several distinct dimensions. They should not be assumed to share a field.
+
+| Dimension | What it describes | Where CCPP currently carries it |
+|---|---|---|
+| NL section reference | The numbered NL section the construct implements | The bracket token on the first line (§3.3) |
+| Hierarchical type | Structural form: Container, Subcontainer or Primitive | The third field of the first line (§3.3) |
+| Concern | Functional area: Build, BuildStyle, Logic, Knowledge, Results or ResultsStyle. CCS treats it as orthogonal to hierarchical type. | `Concern:` on the second line. For NL concern sections 3–8, the leading digit of the section number also corresponds to the concern. Other sections, such as §2 Configuration Contracts, are not concern indices. |
+| Semantic role or category | What the construct does, for example derived value, event handler or workflow | Not specified by CCPP |
+| Catalog identity | A reference to a catalog entry, for example `layout.group` | `Catalog:` on the second line (§3.3) |
+
+- The NL skeleton documents examples of semantic roles and categories, including those in §5.2.1–5.2.5 and §6. This clarification does not establish a closed role vocabulary or its annotation representation.
+- `Workflow` names a semantic function, not a hierarchical type. A workflow-related grouping may be represented structurally, for example by a Subcontainer, but not every Subcontainer is a Workflow.
+- `Catalog:` refers to a catalog identity, not a role label. No canonical catalog vocabulary or ownership definition was identified in the examined Validator and React app repositories. Its authority remains unresolved.
+- Existing annotations may place role or concern labels in the hierarchical-type field. Their current use is recorded as observed legacy practice, without declaring them conforming or nonconforming. This clarification neither changes those annotations nor establishes a normalization requirement. Future consumers must not assume that the field consistently contains a validated hierarchical type.
+- Structural Addressing owns structural occurrence, positional addressing, ordering, containment, and neutral reference mechanics. It does not own concern, role, catalog, or other semantic interpretations.
+
 ### 3.4 Inline Rationale
 
 ```ts
