@@ -1054,7 +1054,7 @@ There is no ambiguous target: a keyed collection with a duplicate key yields no 
 
 Resolver and validation must agree on each fixture. No test tries to discover references from validation code: the declarations are maintained with the slice, and their fixtures are the contract.
 
-**The initial edges.** The edges are exactly those the slices enforce today, recorded with their validation evidence in `doc/Audits/registry-reference-edges.audit.md`:
+**The edges.** The edges are exactly those the slices enforce today, recorded with their validation evidence in `doc/Audits/registry-reference-edges.audit.md`:
 
 | Edge | Source entry | Target |
 |---|---|---|
@@ -1062,6 +1062,7 @@ Resolver and validation must agree on each fixture. No test tries to discover re
 | `naming/perspective-role-definition` | `category-role-perspective` record | `roles` · `roles`, `{ groups: [], key: role }` |
 | `naming/perspective-meaning` | `category-role-perspective` record, one reference per distinct value of `agnosticCoreMeanings`, `baseMeanings` and `overlayMeanings` | `agnostic-core-meanings` · `meanings`, `{ groups: [], key: meaning }` |
 | `naming/perspective-inherits-from` | `category-role-perspective` record with `inheritsFrom` | `category-role-perspective` · `rolesByCategory.*`, `{ groups: [category], key: role }` |
+| `tree/organizational-placement-namespace` | `organizational-placement` record, one reference per value of a centralized entry's `namespaces` (Tree spec S2.16) | `structural-homes` · `structuralHomes`, `{ groups: [], key: namespace }` |
 | `tree/perspective-structural-home` | `surface-structural-home-perspective` record | `structural-homes` · `structuralHomes`, `{ groups: [], key: structuralHome }` |
 
 Every one requires its target: Naming's and Tree's validation reject each unresolved case. None has an alternative target.
@@ -1191,6 +1192,7 @@ After the original scope of #60 (through #77):
   - **Read at run time:** `naming/category-role-perspective`. Naming's roles loading (`loadRolesPayload`, `naming/src/registries/registry-state.logic.mjs`) takes each role's category membership from it whenever the file is present, so editing it in Custom changes the categories a run uses. It is also the source of the four Naming reference edges. *Correction (#60):* this section first listed it among the registries without a runtime consumer.
   - **Read at run time, no finding yet:** `tree/semantic-home-policy`. Tree's parameter loader prepares `treeSemanticHomeParameterSet` from it in every run, with per-parameter provenance from the Baseline entry comparison (§11.4; Tree spec S2.9). Nothing decides with it until Stage 2A, so editing it in Custom changes the prepared set but no finding.
   - **Read at run time, no finding yet:** `tree/emergent-boundary-policy` (calculogic-validator#171). Tree's adopted-policy loader prepares the Stage 3 policy from it in every run, with its provenance (Tree spec S3.13.6). Stage 3 assessments follow it; no finding reads them until the first advisory finding is implemented, so editing it in Custom changes the prepared assessments but no finding. A Custom set created before this registry existed is incomplete (§7.1 item 2) until it inherits it.
+  - **Prepared at run time, no consumer yet:** `tree/organizational-placement` (Tree spec S2.16). Tree's loader prepares the organizational-placement policy from it in every run, with its provenance. No reasoning, finding or report field reads the prepared policy until relation classification is implemented, so editing it in Custom changes no finding. Its Builtin holds no entry. A Custom set created before this registry existed is incomplete (§7.1 item 2) until it inherits it.
   - **No runtime consumer yet:** `naming/agnostic-core-meanings` (target of the perspective-meaning edge), `tree/structural-home-signal-policy` and `tree/surface-structural-home-perspective` (source of the perspective-structural-home edge). No validation run reads them, so editing them in Custom has no effect on findings until a consumer slice lands. *Correction (#54):* this list also named the field `allowDotFiles` of `naming/walk-exclusions`; registry version `"2"` retired it, so it is no longer part of any readable registry.
 - **Reports** carry `registrySet` (runner envelope and Naming report) and `registryProvenance` (Naming report and runner Naming entry `meta`; Tree runner entry `meta`; suite-core registries on the runner envelope). Naming's transitional fields are derived (§11.3).
 - **Retired:** Naming's config record surfaces (`naming.*` in config), the `overlay-capabilities` registry, and the in-package `_custom/` set and `registry-state.json`, which are now test fixtures under `naming/test/fixtures/registry-lifecycle/legacy-in-package-custom-set/`.

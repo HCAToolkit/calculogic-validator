@@ -1,5 +1,5 @@
-// Organizational-placement contract and catalogue (Tree spec S2.16). Contract only: no production registry,
-// loader or emitter exists, and `TREE_FAMILY_SCATTERED` and R2 are unchanged. The catalogue OP-1 to OP-8
+// Organizational-placement contract and catalogue (Tree spec S2.16). The registry and its loader exist
+// (slice 1); no emitter reads them, and `TREE_FAMILY_SCATTERED` and R2 are unchanged. The catalogue OP-1 to OP-8
 // runs real temporary repositories through Naming staging and Tree wiring; a test-only reference
 // classifies each relation against fixture policies, reading R2 from the production emitter.
 import test from 'node:test';
@@ -12,8 +12,8 @@ import { resolveActiveRegistrySet } from '../../src/core/registry-lifecycle/regi
 import { prepareNamingTreeStagingInputs, runNamingValidator } from '../../naming/src/naming-validator.host.mjs';
 import { prepareTreeStructureAdvisorInputs } from '../src/tree-structure-advisor.wiring.mjs';
 import { collectSemanticHomeScatterFindings } from '../src/contributors/tree-semantic-home-scatter-contributor.logic.mjs';
-import { assertValidOrganizationalPlacementPolicy, classifyOrganizationalPlacement } from './fixtures/organizational-placement/organizational-placement-reference.fixture.mjs';
-import { ORGANIZATIONAL_PLACEMENT_CASES, POLICY_CENTRALIZED, POLICY_EMPTY } from './fixtures/organizational-placement/organizational-placement-cases.fixture.mjs';
+import { assertValidOrganizationalPlacementPolicy, classifyOrganizationalPlacement } from './fixtures/organizational-placement-catalogue/organizational-placement-reference.fixture.mjs';
+import { ORGANIZATIONAL_PLACEMENT_CASES, POLICY_CENTRALIZED, POLICY_EMPTY } from './fixtures/organizational-placement-catalogue/organizational-placement-cases.fixture.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TREE = fs.readFileSync(path.join(ROOT, 'doc/ValidatorSpecs/tree-structure-advisor-validator.spec.md'), 'utf8');
@@ -139,15 +139,28 @@ test('inspectability: each relation record carries identities, classification an
   });
 });
 
-test('S2.16 states the contract and its catalogue, and nothing in production implements it yet', () => {
-  assert.match(S2_16, /This subsection is a contract and a test-only catalogue\. It changes no runtime behavior/u);
+test('S2.16 states the contract and its catalogue; only the registry and its loader exist, and no reasoning or emitter reads them', () => {
+  assert.match(S2_16, /changes no finding/u);
   assert.match(S2_16, /\*\*Builtin:\*\* `entries: \[\]`\. The Builtin set adopts no organizational exemption/u);
   for (const classification of ['`paired`', '`consistent`', '`reportable`']) assert.ok(S2_16.includes(`**${classification}:**`), classification);
   for (const entry of ORGANIZATIONAL_PLACEMENT_CASES) assert.ok(S2_16.includes(`| ${entry.id} `), `${entry.id}: a catalogue row`);
   assert.match(S2_16, /`meta\.organizationalPlacement`/u);
-  assert.equal(fs.existsSync(path.join(ROOT, 'tree/src/registries/_builtin/organizational-placement.registry.json')), false, 'no production registry');
-  for (const source of fs.readdirSync(path.join(ROOT, 'tree/src'), { recursive: true }).filter((name) => String(name).endsWith('.mjs'))) {
-    const text = fs.readFileSync(path.join(ROOT, 'tree/src', String(source)), 'utf8');
-    assert.equal(text.includes('organizational-placement') || text.includes('organizationalPlacement'), false, `${source}: no production reader`);
-  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(ROOT, 'tree/src/registries/_builtin/organizational-placement.registry.json'), 'utf8')), { version: '1', entries: [] });
+  // Slice 1: the registry module, its loader and the lifecycle and wiring surfaces name it; nothing else.
+  const owners = [
+    'registries/tree-organizational-placement-loader.logic.mjs',
+    'registries/tree-organizational-placement-registry.logic.mjs',
+    'registries/tree-registry-inventory.knowledge.mjs',
+    'registries/tree-registry-references.logic.mjs',
+    'registries/tree-registry-set.logic.mjs',
+    'registries/tree-runtime-registries.logic.mjs',
+    'tree-structure-advisor.wiring.mjs',
+  ];
+  const readers = fs.readdirSync(path.join(ROOT, 'tree/src'), { recursive: true })
+    .map(String)
+    .filter((name) => name.endsWith('.mjs'))
+    .filter((name) => /organizational-placement|OrganizationalPlacement|organizationalPlacement/u.test(fs.readFileSync(path.join(ROOT, 'tree/src', name), 'utf8')))
+    .map((name) => name.split(path.sep).join('/'))
+    .sort();
+  assert.deepEqual(readers, owners);
 });

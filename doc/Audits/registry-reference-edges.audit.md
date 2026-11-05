@@ -45,9 +45,10 @@ All source addresses are produced by the source registry's comparison declaratio
 | `naming/perspective-role-definition` | record `rolesByCategory["c"][role="r"]` | `roles` · `roles` · `role` | `{ groups: [], key: r }` | `registry-state.logic.mjs:521` "no roles entry for category-role-perspective roles" | 41 |
 | `naming/perspective-meaning` | record, one reference per distinct value across `agnosticCoreMeanings`, `baseMeanings` and `overlayMeanings` | `agnostic-core-meanings` · `meanings` · `meaning` | `{ groups: [], key: meaning }` | `registry-state.logic.mjs:582` "must be a non-empty array of agnostic core meanings" | 63 |
 | `naming/perspective-inherits-from` | record with `inheritsFrom: { category, role }` | `category-role-perspective` · `rolesByCategory.*` · `role` | `{ groups: [category], key: role }` | `registry-state.logic.mjs:604` "inheritsFrom must name a { category, role } present in rolesByCategory" | 2 |
+| `tree/organizational-placement-namespace` | record `entries[entryId="e"]`, one reference per value of its `namespaces` (centralized entries only) | `structural-homes` · `structuralHomes` · `structuralHome` | `{ groups: [], key: namespace }` | `tree-organizational-placement-registry.logic.mjs` "namespaces not declared in structural-homes" | 0 (Builtin `entries: []`) |
 | `tree/perspective-structural-home` | record `structuralHomesBySurface["s"][structuralHome="h"]` | `structural-homes` · `structuralHomes` · `structuralHome` | `{ groups: [], key: h }` | `tree-surface-structural-home-perspective-registry.logic.mjs:49` "structural homes not declared in structural-homes" | 16 |
 
-Over the Builtin set, all 132 references resolve, and Builtin passes both slices' validation.
+Over the Builtin set, all 132 references resolve, and Builtin passes both slices' validation. `tree/organizational-placement-namespace` (Tree spec S2.16, added after this audit) has no Builtin reference, because its Builtin source registry holds no entry; its conformance case adds one.
 
 Notes:
 - **Composite identity.** `inheritsFrom` is the only edge whose target sits inside a group. Its `{ category, role }` value becomes `{ groups: [category], key: role }`. That conversion is the Naming resolver's; suite core only checks that there is one group string for the one `*`.

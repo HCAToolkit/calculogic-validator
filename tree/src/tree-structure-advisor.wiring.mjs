@@ -52,6 +52,7 @@ import { collectDeclaredRepositoryPackageIdentity } from '../../src/core/reposit
 import {
   loadTreeRuntimeRegistries,
   loadTreeEmergentBoundaryPolicy,
+  loadTreeOrganizationalPlacementPolicy,
   loadTreeSemanticHomeParameterSet,
 } from './registries/tree-runtime-registries.logic.mjs';
 import { TREE_REGISTRY_SLICE_ID } from './registries/tree-registry-inventory.knowledge.mjs';
@@ -168,6 +169,9 @@ export const prepareTreeStructureAdvisorInputs = (
   const treeSemanticHomeParameterSet = loadTreeSemanticHomeParameterSet({ registryResolution, registryRoots });
   // Read only by Stage 3 reasoning below (Tree spec S3.13.6).
   const treeEmergentBoundaryPolicy = loadTreeEmergentBoundaryPolicy({ registryResolution, registryRoots });
+  // Prepared with its provenance and read by no consumer yet: relation classification is a separately
+  // authorized slice (Tree spec S2.16).
+  const treeOrganizationalPlacementPolicy = loadTreeOrganizationalPlacementPolicy({ registryResolution, registryRoots });
   const treeRepoShapeEvidence = prepareTreeRepoShapeEvidence({
     localPackageEvidence: collectDeclaredLocalPackageEvidence(repositoryRoot),
   });
@@ -373,6 +377,7 @@ export const prepareTreeStructureAdvisorInputs = (
       treeFolderSemanticHomeReasoning,
       treeEmergentBoundaryPolicy,
       treeEmergentBoundaryReasoning,
+      treeOrganizationalPlacementPolicy,
     },
     findingContributors: collectDefaultTreeStructureAdvisorContributors({
       repositoryRoot,

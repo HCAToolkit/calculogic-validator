@@ -25,8 +25,12 @@ const EDGE_IDS = [
   'naming/perspective-inherits-from',
   'naming/perspective-meaning',
   'naming/perspective-role-definition',
+  'tree/organizational-placement-namespace',
   'tree/perspective-structural-home',
 ];
+// Edges whose source registry is empty in Builtin (Tree spec S2.16: Builtin `entries: []`), so the
+// Builtin set carries no reference on them; their conformance cases add one.
+const EDGES_EMPTY_IN_BUILTIN = new Set(['tree/organizational-placement-namespace']);
 
 const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'));
 const writeJson = (filePath, value) => fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
@@ -71,7 +75,7 @@ test('the Builtin set: every declared edge available, every reference resolved, 
   assert.deepEqual(result.edges.map((edge) => edge.edgeId), EDGE_IDS);
   for (const edge of result.edges) {
     assert.equal(edge.unavailable, undefined, edge.edgeId);
-    assert.ok(edge.references.length > 0, edge.edgeId);
+    assert.equal(edge.references.length > 0, !EDGES_EMPTY_IN_BUILTIN.has(edge.edgeId), edge.edgeId);
     assert.ok(edge.references.every((reference) => reference.state === 'resolved'), edge.edgeId);
     const order = edge.references.map((reference) => `${reference.source}\u0000${reference.target}`);
     assert.deepEqual(order, [...order].sort(), `${edge.edgeId} references are in ordinal order`);
@@ -149,6 +153,21 @@ const UNRESOLVED_CASES = [
       payload.rolesByCategory['concern-style'].find((entry) => entry.role === 'build-style').inheritsFrom.role = 'missing-role';
     }),
     expected: () => [['naming/perspective-inherits-from', 'rolesByCategory["concern-style"][role="build-style"]', 'rolesByCategory["concern-core"][role="missing-role"]']],
+  },
+  {
+    // Builtin holds no entry, so the case adds one centralized entry and removes the home it names.
+    edgeId: 'tree/organizational-placement-namespace',
+    sliceId: 'tree',
+    failure: /namespaces not declared in structural-homes: docs/u,
+    apply: ({ change }) => {
+      change('tree/organizational-placement', (payload) => {
+        payload.entries = [{ entryId: 'documentation-centralized', select: { roleCategories: ['documentation'] }, arrangement: 'centralized', namespaces: ['doc', 'docs'], definition: 'Documentation is kept in a central tree.' }];
+      });
+      change('tree/structural-homes', (payload) => {
+        payload.structuralHomes = payload.structuralHomes.filter((entry) => entry.structuralHome !== 'docs');
+      });
+    },
+    expected: () => [['tree/organizational-placement-namespace', 'entries[entryId="documentation-centralized"]', 'structuralHomes[structuralHome="docs"]']],
   },
   {
     edgeId: 'tree/perspective-structural-home',
