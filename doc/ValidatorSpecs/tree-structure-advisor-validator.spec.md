@@ -225,6 +225,41 @@ Tree validates each section exactly as the bridge contract specifies for support
 
 Intake produces Tree-owned **intake diagnostics** that name the section, the rejection reason and the identity tuple when one exists. Intake diagnostics are prepared evidence. They are not Tree findings and do not affect report counts or exit behavior.
 
+**Proposed — source-path correspondence at Naming intake (not implemented).** The owner-approved architecture decision record "Structural Addressing Ordering Policy and Compatibility Boundary" (B2, approved 2026-11-05) supplies this direction. Every rule and test obligation in this block is Proposed; none describes an implemented check.
+
+**Boundary and identity.** Tree owns this consumption check, not Naming or Structural Addressing. First resolve the record's existing identity tuple to an occurrence using the existing association rules. Compare only the supplied `repoRelativePath` with that occurrence's source-relative path. The supplied record's `path` and `addressPath` are not compared and are not substitutes for `repoRelativePath`. The tuple stays the only identity: never join, fall back or re-associate by path. There is no path fallback.
+
+**Lexical normalization.** Apply this same policy independently to both compared paths:
+
+- Require a string; convert every `\` to `/`, then permit and remove one leading `./`.
+- Reject absolute paths, including drive-prefixed forms (also drive-relative forms such as `C:dir/file`) and UNC forms. Check after separator conversion and optional prefix removal so neither transformation admits an absolute path.
+- Reject an empty path, empty segments (including repeated or trailing separators), every remaining `.` segment and every `..` segment. Thus `././a` is malformed rather than repeatedly stripping prefixes.
+- Compare valid normalized paths case-sensitively, preserving Unicode exactly: no case folding, Unicode normalization, symlink resolution or filesystem lookup.
+- Do not use `normalizePath` from `src/core/scoped-target-paths.logic.mjs`: it splits on the host's `path.sep` and does not convert `\` on Linux. This check's lexical policy is explicit and host-independent.
+
+A supplied field that is empty, null or non-string is malformed, not omitted. An invalid representation on either compared side is malformed (`invalid-source-path`); two valid normalized paths that differ are a mismatch (`path-mismatch`). The new path-check reason names are Proposed, not current runtime constants; the existing `invalid-record-shape` reason is reused below only as a Proposed missing-N2-path outcome.
+
+| Condition | Proposed intake behavior |
+| --- | --- |
+| Both paths are valid and normalize identically | Accept as source-path verified, subject to the existing intake checks. |
+| Valid normalized paths differ | Reject this record: `path-mismatch`. |
+| Supplied source path is malformed | Reject this record: `invalid-source-path`. |
+| v1 `repoRelativePath` is omitted | Accept under the existing tuple rules, with `source-path-unverified`; do not use `path` or `addressPath` instead. |
+| Optional N1 `repoRelativePath` is omitted after a verified v1 association | Accept without a further path diagnostic. |
+| N1 `repoRelativePath` is supplied | Compare independently with the occurrence resolved by its tuple, even when the v1 path was verified; apply the same malformed/mismatch outcomes. |
+| N2 `repoRelativePath` is missing | Reject this record: `invalid-record-shape`. |
+| N2 `repoRelativePath` is supplied | Compare under the same lexical policy and outcomes. |
+
+**v1 absence and N1 dependency.** The bridge contract §3.2 requires the identity tuple, not a v1 source-trace path; §4.3's invalid-identity cases concern tuple fields. This proposal therefore permits an otherwise valid v1 observation without `repoRelativePath`, while preserving the producer's existing compatibility-field obligations (§4.1 and §8). Its unverified status is recorded only in intake diagnostics, carrying the v1 boundary, reason and tuple, and is never treated as verified. N1 still requires an accepted v1 association: rejecting v1 already makes dependent N1 evidence unavailable through the existing rules. An omitted optional N1 path adds no comparison; it does not turn an unverified v1 association into a verified one, and the v1 diagnostic remains. A supplied N1 path is checked independently, not merely compared with the v1 path.
+
+**Per-record rejection and downstream use.** Drop only the rejected record; the section's other records are unaffected. Record the rejection as a Tree-owned intake diagnostic naming the section (or v1 observation boundary), reason and tuple. These are per-record integrity reasons extending the S1.3 record-level rejection categories, not a whole-section failure or a new availability field. Use the existing S1.2 dropped-record and S1.3 availability rules; do not equate a rejected v1 observation with an absent additive section. The path-check diagnostic itself is not a Tree finding and does not directly affect report counts, `meta` or exit behavior. Rejection may alter downstream reasoning and findings through existing availability rules. Findings are unchanged for occurrences whose evidence is verified. The later runtime task must verify both that preservation and the downstream effects of rejection.
+
+**Proposed N2 compatibility change.** The bridge contract §4.6 declares `repoRelativePath` in N2's record shape, but current production can omit it when no usable source path exists. Current Tree intake also accepts that omission: `tree/src/tree-naming-section-intake.logic.mjs` copies the path only when non-empty in `toAcceptedFolderLabelRecord`. Rejecting a missing N2 path here is Proposed behavior, not an enforced constraint today. This is a Tree consumption policy; it adds no producer obligation or bridge record field.
+
+**Limits.** This check detects path-to-tuple disagreement only. It does not prove that producer and consumer share an ordering policy and does not replace the explicit compatibility distinction (B1). A producer omitting a path bypasses verification only to the extent the omission rules above permit; an accepted unverified record must never be reported as verified.
+
+**Later runtime test obligations (Proposed; not performed by this documentation slice):** correct association; wrong-path rejection; malformed paths; optional N1 omission and an N1 path differing from a verified v1 path; missing N2 path; every normalization case on both compared paths (separator conversion, one prefix versus repeated prefixes, absolute/drive/UNC forms, empty and dot segments, parent segments, case sensitivity and exact Unicode preservation, with no filesystem resolution); diagnostic and downstream availability/finding effects; and zero new rejections on the experiment's same-policy S1 corpora (Validator repo and docs, React repo). The same-policy obligation is not a guarantee for untested inputs.
+
 **Lexical-identity section (Current, calculogic-validator#153).** Tree validates `namingTokenLexicalIdentities` as a supporting consumer, exactly as bridge contract §4.7 specifies:
 - the envelope by §4.4 rules 2–4 and 6, plus a valid `lexicalProfile`; a malformed envelope makes the whole section invalid;
 - each record after N1 and N2 intake, against the **accepted** N1 and N2 records, by the §4.7 consumer cases in table order (identity cases, invalid record shape, unmatched record, token-count mismatch, surface mismatch, status-readings disagreement, lexeme outside the profile). A rejected record is dropped on its own, and the section's other records are unaffected;
