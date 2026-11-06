@@ -144,7 +144,7 @@ Three concepts, each owned by the profile and never conflated (Contract):
   - **Filesystem variation (not demonstrated):** both normalization forms coexisted in the tested directories, and 40 repeated listings on one overlay filesystem returned the same order. Case-insensitive and normalization-enforcing filesystems were untested.
   - **ICU-version portability (not established):** two ICU versions agreed on the controlled cases. Other ICU versions and collation data were not tested.
   - **Pipeline:** the producer's comparison chain is the immediate address-ordering authority. Earlier host and collection sorts use the same unqualified comparison and supply the input order. The React app was not measured.
-- **Proposed:** pin the comparison (fixed locale and options, or code-unit order) with regression checks for ordering, `orderIndex`, addresses, and join compatibility, because changed ordering may re-address affected siblings. It is raised as an implementation issue when the relevant runtime slice is authorized.
+- **Proposed (direction approved 2026-11-05; not implemented):** pin the `tree-codebase` producer comparison to UTF-16 code-unit order across its name, then occurrence type, then path chain, so ordering does not depend on the runtime's collation data. The guarantee applies to the producer comparator only. End-to-end ordering determinism has not been verified: earlier host and collection sorts supply the input order and were not tested. Adopting it re-addresses siblings and changes `orderIndex` for some records (measured on the English baseline at `main` 776a88e8, substituting only the producer comparison: Validator 18 of 568 addresses and 229 `orderIndex` values; React 62 of 180 addresses and 123 `orderIndex` values). It is therefore a versioned change under §6.3 and needs a migration with parity evidence covering ordering, `orderIndex`, addresses, join compatibility and rendered report order. The decision is recorded in the owner-approved architecture decision record "Structural Addressing Ordering Policy and Compatibility Boundary", held outside this repository.
 
 ### 6.2 Counting rule
 
@@ -212,6 +212,13 @@ Four kinds, related but never interchangeable (Contract):
 
 **Current join key:** Tree joins Naming occurrences on `addressProfileId + addressedSnapshotId + occurrenceAddress`. The profile and snapshot values are Tree-supplied compatibility constants (`tree-structure-advisor-address-profile`, `tree-structure-advisor-current-snapshot`), not the Structural Addressing `profileId`. **Contract:** changing them is a coordinated producer/consumer transition with join-parity tests, not part of any profile change.
 
+**Current observation (mixed-policy experiment, read-only, at `main` 776a88e8, synthetic scenarios on frozen English-collected inputs):** with identical Tree-supplied constants, Tree's section intake accepted Naming evidence attached to a different file when the payload and the addressed snapshot came from different ordering policies. In the English and code-unit comparison, each mixing direction produced one mis-associated React v1 observation, four Validator repo-scope v1 observations, and four Validator docs-scope v1 observations. The intake matches by namespace and `occurrenceAddress` tuple; N1 and N2 also check occurrence type. It does not compare the observation's source path with the resolved occurrence's path. Changing either Tree-supplied constant alone rejected every attempted association as `unmatched-record`. Contract-version gates did not discriminate between the policies. The experiment does not show that such mixing occurs in practice, and unchanged findings on the measured entry surface do not show that associations were correct.
+
+**Proposed (direction approved 2026-11-05; not implemented):**
+
+- Incompatible addressing-policy revisions must be explicitly distinguishable to consumers. Which identifier or mechanism carries the distinction is undecided and belongs to the transition task. Tree's `addressProfileId` is a Tree compatibility constant and is not the Structural Addressing `profileId`; this contract's existing distinction is preserved, and the eventual semantics of any compatibility identifier are undecided. `addressedSnapshotId` is currently a static namespace label, not a per-snapshot identity. The D6 procedure applies only if the existing Tree join constants are the mechanism chosen.
+- Tree adds a bounded source-path correspondence check at the Naming intake boundary, without replacing tuple identity. Tree owns checks on what it consumes; Naming retains interpretation, and Structural Addressing retains identity generation. The task that adds it must define normalization, mismatched and missing paths, how rejected evidence is reported, and downstream effects, because it changes which evidence is accepted even though it changes no addresses.
+
 ## 9. NL↔Code correspondence
 
 ### 9.1 Four checks (Contract)
@@ -255,7 +262,9 @@ No NL or code addressing, no comparison capability and no `validate:addressing*`
 | Validation-input adapter feeding Tree | **Current** |
 | Tree consuming addressed snapshots and joining Naming by address | **Current** |
 | Explicit sibling-ordinal field | **Proposed** (issue raised with its runtime slice) |
-| Locale-independent name ordering | **Proposed** (issue raised with its runtime slice) |
+| Locale-independent name ordering | **Proposed** (UTF-16 code-unit producer comparator; direction approved, not implemented; issue raised with its runtime slice) |
+| Tree-owned source-path correspondence check at Naming intake | **Proposed** (direction approved, not implemented) |
+| Explicit ordering-policy compatibility distinction (mechanism undecided) | **Proposed** (direction approved, not implemented) |
 | `code-file`, `nl-document` profiles | **Proposed** |
 | Serialized cross-domain address | **Deferred** |
 | Snapshot-identity contract | **Deferred** |
@@ -273,7 +282,7 @@ No NL or code addressing, no comparison capability and no `validate:addressing*`
 | D3 | Serialized cross-domain address form (§7.3) | first consumer that stores or prints a cross-domain address |
 | D4 | Snapshot-identity contract | first consumer comparing or caching snapshots |
 | D5 | Whether comparison is a profile or only a consumer | comparison capability design |
-| D6 | Changes to Tree join constants | only with a coordinated producer/consumer task |
+| D6 | Changes to Tree join constants | only with a coordinated producer/consumer task; if the ordering-comparator transition changes Tree join constants, open D6 through a coordinated producer/consumer task |
 
 ## 13. Change control
 
