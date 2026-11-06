@@ -64,6 +64,8 @@ Normative identity rules:
 - No enrichment field may replace, weaken, override, or compete with the canonical observation identity tuple: `addressProfileId + addressedSnapshotId + occurrenceAddress`.
 - Consumers must not treat observation array index, path, semantic family, context partition key, diagnostic metadata, parent-reference evidence, or Tree placement evidence as a replacement identity. Parent-reference evidence is permitted only as optional containment evidence, never as the observation's own primary identity.
 
+**Proposed (not implemented):** `repoRelativePath` remains source-trace only and never a join key. A supporting consumer may verify it against the occurrence resolved by the identity tuple as an integrity check; mismatch handling is the consumer's own policy (for Tree, Tree spec S1.2). This permission changes no identity tuple, record shape or producer obligation and adds no section or section version, so §4.4 rule 8 is not triggered.
+
 Explicit identity distinction:
 
 - Canonical observation identity: `addressProfileId + addressedSnapshotId + occurrenceAddress`. This required tuple identifies the observed occurrence.
@@ -125,6 +127,9 @@ Envelope-section rules:
 
    Section counts and diagnostics live inside the section, never in the v1 `compatibility` block.
 6. **Identity.** Every section record carries the canonical identity tuple (§3.2). Its `addressProfileId` and `addressedSnapshotId` must equal the payload's namespace. Section records associate only through the identity tuple. `repoRelativePath` may be echoed as source-trace only and is never a join key; the §8 path fallback does not extend to section records.
+
+   **Proposed (not implemented):** a supporting consumer may verify the source-trace `repoRelativePath` against the occurrence its tuple resolves to, without making the path a join key. Mismatch handling belongs to that consumer (Tree spec S1.2 for Tree). This adds no section or section version and changes no identity tuple, record shape, envelope field or producer obligation; rule 8 is therefore not triggered.
+
 7. **Declared association.** Each section's contract states what a record attaches to (for example, an existing v1 observation, or an addressed occurrence) and which occurrence types it applies to.
 8. **Change control.** Adding a section, or a new section version, requires a contract amendment that passes the §6.2 decision standard for every field it carries.
 9. **Payload-level sections** (calculogic-validator#157). A section whose records describe the validation target as a whole, or (calculogic-validator#162) the run itself, such as the vocabulary of its resolved registry set (§4.9), rather than an addressed occurrence, is a **payload-level section**. It must say so in its contract, and it is the only kind of section that departs from rules 5 and 6:
