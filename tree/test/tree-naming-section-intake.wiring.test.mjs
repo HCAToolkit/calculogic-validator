@@ -251,7 +251,7 @@ test('Stage 1 diagnoses foreign envelopes and mixed records without alias recove
   withFixture(({ fixtureRoot, staged }) => {
     const baseline = prepare(fixtureRoot, staged).preparedDependencies.addressedNamingOccurrenceBridge;
     const foreign = structuredClone(baseline);
-    foreign.addressProfileId = 'tree-codebase@1';
+    foreign.addressProfileId = 'tree-structure-advisor-address-profile';
     const before = structuredClone(foreign);
     const rejected = prepare(fixtureRoot, { ...staged, namingOccurrenceBridge: foreign }).preparedDependencies;
     assert.equal(rejected.addressedNamingOccurrenceBridge, foreign);
@@ -262,7 +262,7 @@ test('Stage 1 diagnoses foreign envelopes and mixed records without alias recove
     assert.ok(rejected.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'incompatible-addressing-namespace'));
     assert.deepEqual(foreign, before);
     const mixed = structuredClone(baseline);
-    mixed.observations[0].addressProfileId = 'tree-codebase@1';
+    mixed.observations[0].addressProfileId = 'tree-codebase@2';
     const deps = prepare(fixtureRoot, { namingOccurrenceBridge: mixed }).preparedDependencies;
     assert.equal(deps.treeNamingSectionIntake.bridgeObservations.acceptedRecords.length, mixed.observations.length - 1);
     assert.equal(deps.addressedNamingSemanticEvidenceBridge.observations.length, mixed.observations.length - 1);
@@ -357,5 +357,33 @@ test('Stage 1 marker-less addressed staging is withheld while incidental observa
     const admitted = prepare(fixtureRoot, { ...staged, namingSemanticFamilyBridge: ordinary }).preparedDependencies;
     assert.equal(admitted.treeNamingSectionIntake.bridgeObservations.acceptedRecords.length, baseline.observations.length);
     assert.equal(admitted.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'addressed-payload-in-staging'), false);
+  });
+});
+
+test('C1 revision 1 rejects legacy evidence on every addressed route even when coordinates match', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const lexicalProfile = prepareLinguisticFoundation({ profileSelection: { profileId: 'english' } }).profile;
+    const source = { observations: [...staged.namingSemanticFamilyBridge.observations, {
+      path: 'src/build', occurrenceType: 'folder', semanticName: 'build', semanticFamily: 'build', familyRoot: 'build', semanticEvidenceKind: 'semantic-family-root-folder',
+    }] };
+    const baseline = prepare(fixtureRoot, { ...staged, namingSemanticFamilyBridge: source, lexicalProfile }).preparedDependencies;
+    const payload = baseline.addressedNamingOccurrenceBridge;
+    assert.equal(payload.addressProfileId, 'tree-codebase@1');
+    assert.equal(payload.addressedSnapshotId, 'tree-structure-advisor-current-snapshot');
+    assert.ok(baseline.treeFamilyRootFolderEvidence.evidenceRecords.length);
+    assert.ok(baseline.treeLexicalIdentityIntake.acceptedRecords.length);
+    for (const profile of ['tree-structure-advisor-address-profile', 'tree-codebase@2', 'tree-codebase@01']) {
+      const foreign = structuredClone(payload); foreign.addressProfileId = profile;
+      for (const records of [foreign.observations, foreign[N1_KEY].records, foreign[N2_KEY].records, foreign.namingTokenLexicalIdentities.records, foreign.occurrenceContextEnrichment?.enrichedObservations ?? []]) {
+        for (const record of records) record.addressProfileId = profile;
+      }
+      const deps = prepare(fixtureRoot, { namingOccurrenceBridge: foreign }).preparedDependencies;
+      assert.deepEqual(foreign.observations.map((r) => [r.path, r.occurrenceAddress]), payload.observations.map((r) => [r.path, r.occurrenceAddress]));
+      for (const section of ['bridgeObservations', 'semanticEvidenceEnrichment', 'folderLabelObservations']) assert.deepEqual(deps.treeNamingSectionIntake[section].acceptedRecords, []);
+      assert.deepEqual(deps.treeLexicalIdentityIntake.acceptedRecords, []);
+      assert.deepEqual(deps.treeFamilyRootFolderEvidence.evidenceRecords, []);
+      assert.deepEqual(deps.treeSemanticNamingFolderTypeRelationshipEvidence.relationshipRecords, []);
+      assert.ok(deps.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'incompatible-addressing-namespace'));
+    }
   });
 });

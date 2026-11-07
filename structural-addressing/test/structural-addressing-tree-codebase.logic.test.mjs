@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prepareTreeCodebaseAddressedSnapshot } from '../src/structural-addressing-tree-codebase.logic.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+import { TREE_CODEBASE_ADDRESSING_PROFILE as PROFILE } from '../src/structural-addressing-profile.knowledge.mjs';
 
 const buildFixtureInput = () => ({
   sourceNamespace: 'calculogic-validator',
@@ -39,8 +45,8 @@ test('returns addressedTreeSnapshot/tree-codebase/T and preserves source scope t
 
   assert.equal(result.snapshotOutputId, 'addressedTreeSnapshot');
   assert.equal(result.profileId, 'tree-codebase');
-  assert.equal(result.addressProfileId, 'tree-structure-advisor-address-profile');
-  assert.deepEqual(result.compatibilityPolicy, { status: 'legacy-unqualified', revision: null });
+  assert.equal(result.addressProfileId, 'tree-codebase@1');
+  assert.deepEqual(result.compatibilityPolicy, { status: 'versioned', revision: '1' });
   assert.equal(result.domainPrefix, 'T');
   assert.equal(result.sourceNamespace, 'calculogic-validator');
   assert.equal(result.scope, 'validator');
@@ -148,7 +154,7 @@ test('occurrence records include required fields with deterministic parentAddres
 
   assert.equal(childFile?.parentAddressPath, 'A');
   assert.equal(childFile?.depth, 1);
-  assert.equal(childFile?.orderIndex, 3);
+  assert.equal(childFile?.orderIndex, 1);
   assert.deepEqual(result.occurrenceRecords.map((record) => record.orderIndex), [0, 1, 2, 3, 4]);
 });
 
@@ -407,4 +413,72 @@ test('malformed sibling invalid children shape fails deterministically before so
       }),
     /Tree-codebase occurrence node children must be an array when provided\./u,
   );
+});
+
+const c1Names = ['é', 'a_b', '2', '\uE000', 'a', '😀', 'e\u0301', 'A', '10', 'a-b'];
+const c1Expected = ['10', '2', 'A', 'a', 'a-b', 'a_b', 'e\u0301', 'é', '😀', '\uE000'];
+const c1Input = () => ({ scopeRoots: c1Names.map((name) => ({ name, path: `root/${name}`, occurrenceType: 'file' })) });
+
+test('C1 ordering and revision 1 identity are emitted together, without normalizing Unicode or mutating input', () => {
+  const input = c1Input(); const before = structuredClone(input);
+  const result = prepareTreeCodebaseAddressedSnapshot(input);
+  assert.equal(result.addressProfileId, 'tree-codebase@1');
+  assert.deepEqual(result.compatibilityPolicy, { status: 'versioned', revision: '1' });
+  assert.deepEqual(result.occurrenceRecords.map((r) => r.name), c1Expected);
+  assert.deepEqual(result.occurrenceRecords.map((r) => r.orderIndex), c1Expected.map((_, i) => i));
+  assert.deepEqual(result.occurrenceRecords.map((r) => r.addressPath), c1Expected.map((_, i) => String(i + 1)));
+  assert.deepEqual(input, before);
+  assert.deepEqual(prepareTreeCodebaseAddressedSnapshot({ scopeRoots: [...input.scopeRoots].reverse() }).occurrenceRecords, result.occurrenceRecords);
+});
+
+test('C1 keeps name then type then path precedence and independent type counters', () => {
+  const result = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: [
+    { name: 'same', path: '0/same', occurrenceType: 'folder', children: [] },
+    { name: 'same', path: 'a/same', occurrenceType: 'file' },
+    { name: 'same', path: 'Z/same', occurrenceType: 'file' },
+  ] });
+  assert.deepEqual(result.occurrenceRecords.map((r) => [r.path, r.addressPath, r.orderIndex]), [
+    ['Z/same', '1', 0], ['a/same', '2', 1], ['0/same', 'A', 2],
+  ]);
+});
+
+test('C1 produces identical complete snapshots across controlled default locales', () => {
+  const moduleUrl = new URL('../src/structural-addressing-tree-codebase.logic.mjs', import.meta.url).href;
+  const code = 'const {prepareTreeCodebaseAddressedSnapshot: run} = await import(process.argv[1]); console.log(JSON.stringify(run(JSON.parse(process.argv[2]))));';
+  const expected = prepareTreeCodebaseAddressedSnapshot(c1Input());
+  for (const locale of ['en_US.UTF-8', 'lt_LT.UTF-8', 'sv_SE.UTF-8', 'tr_TR.UTF-8']) {
+    const child = spawnSync(process.execPath, ['--input-type=module', '-e', code, moduleUrl, JSON.stringify(c1Input())], {
+      encoding: 'utf8', env: { ...process.env, LANG: locale, LC_ALL: locale },
+    });
+    assert.equal(child.status, 0, child.stderr);
+    assert.deepEqual(JSON.parse(child.stdout), expected, locale);
+  }
+});
+
+test('C1 rejects inconsistent descriptors before emitting records, using isolated module fixtures', () => {
+  const original = structuredClone(PROFILE);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'c1-policy-fixture-'));
+  const profileText = fs.readFileSync(new URL('../src/structural-addressing-profile.knowledge.mjs', import.meta.url), 'utf8');
+  const variants = [
+    profileText.replace("{ status: 'versioned', revision: '1' }", "{ status: 'legacy-unqualified', revision: null }"),
+    profileText.replace("revision: '1'", "revision: '2'"),
+    profileText.replace('profileId: STRUCTURAL_ADDRESSING_PROFILE_IDS.TREE_CODEBASE,', "profileId: 'another-family',"),
+    profileText.replace("  compatibilityPolicy:", "  legacyAddressProfileId: 'tree-structure-advisor-address-profile',\n  compatibilityPolicy:"),
+  ];
+  try {
+    for (const [index, text] of variants.entries()) {
+      assert.notEqual(text, profileText);
+      const dir = path.join(root, String(index)); fs.mkdirSync(dir);
+      for (const name of ['structural-addressing-tree-codebase.logic.mjs', 'structural-addressing-profile-compatibility.logic.mjs', 'structural-addressing-marker-strategies.logic.mjs']) {
+        fs.copyFileSync(new URL(`../src/${name}`, import.meta.url), path.join(dir, name));
+      }
+      fs.writeFileSync(path.join(dir, 'structural-addressing-profile.knowledge.mjs'), text);
+      const code = 'const {prepareTreeCodebaseAddressedSnapshot: run} = await import(process.argv[1]); console.log(JSON.stringify(run({scopeRoots:[]})));';
+      const child = spawnSync(process.execPath, ['--input-type=module', '-e', code, pathToFileURL(path.join(dir, 'structural-addressing-tree-codebase.logic.mjs')).href], { encoding: 'utf8' });
+      assert.equal(child.status, 1);
+      assert.equal(child.stdout, '');
+      assert.match(child.stderr, /C1 producer requires tree-codebase versioned revision 1 without a legacy alias/u);
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  assert.deepEqual(PROFILE, original);
 });

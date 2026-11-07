@@ -10,8 +10,8 @@ import {
 
 test('TREE_CODEBASE_ADDRESSING_PROFILE uses expected identity and addressing constants', () => {
   assert.equal(TREE_CODEBASE_ADDRESSING_PROFILE.profileId, 'tree-codebase');
-  assert.deepEqual(TREE_CODEBASE_ADDRESSING_PROFILE.compatibilityPolicy, { status: 'legacy-unqualified', revision: null });
-  assert.equal(TREE_CODEBASE_ADDRESSING_PROFILE.legacyAddressProfileId, 'tree-structure-advisor-address-profile');
+  assert.deepEqual(TREE_CODEBASE_ADDRESSING_PROFILE.compatibilityPolicy, { status: 'versioned', revision: '1' });
+  assert.equal(Object.hasOwn(TREE_CODEBASE_ADDRESSING_PROFILE, 'legacyAddressProfileId'), false);
   assert.equal(TREE_CODEBASE_ADDRESSING_PROFILE.domainPrefix, 'T');
   assert.equal(TREE_CODEBASE_ADDRESSING_PROFILE.snapshotOutputId, 'addressedTreeSnapshot');
   assert.equal(TREE_CODEBASE_ADDRESSING_PROFILE.counterReset, 'per-parent');

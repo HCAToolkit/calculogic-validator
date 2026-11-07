@@ -134,10 +134,10 @@ Supported output behavior:
 
 The addressed snapshot in JSON and combined output additionally carries:
 
-- `compatibilityPolicy`: `{ "status": "legacy-unqualified", "revision": null }` for the current locale-dependent policy; this is not a verified compatible-policy revision.
-- `addressProfileId`: `"tree-structure-advisor-address-profile"`, derived by Structural Addressing from its legacy alias declaration. It is distinct from the `profileId` family (`tree-codebase`), output-kind `snapshotOutputId`, and any snapshot-instance identity.
+- `compatibilityPolicy`: `{ "status": "versioned", "revision": "1" }`, identifying the active C1 producer policy.
+- `addressProfileId`: `"tree-codebase@1"`, derived by Structural Addressing from family/revision metadata. It is distinct from family `profileId`, output-kind `snapshotOutputId`, and snapshot-instance identity.
 
-These additive producer-owned fields do not change text rendering, occurrence membership, addresses or ordering. No versioned policy or C1 comparator is activated. Future versioned identity encoding is governed by the shared Addressing contract.
+C1 activation changes values of the existing metadata fields, not JSON schema. Metadata itself adds no text annotation; the coordinated UTF-16 producer comparison may change traversal, addresses, `orderIndex` and rendered order/connectors. Membership, counting and marker rules are unchanged. JSON, combined and text output must describe the same new snapshot. Historical legacy snapshots must not be relabeled as revision 1.
 
 Default format:
 

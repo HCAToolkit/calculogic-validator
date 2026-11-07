@@ -53,6 +53,20 @@ const assertValidOccurrenceNode = (node) => {
 };
 
 
+// Shared contract §6.1: strings compare by UTF-16 code units, without collation or normalization.
+const compareCodeUnits = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+
+// Shared contract §8: this producer implements C1 revision 1, not a configurable policy selector.
+// Metadata alone cannot activate another policy; reject skew before producing any occurrences.
+const prepareC1Compatibility = () => {
+  const profile = TREE_CODEBASE_ADDRESSING_PROFILE;
+  if (profile.profileId !== 'tree-codebase' || profile.compatibilityPolicy?.status !== 'versioned' ||
+      profile.compatibilityPolicy?.revision !== '1' || profile.legacyAddressProfileId !== undefined) {
+    throw new Error('C1 producer requires tree-codebase versioned revision 1 without a legacy alias.');
+  }
+  return prepareStructuralAddressingProfileCompatibility(profile);
+};
+
 const sortTreeCodebaseSiblings = (nodes) => {
   for (const node of nodes) {
     assertValidOccurrenceNode(node);
@@ -60,9 +74,9 @@ const sortTreeCodebaseSiblings = (nodes) => {
 
   return [...nodes].sort(
     (left, right) =>
-      left.name.localeCompare(right.name) ||
-      left.occurrenceType.localeCompare(right.occurrenceType) ||
-      left.path.localeCompare(right.path),
+      compareCodeUnits(left.name, right.name) ||
+      compareCodeUnits(left.occurrenceType, right.occurrenceType) ||
+      compareCodeUnits(left.path, right.path),
   );
 };
 
@@ -127,6 +141,7 @@ const traverseOccurrences = ({ nodes, parentAddressPath, depth, records, nextOrd
 
 export const prepareTreeCodebaseAddressedSnapshot = (input) => {
   assertValidInput(input);
+  const compatibility = prepareC1Compatibility();
 
   const occurrenceRecords = [];
   traverseOccurrences({
@@ -140,7 +155,7 @@ export const prepareTreeCodebaseAddressedSnapshot = (input) => {
   return {
     snapshotOutputId: TREE_CODEBASE_ADDRESSING_PROFILE.snapshotOutputId,
     profileId: TREE_CODEBASE_ADDRESSING_PROFILE.profileId,
-    ...prepareStructuralAddressingProfileCompatibility(TREE_CODEBASE_ADDRESSING_PROFILE),
+    ...compatibility,
     domainPrefix: TREE_CODEBASE_ADDRESSING_PROFILE.domainPrefix,
     sourceNamespace: input.sourceNamespace ?? null,
     scope: input.scope ?? null,

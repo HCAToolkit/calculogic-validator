@@ -95,6 +95,8 @@ test('packed validator artifact installs into a clean consumer host and runs pub
     await fs.mkdir(packRoot, { recursive: true });
     await fs.mkdir(hostRoot, { recursive: true });
     await writeConsumerHost(hostRoot);
+    await fs.writeFile(path.join(hostRoot, 'src', 'Alpha.logic.mjs'), 'export {};\n');
+    await fs.writeFile(path.join(hostRoot, 'src', 'alpha.logic.mjs'), 'export {};\n');
 
     const packArgs = ['pack', '--json', '--pack-destination', packRoot];
     const packResult = runCommand('npm', packArgs, { cwd: validatorPackageRoot });
@@ -131,6 +133,26 @@ test('packed validator artifact installs into a clean consumer host and runs pub
       installedLoader.computeTreeSemanticHomeReasoningSourceDigest(),
       installedLoader.computeTreeSemanticHomeReasoningSourceDigest({ packageRoot: validatorPackageRoot }),
     );
+
+    // C1/D6: assert both halves on the installed artifact, never the source checkout.
+    const installedTree = await import(pathToFileURL(path.join(installedPackageRoot, 'tree', 'src', 'tree-structure-advisor.host.mjs')).href);
+    const installedPrepared = installedTree.prepareTreeStructureAdvisorInputs(hostRoot, {
+      scope: 'repo', namingSemanticFamilyBridge: { observations: ['Alpha', 'alpha'].map((name) => ({
+        path: `src/${name}.logic.mjs`, semanticName: name, semanticFamily: 'alpha', familyRoot: 'alpha',
+      })) },
+    });
+    const installedPayload = installedPrepared.preparedDependencies.addressedNamingOccurrenceBridge;
+    assert.equal(installedPayload.addressProfileId, 'tree-codebase@1');
+    const upper = installedPrepared.structuralAddressSnapshot.occurrenceRecords.find((r) => r.path === 'src/Alpha.logic.mjs');
+    const lower = installedPrepared.structuralAddressSnapshot.occurrenceRecords.find((r) => r.path === 'src/alpha.logic.mjs');
+    assert.ok(upper.orderIndex < lower.orderIndex, 'the installed producer uses C1 uppercase-before-lowercase ordering');
+    assert.ok(installedPrepared.preparedDependencies.treeNamingSectionIntake.bridgeObservations.acceptedRecords.length >= 2);
+    const stale = { ...installedPayload, addressProfileId: 'tree-structure-advisor-address-profile',
+      observations: installedPayload.observations.map((r) => ({ ...r, addressProfileId: 'tree-structure-advisor-address-profile' })) };
+    const rejected = installedTree.prepareTreeStructureAdvisorInputs(hostRoot, { scope: 'repo', namingOccurrenceBridge: stale }).preparedDependencies;
+    assert.deepEqual(rejected.treeNamingSectionIntake.bridgeObservations.acceptedRecords, []);
+    assert.deepEqual(rejected.addressedNamingSemanticEvidenceBridge.observations, []);
+    assert.ok(rejected.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'incompatible-addressing-namespace'));
 
     const allReport = assertPublicBinReport({
       binName: 'calculogic-validate',

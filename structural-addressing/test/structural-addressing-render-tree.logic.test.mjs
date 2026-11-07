@@ -34,10 +34,10 @@ const buildInput = () => ({
 });
 
 const expectedTree = `A: calculogic-validator/
-├─ A: doc/
-│  └─ A: ConventionRoutines/
 ├─ 1: LICENSE
-└─ 2: README.md`;
+├─ 2: README.md
+└─ A: doc/
+   └─ A: ConventionRoutines/`;
 
 test('renderedTree is produced deterministically from occurrenceRecords with branch glyph format', () => {
   const snapshot = prepareTreeCodebaseAddressedSnapshot(buildInput());
@@ -49,17 +49,17 @@ test('renderer output follows addressed snapshot order and not raw fixture order
   const snapshot = prepareTreeCodebaseAddressedSnapshot(buildInput());
   const rawChildOrder = buildInput().scopeRoots[0].children.map((child) => child.name);
   assert.deepEqual(rawChildOrder, ['README.md', 'LICENSE', 'doc']);
-  assert.match(snapshot.occurrenceRecords.map((record) => record.name).join(','), /doc,ConventionRoutines,LICENSE,README\.md/u);
+  assert.match(snapshot.occurrenceRecords.map((record) => record.name).join(','), /calculogic-validator,LICENSE,README\.md,doc,ConventionRoutines/u);
   const result = renderTreeCodebaseAddressedSnapshot(snapshot);
-  assert.match(result.renderedTree, /├─ A: doc\/\n│  └─ A: ConventionRoutines\/\n├─ 1: LICENSE/u);
+  assert.match(result.renderedTree, /├─ 1: LICENSE\n├─ 2: README\.md\n└─ A: doc\/\n   └─ A: ConventionRoutines\//u);
 });
 
-test('folder with descendants and a later sibling renders with branch connector and continuation bars', () => {
+test('folder sorted after uppercase files renders with a terminal connector', () => {
   const snapshot = prepareTreeCodebaseAddressedSnapshot(buildInput());
   const result = renderTreeCodebaseAddressedSnapshot(snapshot);
 
-  assert.match(result.renderedTree, /^├─ A: doc\/$/mu);
-  assert.match(result.renderedTree, /^│  └─ A: ConventionRoutines\/$/mu);
+  assert.match(result.renderedTree, /^└─ A: doc\/$/mu);
+  assert.match(result.renderedTree, /^   └─ A: ConventionRoutines\/$/mu);
 });
 
 test('last sibling with descendants renders with terminal connector', () => {
