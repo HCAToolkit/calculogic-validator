@@ -117,3 +117,27 @@ test('a Custom folder-kinds registry without `semantic` still classifies the fam
   assert.equal(classification.structuralClass, 'repo-top-semantic-root');
   assert.equal(classification.isRepoShapeAllowedTopLevelDirectory, true);
 });
+
+test('Stage 1 closes the legacy folder path bypass without applying B2-only rejections', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tree-compatibility-folder-'));
+  try {
+    fs.mkdirSync(path.join(root, 'pkg/core'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'pkg/core/core-plan.logic.mjs'), 'export {};\n');
+    const built = prepareTreeStructureAdvisorInputs(root, { scope: 'repo', namingSemanticFamilyBridge: { observations: [{
+      path: 'pkg/core', occurrenceType: 'folder', semanticName: 'core', semanticFamily: 'core', familyRoot: 'core', semanticEvidenceKind: 'semantic-family-root-folder',
+    }] } }).preparedDependencies;
+    assert.equal(built.treeFamilyRootFolderEvidence.evidenceRecords.length, 1);
+    const payload = structuredClone(built.addressedNamingOccurrenceBridge);
+    payload.addressProfileId = 'unknown';
+    const rejected = prepareTreeStructureAdvisorInputs(root, { scope: 'repo', namingOccurrenceBridge: payload }).preparedDependencies;
+    assert.deepEqual(rejected.addressedNamingSemanticEvidenceBridge.observations, []);
+    assert.deepEqual(rejected.treeFamilyRootFolderEvidence.evidenceRecords, []);
+    assert.deepEqual(rejected.treeSemanticNamingFolderTypeRelationshipEvidence.relationshipRecords, []);
+    const b2Only = structuredClone(built.addressedNamingOccurrenceBridge);
+    b2Only.observations.find((o) => o.path === 'pkg/core').repoRelativePath = null;
+    const retained = prepareTreeStructureAdvisorInputs(root, { scope: 'repo', namingOccurrenceBridge: b2Only }).preparedDependencies;
+    assert.ok(retained.treeNamingSectionIntake.bridgeObservations.rejectedRecords.some((r) => r.reason === 'invalid-source-path'));
+    assert.equal(retained.treeFamilyRootFolderEvidence.evidenceRecords.length, 1);
+    assert.deepEqual(retained.treeNamingOccurrenceBridgeIntake.diagnostics.filter((d) => d.source === 'tree-addressing-compatibility-intake'), []);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

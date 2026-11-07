@@ -428,7 +428,7 @@ test('comparison A: the probe contract\'s snapshot envelope is input-derived and
   const addressing = prepareTreeCodebaseAddressedSnapshot({ scopeRoots: toAddressingScopeRoots(['tree/src/x.mjs'], ['tree']) });
   assert.equal(addressing.scope, null);
   assert.deepEqual(Object.keys(addressing).sort(), [
-    'domainPrefix', 'occurrenceRecords', 'profileId', 'scope', 'scopeRoots', 'snapshotOutputId', 'sourceNamespace', 'target',
+    'addressProfileId', 'compatibilityPolicy', 'domainPrefix', 'occurrenceRecords', 'profileId', 'scope', 'scopeRoots', 'snapshotOutputId', 'sourceNamespace', 'target',
   ]);
   assert.deepEqual(addressing.scopeRoots.map((node) => node.path), ['tree']);
   assert.equal(typeof addressing.scopeRoots[0], 'object');
@@ -908,19 +908,19 @@ test('comparison B, intentional difference I5: the join namespace IDs differ eve
   const addressing = await getTreeSnapshotFor(VALIDATOR_ROOT);
 
   // Naming -> Tree joins key on addressProfileId + addressedSnapshotId + occurrenceAddress. Tree wiring
-  // stamps its own namespace IDs on the payload and on every observation, while Structural Addressing
+  // obtains the profile identity from the actual Addressing producer and keeps its snapshot namespace. Structural Addressing
   // exposes a different profile id and an output id that the identity contract does not yet treat
   // as an addressedSnapshotId. Switching producers without a namespace decision would change every
   // join identity even when every address is stable.
   assert.deepEqual(
     [treeBridge.addressProfileId, treeBridge.addressedSnapshotId],
-    ['tree-structure-advisor-address-profile', 'tree-structure-advisor-current-snapshot'],
+    [addressing.addressProfileId, 'tree-structure-advisor-current-snapshot'],
   );
   assert.ok(treeBridge.observations.length > 0, 'expected Naming observations to join');
   for (const observation of treeBridge.observations) {
     assert.deepEqual(
       [observation.addressProfileId, observation.addressedSnapshotId],
-      ['tree-structure-advisor-address-profile', 'tree-structure-advisor-current-snapshot'],
+      [addressing.addressProfileId, 'tree-structure-advisor-current-snapshot'],
     );
   }
   assert.deepEqual([addressing.profileId, addressing.snapshotOutputId], ['tree-codebase', 'addressedTreeSnapshot']);
