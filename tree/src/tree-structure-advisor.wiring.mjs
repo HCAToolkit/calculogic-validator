@@ -45,6 +45,7 @@ import {
 import { loadNamingFolderCompositionPatternsRegistryFromRegistryRoot } from '../../naming/src/registries/naming-folder-composition-patterns-registry.logic.mjs';
 import { NAMING_BUILTIN_REGISTRY_ROOT, NAMING_REGISTRY_SLICE_ID } from '../../naming/src/registries/naming-registry-inventory.knowledge.mjs';
 import { prepareTreeNamingOccurrenceBridgeIntake } from './tree-naming-occurrence-intake.logic.mjs';
+import { prepareTreeAddressingCompatibilityIntake, prepareTreeNamingStagingCompatibility } from './tree-addressing-compatibility-intake.logic.mjs';
 import { prepareContextualTreeRepoShapePolicy } from './tree-contextual-repo-shape-policy.logic.mjs';
 import { prepareTreeRepoShapeEvidence } from './tree-repo-shape-evidence.logic.mjs';
 import { collectDeclaredLocalPackageEvidence } from '../../src/core/repository-local-package-evidence.logic.mjs';
@@ -61,7 +62,6 @@ import { prepareTreeEmergentBoundaryReasoning } from './tree-emergent-boundary-r
 import { prepareTreeOrganizationalPlacement } from './tree-organizational-placement.logic.mjs';
 
 const TOP_LEVEL_SCAN_EXCLUSIONS = new Set(['.git', 'node_modules']);
-const TREE_ADDRESS_PROFILE_ID = 'tree-structure-advisor-address-profile';
 const TREE_ADDRESSED_SNAPSHOT_ID = 'tree-structure-advisor-current-snapshot';
 
 const WALK_EXCLUDED_DIRECTORIES = new Set([
@@ -150,8 +150,10 @@ export const prepareTreeStructureAdvisorInputs = (
     includeRoots: scopedSnapshotInputs.includeRoots,
     targets: structuralAddressTargets,
   });
+  const addressingSnapshot = prepareTreeCodebaseAddressedSnapshot(treeCodebaseValidationInput.treeCodebaseInput);
+  const addressedNamespace = { addressProfileId: addressingSnapshot.addressProfileId, addressedSnapshotId: TREE_ADDRESSED_SNAPSHOT_ID };
   const structuralAddressSnapshot = prepareTreeAddressedOccurrenceSnapshot({
-    occurrenceRecords: prepareTreeCodebaseAddressedSnapshot(treeCodebaseValidationInput.treeCodebaseInput).occurrenceRecords,
+    occurrenceRecords: addressingSnapshot.occurrenceRecords,
     declaredScopeRoots: treeCodebaseValidationInput.declaredScopeRoots,
     targets: structuralAddressTargets,
     selectedPaths,
@@ -189,26 +191,28 @@ export const prepareTreeStructureAdvisorInputs = (
   });
   // The occurrence bridge is built from Naming's source observations, never from prepared evidence:
   // preparation is a consumer view, and the producer copies only source fields (#82).
+  const bridgeOrigin = namingOccurrenceBridge === undefined ? TREE_BRIDGE_ORIGINS.treeBuilt : TREE_BRIDGE_ORIGINS.callerSupplied;
+  const stagingCompatibility = bridgeOrigin === TREE_BRIDGE_ORIGINS.treeBuilt
+    ? prepareTreeNamingStagingCompatibility({ namingSemanticFamilyBridge, namingSemanticEvidenceEnrichment })
+    : { namingSemanticFamilyBridge, namingSemanticEvidenceEnrichment, diagnostics: [] };
   const combinedNamingSemanticObservations = {
     observations: [
-      ...(Array.isArray(namingSemanticFamilyBridge?.observations) ? namingSemanticFamilyBridge.observations : []),
+      ...(Array.isArray(stagingCompatibility.namingSemanticFamilyBridge?.observations) ? stagingCompatibility.namingSemanticFamilyBridge.observations : []),
       ...namingFolderCompositionBridge.observations,
     ],
   };
   const addressedOccurrenceNamespace = {
-    addressProfileId: TREE_ADDRESS_PROFILE_ID,
-    addressedSnapshotId: TREE_ADDRESSED_SNAPSHOT_ID,
+    ...addressedNamespace,
     occurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
   };
   // A caller-supplied payload is used as supplied. Otherwise Tree builds one against its own snapshot
   // with the Naming-owned producer, passing the staged N1 source and folder-label interpreter (S1.1).
   // `bridgeOrigin` is that execution branch: the one source of Stage 1A's `bridgeSource` argument and of
   // the vocabulary intake's trust (S1.1); the payload's own `bridgeSource` field is never consulted for it.
-  const bridgeOrigin = namingOccurrenceBridge ? TREE_BRIDGE_ORIGINS.callerSupplied : TREE_BRIDGE_ORIGINS.treeBuilt;
-  const addressedNamingOccurrenceBridge = namingOccurrenceBridge ?? createNamingOccurrenceBridgePayload({
+  const addressedNamingOccurrenceBridge = bridgeOrigin === TREE_BRIDGE_ORIGINS.callerSupplied ? namingOccurrenceBridge : createNamingOccurrenceBridgePayload({
     namingSemanticFamilyBridge: combinedNamingSemanticObservations,
     addressedOccurrenceNamespace,
-    namingSemanticEvidenceEnrichment,
+    namingSemanticEvidenceEnrichment: stagingCompatibility.namingSemanticEvidenceEnrichment,
     interpretFolderLabel,
     // Opaque Naming staging value (bridge contract §4.7, Tree spec S1.1): passed to the Naming-owned
     // producer unchanged; Tree never resolves tokens. Only the lexical-identity intake below reads the
@@ -221,18 +225,21 @@ export const prepareTreeStructureAdvisorInputs = (
     // the section, and Tree never reads Naming's registries to obtain, check or complete it.
     roleCategoryVocabulary,
   });
+  const compatibilityIntake = prepareTreeAddressingCompatibilityIntake({
+    payload: addressedNamingOccurrenceBridge, addressedNamespace, occurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
+  });
   const treeNamingSectionIntake = prepareTreeNamingSectionIntake({
-    namingOccurrenceBridge: addressedNamingOccurrenceBridge,
+    namingOccurrenceBridge: compatibilityIntake.addressedPayload,
     bridgeSource: bridgeOrigin,
-    addressedNamespace: { addressProfileId: TREE_ADDRESS_PROFILE_ID, addressedSnapshotId: TREE_ADDRESSED_SNAPSHOT_ID },
+    addressedNamespace,
     addressedOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
-    staged: { namingSemanticFamilyBridge, namingSemanticEvidenceEnrichment, interpretFolderLabel },
+    staged: { ...stagingCompatibility, interpretFolderLabel },
   });
   // Lexical-identity intake (Tree spec S1.1-S1.3, calculogic-validator#153): Tree's own record of the
   // payload's `namingTokenLexicalIdentities`, outside Stage 1A and every Stage 1/Stage 2 module; `null`
   // (and no prepared dependency) when the payload carries no section. Only Stage 3 reads it.
   const treeLexicalIdentityIntake = prepareTreeLexicalIdentityIntake({
-    namingOccurrenceBridge: addressedNamingOccurrenceBridge,
+    namingOccurrenceBridge: compatibilityIntake.addressedPayload,
     sectionIntake: treeNamingSectionIntake,
   });
   // Repository-package intake (S3.2; bridge contract §4.8; calculogic-validator#159): Tree's own record of
@@ -259,13 +266,14 @@ export const prepareTreeStructureAdvisorInputs = (
   // Stage 1B-i (S1.3 fact level, S1.8): built only from the intake above and Tree's snapshot.
   const treeFolderFactEvidence = prepareTreeFolderFactEvidence({
     sectionIntake: treeNamingSectionIntake,
-    addressedNamespace: { addressProfileId: TREE_ADDRESS_PROFILE_ID, addressedSnapshotId: TREE_ADDRESSED_SNAPSHOT_ID },
+    addressedNamespace,
     addressedOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
   });
-  const addressedNamingSemanticEvidenceBridge = prepareNamingSemanticEvidenceBridge(addressedNamingOccurrenceBridge);
+  const addressedNamingSemanticEvidenceBridge = prepareNamingSemanticEvidenceBridge({ observations: compatibilityIntake.observations });
   const treeNamingOccurrenceBridgeIntake = prepareTreeNamingOccurrenceBridgeIntake({
     namingOccurrenceBridge: addressedNamingOccurrenceBridge,
     namingSemanticFamilyBridge,
+    compatibilityDiagnostics: [...stagingCompatibility.diagnostics, ...compatibilityIntake.diagnostics],
   });
 
   const treeStructuralHomeEvidence = prepareTreeStructuralHomeEvidence({

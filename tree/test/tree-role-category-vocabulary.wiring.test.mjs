@@ -296,11 +296,25 @@ test('acceptance 11: Stage 3 reads no vocabulary, and `joiningFileCanLeaveClassU
 
 test('trust comes from the execution branch: the wiring never reads the payload `bridgeSource` for it', () => {
   const wiringSource = fs.readFileSync(path.join(REPO_ROOT, 'tree/src/tree-structure-advisor.wiring.mjs'), 'utf8');
-  assert.match(wiringSource, /const bridgeOrigin = namingOccurrenceBridge \? TREE_BRIDGE_ORIGINS\.callerSupplied : TREE_BRIDGE_ORIGINS\.treeBuilt;/u);
+  assert.match(wiringSource, /const bridgeOrigin = namingOccurrenceBridge === undefined \? TREE_BRIDGE_ORIGINS\.treeBuilt : TREE_BRIDGE_ORIGINS\.callerSupplied;/u);
   assert.doesNotMatch(wiringSource, /\.bridgeSource\b/u);
 });
 
 test('runner transport: the Tree registry hook forwards the staged value unchanged', () => {
   const hookSource = fs.readFileSync(path.join(REPO_ROOT, 'src/core/validator-registry.knowledge.mjs'), 'utf8');
   assert.match(hookSource, /roleCategoryVocabulary: options\.roleCategoryVocabulary,/u);
+});
+
+test('Stage 1 foreign addressing preserves the existing independent vocabulary trust result', () => {
+  withTarget((root) => {
+    const registryResolution = resolveActiveRegistrySet({ targetRoot: root });
+    const staged = prepareNamingTreeStagingInputs(runNamingValidator(root, { scope: 'repo', registryResolution }), { registryResolution });
+    const payload = prepare(root, { ...staged, registryResolution }).payload;
+    assert.ok(payload.namingRoleCategoryVocabulary);
+    const control = prepare(root, { registryResolution, namingOccurrenceBridge: payload });
+    const foreign = prepare(root, { registryResolution, namingOccurrenceBridge: { ...payload, addressProfileId: 'unknown' } });
+    assert.deepEqual(foreign.intake, control.intake);
+    assert.ok(foreign.intake);
+    assert.equal(foreign.deps.treeNamingSectionIntake.bridgeObservations.acceptedRecords.length, 0);
+  });
 });

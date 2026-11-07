@@ -82,6 +82,7 @@ const normalizeObservationIdentityTuple = (observation) => {
 export const prepareTreeNamingOccurrenceBridgeIntake = ({
   namingOccurrenceBridge,
   namingSemanticFamilyBridge,
+  compatibilityDiagnostics = [],
 } = {}) => {
   const payload = toPayloadFromTransport({ namingOccurrenceBridge, namingSemanticFamilyBridge });
 
@@ -92,11 +93,11 @@ export const prepareTreeNamingOccurrenceBridgeIntake = ({
       recognized: false,
       usedForCurrentTreeJoins: false,
       identityTuples: [],
-      diagnostics: [],
+      diagnostics: [...compatibilityDiagnostics],
     };
   }
 
-  const diagnostics = [];
+  const diagnostics = [...compatibilityDiagnostics];
   if (!isPlainObject(payload)) {
     return {
       boundary: 'tree-naming-occurrence-bridge-intake',
@@ -104,7 +105,7 @@ export const prepareTreeNamingOccurrenceBridgeIntake = ({
       recognized: false,
       usedForCurrentTreeJoins: false,
       identityTuples: [],
-      diagnostics: [{ reason: 'payload-not-object' }],
+      diagnostics: [{ reason: 'payload-not-object' }, ...compatibilityDiagnostics],
     };
   }
 

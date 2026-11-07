@@ -1275,3 +1275,15 @@ test('Tree ignores the Naming folder-label observation section: intake, evidence
     fs.rmSync(fixtureDir, { recursive: true, force: true });
   }
 });
+
+test('Stage 1 adds compatibility diagnostics without changing the bridge-intake flags or standalone join helper', () => {
+  const compatibility = [{ source: 'tree-addressing-compatibility-intake', section: 'naming-occurrence-bridge', reason: 'incompatible-addressing-namespace', identityTuple: null }];
+  const plain = prepareTreeNamingOccurrenceBridgeIntake({ namingOccurrenceBridge: occurrenceBridge });
+  const observed = prepareTreeNamingOccurrenceBridgeIntake({ namingOccurrenceBridge: occurrenceBridge, compatibilityDiagnostics: compatibility });
+  assert.deepEqual(observed.identityTuples, plain.identityTuples);
+  assert.equal(observed.recognized, plain.recognized);
+  assert.equal(observed.usedForCurrentTreeJoins, false);
+  assert.equal(observed.status, 'recognized-with-diagnostics');
+  assert.deepEqual(observed.diagnostics, [...compatibility, ...plain.diagnostics]);
+  assert.deepEqual(compatibility[0].identityTuple, null);
+});

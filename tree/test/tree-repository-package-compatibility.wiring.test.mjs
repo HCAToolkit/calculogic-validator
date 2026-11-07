@@ -27,7 +27,7 @@ const FILES = [
 ];
 
 // One run of a consumer-style target with the given root manifest text (or none).
-const runTarget = (manifestText) => {
+const runTarget = (manifestText, transformPayload) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tree-repository-package-'));
   try {
     for (const relativePath of FILES) {
@@ -37,7 +37,9 @@ const runTarget = (manifestText) => {
     if (manifestText !== undefined) fs.writeFileSync(path.join(root, 'package.json'), manifestText);
     const registryResolution = resolveActiveRegistrySet({ targetRoot: root });
     const staged = prepareNamingTreeStagingInputs(runNamingValidator(root, { scope: 'repo', registryResolution }), { registryResolution });
-    const prepared = prepareTreeStructureAdvisorInputs(root, { scope: 'repo', registryResolution, ...staged, emergentBoundaryPolicy: EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY });
+    const options = { scope: 'repo', registryResolution, ...staged, emergentBoundaryPolicy: EMERGENT_BOUNDARY_EXPERIMENTAL_POLICY };
+    const built = prepareTreeStructureAdvisorInputs(root, options);
+    const prepared = transformPayload ? prepareTreeStructureAdvisorInputs(root, { ...options, namingOccurrenceBridge: transformPayload(built.preparedDependencies.addressedNamingOccurrenceBridge) }) : built;
     const deps = prepared.preparedDependencies;
     // The same prepared evidence through Stage 3 without package elements: attribution control.
     const withoutPackage = prepareTreeEmergentBoundaryReasoning({
@@ -119,4 +121,13 @@ test('accepted elements (scoped, unscoped, scope only): Stage 3 changes only thr
     assert.equal(packageSteps.length > 0, leadsWithElement, `${manifest}: package steps exactly where a recorded member leads with an element`);
     for (const step of packageSteps) assert.deepEqual(Object.keys(step).sort(), ['basis', 'element', 'positions', 'segment', 'tokens'], `${manifest}: no folder, folder path or identity tuple`);
   }
+});
+
+test('Stage 1 foreign addressing does not reject independently valid repository package labels', () => {
+  const manifest = JSON.stringify({ name: '@acme/widget-kit' });
+  const control = runTarget(manifest, (payload) => payload);
+  const foreign = runTarget(manifest, (payload) => ({ ...payload, addressProfileId: 'unknown' }));
+  assert.ok(control.intake.acceptedRecords.length > 0);
+  assert.deepEqual(foreign.intake, control.intake);
+  assert.deepEqual(foreign.section, control.section);
 });

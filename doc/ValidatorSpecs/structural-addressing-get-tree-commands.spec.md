@@ -132,6 +132,13 @@ Supported output behavior:
 - `--format=json` = JSON addressed snapshot output.
 - `--format=both` = deterministic combined JSON containing addressed snapshot + renderedTree.
 
+The addressed snapshot in JSON and combined output additionally carries:
+
+- `compatibilityPolicy`: `{ "status": "legacy-unqualified", "revision": null }` for the current locale-dependent policy; this is not a verified compatible-policy revision.
+- `addressProfileId`: `"tree-structure-advisor-address-profile"`, derived by Structural Addressing from its legacy alias declaration. It is distinct from the `profileId` family (`tree-codebase`), output-kind `snapshotOutputId`, and any snapshot-instance identity.
+
+These additive producer-owned fields do not change text rendering, occurrence membership, addresses or ordering. No versioned policy or C1 comparator is activated. Future versioned identity encoding is governed by the shared Addressing contract.
+
 Default format:
 
 - Default format = `text`.

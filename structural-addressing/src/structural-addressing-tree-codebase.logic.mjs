@@ -3,6 +3,7 @@ import {
   STRUCTURAL_ADDRESSING_OCCURRENCE_TYPES,
 } from './structural-addressing-profile.knowledge.mjs';
 import { buildStructuralAddressingMarker } from './structural-addressing-marker-strategies.logic.mjs';
+import { prepareStructuralAddressingProfileCompatibility } from './structural-addressing-profile-compatibility.logic.mjs';
 
 const assertValidInput = (input) => {
   if (input === undefined) {
@@ -139,6 +140,7 @@ export const prepareTreeCodebaseAddressedSnapshot = (input) => {
   return {
     snapshotOutputId: TREE_CODEBASE_ADDRESSING_PROFILE.snapshotOutputId,
     profileId: TREE_CODEBASE_ADDRESSING_PROFILE.profileId,
+    ...prepareStructuralAddressingProfileCompatibility(TREE_CODEBASE_ADDRESSING_PROFILE),
     domainPrefix: TREE_CODEBASE_ADDRESSING_PROFILE.domainPrefix,
     sourceNamespace: input.sourceNamespace ?? null,
     scope: input.scope ?? null,

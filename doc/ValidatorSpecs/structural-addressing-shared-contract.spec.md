@@ -79,7 +79,7 @@ Consequences:
 | `depth` | 0 at a root |
 | `orderIndex` | snapshot-wide depth-first pre-order position, starting at 0 |
 
-The snapshot envelope adds `snapshotOutputId`, `profileId`, `domainPrefix`, `sourceNamespace`, `scope`, `target` and `scopeRoots`.
+The snapshot envelope adds `snapshotOutputId`, `profileId`, `domainPrefix`, `sourceNamespace`, `scope`, `target` and `scopeRoots`. It also carries Addressing-owned `compatibilityPolicy` (`status` and `revision`) and the derived joined `addressProfileId`; these are metadata, not occurrence fields or snapshot-instance identity.
 
 ### 4.3 Record invariants (Contract)
 
@@ -210,13 +210,15 @@ Four kinds, related but never interchangeable (Contract):
 
 **Contract:** every entity key states which edits it survives. No key is assumed to survive every kind of edit. A path survives none that change the path. Builder entity IDs and doc-engine `contentId`/`anchorId` are intended to survive moves, within their own domains' contracts. Persistence across renames and moves, for any domain this contract addresses, is **Deferred** to the slice that needs it.
 
-**Current join key:** Tree joins Naming occurrences on `addressProfileId + addressedSnapshotId + occurrenceAddress`. The profile and snapshot values are Tree-supplied compatibility constants (`tree-structure-advisor-address-profile`, `tree-structure-advisor-current-snapshot`), not the Structural Addressing `profileId`. **Contract:** changing them is a coordinated producer/consumer transition with join-parity tests, not part of any profile change.
+**Current join key (B1/D6 Stage 1):** Tree joins Naming occurrences on `addressProfileId + addressedSnapshotId + occurrenceAddress`. Structural Addressing owns the family, compatibility-policy metadata and joined profile identity. Tree obtains `addressProfileId` from the actual producer result. For Stage 1, Addressing preserves `tree-structure-advisor-address-profile` solely as a `legacy-unqualified` alias: `compatibilityPolicy` is `{ status: "legacy-unqualified", revision: null }`, and the profile declaration owns `legacyAddressProfileId`. This does not assert compatibility across locale-dependent outputs. The family `profileId` remains `tree-codebase`. Tree retains the separate static snapshot namespace `tree-structure-advisor-current-snapshot`; no per-snapshot identity semantics are established. **Contract:** activating a changed joined identity requires a coordinated producer/consumer transition with join-parity and migration evidence.
 
 **Current observation (mixed-policy experiment, read-only, at `main` 776a88e8, synthetic scenarios on frozen English-collected inputs):** with identical Tree-supplied constants, Tree's section intake accepted Naming evidence attached to a different file when the payload and the addressed snapshot came from different ordering policies. In the English and code-unit comparison, each mixing direction produced one mis-associated React v1 observation, four Validator repo-scope v1 observations, and four Validator docs-scope v1 observations. The intake matches by namespace and `occurrenceAddress` tuple; N1 and N2 also check occurrence type. It does not compare the observation's source path with the resolved occurrence's path. Changing either Tree-supplied constant alone rejected every attempted association as `unmatched-record`. Contract-version gates did not discriminate between the policies. The experiment does not show that such mixing occurs in practice, and unchanged findings on the measured entry surface do not show that associations were correct.
 
-**Proposed (direction approved 2026-11-05; not implemented):**
+**Current infrastructure; future activation deferred:** Addressing's pure compatibility derivation validates lowercase kebab-case family identifiers. A future `versioned` descriptor requires a canonical positive decimal string revision (no zero, leading zero, sign, decimal point or whitespace) and no legacy alias, and encodes `<family>@<revision>`. Consumers compare the joined string exactly and treat it as opaque. Unknown status or invalid metadata fails; derivation consults no environment, locale, package version or digest. No versioned production revision is active. The current comparator remains unchanged.
 
-- Incompatible addressing-policy revisions must be explicitly distinguishable to consumers. Which identifier or mechanism carries the distinction is undecided and belongs to the transition task. Tree's `addressProfileId` is a Tree compatibility constant and is not the Structural Addressing `profileId`; this contract's existing distinction is preserved, and the eventual semantics of any compatibility identifier are undecided. `addressedSnapshotId` is currently a static namespace label, not a per-snapshot identity. The D6 procedure applies only if the existing Tree join constants are the mechanism chosen.
+**Tree compatibility qualification:** incompatible, missing or unknown envelope namespaces admit no addressed evidence. Under a compatible envelope, only records with a valid tuple, matching namespace and a tuple resolving in Tree's actual snapshot qualify for legacy consumption. Compatibility-rejected evidence never recovers through path or address aliases. Independent payload-level sections retain their own contracts. B2 source-path checks remain separate; their rejected-record set is not automatically applied to legacy consumers.
+
+**Migration limits:** no historical payload is relabeled or supplemented. Caller-supplied addressed payloads are distinct from path-keyed Naming staging used to construct Tree-built payloads. React package pins, live links, external producers and retained payloads require coordinated upgrade/regeneration decisions outside Stage 1; their absence is not assumed. The legacy alias cannot discriminate differently ordered legacy artifacts. C1 and its versioned revision must be activated together only under separate authorization.
 
 **Current (B2):** Tree performs a bounded source-path correspondence check at Naming intake, without replacing tuple identity (Tree spec S1.2). It compares supplied `repoRelativePath` with the tuple-resolved occurrence's `path` under an explicit lexical policy, rejects malformed/mismatched evidence per record, and records permitted omissions as unverified. Tree owns consumption checks; Naming retains interpretation and Structural Addressing retains identity generation. Rejection can affect downstream availability and findings, but changes no addresses or compatibility constants.
 
@@ -265,7 +267,8 @@ No NL or code addressing, no comparison capability and no `validate:addressing*`
 | Explicit sibling-ordinal field | **Proposed** (issue raised with its runtime slice) |
 | Locale-independent name ordering | **Proposed** (UTF-16 code-unit producer comparator; direction approved, not implemented; issue raised with its runtime slice) |
 | Tree-owned source-path correspondence check at Naming intake | **Current** (B2; Tree spec S1.2) |
-| Explicit ordering-policy compatibility distinction (mechanism undecided) | **Proposed** (direction approved, not implemented) |
+| Addressing-owned compatibility metadata and Tree qualification | **Current** (B1/D6 Stage 1; legacy-unqualified alias only) |
+| Versioned ordering-policy activation | **Proposed** (B1 Option A; coordinated C1/D6 activation separately authorized) |
 | `code-file`, `nl-document` profiles | **Proposed** |
 | Serialized cross-domain address | **Deferred** |
 | Snapshot-identity contract | **Deferred** |

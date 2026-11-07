@@ -6,6 +6,7 @@ import path from 'node:path';
 import { prepareTreeStructureAdvisorInputs, runTreeStructureAdvisor } from '../src/tree-structure-advisor.wiring.mjs';
 import { prepareNamingTreeStagingInputs, runNamingValidator } from '../../naming/src/naming-validator.host.mjs';
 import { getValidatorById } from '../../src/core/validator-registry.knowledge.mjs';
+import { prepareLinguisticFoundation } from '../../linguistic-foundation/src/linguistic-foundation.wiring.mjs';
 
 const N1_KEY = 'namingSemanticEvidenceEnrichment';
 const N2_KEY = 'namingFolderLabelObservations';
@@ -243,5 +244,118 @@ test('B2 unverified v1 diagnostics retain their prepared alias without public re
     assert.deepEqual(runTreeStructureAdvisor(fixtureRoot, options), runTreeStructureAdvisor(fixtureRoot, verifiedOptions));
     assert.deepEqual(getValidatorById('tree-structure-advisor').run(fixtureRoot, options),
       getValidatorById('tree-structure-advisor').run(fixtureRoot, verifiedOptions));
+  });
+});
+
+test('Stage 1 diagnoses foreign envelopes and mixed records without alias recovery or supplementation', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const baseline = prepare(fixtureRoot, staged).preparedDependencies.addressedNamingOccurrenceBridge;
+    const foreign = structuredClone(baseline);
+    foreign.addressProfileId = 'tree-codebase@1';
+    const before = structuredClone(foreign);
+    const rejected = prepare(fixtureRoot, { ...staged, namingOccurrenceBridge: foreign }).preparedDependencies;
+    assert.equal(rejected.addressedNamingOccurrenceBridge, foreign);
+    assert.equal(rejected.treeNamingSectionIntake.bridgeObservations.acceptedRecords.length, 0);
+    assert.deepEqual(rejected.addressedNamingSemanticEvidenceBridge.observations, []);
+    assert.equal(rejected.treeNamingOccurrenceBridgeIntake.status, 'recognized-with-diagnostics');
+    assert.equal(rejected.treeNamingOccurrenceBridgeIntake.usedForCurrentTreeJoins, false);
+    assert.ok(rejected.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'incompatible-addressing-namespace'));
+    assert.deepEqual(foreign, before);
+    const mixed = structuredClone(baseline);
+    mixed.observations[0].addressProfileId = 'tree-codebase@1';
+    const deps = prepare(fixtureRoot, { namingOccurrenceBridge: mixed }).preparedDependencies;
+    assert.equal(deps.treeNamingSectionIntake.bridgeObservations.acceptedRecords.length, mixed.observations.length - 1);
+    assert.equal(deps.addressedNamingSemanticEvidenceBridge.observations.length, mixed.observations.length - 1);
+    assert.equal(deps.treeFolderSemanticEvidence.diagnostics, deps.treeNamingSectionIntake.diagnostics);
+  });
+});
+
+test('Stage 1 keeps legitimate staging distinct from malformed addressed input and wrong-slot envelopes', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const original = prepare(fixtureRoot, staged).preparedDependencies.addressedNamingOccurrenceBridge;
+    assert.ok(original.observations.length > 0);
+    const framed = prepare(fixtureRoot, { ...staged, namingSemanticFamilyBridge: original }).preparedDependencies;
+    assert.ok(framed.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'addressed-payload-in-staging'));
+    assert.equal(framed.addressedNamingOccurrenceBridge.observations.some((o) => o.semanticName === original.observations[0].semanticName), false);
+    for (const value of [null, false, '', 0]) {
+      const deps = prepare(fixtureRoot, { ...staged, namingOccurrenceBridge: value }).preparedDependencies;
+      assert.equal(deps.addressedNamingOccurrenceBridge, value);
+      assert.equal(deps.treeNamingSectionIntake.bridgeSource, null);
+      assert.deepEqual(deps.addressedNamingSemanticEvidenceBridge.observations, []);
+      assert.ok(deps.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'invalid-addressing-identity'));
+    }
+  });
+});
+
+test('Stage 1 compatibility diagnostics remain prepared-only on the public Tree runtime path', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const payload = prepare(fixtureRoot, staged).preparedDependencies.addressedNamingOccurrenceBridge;
+    const foreign = { ...payload, addressProfileId: 'unknown' };
+    const options = { namingOccurrenceBridge: foreign };
+    assert.ok(prepare(fixtureRoot, options).preparedDependencies.treeNamingOccurrenceBridgeIntake.diagnostics.length);
+    const report = runTreeStructureAdvisor(fixtureRoot, { scope: 'repo', ...options });
+    assert.equal(JSON.stringify(report).includes('incompatible-addressing-namespace'), false);
+    assert.equal(Object.hasOwn(report, 'diagnostics'), false);
+  });
+});
+
+test('Stage 1 inherited namespace fields reject every addressed route without modifying the payload', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const lexicalProfile = prepareLinguisticFoundation({ profileSelection: { profileId: 'english' } }).profile;
+    const baseline = prepare(fixtureRoot, { ...staged, lexicalProfile }).preparedDependencies.addressedNamingOccurrenceBridge;
+    assert.ok(baseline.namingTokenLexicalIdentities.records.length);
+    for (const field of ['addressProfileId', 'addressedSnapshotId']) {
+      const payload = structuredClone(baseline);
+      const inherited = payload[field]; delete payload[field]; Object.setPrototypeOf(payload, { [field]: inherited });
+      const deps = prepare(fixtureRoot, { namingOccurrenceBridge: payload }).preparedDependencies;
+      for (const key of ['bridgeObservations', 'semanticEvidenceEnrichment', 'folderLabelObservations']) {
+        assert.deepEqual(deps.treeNamingSectionIntake[key].acceptedRecords, []);
+      }
+      assert.deepEqual(deps.treeLexicalIdentityIntake.acceptedRecords, []);
+      assert.deepEqual(deps.addressedNamingSemanticEvidenceBridge.observations, []);
+      assert.ok(deps.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'invalid-addressing-identity'));
+      assert.equal(deps.addressedNamingOccurrenceBridge, payload);
+      assert.equal(Object.hasOwn(payload, field), false);
+      assert.equal(payload[field], inherited);
+    }
+  });
+});
+
+test('Stage 1 inherited record identity is not admitted by v1, N1, N2 or lexical intake', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const lexicalProfile = prepareLinguisticFoundation({ profileSelection: { profileId: 'english' } }).profile;
+    const baseline = prepare(fixtureRoot, { ...staged, lexicalProfile }).preparedDependencies;
+    const payload = baseline.addressedNamingOccurrenceBridge;
+    for (const [section, resultKey] of [[null, 'bridgeObservations'], [N1_KEY, 'semanticEvidenceEnrichment'], [N2_KEY, 'folderLabelObservations'], ['namingTokenLexicalIdentities', null]]) {
+      for (const field of ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress']) {
+        const changed = structuredClone(payload);
+        const target = section ? changed[section].records[0] : changed.observations[0];
+        const inherited = target[field]; delete target[field]; Object.setPrototypeOf(target, { [field]: inherited });
+        const deps = prepare(fixtureRoot, { namingOccurrenceBridge: changed }).preparedDependencies;
+        const before = resultKey ? baseline.treeNamingSectionIntake[resultKey] : baseline.treeLexicalIdentityIntake;
+        const after = resultKey ? deps.treeNamingSectionIntake[resultKey] : deps.treeLexicalIdentityIntake;
+        assert.equal(after.acceptedRecords.length, before.acceptedRecords.length - 1, `${section}/${field}`);
+        assert.ok(deps.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'invalid-addressing-identity'));
+        assert.equal(Object.hasOwn(target, field), false);
+        assert.equal(target[field], inherited);
+      }
+    }
+  });
+});
+
+test('Stage 1 marker-less addressed staging is withheld while incidental observation fields remain permitted', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const baseline = prepare(fixtureRoot, staged).preparedDependencies.addressedNamingOccurrenceBridge;
+    const malformed = structuredClone(baseline); delete malformed.bridgeContractVersion;
+    const rejected = prepare(fixtureRoot, { ...staged, namingSemanticFamilyBridge: malformed }).preparedDependencies;
+    assert.ok(rejected.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'addressed-payload-in-staging'));
+    assert.equal(rejected.addressedNamingOccurrenceBridge.observations.some((o) => o.semanticName === baseline.observations[0].semanticName), false);
+    assert.equal(Object.hasOwn(malformed, 'bridgeContractVersion'), false);
+    const ordinary = { observations: staged.namingSemanticFamilyBridge.observations.map((o) => ({
+      ...o, addressProfileId: 'incidental-profile', addressedSnapshotId: 'incidental-snapshot', occurrenceAddress: 'incidental-address',
+    })) };
+    const admitted = prepare(fixtureRoot, { ...staged, namingSemanticFamilyBridge: ordinary }).preparedDependencies;
+    assert.equal(admitted.treeNamingSectionIntake.bridgeObservations.acceptedRecords.length, baseline.observations.length);
+    assert.equal(admitted.treeNamingOccurrenceBridgeIntake.diagnostics.some((d) => d.reason === 'addressed-payload-in-staging'), false);
   });
 });
