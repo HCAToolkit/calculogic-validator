@@ -39,6 +39,8 @@ test('returns addressedTreeSnapshot/tree-codebase/T and preserves source scope t
 
   assert.equal(result.snapshotOutputId, 'addressedTreeSnapshot');
   assert.equal(result.profileId, 'tree-codebase');
+  assert.equal(result.addressProfileId, 'tree-structure-advisor-address-profile');
+  assert.deepEqual(result.compatibilityPolicy, { status: 'legacy-unqualified', revision: null });
   assert.equal(result.domainPrefix, 'T');
   assert.equal(result.sourceNamespace, 'calculogic-validator');
   assert.equal(result.scope, 'validator');

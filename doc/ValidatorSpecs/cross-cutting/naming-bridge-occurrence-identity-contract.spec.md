@@ -626,6 +626,14 @@ Every approved future enrichment field is governed by these rules:
 13. A future implementation must validate enriched fields separately from the required identity tuple so unsupported enrichment can be reported without mislabeling valid identity as invalid.
 14. For fields carried in an additive envelope section (§4.4), rules 11 and 12 refer to the compatibility fields of the v1 observations, which the section leaves intact. Section records themselves associate only through the identity tuple and have no path fallback.
 
+### Current B1/D6 Stage 1 compatibility boundary
+
+Structural Addressing owns family and compatibility-policy metadata and derives joined `addressProfileId`; Tree obtains it from the actual producer result, and Naming copies it without interpretation. The active legacy alias remains `tree-structure-advisor-address-profile` with `legacy-unqualified` status and no claimed revision. `addressedSnapshotId` remains separate and unchanged. Future `<family>@<revision>` encoding is defined by the Addressing shared contract, not by Naming, and no versioned policy is active.
+
+Tree rejects incompatible or missing envelope namespaces for addressed evidence and admits only individually compatible tuples under compatible envelopes. Legacy path/address-alias consumers cannot recover compatibility-rejected evidence. This qualifies the temporary fallback below; it does not remove fallback for compatible evidence or apply B2's rejected-record set to older consumers. Independent payload-level sections keep their contracts. Caller payloads are not supplemented, relabeled or migrated; legitimate unaddressed Naming staging is addressed only through the producer against Tree's actual snapshot. Explicit addressed-envelope framing in a staging slot is not silently treated as source staging.
+
+Compatibility diagnostics are prepared-only at `treeNamingOccurrenceBridgeIntake.diagnostics`. Ordinary runtime and CLI reports omit them; broader compatibility activation/rollout must revisit this visibility limit. No new findings, report fields or direct exit effects follow from diagnostics themselves. React/external upgrades and unknown retained artifacts remain explicit migration concerns.
+
 ## 8. Fallback and migration rule
 
 Future implementation slices must follow this migration rule:

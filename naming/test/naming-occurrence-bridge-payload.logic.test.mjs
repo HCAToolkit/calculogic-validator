@@ -854,3 +854,15 @@ test('folder-label section is independent: every other payload field is byte-ide
     assert.equal(serialized.includes(`"${field}"`), false, `${field} must not appear in the section`);
   }
 });
+
+test('Stage 1 Naming copies opaque Addressing-owned joined identities without deriving revisions', () => {
+  for (const addressProfileId of ['tree-structure-advisor-address-profile', 'tree-codebase@1', 'other-family@27']) {
+    const payload = createNamingOccurrenceBridgePayload({
+      namingSemanticFamilyBridge: { observations: [{ path: 'src/item.logic.mjs', semanticName: 'item', semanticFamily: 'item', familyRoot: 'item' }] },
+      addressedOccurrenceNamespace: { addressProfileId, addressedSnapshotId: 'snapshot-unchanged', occurrenceRecords: [{ addressPath: 'A.1', path: 'src/item.logic.mjs', occurrenceType: 'file' }] },
+    });
+    assert.equal(payload.addressProfileId, addressProfileId);
+    assert.equal(payload.observations[0].addressProfileId, addressProfileId);
+    assert.equal(payload.addressedSnapshotId, 'snapshot-unchanged');
+  }
+});
