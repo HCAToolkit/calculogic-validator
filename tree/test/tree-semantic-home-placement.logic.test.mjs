@@ -284,3 +284,20 @@ test('P8: the comparator reads only accepted Naming values behind the fact gate,
   const insider = c.factEvidence.occurrenceFacts.find((entry) => entry.path.startsWith('tree/') && entry.occurrenceType === 'file');
   assert.deepEqual(compare({ candidate, file: insider }).root, { result: 'match', ambiguity: 'singular' });
 });
+
+test('B2: one rejected N2 source path makes discovery incomplete for other verified files', () => {
+  const specs = [...files('src', 'alpha', 3), ...files('src', 'beta', 3), ...files('src', 'gamma', 2), ...files('aux', 'other', 1)];
+  const verified = buildCatalogueCase({ files: specs });
+  every(verified, 'src', { state: 'no-home', step: 5, nearest: null });
+  for (const [source, reason] of [[undefined, 'invalid-source-path'], ['elsewhere', 'path-mismatch']]) {
+    const rejected = buildCatalogueCase({ files: specs, bridgeSections: ({ n2Records }) => ({
+      namingFolderLabelObservations: { ...verified.bridge.namingFolderLabelObservations,
+        records: n2Records.map((record) => record.repoRelativePath === 'aux' ? { ...record, repoRelativePath: source } : record) },
+    }) });
+    assert.deepEqual(rejected.sectionIntake.folderLabelObservations.rejectedRecords.map((record) => record.reason), [reason]);
+    assert.equal(rejected.reasoning.candidateDiscovery.complete, false);
+    every(rejected, 'src', { state: 'undetermined', reason: 'candidate-discovery-incomplete', step: 5, nearest: null });
+    assert.equal(rejected.sectionIntake.bridgeObservations.rejectedRecords.length, 0);
+    assert.equal(rejected.sectionIntake.semanticEvidenceEnrichment.rejectedRecords.length, 0);
+  }
+});

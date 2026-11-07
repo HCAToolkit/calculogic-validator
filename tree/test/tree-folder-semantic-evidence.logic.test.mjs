@@ -35,7 +35,8 @@ const OCCURRENCES = [
   file('A.E.1', 'build/Docs/build-doc.logic.mjs', 'A.E'),
 ];
 
-const fileObservation = (address, familyRoot, extra = {}) => ({ ...tuple(address), semanticName: `${familyRoot}-x`, familyRoot, semanticFamily: familyRoot, ...extra });
+const sourcePathOf = (address) => OCCURRENCES.find((record) => record.addressPath === address)?.path;
+const fileObservation = (address, familyRoot, extra = {}) => ({ ...tuple(address), repoRelativePath: sourcePathOf(address), semanticName: `${familyRoot}-x`, familyRoot, semanticFamily: familyRoot, ...extra });
 const V1_OBSERVATIONS = [
   fileObservation('A.1', 'build'),
   fileObservation('A.2', 'order'),
@@ -46,8 +47,8 @@ const V1_OBSERVATIONS = [
   fileObservation('A.C.D.1', 'build'),
   fileObservation('A.C.D.2', 'zzz'),
   fileObservation('A.E.1', 'build'),
-  { ...tuple('A.B'), familyRoot: 'tools', semanticName: 'tools', semanticEvidenceKind: 'folder-semantic-context', occurrenceType: 'folder' },
-  { ...tuple('A.C.D'), familyRoot: 'pkg', semanticEvidenceKind: 'semantic-family-root-folder', familyRootQualification: 'package-root-folder', occurrenceType: 'folder' },
+  { ...tuple('A.B'), repoRelativePath: sourcePathOf('A.B'), familyRoot: 'tools', semanticName: 'tools', semanticEvidenceKind: 'folder-semantic-context', occurrenceType: 'folder' },
+  { ...tuple('A.C.D'), repoRelativePath: sourcePathOf('A.C.D'), familyRoot: 'pkg', semanticEvidenceKind: 'semantic-family-root-folder', familyRootQualification: 'package-root-folder', occurrenceType: 'folder' },
 ];
 const ROLE = { role: 'logic', roleCategory: 'concern-core', roleStatus: 'active' };
 const N1_RECORDS = [
@@ -58,11 +59,11 @@ const N1_RECORDS = [
   { ...tuple('A.B.3'), ...ROLE },
 ];
 const N2_RECORDS = [
-  { ...tuple('A'), parseOutcome: 'parsed', labelTokens: ['build'], labelRoot: 'build' },
-  { ...tuple('A.B'), parseOutcome: 'parsed', labelTokens: ['build', 'tools'], labelRoot: 'build' },
-  { ...tuple('A.C'), parseOutcome: 'parsed', labelTokens: ['src'], labelRoot: 'src' },
-  { ...tuple('A.C.D'), parseOutcome: 'parsed', labelTokens: ['pkg'], labelRoot: 'pkg' },
-  { ...tuple('A.E'), parseOutcome: 'not-parsed', notParsedReasons: ['label-has-uppercase'] },
+  { ...tuple('A'), repoRelativePath: sourcePathOf('A'), parseOutcome: 'parsed', labelTokens: ['build'], labelRoot: 'build' },
+  { ...tuple('A.B'), repoRelativePath: sourcePathOf('A.B'), parseOutcome: 'parsed', labelTokens: ['build', 'tools'], labelRoot: 'build' },
+  { ...tuple('A.C'), repoRelativePath: sourcePathOf('A.C'), parseOutcome: 'parsed', labelTokens: ['src'], labelRoot: 'src' },
+  { ...tuple('A.C.D'), repoRelativePath: sourcePathOf('A.C.D'), parseOutcome: 'parsed', labelTokens: ['pkg'], labelRoot: 'pkg' },
+  { ...tuple('A.E'), repoRelativePath: sourcePathOf('A.E'), parseOutcome: 'not-parsed', notParsedReasons: ['label-has-uppercase'] },
 ];
 
 const section = (contractVersion, records) => ({
@@ -306,12 +307,12 @@ test('E4: every structural walk terminates on a malformed cyclic snapshot and co
   const { factEvidence, evidence } = build({
     occurrences,
     bridge: payload({
-      observations: [fileObservation('X.1', 'build'), fileObservation('Y.1', 'build'), fileObservation('Z.1', 'build')],
+      observations: [fileObservation('X.1', 'build', { repoRelativePath: 'x/build-a.logic.mjs' }), fileObservation('Y.1', 'build', { repoRelativePath: 'y/build-b.logic.mjs' }), fileObservation('Z.1', 'build', { repoRelativePath: 'z/build-c.logic.mjs' })],
       n1: null,
       n2: [
-        { ...tuple('X'), parseOutcome: 'parsed', labelTokens: ['build'], labelRoot: 'build' },
-        { ...tuple('Y'), parseOutcome: 'parsed', labelTokens: ['build'], labelRoot: 'build' },
-        { ...tuple('Z'), parseOutcome: 'parsed', labelTokens: ['build'], labelRoot: 'build' },
+        { ...tuple('X'), repoRelativePath: 'x', parseOutcome: 'parsed', labelTokens: ['build'], labelRoot: 'build' },
+        { ...tuple('Y'), repoRelativePath: 'y', parseOutcome: 'parsed', labelTokens: ['build'], labelRoot: 'build' },
+        { ...tuple('Z'), repoRelativePath: 'z', parseOutcome: 'parsed', labelTokens: ['build'], labelRoot: 'build' },
       ],
     }),
   });

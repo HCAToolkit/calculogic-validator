@@ -30,7 +30,7 @@ export const TREE_SEMANTIC_HOME_CONFORMANCE_BINDING = Object.freeze({
   catalogue: Object.freeze({ id: 'semantic-home-catalogue', version: '2', digest: '2cda09d270c0c8dc1f21bed4fceff90730124be45ea9b0f3c62fed05ca41ce19' }),
   reasoning: Object.freeze({
     version: '1',
-    sourceDigest: 'c1c200ae70c400c35a372072f9474e23768dd5b7e38e9f52dcf93b45b33fc4d6',
+    sourceDigest: 'd781c3b087316130e88baf51c8a6337dca386a4d69e3d10637d44b8aaf33bbeb',
     resultsDigest: '0cef43a3072fc166a7e58a044ed7df643f70a151439eb865dddeb7c9cf2fe1f7',
   }),
 });

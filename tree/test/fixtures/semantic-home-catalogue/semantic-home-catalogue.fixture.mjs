@@ -67,22 +67,24 @@ export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs
     if (spec.noObservation) return;
     observations.push({
       ...tuple(address),
+      repoRelativePath: path,
       semanticName: spec.semanticName ?? `${spec.root}-item`,
       familyRoot: spec.root,
       semanticFamily: spec.root,
       ...(spec.ambiguous ? { ambiguityFlags: ['family-boundary-heuristic'] } : {}),
     });
     const role = spec.role ? { role: spec.role, roleCategory: spec.roleCategory, roleStatus: 'active' } : ROLE;
-    n1.push(spec.tokens === null ? { ...tuple(address), ...role } : { ...tuple(address), semanticTokens: spec.tokens ?? [spec.root, 'item'], ...role });
+    n1.push(spec.tokens === null ? { ...tuple(address), repoRelativePath: path, ...role } : { ...tuple(address), repoRelativePath: path, semanticTokens: spec.tokens ?? [spec.root, 'item'], ...role });
   });
   for (const folder of folderSpecs) {
     const address = addressByPath.get(folder.path);
     if (folder.context) {
-      observations.push({ ...tuple(address), familyRoot: folder.context, semanticName: folder.context, semanticEvidenceKind: 'folder-semantic-context', occurrenceType: 'folder' });
+      observations.push({ ...tuple(address), repoRelativePath: folder.path, familyRoot: folder.context, semanticName: folder.context, semanticEvidenceKind: 'folder-semantic-context', occurrenceType: 'folder' });
     }
     if (folder.packageRoot) {
       observations.push({
         ...tuple(address),
+        repoRelativePath: folder.path,
         familyRoot: folder.packageRoot,
         semanticEvidenceKind: 'semantic-family-root-folder',
         familyRootQualification: 'package-root-folder',
@@ -92,7 +94,7 @@ export const buildCatalogueCase = ({ folders: folderSpecs = [], files: fileSpecs
   }
   const n2Records = folderList.flatMap((folderPath) => {
     const labelTokens = folderPath.slice(folderPath.lastIndexOf('/') + 1).split('-');
-    const record = { ...tuple(addressByPath.get(folderPath)), parseOutcome: 'parsed', labelTokens, labelRoot: labelTokens[0] };
+    const record = { ...tuple(addressByPath.get(folderPath)), repoRelativePath: folderPath, parseOutcome: 'parsed', labelTokens, labelRoot: labelTokens[0] };
     // A duplicated identity tuple is rejected at intake, record and duplicate alike.
     return n2?.rejected === folderPath ? [record, record] : [record];
   });

@@ -93,12 +93,31 @@ const toOccurrenceByTuple = (addressedNamespace, occurrenceRecords) => {
 const isInNamespace = (tuple, namespace) =>
   tuple.addressProfileId === namespace.addressProfileId && tuple.addressedSnapshotId === namespace.addressedSnapshotId;
 
+// S1.2 B2: lexical comparison only, independent of host separators and filesystem state.
+// Original source-trace and snapshot values are never rewritten.
+const normalizeSourcePathForComparison = (value) => {
+  if (typeof value !== 'string') return null;
+  let normalized = value.replaceAll('\\', '/');
+  if (normalized.startsWith('./')) normalized = normalized.slice(2);
+  if (!normalized || normalized.startsWith('/') || /^[A-Za-z]:/u.test(normalized)) return null;
+  if (normalized.split('/').some((segment) => !segment || segment === '.' || segment === '..')) return null;
+  return normalized;
+};
+
+const sourcePathReason = (record, occurrenceRecord, omissionReason = null) => {
+  if (!Object.hasOwn(record, 'repoRelativePath')) return omissionReason;
+  const supplied = normalizeSourcePathForComparison(record.repoRelativePath);
+  const resolved = normalizeSourcePathForComparison(occurrenceRecord.path);
+  if (supplied === null || resolved === null) return 'invalid-source-path';
+  return supplied === resolved ? null : 'path-mismatch';
+};
+
 // v1 observations Tree accepts for section association: a valid, unique tuple in the payload
 // namespace that matches an occurrence in Tree's addressed snapshot. Each keeps its own optional
 // `occurrenceType` beside the addressed occurrence, so §4.5 can check the observation's type too.
 // The same pass records every other observation's rejection reason; Stage 1B reads both lists
 // (Tree slice spec S1.3), so there is exactly one v1 acceptance rule for Stage 1 evidence.
-const partitionObservations = ({ observations, namespace, occurrenceByTuple }) => {
+const partitionObservations = ({ observations, namespace, occurrenceByTuple, diagnostics }) => {
   const tuples = observations.map(toIdentityTuple);
   const counts = new Map();
   for (const tuple of tuples) {
@@ -113,6 +132,11 @@ const partitionObservations = ({ observations, namespace, occurrenceByTuple }) =
     if (!isInNamespace(tuple, namespace)) return reject('namespace-mismatch');
     const occurrenceRecord = occurrenceByTuple.get(toTupleKey(tuple));
     if (!occurrenceRecord) return reject('unmatched-record');
+    const pathReason = sourcePathReason(observations[index], occurrenceRecord, 'source-path-unverified');
+    if (pathReason) {
+      diagnostics.push({ section: 'naming-occurrence-bridge', reason: pathReason, identityTuple: tuple });
+      if (pathReason !== 'source-path-unverified') return reject(pathReason);
+    }
     accepted.set(toTupleKey(tuple), {
       tuple,
       observation: observations[index],
@@ -142,8 +166,8 @@ const toEnvelopeState = (section, sectionSpec) => {
 };
 
 // Record identity checks shared by both sections (§4.5, §4.6 consumer rules). Every record carrying
-// a duplicated tuple is rejected; there is no path fallback. `resolveTarget` returns the occurrence
-// types that must all equal the expected type, or null when nothing in Tree's snapshot matches.
+// a duplicated tuple is rejected; there is no path fallback. `resolveTarget` returns the resolved
+// occurrence and applicable types, or null when nothing in Tree's snapshot matches.
 const partitionByIdentity = ({ records, namespace, resolveTarget, expectedOccurrenceType }) => {
   const tupleCounts = new Map();
   for (const record of records) {
@@ -160,10 +184,10 @@ const partitionByIdentity = ({ records, namespace, resolveTarget, expectedOccurr
     else if (tupleCounts.get(toTupleKey(tuple)) > 1) reject('duplicate-identity');
     else if (!isInNamespace(tuple, namespace)) reject('namespace-mismatch');
     else {
-      const occurrenceTypes = resolveTarget(tuple);
-      if (!occurrenceTypes) reject('unmatched-record');
-      else if (occurrenceTypes.some((occurrenceType) => occurrenceType !== expectedOccurrenceType)) reject('occurrence-type-mismatch');
-      else candidates.push({ record, tuple });
+      const target = resolveTarget(tuple);
+      if (!target) reject('unmatched-record');
+      else if (target.occurrenceTypes.some((occurrenceType) => occurrenceType !== expectedOccurrenceType)) reject('occurrence-type-mismatch');
+      else candidates.push({ record, tuple, occurrenceRecord: target.occurrenceRecord });
     }
   }
   return { candidates, rejected };
@@ -275,9 +299,9 @@ export const prepareTreeNamingSectionIntake = ({
   const { accepted: acceptedObservations, rejectedRecords: rejectedObservationRecords } =
     v1Availability === TREE_NAMING_SECTION_AVAILABILITY.SECTION_UNSUPPORTED || !Array.isArray(payload?.observations)
       ? { accepted: new Map(), rejectedRecords: [] }
-      : partitionObservations({ observations: payload.observations, namespace, occurrenceByTuple });
+      : partitionObservations({ observations: payload.observations, namespace, occurrenceByTuple, diagnostics });
 
-  const intakeSection = ({ sectionSpec, stagedInputSupplied, resolveTarget, expectedOccurrenceType, toAcceptedRecord }) => {
+  const intakeSection = ({ sectionSpec, stagedInputSupplied, resolveTarget, expectedOccurrenceType, toAcceptedRecord, isValidRecord = () => true }) => {
     if (!payload) {
       return { availability: TREE_NAMING_SECTION_AVAILABILITY.NOT_STAGED, ...EMPTY_SECTION_RESULT };
     }
@@ -300,6 +324,16 @@ export const prepareTreeNamingSectionIntake = ({
     const acceptedRecords = [];
     const rejectedRecords = [...rejected];
     for (const candidate of candidates) {
+      if (!isValidRecord(candidate.record)) {
+        rejectedRecords.push({ identityTuple: candidate.tuple, reason: 'invalid-record-shape' });
+        continue;
+      }
+      const pathReason = sourcePathReason(candidate.record, candidate.occurrenceRecord,
+        expectedOccurrenceType === 'folder' ? 'invalid-record-shape' : null);
+      if (pathReason) {
+        rejectedRecords.push({ identityTuple: candidate.tuple, reason: pathReason });
+        continue;
+      }
       const acceptedRecord = toAcceptedRecord(candidate);
       if (acceptedRecord) acceptedRecords.push(acceptedRecord);
       else rejectedRecords.push({ identityTuple: candidate.tuple, reason: 'invalid-record-shape' });
@@ -337,9 +371,10 @@ export const prepareTreeNamingSectionIntake = ({
       const acceptedObservation = acceptedObservations.get(toTupleKey(tuple));
       if (!acceptedObservation) return null;
       const { occurrenceRecord, observationOccurrenceType } = acceptedObservation;
-      return observationOccurrenceType === undefined
+      const occurrenceTypes = observationOccurrenceType === undefined
         ? [occurrenceRecord.occurrenceType]
         : [occurrenceRecord.occurrenceType, observationOccurrenceType];
+      return { occurrenceRecord, occurrenceTypes };
     },
     expectedOccurrenceType: 'file',
     toAcceptedRecord: toAcceptedEnrichmentRecord,
@@ -350,10 +385,11 @@ export const prepareTreeNamingSectionIntake = ({
     // N2 records attach to an addressed folder occurrence in Tree's snapshot (§4.6).
     resolveTarget: (tuple) => {
       const occurrenceRecord = occurrenceByTuple.get(toTupleKey(tuple));
-      return occurrenceRecord ? [occurrenceRecord.occurrenceType] : null;
+      return occurrenceRecord ? { occurrenceRecord, occurrenceTypes: [occurrenceRecord.occurrenceType] } : null;
     },
     expectedOccurrenceType: 'folder',
-    toAcceptedRecord: (candidate) => (isValidFolderLabelShape(candidate.record) ? toAcceptedFolderLabelRecord(candidate) : null),
+    isValidRecord: isValidFolderLabelShape,
+    toAcceptedRecord: toAcceptedFolderLabelRecord,
   });
 
   return {

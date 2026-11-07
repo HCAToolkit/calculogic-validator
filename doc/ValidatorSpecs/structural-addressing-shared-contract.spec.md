@@ -217,7 +217,8 @@ Four kinds, related but never interchangeable (Contract):
 **Proposed (direction approved 2026-11-05; not implemented):**
 
 - Incompatible addressing-policy revisions must be explicitly distinguishable to consumers. Which identifier or mechanism carries the distinction is undecided and belongs to the transition task. Tree's `addressProfileId` is a Tree compatibility constant and is not the Structural Addressing `profileId`; this contract's existing distinction is preserved, and the eventual semantics of any compatibility identifier are undecided. `addressedSnapshotId` is currently a static namespace label, not a per-snapshot identity. The D6 procedure applies only if the existing Tree join constants are the mechanism chosen.
-- Tree adds a bounded source-path correspondence check at the Naming intake boundary, without replacing tuple identity. Tree owns checks on what it consumes; Naming retains interpretation, and Structural Addressing retains identity generation. The task that adds it must define normalization, mismatched and missing paths, how rejected evidence is reported, and downstream effects, because it changes which evidence is accepted even though it changes no addresses.
+
+**Current (B2):** Tree performs a bounded source-path correspondence check at Naming intake, without replacing tuple identity (Tree spec S1.2). It compares supplied `repoRelativePath` with the tuple-resolved occurrence's `path` under an explicit lexical policy, rejects malformed/mismatched evidence per record, and records permitted omissions as unverified. Tree owns consumption checks; Naming retains interpretation and Structural Addressing retains identity generation. Rejection can affect downstream availability and findings, but changes no addresses or compatibility constants.
 
 ## 9. NL↔Code correspondence
 
@@ -263,7 +264,7 @@ No NL or code addressing, no comparison capability and no `validate:addressing*`
 | Tree consuming addressed snapshots and joining Naming by address | **Current** |
 | Explicit sibling-ordinal field | **Proposed** (issue raised with its runtime slice) |
 | Locale-independent name ordering | **Proposed** (UTF-16 code-unit producer comparator; direction approved, not implemented; issue raised with its runtime slice) |
-| Tree-owned source-path correspondence check at Naming intake | **Proposed** (direction approved, not implemented) |
+| Tree-owned source-path correspondence check at Naming intake | **Current** (B2; Tree spec S1.2) |
 | Explicit ordering-policy compatibility distinction (mechanism undecided) | **Proposed** (direction approved, not implemented) |
 | `code-file`, `nl-document` profiles | **Proposed** |
 | Serialized cross-domain address | **Deferred** |
