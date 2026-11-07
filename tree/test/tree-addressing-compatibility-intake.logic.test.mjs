@@ -74,3 +74,69 @@ test('legitimate unaddressed staging passes unchanged; explicit addressed framin
     }
   }
 });
+
+test('inherited envelope and tuple fields cannot satisfy compatibility admission', () => {
+  for (const field of ['addressProfileId', 'addressedSnapshotId']) {
+    const payload = { ...namespace, observations: [record()] };
+    delete payload[field]; Object.setPrototypeOf(payload, { [field]: namespace[field] });
+    const result = run(payload);
+    assert.deepEqual(result.observations, []);
+    assert.equal(result.diagnostics[0].reason, 'invalid-addressing-identity');
+    assert.equal(Object.hasOwn(payload, field), false);
+  }
+  const inherited = ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress'].map((field) => {
+    const value = record(); const identity = value[field]; delete value[field];
+    Object.setPrototypeOf(value, { [field]: identity }); return value;
+  });
+  const payload = { ...namespace, observations: [record(), ...inherited] };
+  const result = run(payload);
+  assert.deepEqual(result.observations, [payload.observations[0]]);
+  assert.deepEqual(result.diagnostics.map((d) => d.reason), Array(3).fill('invalid-addressing-identity'));
+  assert.deepEqual(run({ ...payload, observations: [...payload.observations].reverse() }).diagnostics, result.diagnostics);
+});
+
+test('marker-less addressed envelopes are withheld without rejecting incidental observation identities', () => {
+  const addressed = record();
+  for (const collection of ['observations', 'records']) {
+    for (const framed of [
+      { ...namespace, [collection]: [addressed] },
+      { addressProfileId: namespace.addressProfileId, [collection]: [addressed] },
+      { ...namespace, [collection]: [{ occurrenceAddress: 'A', path: 'pkg/core' }] },
+      { addressProfileId: null, addressedSnapshotId: '', [collection]: [] },
+    ]) {
+      for (const field of ['namingSemanticFamilyBridge', 'namingSemanticEvidenceEnrichment']) {
+        const result = staging({ [field]: framed });
+        assert.equal(result[field], undefined);
+        assert.equal(result.diagnostics[0].reason, 'addressed-payload-in-staging');
+      }
+    }
+  }
+  for (const ordinary of [
+    { observations: [addressed] },
+    { records: [addressed] },
+    { ...namespace, observations: [{ path: 'pkg/core', familyRoot: 'core' }] },
+    { addressProfileId: 'incidental', observations: [{ path: 'pkg/core', addressPath: 'A' }] },
+  ]) {
+    const result = staging({ namingSemanticFamilyBridge: ordinary });
+    assert.equal(result.namingSemanticFamilyBridge, ordinary);
+    assert.deepEqual(result.diagnostics, []);
+  }
+});
+
+test('identity-only views preserve source-path ownership, prototypes and the original input', () => {
+  const prototype = { addressProfileId: namespace.addressProfileId, repoRelativePath: 'inherited/path', semanticTokens: ['kept'] };
+  const inherited = Object.assign(Object.create(prototype), { addressedSnapshotId: namespace.addressedSnapshotId, occurrenceAddress: 'A' });
+  Object.defineProperty(inherited, 'path', { value: 'pkg/core', enumerable: true, writable: false });
+  const payload = { ...namespace, observations: [inherited] };
+  const view = run(payload).addressedPayload;
+  assert.notEqual(view, payload);
+  assert.equal(view.observations[0].addressProfileId, undefined);
+  assert.equal(Object.getPrototypeOf(view.observations[0]), prototype);
+  assert.equal(Object.hasOwn(view.observations[0], 'repoRelativePath'), false);
+  assert.equal(view.observations[0].repoRelativePath, inherited.repoRelativePath);
+  assert.equal(view.observations[0].semanticTokens, inherited.semanticTokens);
+  assert.deepEqual(Object.getOwnPropertyDescriptor(view.observations[0], 'path'), Object.getOwnPropertyDescriptor(inherited, 'path'));
+  assert.equal(Object.hasOwn(inherited, 'addressProfileId'), false);
+  const ordinary = { ...namespace, observations: [record()] };
+  assert.equal(run(ordinary).addressedPayload, ordinary);
+});

@@ -225,8 +225,11 @@ export const prepareTreeStructureAdvisorInputs = (
     // the section, and Tree never reads Naming's registries to obtain, check or complete it.
     roleCategoryVocabulary,
   });
+  const compatibilityIntake = prepareTreeAddressingCompatibilityIntake({
+    payload: addressedNamingOccurrenceBridge, addressedNamespace, occurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
+  });
   const treeNamingSectionIntake = prepareTreeNamingSectionIntake({
-    namingOccurrenceBridge: addressedNamingOccurrenceBridge,
+    namingOccurrenceBridge: compatibilityIntake.addressedPayload,
     bridgeSource: bridgeOrigin,
     addressedNamespace,
     addressedOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
@@ -236,7 +239,7 @@ export const prepareTreeStructureAdvisorInputs = (
   // payload's `namingTokenLexicalIdentities`, outside Stage 1A and every Stage 1/Stage 2 module; `null`
   // (and no prepared dependency) when the payload carries no section. Only Stage 3 reads it.
   const treeLexicalIdentityIntake = prepareTreeLexicalIdentityIntake({
-    namingOccurrenceBridge: addressedNamingOccurrenceBridge,
+    namingOccurrenceBridge: compatibilityIntake.addressedPayload,
     sectionIntake: treeNamingSectionIntake,
   });
   // Repository-package intake (S3.2; bridge contract §4.8; calculogic-validator#159): Tree's own record of
@@ -265,9 +268,6 @@ export const prepareTreeStructureAdvisorInputs = (
     sectionIntake: treeNamingSectionIntake,
     addressedNamespace,
     addressedOccurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
-  });
-  const compatibilityIntake = prepareTreeAddressingCompatibilityIntake({
-    payload: addressedNamingOccurrenceBridge, addressedNamespace, occurrenceRecords: structuralAddressSnapshot.occurrenceRecords,
   });
   const addressedNamingSemanticEvidenceBridge = prepareNamingSemanticEvidenceBridge({ observations: compatibilityIntake.observations });
   const treeNamingOccurrenceBridgeIntake = prepareTreeNamingOccurrenceBridgeIntake({
