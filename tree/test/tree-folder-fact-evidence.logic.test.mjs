@@ -31,7 +31,8 @@ const OCCURRENCES = [
   folder('F', 'none'),
 ];
 
-const fileObservation = (address, familyRoot, extra = {}) => ({ ...tuple(address), semanticName: `${familyRoot}-x`, familyRoot, semanticFamily: familyRoot, ...extra });
+const sourcePathOf = (address) => OCCURRENCES.find((record) => record.addressPath === address)?.path;
+const fileObservation = (address, familyRoot, extra = {}) => ({ ...tuple(address), repoRelativePath: sourcePathOf(address), semanticName: `${familyRoot}-x`, familyRoot, semanticFamily: familyRoot, ...extra });
 const V1_OBSERVATIONS = [
   fileObservation('1', 'readme'),
   fileObservation('A.1', 'build'),
@@ -41,10 +42,10 @@ const V1_OBSERVATIONS = [
   fileObservation('A.6', 'zeta'),
   fileObservation('A.6', 'zeta'),
   fileObservation('A.G.1', 'build'),
-  { ...tuple('B'), familyRoot: 'tree', semanticEvidenceKind: 'folder-semantic-context', occurrenceType: 'folder' },
+  { ...tuple('B'), repoRelativePath: sourcePathOf('B'), familyRoot: 'tree', semanticEvidenceKind: 'folder-semantic-context', occurrenceType: 'folder' },
   // Two observations on one folder: the v1 duplicate rule rejects both (#85 non-blocking track).
-  { ...tuple('D'), familyRoot: 'pkg', semanticEvidenceKind: 'folder-semantic-context', occurrenceType: 'folder' },
-  { ...tuple('D'), familyRoot: 'pkg', semanticEvidenceKind: 'semantic-family-root-folder', familyRootQualification: 'package-root-folder', occurrenceType: 'folder' },
+  { ...tuple('D'), repoRelativePath: sourcePathOf('D'), familyRoot: 'pkg', semanticEvidenceKind: 'folder-semantic-context', occurrenceType: 'folder' },
+  { ...tuple('D'), repoRelativePath: sourcePathOf('D'), familyRoot: 'pkg', semanticEvidenceKind: 'semantic-family-root-folder', familyRootQualification: 'package-root-folder', occurrenceType: 'folder' },
 ];
 
 const ROLE = { role: 'logic', roleCategory: 'concern-core', roleStatus: 'active' };
@@ -56,12 +57,12 @@ const N1_RECORDS = [
   { ...tuple('A.G.1'), semanticTokens: ['build', 'core'], role: 'logic', roleCategory: 'architecture-support', roleStatus: 'active' },
 ];
 const N2_RECORDS = [
-  { ...tuple('A'), parseOutcome: 'parsed', labelTokens: ['src'], labelRoot: 'src' },
-  { ...tuple('A.G'), parseOutcome: 'parsed', labelTokens: ['core'], labelRoot: 'core' },
-  { ...tuple('B'), parseOutcome: 'parsed', labelTokens: ['tree'], labelRoot: 'tree' },
-  { ...tuple('C'), parseOutcome: 'not-parsed', notParsedReasons: ['label-has-uppercase'] },
-  { ...tuple('D'), parseOutcome: 'parsed', labelTokens: ['pkg'], labelRoot: 'pkg' },
-  { ...tuple('E'), parseOutcome: 'maybe' },
+  { ...tuple('A'), repoRelativePath: sourcePathOf('A'), parseOutcome: 'parsed', labelTokens: ['src'], labelRoot: 'src' },
+  { ...tuple('A.G'), repoRelativePath: sourcePathOf('A.G'), parseOutcome: 'parsed', labelTokens: ['core'], labelRoot: 'core' },
+  { ...tuple('B'), repoRelativePath: sourcePathOf('B'), parseOutcome: 'parsed', labelTokens: ['tree'], labelRoot: 'tree' },
+  { ...tuple('C'), repoRelativePath: sourcePathOf('C'), parseOutcome: 'not-parsed', notParsedReasons: ['label-has-uppercase'] },
+  { ...tuple('D'), repoRelativePath: sourcePathOf('D'), parseOutcome: 'parsed', labelTokens: ['pkg'], labelRoot: 'pkg' },
+  { ...tuple('E'), repoRelativePath: sourcePathOf('E'), parseOutcome: 'maybe' },
 ];
 
 const section = (contractVersion, records) => ({
@@ -280,10 +281,10 @@ test('tallies count open Naming values that collide with Object.prototype names 
     occurrences,
     bridge: payload({
       observations: [
-        fileObservation('A.1', 'constructor'),
-        fileObservation('A.2', 'constructor'),
-        fileObservation('A.G.1', 'toString'),
-        fileObservation('A.G.2', 'constructor'),
+        fileObservation('A.1', 'constructor', { repoRelativePath: 'src/constructor-plan.logic.mjs' }),
+        fileObservation('A.2', 'constructor', { repoRelativePath: 'src/constructor-step.logic.mjs' }),
+        fileObservation('A.G.1', 'toString', { repoRelativePath: 'src/core/to-string.logic.mjs' }),
+        fileObservation('A.G.2', 'constructor', { repoRelativePath: 'src/core/constructor-core.logic.mjs' }),
       ],
       n1: [
         { ...tuple('A.1'), semanticTokens: ['constructor', 'plan'], ...roleFor('hasOwnProperty') },

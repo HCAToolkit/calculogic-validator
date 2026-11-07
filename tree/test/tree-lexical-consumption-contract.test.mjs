@@ -501,3 +501,26 @@ test('contract text: the S3.2 relation table and bases, S1.3 and S3.7 omission, 
   assert.match(LF, /from two importers of the foundation to three/u);
   assert.match(BRIDGE, /\*\*Tree consumption \(Current, calculogic-validator#153\):\*\*/u);
 });
+
+test('B2: path-rejected N1 and N2 records leave their lexical companions unmatched', () => {
+  const built = buildCatalogueCase({ files: files('pricing', 'pricing', 2), bridgeSections: ({ n1, n2Records }) => {
+    const lexical = projectNamingTokenLexicalIdentities({ semanticEvidenceEnrichmentSection: { records: n1 }, folderLabelObservationSection: { records: n2Records }, lexicalProfile: english });
+    const corrupt = (records) => records.map((record) => ({ ...record, repoRelativePath: 'wrong/source' }));
+    const section = (contractVersion, records) => ({ contractVersion, identityTupleFields: ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress'], recordCount: records.length, records });
+    return {
+      [SECTION]: lexical,
+      namingSemanticEvidenceEnrichment: section('naming-semantic-evidence-enrichment.v1', corrupt(n1)),
+      namingFolderLabelObservations: section('naming-folder-label-observation.v1', corrupt(n2Records)),
+    };
+  } });
+  assert.equal(built.sectionIntake.bridgeObservations.rejectedRecords.length, 0);
+  for (const key of ['semanticEvidenceEnrichment', 'folderLabelObservations']) {
+    assert.ok(built.sectionIntake[key].rejectedRecords.length > 0);
+    assert.deepEqual([...new Set(built.sectionIntake[key].rejectedRecords.map((record) => record.reason))], ['path-mismatch']);
+  }
+  const intake = lexicalIntakeOf(built);
+  assert.equal(intake.availability, 'available');
+  assert.equal(intake.acceptedRecords.length, 0);
+  assert.equal(intake.rejectedRecords.length, built.bridge[SECTION].records.length);
+  assert.deepEqual([...new Set(intake.rejectedRecords.map((record) => record.reason))], ['unmatched-record']);
+});

@@ -227,3 +227,21 @@ test('the Tree registry hook forwards the staged N1 source and interpreter to Tr
     assert.deepEqual([...new Set(interpretedLabels)].sort(), ['Order_Flow', 'build', 'src']);
   });
 });
+
+test('B2 unverified v1 diagnostics retain their prepared alias without public report effects', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const verified = prepare(fixtureRoot, staged).preparedDependencies.addressedNamingOccurrenceBridge;
+    const unverified = structuredClone(verified);
+    delete unverified.observations[0].repoRelativePath;
+    const options = { scope: 'repo', ...staged, namingOccurrenceBridge: unverified };
+    const deps = prepare(fixtureRoot, options).preparedDependencies;
+    const intake = deps.treeNamingSectionIntake;
+    assert.equal(intake.diagnostics.filter((d) => d.reason === 'source-path-unverified').length, 1);
+    assert.equal(deps.treeFolderSemanticEvidence.diagnostics, intake.diagnostics);
+    assert.equal(intake.bridgeObservations.rejectedRecords.length, 0);
+    const verifiedOptions = { scope: 'repo', ...staged, namingOccurrenceBridge: verified };
+    assert.deepEqual(runTreeStructureAdvisor(fixtureRoot, options), runTreeStructureAdvisor(fixtureRoot, verifiedOptions));
+    assert.deepEqual(getValidatorById('tree-structure-advisor').run(fixtureRoot, options),
+      getValidatorById('tree-structure-advisor').run(fixtureRoot, verifiedOptions));
+  });
+});

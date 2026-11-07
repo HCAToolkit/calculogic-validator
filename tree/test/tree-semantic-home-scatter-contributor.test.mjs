@@ -336,3 +336,17 @@ test('end to end: staged Naming evidence, meta.semanticHomeReasoning, and no con
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('B2: a rejected v1 path removes its scatter evidence and cascades to N1', () => {
+  const specs = [...files('pricing', 'pricing', 6), ...files('outside', 'pricing', 1)];
+  const verified = buildCatalogueCase({ files: specs });
+  assert.equal(scatterOf(verified).flatMap(filesOf).length, 1);
+  const rejected = buildCatalogueCase({ files: specs, bridgeSections: ({ n1 }) => ({
+    observations: n1.map((record) => ({ ...record, familyRoot: 'pricing', semanticFamily: 'pricing', semanticName: 'pricing-item',
+      ...(record.repoRelativePath.startsWith('outside/') ? { repoRelativePath: 'wrong/source.logic.mjs' } : {}) })),
+  }) });
+  assert.deepEqual(rejected.sectionIntake.bridgeObservations.rejectedRecords.map((record) => record.reason), ['path-mismatch']);
+  assert.deepEqual(rejected.sectionIntake.semanticEvidenceEnrichment.rejectedRecords.map((record) => record.reason), ['unmatched-record']);
+  assert.equal(rejected.placementsIn('outside')[0].state, 'undetermined');
+  assert.deepEqual(scatterOf(rejected), []);
+});
