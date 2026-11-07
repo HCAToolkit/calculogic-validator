@@ -348,7 +348,10 @@ for (const lane of ['v1', 'N1', 'N2']) {
     assert.equal(absent.select(result).acceptedRecords.length, lane === 'N2' ? 0 : 1);
     if (lane === 'N2') assert.equal(absent.select(result).rejectedRecords[0].reason, 'invalid-record-shape');
     if (lane === 'v1') assert.deepEqual(result.diagnostics, [{ section: 'naming-occurrence-bridge', reason: 'source-path-unverified', identityTuple: tuple('A.1') }]);
-    if (lane === 'N1') assert.deepEqual(result.diagnostics, []);
+    if (lane === 'N1') {
+      assert.deepEqual(result.diagnostics, []);
+      assert.equal('repoRelativePath' in result.semanticEvidenceEnrichment.acceptedRecords[0], false);
+    }
   });
 }
 

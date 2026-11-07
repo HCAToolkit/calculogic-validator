@@ -215,7 +215,7 @@ const toAcceptedEnrichmentRecord = ({ record, tuple }) => {
   const roleFactGroup = toRoleFactGroupState(record);
   return {
     ...tuple,
-    ...(isNonEmptyString(record.repoRelativePath) ? { repoRelativePath: record.repoRelativePath } : {}),
+    ...(Object.hasOwn(record, 'repoRelativePath') && isNonEmptyString(record.repoRelativePath) ? { repoRelativePath: record.repoRelativePath } : {}),
     tokenGroup,
     roleFactGroup,
     ...(tokenGroup === TREE_NAMING_FIELD_GROUP_STATES.ACCEPTED ? { semanticTokens: [...record.semanticTokens] } : {}),
