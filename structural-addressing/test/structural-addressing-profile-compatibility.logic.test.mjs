@@ -3,16 +3,16 @@ import assert from 'node:assert/strict';
 import { prepareStructuralAddressingProfileCompatibility as derive } from '../src/structural-addressing-profile-compatibility.logic.mjs';
 import { TREE_CODEBASE_ADDRESSING_PROFILE as PROFILE } from '../src/structural-addressing-profile.knowledge.mjs';
 
-test('production remains explicitly legacy-unqualified without a claimed revision', () => {
+test('production activates versioned revision 1 without a legacy alias', () => {
   const before = structuredClone(PROFILE);
   assert.deepEqual(derive(PROFILE), {
-    addressProfileId: 'tree-structure-advisor-address-profile',
-    compatibilityPolicy: { status: 'legacy-unqualified', revision: null },
+    addressProfileId: 'tree-codebase@1',
+    compatibilityPolicy: { status: 'versioned', revision: '1' },
   });
   assert.deepEqual(PROFILE, before);
 });
 
-test('future encoding separates family and revision without changing the active profile', () => {
+test('encoding separates family and revision without changing the active profile', () => {
   const ids = new Set();
   for (const family of ['tree-codebase', 'code-file', 'nl-document']) for (const revision of ['1', '2', '10', '99999999999999999999']) {
     const profile = { profileId: family, compatibilityPolicy: { status: 'versioned', revision } };
@@ -22,7 +22,8 @@ test('future encoding separates family and revision without changing the active 
     ids.add(result.addressProfileId);
   }
   assert.equal(ids.size, 12);
-  assert.equal(PROFILE.compatibilityPolicy.status, 'legacy-unqualified');
+  assert.equal(PROFILE.compatibilityPolicy.status, 'versioned');
+  assert.equal(PROFILE.compatibilityPolicy.revision, '1');
 });
 
 test('invalid families, revisions and unknown or inconsistent statuses never fall back', () => {
@@ -39,4 +40,12 @@ test('invalid families, revisions and unknown or inconsistent statuses never fal
     { ...PROFILE, compatibilityPolicy: { status: 'legacy-unqualified', revision: '1' } },
     { ...PROFILE, legacyAddressProfileId: '' },
   ]) assert.throws(() => derive(descriptor), /descriptor/u);
+});
+
+test('the general encoder can describe historical legacy identity without activating it', () => {
+  assert.deepEqual(derive({ profileId: 'tree-codebase', compatibilityPolicy: { status: 'legacy-unqualified', revision: null }, legacyAddressProfileId: 'tree-structure-advisor-address-profile' }), {
+    addressProfileId: 'tree-structure-advisor-address-profile', compatibilityPolicy: { status: 'legacy-unqualified', revision: null },
+  });
+  assert.equal(PROFILE.compatibilityPolicy.status, 'versioned');
+  assert.equal(Object.hasOwn(PROFILE, 'legacyAddressProfileId'), false);
 });

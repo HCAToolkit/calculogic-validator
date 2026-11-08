@@ -451,7 +451,7 @@ test('comparison A: record order differs (Tree sorts full paths; Addressing is p
   );
   assert.deepEqual(
     addressing.occurrenceRecords.map((record) => record.path),
-    ['doc', 'doc/a', 'doc/a/x.md', 'doc/A', 'doc/A/y.md', 'doc/a-b', 'doc/a-b/x.md'],
+    ['doc', 'doc/A', 'doc/A/y.md', 'doc/a', 'doc/a/x.md', 'doc/a-b', 'doc/a-b/x.md'],
   );
   assert.deepEqual(addressing.occurrenceRecords.map((record) => record.orderIndex), [0, 1, 2, 3, 4, 5, 6]);
   assert.deepEqual(

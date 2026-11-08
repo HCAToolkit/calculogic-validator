@@ -40,8 +40,7 @@ export const STRUCTURAL_ADDRESSING_RENDER_FORMATS = {
 
 export const TREE_CODEBASE_ADDRESSING_PROFILE = {
   profileId: STRUCTURAL_ADDRESSING_PROFILE_IDS.TREE_CODEBASE,
-  compatibilityPolicy: { status: 'legacy-unqualified', revision: null },
-  legacyAddressProfileId: 'tree-structure-advisor-address-profile',
+  compatibilityPolicy: { status: 'versioned', revision: '1' },
   status: 'active-v0',
   domainPrefix: STRUCTURAL_ADDRESSING_DOMAIN_PREFIXES.TREE,
   lineageSeparator: STRUCTURAL_ADDRESSING_LINEAGE_SEPARATORS.DOT,

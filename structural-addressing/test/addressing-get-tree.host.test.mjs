@@ -422,7 +422,7 @@ test('a repository with neither an embedded calculogic-validator directory nor a
   await fs.rm(fixtureRoot, { recursive: true, force: true });
 });
 
-test('Stage 1 JSON and combined modes expose producer compatibility while text and records agree', async () => {
+test('JSON and combined modes expose active C1 compatibility while text and records agree', async () => {
   const cwd = await createFixtureRepo();
   const packageRoot = path.join(cwd, 'calculogic-validator');
   try {
@@ -434,8 +434,8 @@ test('Stage 1 JSON and combined modes expose producer compatibility while text a
     }
     const json = JSON.parse(outputs.json).addressedTreeSnapshot;
     const both = JSON.parse(outputs.both);
-    assert.deepEqual(json.compatibilityPolicy, { status: 'legacy-unqualified', revision: null });
-    assert.equal(json.addressProfileId, 'tree-structure-advisor-address-profile');
+    assert.deepEqual(json.compatibilityPolicy, { status: 'versioned', revision: '1' });
+    assert.equal(json.addressProfileId, 'tree-codebase@1');
     assert.equal(json.profileId, 'tree-codebase');
     assert.deepEqual(both.addressedTreeSnapshot, json);
     assert.equal(outputs.text, `${both.renderedTree}\n`);
