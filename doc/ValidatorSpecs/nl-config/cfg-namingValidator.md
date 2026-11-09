@@ -321,6 +321,12 @@ Naming produces the payload-level bridge section `namingRoleCategoryVocabulary` 
     - A change to how canonical admission depends on roles requires a §4.9 contract review in the same amendment.
     - If eligibility stops being determinable from resolved role metadata, no v2 section is emitted.
 
+### 2.15 Legacy semantic-evidence projection path type
+
+`toNamingSemanticEvidenceRecord` in `naming/src/naming-semantic-evidence-bridge.logic.mjs` preserves its existing requirement for a nonempty string `observation.path`. It calculates `observation.repoRelativePath ?? observation.path` once; if that selected value is not a primitive string, it omits the observation from this legacy projection. It does not coerce the value or fall back from a non-nullish malformed value. Otherwise it preserves the selected string, including existing empty, escaping and mismatched string behavior, and keeps the existing ordering. Nullish fallback and input immutability are unchanged.
+
+This is a Naming-owned projection shape check, not Tree B2 source-path validation or addressing compatibility qualification. The original payload is unchanged. Tree continues rejecting malformed supplied v1 paths as `invalid-source-path`, with dependent N1 records rejected as `unmatched-record`; omission from this legacy view neither admits identity nor imports B2's rejected-record set into legacy consumers. No finding, report field, diagnostic or policy revision is added. See the occurrence-identity bridge contract §8.
+
 ## 3.0 Classification Contract
 
 ### 3.1 Canonical

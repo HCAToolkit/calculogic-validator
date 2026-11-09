@@ -387,3 +387,62 @@ test('C1 revision 1 rejects legacy evidence on every addressed route even when c
     }
   });
 });
+
+test('malformed selected paths cannot crash legacy projection or hide the v1/N1 rejection cascade', () => {
+  withFixture(({ fixtureRoot, staged }) => {
+    const baseline = prepare(fixtureRoot, staged).preparedDependencies;
+    const payload = baseline.addressedNamingOccurrenceBridge;
+    const sameIdentity = (left, right) => ['addressProfileId', 'addressedSnapshotId', 'occurrenceAddress'].every((field) => left[field] === right[field]);
+    const index = payload.observations.findIndex((record) => record.occurrenceType === 'file' &&
+      record.repoRelativePath === 'src/build/build-surface.results.mjs' && payload[N1_KEY].records.some((n1) => sameIdentity(n1, record)));
+    assert.notEqual(index, -1, 'fixture requires an addressed file and an N1 record with the same complete tuple');
+    const source = payload.observations[index];
+    const n1 = payload[N1_KEY].records.find((record) => sameIdentity(record, source));
+    const control = prepare(fixtureRoot, { namingOccurrenceBridge: payload }).preparedDependencies;
+    assert.ok(control.treeNamingSectionIntake.bridgeObservations.acceptedRecords.some((record) => sameIdentity(record, source)));
+    assert.ok(control.treeNamingSectionIntake.semanticEvidenceEnrichment.acceptedRecords.some((record) => sameIdentity(record, n1)));
+    assert.ok(control.addressedNamingSemanticEvidenceBridge.observations.some((record) => sameIdentity(record, source)));
+    for (const value of [1, true, {}, []]) {
+      const malformed = structuredClone(payload); malformed.observations[index].repoRelativePath = value;
+      const before = structuredClone(malformed);
+      const deps = prepare(fixtureRoot, { namingOccurrenceBridge: malformed }).preparedDependencies;
+      assert.equal(deps.addressedNamingOccurrenceBridge, malformed);
+      assert.equal(deps.treeNamingSectionIntake.bridgeObservations.rejectedRecords.find(({ identityTuple }) => sameIdentity(identityTuple, source))?.reason, 'invalid-source-path');
+      assert.equal(deps.treeNamingSectionIntake.semanticEvidenceEnrichment.rejectedRecords.find(({ identityTuple }) => sameIdentity(identityTuple, n1))?.reason, 'unmatched-record');
+      assert.deepEqual(malformed[N1_KEY].records.find((record) => sameIdentity(record, n1)), n1);
+      assert.equal(deps.addressedNamingSemanticEvidenceBridge.observations.some((record) => sameIdentity(record, source)), false);
+      assert.deepEqual(malformed, before);
+    }
+    for (const [label, value] of [['undefined', undefined], ['null', null], ['empty', ''], ['escape', '../escape'], ['mismatch', 'different/path']]) {
+      const malformed = structuredClone(payload); malformed.observations[index].repoRelativePath = value;
+      const before = structuredClone(malformed);
+      const deps = prepare(fixtureRoot, { namingOccurrenceBridge: malformed }).preparedDependencies;
+      assert.equal(deps.treeNamingSectionIntake.bridgeObservations.rejectedRecords.find(({ identityTuple }) => sameIdentity(identityTuple, source))?.reason,
+        label === 'mismatch' ? 'path-mismatch' : 'invalid-source-path');
+      assert.equal(deps.treeNamingSectionIntake.semanticEvidenceEnrichment.rejectedRecords.find(({ identityTuple }) => sameIdentity(identityTuple, n1))?.reason, 'unmatched-record');
+      const legacy = deps.addressedNamingSemanticEvidenceBridge.observations.find((record) => sameIdentity(record, source));
+      assert.ok(legacy, 'B2-only rejection must not automatically remove legacy evidence');
+      assert.equal(legacy.path, value ?? source.path);
+      assert.deepEqual(malformed, before);
+    }
+    const omitted = structuredClone(payload); delete omitted.observations[index].repoRelativePath;
+    const omittedIntake = prepare(fixtureRoot, { namingOccurrenceBridge: omitted }).preparedDependencies.treeNamingSectionIntake;
+    assert.ok(omittedIntake.bridgeObservations.acceptedRecords.some((record) => sameIdentity(record, source)));
+    assert.ok(omittedIntake.semanticEvidenceEnrichment.acceptedRecords.some((record) => sameIdentity(record, n1)));
+    assert.ok(omittedIntake.diagnostics.some(({ reason, identityTuple }) => reason === 'source-path-unverified' && sameIdentity(identityTuple, source)));
+    for (const shape of ['incompatible', 'missing', 'inherited-envelope', 'inherited-record']) {
+      const foreign = structuredClone(payload); foreign.observations[index].repoRelativePath = 1;
+      if (shape === 'incompatible') foreign.addressProfileId = 'tree-codebase@2';
+      else if (shape === 'missing') delete foreign.addressProfileId;
+      else {
+        const record = shape === 'inherited-envelope' ? foreign : foreign.observations[index];
+        const identity = record.addressProfileId; delete record.addressProfileId; Object.setPrototypeOf(record, { addressProfileId: identity });
+      }
+      const deps = prepare(fixtureRoot, { namingOccurrenceBridge: foreign }).preparedDependencies;
+      assert.equal(deps.treeNamingSectionIntake.bridgeObservations.acceptedRecords.some((record) => sameIdentity(record, source)), false);
+      assert.equal(deps.treeNamingSectionIntake.semanticEvidenceEnrichment.acceptedRecords.some((record) => sameIdentity(record, n1)), false);
+      assert.equal(deps.addressedNamingSemanticEvidenceBridge.observations.some((record) => sameIdentity(record, source)), false);
+      assert.ok(deps.treeNamingOccurrenceBridgeIntake.diagnostics.some(({ reason }) => ['invalid-addressing-identity', 'incompatible-addressing-namespace'].includes(reason)));
+    }
+  });
+});

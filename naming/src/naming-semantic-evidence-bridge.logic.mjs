@@ -16,6 +16,12 @@ const toNamingSemanticEvidenceRecord = (observation) => {
     return null;
   }
 
+  // Bridge contract §8: validate the selected legacy path without coercion or B2 path policy.
+  const selectedPath = observation.repoRelativePath ?? observation.path;
+  if (typeof selectedPath !== 'string') {
+    return null;
+  }
+
   if (
     typeof observation.semanticName !== 'string' ||
     observation.semanticName.length === 0 ||
@@ -35,7 +41,7 @@ const toNamingSemanticEvidenceRecord = (observation) => {
     : [];
 
   return {
-    path: observation.repoRelativePath ?? observation.path,
+    path: selectedPath,
     ...(typeof observation.repoRelativePath === 'string' && observation.repoRelativePath.length > 0
       ? { repoRelativePath: observation.repoRelativePath }
       : {}),
