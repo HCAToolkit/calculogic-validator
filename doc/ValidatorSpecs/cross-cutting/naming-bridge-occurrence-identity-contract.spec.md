@@ -648,6 +648,8 @@ Future implementation slices must follow this migration rule:
 8. Tree must continue receiving Naming semantic evidence plus any approved enrichment; it must not be forced to reconstruct semantic-family interpretation from raw names, paths, neutral occurrence context, or diagnostic metadata.
 9. The path-based compatibility fallback in rules 2–4 applies to v1 observations only. It does not extend to records in additive envelope sections (§4.4), which have no legacy path-keyed consumers.
 
+**Current legacy projection path type:** Naming's `toNamingSemanticEvidenceRecord` retains its existing validation of a nonempty string `observation.path`, then calculates `observation.repoRelativePath ?? observation.path` once. A selected value that is not a primitive string omits that observation from the legacy semantic projection; it is neither coerced nor replaced by `observation.path` when non-nullish. Selected strings are preserved, including existing empty, escaping and mismatched string behavior; nullish fallback and ordering remain unchanged. This bounded shape check prevents non-string paths reaching the projection's string sort. It changes no original payload, identity tuple or producer record. Tree compatibility qualification still precedes legacy consumption, and B2 still independently rejects malformed supplied paths and their dependent N1 association. B2-only rejection is not automatically applied to legacy consumers. No diagnostic, finding, report field or compatibility revision follows from this projection check.
+
 Path fallback is current implementation reality and must not be removed in this contract slice.
 
 ## 9. Relationship to current audited runtime fields

@@ -113,3 +113,40 @@ test('prepareNamingSemanticEvidenceBridge deterministically rejects non-object p
     /requires an object payload/u,
   );
 });
+
+test('non-string selected paths are omitted for singletons and either two-observation order', () => {
+  const good = { path: 'src/good.logic.mjs', semanticName: 'good', semanticFamily: 'good', familyRoot: 'good' };
+  const expected = prepareNamingSemanticEvidenceBridge({ observations: [good] });
+  for (const value of [1, 0, NaN, true, false, {}, [], new String('source')]) {
+    const bad = { ...good, path: 'src/bad.logic.mjs', repoRelativePath: value };
+    for (const observations of [[bad], [good, bad], [bad, good]]) {
+      const input = { observations }; const before = structuredClone(input);
+      const result = prepareNamingSemanticEvidenceBridge(input);
+      assert.deepEqual(result, observations.length === 1 ? { observations: [] } : expected);
+      assert.deepEqual(input, before);
+      assert.deepEqual(prepareNamingSemanticEvidenceBridge(result), result);
+    }
+  }
+});
+
+test('legacy string selection, nullish fallback and original path validation are preserved', () => {
+  const source = { path: 'src/original.logic.mjs', semanticName: 'original', semanticFamily: 'original', familyRoot: 'original' };
+  for (const value of [undefined, null, '', '../escape', 'different/path', 'src/selected.logic.mjs']) {
+    const input = { observations: [{ ...source, repoRelativePath: value }] }; const before = structuredClone(input);
+    const result = prepareNamingSemanticEvidenceBridge(input);
+    assert.equal(result.observations.length, 1);
+    assert.equal(result.observations[0].path, value ?? source.path);
+    assert.deepEqual(input, before);
+    // Empty-string legacy output is intentionally preserved; its original path guard still applies on re-entry.
+    if (value !== '') assert.deepEqual(prepareNamingSemanticEvidenceBridge(result), result);
+  }
+  for (const value of [undefined, null, '', 1]) {
+    assert.deepEqual(prepareNamingSemanticEvidenceBridge({ observations: [{ ...source, path: value, repoRelativePath: 'valid/source' }] }), { observations: [] });
+  }
+  const input = { observations: ['z', 'a'].map((name) => ({ ...source, path: `src/${name}.logic.mjs`, repoRelativePath: `selected/${name}` })) };
+  const before = structuredClone(input); const result = prepareNamingSemanticEvidenceBridge(input);
+  assert.deepEqual(result.observations.map(({ path }) => path), ['selected/a', 'selected/z']);
+  assert.deepEqual(prepareNamingSemanticEvidenceBridge({ observations: [...input.observations].reverse() }), result);
+  assert.deepEqual(prepareNamingSemanticEvidenceBridge(result), result);
+  assert.deepEqual(input, before);
+});
